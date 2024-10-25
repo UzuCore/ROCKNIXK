@@ -4,7 +4,7 @@
 # Copyright (C) 2021 Fewtarius
 
 PKG_NAME="es-theme-art-book-dc"
-PKG_VERSION="4135a4a73005d0443c72f7a49cc624203fb8c949"
+PKG_VERSION="9f42781abb048b6cf57ccd40ce3cba97882573f1"
 PKG_ARCH="any"
 PKG_LICENSE="CUSTOM"
 PKG_SITE="https://github.com/UzuCore/es-theme-art-book-rocknix"
