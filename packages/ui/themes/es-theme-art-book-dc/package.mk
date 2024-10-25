@@ -3,7 +3,7 @@
 # Copyright (C) 2020 351ELEC team (https://github.com/fewtarius/351ELEC)
 # Copyright (C) 2021 Fewtarius
 
-PKG_NAME="es-theme-art-book-rocknix"
+PKG_NAME="es-theme-art-book-dc"
 PKG_VERSION="4135a4a73005d0443c72f7a49cc624203fb8c949"
 PKG_ARCH="any"
 PKG_LICENSE="CUSTOM"
