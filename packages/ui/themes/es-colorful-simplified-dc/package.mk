@@ -1,7 +1,7 @@
 #UzuCore
 
 PKG_NAME="es-colorful-simplified-dc"
-PKG_VERSION="bd9b29bfffd16a0abb0c72031b37cf1613f8cc58"
+PKG_VERSION="6c9daff01a3acdc880e5e8cb7ce59d28526c1b10"
 PKG_ARCH="any"
 PKG_LICENSE="CUSTOM"
 PKG_SITE="https://github.com/UzuCore/es-colorful-simplified-dc"
