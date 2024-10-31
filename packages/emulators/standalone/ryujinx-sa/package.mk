@@ -2,11 +2,11 @@
 # Copyright (C) 2022-present JELOS (https://github.com/JustEnoughLinuxOS)
 
 PKG_NAME="ryujinx-sa"
-PKG_VERSION="1.1.999"
+PKG_VERSION="1.1.1403"
 PKG_ARCH="x86_64"
 PKG_LICENSE="MIT"
-PKG_SITE="https://github.com/Ryujinx"
-PKG_URL="${PKG_SITE}/release-channel-master/releases/download/${PKG_VERSION}/ryujinx-${PKG_VERSION}-linux_x64.tar.gz"
+PKG_SITE="https://github.com/Julienraptor01/Ryujinx/"
+PKG_URL="${PKG_SITE}/releases/download/${PKG_VERSION}/ryujinx-${PKG_VERSION}-linux_x64.tar.gz"
 PKG_DEPENDS_TARGET="toolchain librsvg SDL2 openal-soft icu"
 PKG_LONGDESC="Ryujinx - Nintendo Switch Emulator"
 PKG_TOOLCHAIN="manual"
