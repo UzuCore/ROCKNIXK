@@ -28,9 +28,9 @@ configure_package() {
   fi
 
   # Vulkan Support
-  #if [ "${VULKAN_SUPPORT}" = "yes" ]; then
-  #  PKG_DEPENDS_TARGET+=" ${VULKAN}"
-  #fi
+  if [ "${VULKAN_SUPPORT}" = "yes" ]; then
+    PKG_DEPENDS_TARGET+=" ${VULKAN}"
+  fi
 }
 
 pre_configure_target() {

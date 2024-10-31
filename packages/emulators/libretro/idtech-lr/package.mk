@@ -10,11 +10,7 @@ PKG_DOOM_SHAREWARE="https://github.com/ROCKNIX/packages/raw/main/doom.tar.gz"
 
 if [ "${OPENGLES_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-  if [ "${TARGET_ARCH}" = "x86_64" ]; then
-    PKG_DEPENDS_TARGET+=" ecwolf-lr prboom-lr tyrquake-lr"
-  else
-    PKG_DEPENDS_TARGET+=" ecwolf-lr prboom-lr tyrquake-lr vitaquake2-lr"
-  fi
+  PKG_DEPENDS_TARGET+=" ecwolf-lr prboom-lr tyrquake-lr vitaquake2-lr"
 fi
 
 if [ "${TARGET_ARCH}" = "x86_64" ]; then
