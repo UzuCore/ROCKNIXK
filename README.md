@@ -64,32 +64,28 @@
 
 ## 라이센스
 
-The ROCKNIX community utilizes Discord for discussion, if you would like to join us please use this link: [https://discord.gg/seTxckZjJy](https://discord.gg/seTxckZjJy)
+**ROCKNIX**는 [JELOS](https://github.com/JustEnoughLinuxOS/distribution/)의 포크로, 모든 라이센스가 적용되며 JELOS 팀에 크레딧이 주어집니다.
 
-## Licenses
+자유롭게 다음을 할 수 있습니다.
 
-**ROCKNIX** is a fork of [JELOS](https://github.com/JustEnoughLinuxOS/distribution/), all licenses apply and credit to the JELOS team. 
+- 공유: 모든 매체 또는 형식으로 자료를 복사하고 재배포
+- 각색: 자료를 리믹스, 변형 및 확장
 
-You are free to:
+다음 조건에 따라:
 
-- Share: copy and redistribute the material in any medium or format
-- Adapt: remix, transform, and build upon the material
+- 귀속: 적절한 크레딧을 제공하고 라이선스에 대한 링크를 제공하며 변경 사항이 있는 경우 표시해야 합니다. 합리적인 방식으로 이를 수행할 수 있지만 라이선스 제공자가 귀하 또는 귀하의 사용을 보증하는 것처럼 암시하는 방식으로는 수행할 수 없습니다.
+- 비상업적: 상업적 목적으로 자료를 사용할 수 없습니다.
+- 동일조건변경허락: 자료를 리믹스, 변형 또는 확장하는 경우 원본과 동일한 라이선스에 따라 기여물을 배포해야 합니다.
 
-Under the following terms:
+### ROCKNIX 소프트웨어
 
-- Attribution: You must give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.
-- NonCommercial: You may not use the material for commercial purposes.
-- ShareAlike: If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
+저작권(C) 2024-현재 [ROCKNIX](https://github.com/ROCKNIX)
 
-### ROCKNIX Software
+ROCKNIX에서 개발한 원본 소프트웨어와 스크립트는 [GNU GPL 버전 2](https://choosealicense.com/licenses/gpl-2.0/)의 조건에 따라 라이선스가 부여됩니다. 전체 라이선스는 이 프로젝트의 라이선스 폴더에서 찾을 수 있습니다.
 
-Copyright (C) 2024-present [ROCKNIX](https://github.com/ROCKNIX)
+### 번들 작업
+다른 모든 소프트웨어는 각 구성 요소의 해당 라이선스에 따라 제공됩니다. 이러한 라이선스는 소프트웨어 소스 또는 이 프로젝트의 라이선스 폴더에서 찾을 수 있습니다. JELOS 팀이 번들 소프트웨어와 스크립트를 수정한 것은 수정되는 소프트웨어의 조건에 따라 라이선스가 부여됩니다.
 
-Original software and scripts developed by the ROCKNIX are licensed under the terms of the [GNU GPL Version 2](https://choosealicense.com/licenses/gpl-2.0/).  The full license can be found in this project's licenses folder.
+## 크레딧
 
-### Bundled Works
-All other software is provided under each component's respective license.  These licenses can be found in the software sources or in this project's licenses folder.  Modifications to bundled software and scripts by the JELOS team are licensed under the terms of the software being modified.
-
-## Credits
-
-Like any Linux distribution, this project is not the work of one person.  It is the work of many persons all over the world who have developed the open source bits without which this project could not exist.  Special thanks to CoreELEC, LibreELEC, JELOS, and to developers and contributors across the open source community.
+모든 Linux 배포판과 마찬가지로 이 프로젝트는 한 사람의 작업이 아닙니다. 이 프로젝트가 존재할 수 없었던 오픈 소스 비트를 개발한 전 세계의 많은 사람들의 작업입니다. CoreELEC, LibreELEC, JELOS, 그리고 오픈소스 커뮤니티의 개발자와 기여자에게 특별히 감사드립니다.
