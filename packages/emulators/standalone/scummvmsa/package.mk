@@ -3,7 +3,7 @@
 # Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
 
 PKG_NAME="scummvmsa"
-PKG_VERSION="6378050357807502d47a5291cf53a38f4a18d9d0"
+PKG_VERSION="5f6ad051511dd8af5fb707efc2fd6b56834045d6"
 PKG_LICENSE="GPL2"
 PKG_SITE="https://github.com/british-choi/scummvm"
 PKG_URL="${PKG_SITE}.git"
