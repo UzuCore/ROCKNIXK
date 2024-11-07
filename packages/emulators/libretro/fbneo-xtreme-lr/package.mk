@@ -26,6 +26,6 @@ fi
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
-  cp ${PKG_DIR}/fbneo-xtreme_libretro.info ${INSTALL}/usr/lib/libretro/
+  cp ${PKG_DIR}/km_fbneo_xtreme_amped_libretro.info ${INSTALL}/usr/lib/libretro/
   cp ${PKG_BUILD}/src/burner/libretro/km_fbneo_xtreme_amped_libretro.so ${INSTALL}/usr/lib/libretro/km_fbneo_xtreme_amped_libretro.so
 }
