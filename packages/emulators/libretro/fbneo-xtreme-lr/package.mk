@@ -4,7 +4,7 @@
 # Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
 
 PKG_NAME="fbneo-xtreme-lr"
-PKG_VERSION="a3ad2d78194271e1d84a9676425bfb0e17c7b379"
+PKG_VERSION="370ceb3f5c102b716c8a8ff91b0f5bb43ab300b0"
 PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/UzuCore/fbneo-xtreme"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
