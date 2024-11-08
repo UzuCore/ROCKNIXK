@@ -6,7 +6,7 @@
 PKG_NAME="fbneo-xtreme-lr"
 PKG_VERSION="a3ad2d78194271e1d84a9676425bfb0e17c7b379"
 PKG_LICENSE="Non-commercial"
-PKG_SITE="https://github.com/KMFDManic/FBNeo-Xtreme-Amped"
+PKG_SITE="https://github.com/UzuCore/fbneo-xtreme"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="FinalBurn Neo Xtreme-Amped"

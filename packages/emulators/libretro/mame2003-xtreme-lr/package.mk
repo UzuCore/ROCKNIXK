@@ -6,7 +6,7 @@
 PKG_NAME="mame2003-xtreme-lr"
 PKG_VERSION="872dd193724fbb24f7aeb41158bcae328feca9ad"
 PKG_LICENSE="MAME"
-PKG_SITE="https://github.com/KMFDManic/mame2003-xtreme"
+PKG_SITE="https://github.com/UzuCore/mame2003-xtreme"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="MAME 2003 Xtreme-Amped"
