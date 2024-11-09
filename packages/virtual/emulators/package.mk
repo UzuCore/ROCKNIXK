@@ -25,7 +25,7 @@ LIBRETRO_CORES="81-lr a5200-lr arduous-lr atari800-lr beetle-gba-lr beetle-lynx-
                 snes9x2010-lr stella-lr swanstation-lr tgbdual-lr theodore-lr tic80-lr uzem-lr vba-next-lr vbam-lr vecx-lr vice-lr   \
                 vircon32-lr virtualjaguar-lr xmil-lr wasm4-lr yabasanshiro-lr"
 
-LIBRETRO_CORES+=" fbneo-dsno-lr mame2003-plus-dsno-lr mame2003-xtreme-lr fbneo-xtreme-lr"
+LIBRETRO_CORES+=" fbneo-dsno-lr mame2003-plus-dsno-lr"
 
 ### Emulators or cores for specific devices
 case "${DEVICE}" in
@@ -36,7 +36,7 @@ case "${DEVICE}" in
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr desmume-lr dolphin-lr flycast-lr lrps2-lr play-lr"
   ;;
   RK3588)
-    [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 desmume-lr gpsp-lr pcsx_rearmed-lr wine"
+    [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 desmume-lr gpsp-lr pcsx_rearmed-lr wine mame2003-xtreme-lr fbneo-xtreme-lr"
     PKG_EMUS+=" aethersx2-sa box64 dolphin-sa drastic-sa mednafen melonds-sa portmaster scummvmsa supermodel-sa yabasanshiro-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr flycast-lr geolith-lr panda3ds-lr pcsx_rearmed-lr uae4arm"
     PKG_RETROARCH+=" retropie-shaders"
