@@ -4,7 +4,7 @@
 # Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
 
 PKG_NAME="mame2003-xtreme-lr"
-PKG_VERSION="872dd193724fbb24f7aeb41158bcae328feca9ad"
+PKG_VERSION="cc977122f26b1580bc1aa269f8737294a96f1274"
 PKG_LICENSE="MAME"
 PKG_SITE="https://github.com/UzuCore/mame2003-xtreme"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"

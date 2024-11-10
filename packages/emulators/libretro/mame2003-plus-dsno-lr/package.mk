@@ -4,7 +4,7 @@
 # Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
 
 PKG_NAME="mame2003-plus-dsno-lr"
-PKG_VERSION="2110b9cd6a2533ec7d947ce2fef6e8279fce4c33"
+PKG_VERSION="291d486b415844d8242b1c0ea0a3adeb9d8180b0"
 PKG_LICENSE="MAME"
 PKG_SITE="https://github.com/UzuCore/mame2003-plus-dsno-libretro"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
