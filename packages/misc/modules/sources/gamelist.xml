@@ -239,7 +239,7 @@
         <image>./images/xemu.svg</image>
     </game>
     <game>
-        <path>./Create id Tech Launchers.sh</path>
+        <path>./Scan id Tech Files.sh</path>
         <name>id 런처 생성</name>
         <desc>id 소프트웨어 게임용 런처를 생성합니다.</desc>
         <developer>ROCKNIX</developer>

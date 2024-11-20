@@ -126,6 +126,11 @@ makeinstall_target() {
   ### Add save states directory
   add_system_dir /storage/roms/savestates
 
+  ### Add ES directories
+  add_system_dir /storage/roms/_userdata/BGM
+  add_system_dir /storage/roms/_userdata/bezels
+  add_system_dir /storage/roms/_userdata/themes
+
   ### Apply documentation header
   start_system_doc
 
@@ -409,7 +414,7 @@ makeinstall_target() {
   ### iD Software game engines
   add_emu_core idtech retroarch idtech
   add_es_system idtech
-  install_script "Create id Tech Launchers.sh"
+  install_script "Scan id Tech Files.sh"
 
   ### Apple Macintosh Plus
   add_emu_core macintosh retroarch minivmac true
