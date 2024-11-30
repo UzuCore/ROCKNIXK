@@ -30,6 +30,10 @@ then
     ln -s /usr/share/themes/es-theme-anbernic-dc /storage/.config/emulationstation/themes/es-theme-anbernic-dc  >/dev/null 2>&1
     ln -s /usr/share/themes/es-colorful-simplified-dc /storage/.config/emulationstation/themes/es-colorful-simplified-dc  >/dev/null 2>&1
 
+    if [ "${HW_DEVICE}" = "H700" ]; then
+      ln -s /usr/share/themes/es-theme-knulli /storage/.config/emulationstation/themes/knulli-theme  >/dev/null 2>&1
+    fi
+
     ### Link the game controller database so it is managed with OS updates.
     tocon "Configuring controller database..."
     rm -f /storage/.config/SDL-GameControllerDB/gamecontrollerdb.txt  >/dev/null 2>&1
