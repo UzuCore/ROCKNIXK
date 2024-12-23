@@ -524,13 +524,14 @@ makeinstall_target() {
 
   ### Nintendo GameCube
   case ${DEVICE} in
-    AMD64|SD865|RK3399)
-      add_emu_core gamecube dolphin dolphin-sa-gc true
-      add_emu_core gamecube dolphin dolphin-qt-gc false
+    AMD64|SD865|RK3399|S922X|RK3588)
+      add_emu_core gamecube dolphin dolphin-sa-gc false
+      add_emu_core gamecube dolphin dolphin-qt-gc true
       add_emu_core gamecube retroarch dolphin false
+      install_script "Start Dolphin.sh"
       add_es_system gamecube
     ;;
-    S922X|RK35*)
+    RK3566)
       add_emu_core gamecube dolphin dolphin-sa-gc true
       add_emu_core gamecube retroarch dolphin false
       add_es_system gamecube
@@ -539,13 +540,13 @@ makeinstall_target() {
 
   ### Nintendo Wii
   case ${DEVICE} in
-    AMD64|SD865|RK3399)
-      add_emu_core wii dolphin dolphin-sa-wii true
-      add_emu_core wii dolphin dolphin-qt-gc false
+    AMD64|SD865|RK3399|S922X|RK3588)
+      add_emu_core wii dolphin dolphin-sa-wii false
+      add_emu_core wii dolphin dolphin-qt-wii true
       add_emu_core wii retroarch dolphin false
       add_es_system wii
     ;;
-    S922X|RK35*)
+    RK3566)
       add_emu_core wii dolphin dolphin-sa-wii true
       add_emu_core wii retroarch dolphin false
       add_es_system wii
@@ -886,8 +887,8 @@ makeinstall_target() {
       add_emu_core psx retroarch beetle_psx false
     ;;
     RK3588*)
-      add_emu_core psx retroarch pcsx_rearmed32 true
-      add_emu_core psx retroarch pcsx_rearmed false
+      add_emu_core psx retroarch pcsx_rearmed true
+      add_emu_core psx retroarch pcsx_rearmed32 false
       add_emu_core psx retroarch beetle_psx false
       add_emu_core psx mednafen psx false
     ;;
