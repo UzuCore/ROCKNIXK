@@ -1,5 +1,6 @@
---- drm_panel_orientation_quirks.orig.c	2024-12-20 02:13:24.000000000 +0900
-+++ drm_panel_orientation_quirks.c	2024-12-24 00:16:34.116156601 +0900
+diff -rupbN linux.orig/drivers/gpu/drm/drm_panel_orientation_quirks.c linux/drivers/gpu/drm/drm_panel_orientation_quirks.c
+--- linux.orig/drivers/gpu/drm/drm_panel_orientation_quirks.c	2024-12-20 02:13:24.000000000 +0900
++++ linux/drivers/gpu/drm/drm_panel_orientation_quirks.c	2024-12-24 00:16:34.116156601 +0900
 @@ -147,6 +147,12 @@ static const struct drm_dmi_panel_orient
  	.orientation = DRM_MODE_PANEL_ORIENTATION_RIGHT_UP,
  };
