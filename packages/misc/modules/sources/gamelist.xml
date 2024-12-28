@@ -119,6 +119,18 @@
         <image>./images/dolphin.svg</image>
     </game>
     <game>
+        <path>./Start Duckstation.sh</path>
+        <name>Start Duckstation</name>
+        <desc>Opens the Duckstation GUI (PS1) to enable global configuration changes to be made directly to the emulator. It's recommended to have a mouse and keyboard to modify settings.</desc>
+        <developer>ROCKNIX</developer>
+        <publisher>ROCKNIX</publisher>
+        <rating>5.0</rating>
+        <releasedate>2024</releasedate>
+        <genre>Emulator</genre>
+        <players>1</players>
+        <image>./images/duckstation.svg</image>
+    </game>
+    <game>
         <path>./Start HATARISA.sh</path>
         <name>Hatari 실행</name>
         <desc>전역 구성 변경을 직접 수행할 수 있도록 Hatari GUI를 엽니다. Hatari는 GNU/Linux, BSD, Mac OS X, Windows 및 SDL 라이브러리에서 지원하는 기타 시스템용 Atari ST/STE/TT/Falcon 에뮬레이터입니다. 아타리 ST(Atari ST)는 1985년 아타리가 처음 출시한 16/32비트 컴퓨터 시스템이다. 모토로라 68000 CPU를 탑재해 당시 상당히 많은 CPU 파워를 지닌 매우 인기 있는 컴퓨터였다. GEM 애플리케이션을 실행하기 위한 좋은 환경을 제공하려고 하는 다른 많은 Atari ST 에뮬레이터와는 달리, Hatari는 대부분의 기존 ST 게임과 데모를 실행할 수 있도록 ST의 하드웨어를 최대한 가깝게 에뮬레이션하려고 합니다. Hatari는 오픈 소스 소프트웨어이며 GNU General Public License(GPL)의 조건에 따라 배포됩니다.</desc>
@@ -129,6 +141,18 @@
         <genre>Emulator</genre>
         <players>1</players>
         <image>./images/hatari.svg</image>
+    </game>
+    <game>
+        <path>./Start MelonDS.sh</path>
+        <name>Start MelonDS</name>
+        <desc>Opens the MelonDS GUI (Nintendo DS) to enable global configuration changes to be made directly to the emulator. It's recommended to have a mouse and keyboard to modify settings.</desc>
+        <developer>ROCKNIX</developer>
+        <publisher>ROCKNIX</publisher>
+        <rating>5.0</rating>
+        <releasedate>2024</releasedate>
+        <genre>Emulator</genre>
+        <players>1</players>
+        <image>./images/melonds.svg</image>
     </game>
     <game>
         <path>./Start Moonlight.sh</path>
