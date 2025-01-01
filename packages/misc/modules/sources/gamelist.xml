@@ -13,6 +13,18 @@
         <image>./images/file-manager.svg</image>
     </game>
     <game>
+        <path>./Start M8C.sh</path>
+        <name>M8C</name>
+        <desc>Cross-platform M8 tracker headless client.</desc>
+        <developer>ROCKNIX</developer>
+        <publisher>ROCKNIX</publisher>
+        <rating>5.0</rating>
+        <releasedate>2022</releasedate>
+        <genre>Tool</genre>
+        <players>1</players>
+        <image>./images/m8c.svg</image>
+    </game>
+    <game>
         <path>./Install ROCKNIX.sh</path>
         <name>ROCKNIX 설치</name>
         <desc>이 유틸리티를 사용하여 장치의 로컬 저장소에 ROCKNIX를 설치합니다. 참고로 이 프로세스는 ROCKNIX를 설치하기로 선택한 드라이브를 지웁니다.</desc>
