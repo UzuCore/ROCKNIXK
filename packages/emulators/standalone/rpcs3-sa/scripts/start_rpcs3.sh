@@ -180,6 +180,11 @@ if [[ "${1}" == *.psn ]]; then
   # Hardcoded now for testing
   read -r PSNID < "${1}"
   GAME_PATH="/storage/.config/rpcs3/dev_hdd0/game/${PSNID}/USRDIR/EBOOT.BIN"
+elif [[ "${1}" == *.m3u ]]; then
+  #check if path is M3U
+  read -r M3UPATH < "${1}"
+  echo ${M3UPATH}
+  GAME_PATH="/roms/ps3/${M3UPATH}"
 else
   GAME_PATH="${1}"
 fi
