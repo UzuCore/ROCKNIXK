@@ -88,6 +88,7 @@ SKIPBIOS=$(get_setting use_bios "${PLATFORM}" "${GAME}")
 EFBACCESS=$(get_setting skip_efb_cpu_access "${PLATFORM}" "${GAME}")
 EFBTEXTURE=$(get_setting store_efb_to_texture_only "${PLATFORM}" "${GAME}")
 XFBTEXTURE=$(get_setting store_xfb_to_texture_only "${PLATFORM}" "${GAME}")
+RUMBLE=$(get_setting rumble "${PLATFORM}" "${GAME}")
 WHACK=$(get_setting widescreen_hack "${PLATFORM}" "${GAME}")
 
 # Set the cores to use
@@ -264,6 +265,11 @@ fi
     cp -r /storage/.config/dolphin-emu/GamecubeControllerProfiles/GCPadNew.ini.south /storage/.config/dolphin-emu/GCPadNew.ini
   fi
 
+  # GC Controller Rumble
+  if [ "$RUMBLE" = "false" ]; then
+    sed -i '/^Rumble/d' /storage/.config/dolphin-emu/GCPadNew.ini
+  fi
+
   # GC Controller Hotkey Enable
   if [ "$HKEY" = "mode" ]; then
     sed -i '/^Buttons\/Hotkey =/c\Buttons\/Hotkey = Button 8' /storage/.config/dolphin-emu/GCPadNew.ini
@@ -282,15 +288,10 @@ fi
 rm -rf /storage/.local/share/dolphin-emu
 ln -sf /storage/.config/dolphin-emu /storage/.local/share/dolphin-emu
 
+@EXPORTS@
+
 # Retroachievements
 /usr/bin/cheevos_dolphin.sh
-
-# Libmali exception
-if [ "$(/usr/bin/gpudriver)" = "libmali" ] && [ "${HW_DEVICE}" != "RK3566" ]; then
-    # Force only working combo for libmali: QT + Vulkan
-    DOLPHIN_CORE=dolphin-emu
-    sed -i '/GFXBackend/c\GFXBackend = Vulkan' /storage/.config/dolphin-emu/Dolphin.ini
-fi
 
 # Set audio and video backend
 if [ ${DOLPHIN_CORE} = "dolphin-emu" ]; then
