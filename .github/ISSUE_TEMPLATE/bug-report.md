@@ -7,7 +7,7 @@ assignees: ''
 
 ---
 ### Have you first reported the issue on the rocknix discord and checked rocknix.org for a solution?
-[ROCKNIX DISCORD:](https://discord.gg/4KbUWe4z)
+[ROCKNIX DISCORD](https://discord.gg/NG6wGmSe)
 <!-- Any issue created without first being discussed on our discord server will be closed automatically. -->
 
 ### Describe the bug
