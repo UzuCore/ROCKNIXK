@@ -273,10 +273,9 @@ if [[ "$command" == "storage" ]]; then
 fi
 
 if [[ "$command" == "forgetBT" ]]; then
-   killall -9 hcitool
-   systemctl stop bluetooth
-   rm -rf /storage/.cache/bluetooth/*
-   systemctl start bluetooth
+   systemctl stop bluetooth bluetooth-agent
+   rm -rf /storage/.cache/bluetooth/* /storage/roms/backups/bluetooth.tar
+   systemctl start bluetooth bluetooth-agent
    exit 0
 fi
 

@@ -100,8 +100,14 @@ def listing_dev_event(path, properties, adding):
         del glisting_devs[path]
 
     try:
+        devaddress, devname, devtype = getDevAddressNameType(properties)
+
+        # Skip writing to file if the device address is None
+        if devaddress is None:
+            logging.debug(f"Skipping device with None address at path: {path}")
+            return
+
         with open("/run/bt_listing", "a") as file:
-            devaddress, devname, devtype = getDevAddressNameType(properties)
             file.write(f'<device id="{devaddress}" name="{devname}" '
                       f'status="{"added" if adding else "removed"}" '
                       f'type="{icon2basicname(devtype)}" />\n')
