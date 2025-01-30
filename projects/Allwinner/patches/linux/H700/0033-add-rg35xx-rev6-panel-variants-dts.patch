@@ -29,7 +29,7 @@ index 000000000..595dcb375
 +#include "sun50i-h700-anbernic-rg35xx-2024.dts"
 +
 +&panel {
-+	compatible = "anbernic,rg35xx-plus-rev6-panel";
++	firmware-name = "anbernic,rg35xx-plus-rev6-panel";
 +};
 diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-h-rev6-panel.dts b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-h-rev6-panel.dts
 new file mode 100644
@@ -46,7 +46,7 @@ index 000000000..14fc39ca1
 +#include "sun50i-h700-anbernic-rg35xx-h.dts"
 +
 +&panel {
-+	compatible = "anbernic,rg35xx-plus-rev6-panel";
++	firmware-name = "anbernic,rg35xx-plus-rev6-panel";
 +};
 diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-plus-rev6-panel.dts b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-plus-rev6-panel.dts
 new file mode 100644
@@ -63,7 +63,7 @@ index 000000000..7479365dc
 +#include "sun50i-h700-anbernic-rg35xx-plus.dts"
 +
 +&panel {
-+	compatible = "anbernic,rg35xx-plus-rev6-panel";
++	firmware-name = "anbernic,rg35xx-plus-rev6-panel";
 +};
 diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-sp-rev6-panel.dts b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-sp-rev6-panel.dts
 new file mode 100644
@@ -80,7 +80,7 @@ index 000000000..c22e48641
 +#include "sun50i-h700-anbernic-rg35xx-sp.dts"
 +
 +&panel {
-+	compatible = "anbernic,rg35xx-plus-rev6-panel";
++	firmware-name = "anbernic,rg35xx-plus-rev6-panel";
 +};
 -- 
 2.46.1

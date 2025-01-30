@@ -31,7 +31,7 @@ index 000000000..3d6b14783
 +};
 +
 +&panel {
-+	compatible = "anbernic,rg40xx-panel";
++	firmware-name = "anbernic,rg40xx-panel";
 +};
 -- 
 2.47.1

@@ -28,7 +28,7 @@ index 000000000..f2eca80b3
 +};
 +
 +&panel {
-+	compatible = "anbernic,rg34xx-panel";
++	firmware-name = "anbernic,rg34xx-panel";
 +};
 -- 
 2.47.1

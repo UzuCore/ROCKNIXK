@@ -4,3 +4,11 @@ rtw88/rtw8821c_fw.bin
 # RTL_8821CS
 rtl_bt/rtl8821cs_config.bin
 rtl_bt/rtl8821cs_fw.bin
+
+# Panels
+panels/anbernic,rg28xx-panel.panel
+panels/anbernic,rgcubexx-panel.panel
+panels/anbernic,rg40xx-panel.panel
+panels/anbernic,rg35xx-plus-rev6-panel.panel
+panels/anbernic,rg35xx-plus-panel.panel
+panels/anbernic,rg34xx-panel.panel

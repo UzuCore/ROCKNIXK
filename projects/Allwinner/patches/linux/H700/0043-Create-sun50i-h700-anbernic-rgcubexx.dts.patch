@@ -39,7 +39,7 @@ index 000000000..f2eca80b3
 +};
 +
 +&panel {
-+	compatible = "anbernic,rgcubexx-panel";
++	firmware-name = "anbernic,rgcubexx-panel";
 +};
 -- 
 2.47.1
