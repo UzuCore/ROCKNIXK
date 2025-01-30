@@ -6,6 +6,8 @@ PartOf=bluetooth.service
 [Service]
 Type=simple
 ExecStart=/usr/bin/rocknix-bluetooth-agent
+Restart=on-failure
+RestartSec=5
 
 [Install]
 WantedBy=bluetooth.service
