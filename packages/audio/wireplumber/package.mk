@@ -2,7 +2,7 @@
 # Copyright (C) 2022-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="wireplumber"
-PKG_VERSION="0.5.6"
+PKG_VERSION="0.5.7"
 PKG_LICENSE="MIT"
 PKG_SITE="https://gitlab.freedesktop.org/pipewire/wireplumber"
 PKG_URL="https://gitlab.freedesktop.org/pipewire/wireplumber/-/archive/${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
@@ -71,6 +71,20 @@ monitor.bluez.rules = [
       update-props = {
         bluez5.auto-connect = [ hfp_hf hsp_hs a2dp_sink ]
         bluez5.hw-volume = [ hfp_hf hsp_hs a2dp_sink ]
+      }
+    }
+  },
+  {
+    matches = [
+      {
+        ## This matches all bluetooth sinks.
+        node.name = "~bluez_output.*"
+      }
+    ]
+    actions = {
+      update-props = {
+        priority.driver = 2000
+        priority.session = 2000
       }
     }
   }

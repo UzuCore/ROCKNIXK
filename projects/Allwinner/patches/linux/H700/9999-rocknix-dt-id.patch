@@ -32,7 +32,7 @@ diff -ur a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024-rev6-p
 +};
 +
  &panel {
- 	compatible = "anbernic,rg35xx-plus-rev6-panel";
+ 	firmware-name = "anbernic,rg35xx-plus-rev6-panel";
  };
 diff -ur a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024.dts b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024.dts
 --- a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024.dts	2024-12-24 12:16:07.664240881 +0000
@@ -57,7 +57,7 @@ diff -ur a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-h-rev6-pane
 +};
 +
  &panel {
- 	compatible = "anbernic,rg35xx-plus-rev6-panel";
+ 	firmware-name = "anbernic,rg35xx-plus-rev6-panel";
  };
 diff -ur a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-h.dts b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-h.dts
 --- a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-h.dts	2024-12-24 12:16:07.624240873 +0000
@@ -82,7 +82,7 @@ diff -ur a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-plus-rev6-p
 +};
 +
  &panel {
- 	compatible = "anbernic,rg35xx-plus-rev6-panel";
+ 	firmware-name = "anbernic,rg35xx-plus-rev6-panel";
  };
 diff -ur a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-plus.dts b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-plus.dts
 --- a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-plus.dts	2024-12-24 12:16:07.694240885 +0000
@@ -107,7 +107,7 @@ diff -ur a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-sp-rev6-pan
 +};
 +
  &panel {
- 	compatible = "anbernic,rg35xx-plus-rev6-panel";
+ 	firmware-name = "anbernic,rg35xx-plus-rev6-panel";
  };
 diff -ur a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-sp.dts b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-sp.dts
 --- a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-sp.dts	2024-12-19 17:13:24.000000000 +0000
