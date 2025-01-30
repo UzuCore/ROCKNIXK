@@ -1,6 +1,6 @@
-diff -rupN src/components/TextEditComponent.cpp src2/components/TextEditComponent.cpp
---- src/components/TextEditComponent.cpp	2025-01-24 18:40:57.046972537 +0900
-+++ src2/components/TextEditComponent.cpp	2025-01-28 11:24:29.212220332 +0900
+diff -rupN a/es-app/src//components/TextEditComponent.cpp b/es-app/src/components/TextEditComponent.cpp
+--- a/es-app/src/components/TextEditComponent.cpp	2025-01-24 18:40:57.046972537 +0900
++++ b/es-app/src/components/TextEditComponent.cpp	2025-01-28 11:24:29.212220332 +0900
 @@ -78,9 +78,14 @@ void TextEditComponent::textInput(const
  				mText.erase(mText.begin() + newCursor, mText.begin() + mCursor);
  				mCursor = (unsigned int)newCursor;
@@ -230,9 +230,9 @@ diff -rupN src/components/TextEditComponent.cpp src2/components/TextEditComponen
 +	size_t newCursor = Utils::String::nextCursor(mText, mCursor);
 +	mCursor = (unsigned int)newCursor;
 +}
-diff -rupN src/components/TextEditComponent.h src2/components/TextEditComponent.h
---- src/components/TextEditComponent.h	2025-01-24 18:40:57.046972537 +0900
-+++ src2/components/TextEditComponent.h	2025-01-28 11:32:26.468435070 +0900
+diff -rupN a/es-app/src/components/TextEditComponent.h b/es-app/src/components/TextEditComponent.h
+--- a/es-app/src/components/TextEditComponent.h	2025-01-24 18:40:57.046972537 +0900
++++ b/es-app/src/components/TextEditComponent.h	2025-01-28 11:32:26.468435070 +0900
 @@ -4,6 +4,7 @@
  
  #include "components/NinePatchComponent.h"
@@ -270,9 +270,9 @@ diff -rupN src/components/TextEditComponent.h src2/components/TextEditComponent.
  };
  
  #endif // ES_CORE_COMPONENTS_TEXT_EDIT_COMPONENT_H
-diff -rupN src/guis/GuiTextEditPopupKeyboard.cpp src2/guis/GuiTextEditPopupKeyboard.cpp
---- src/guis/GuiTextEditPopupKeyboard.cpp	2025-01-24 18:40:57.046972537 +0900
-+++ src2/guis/GuiTextEditPopupKeyboard.cpp	2025-01-28 11:54:15.752335538 +0900
+diff -rupN a/es-app/src/guis/GuiTextEditPopupKeyboard.cpp b/es-app/src/guis/GuiTextEditPopupKeyboard.cpp
+--- a/es-app/src/guis/GuiTextEditPopupKeyboard.cpp	2025-01-24 18:40:57.046972537 +0900
++++ b/es-app/src/guis/GuiTextEditPopupKeyboard.cpp	2025-01-28 11:54:15.752335538 +0900
 @@ -12,27 +12,33 @@
  #define OSK_PADDINGY (Renderer::getScreenWidth() * 0.01f)
  
@@ -599,9 +599,9 @@ diff -rupN src/guis/GuiTextEditPopupKeyboard.cpp src2/guis/GuiTextEditPopupKeybo
  	keyboardButtons.push_back(kb);
  	return button;
  }
-diff -rupN src/guis/GuiTextEditPopupKeyboard.h src2/guis/GuiTextEditPopupKeyboard.h
---- src/guis/GuiTextEditPopupKeyboard.h	2025-01-24 18:40:57.046972537 +0900
-+++ src2/guis/GuiTextEditPopupKeyboard.h	2025-01-28 11:57:35.590399373 +0900
+diff -rupN a/es-app/src/guis/GuiTextEditPopupKeyboard.h b/es-app/src/guis/GuiTextEditPopupKeyboard.h
+--- a/es-app/src/guis/GuiTextEditPopupKeyboard.h	2025-01-24 18:40:57.046972537 +0900
++++ b/es-app/src/guis/GuiTextEditPopupKeyboard.h	2025-01-28 11:57:35.590399373 +0900
 @@ -26,15 +26,18 @@ private:
  		const std::string key;
  		const std::string shiftedKey;
@@ -623,9 +623,9 @@ diff -rupN src/guis/GuiTextEditPopupKeyboard.h src2/guis/GuiTextEditPopupKeyboar
  	void shiftKeys();
  	void altKeys();
  
-diff -rupN src/resources/Font.cpp src2/resources/Font.cpp
---- src/resources/Font.cpp	2025-01-24 18:40:57.056729851 +0900
-+++ src2/resources/Font.cpp	2025-01-28 11:58:42.471821143 +0900
+diff -rupN a/es-app/src/resources/Font.cpp b/es-app/src/resources/Font.cpp
+--- a/es-app/src/resources/Font.cpp	2025-01-24 18:40:57.056729851 +0900
++++ b/es-app/src/resources/Font.cpp	2025-01-28 11:58:42.471821143 +0900
 @@ -311,6 +311,11 @@ FT_Face Font::getFaceForChar(unsigned in
  			// otherwise, take from fallbackFonts
  			const std::string& path = (i == 0 ? mPath : fallbackFonts.at(i - 1));
@@ -638,9 +638,9 @@ diff -rupN src/resources/Font.cpp src2/resources/Font.cpp
  #if defined(WIN32) || defined(X86) || defined(X86_64)
  			auto itCache = globalTTFCache.find(path);
  			if (itCache == globalTTFCache.cend())
-diff -rupN src/utils/StringUtil.cpp src2/utils/StringUtil.cpp
---- src/utils/StringUtil.cpp	2025-01-24 18:40:57.056729851 +0900
-+++ src2/utils/StringUtil.cpp	2025-01-28 11:59:58.422083165 +0900
+diff -rupN a/es-app/src/utils/StringUtil.cpp b/es-app/src/utils/StringUtil.cpp
+--- a/es-app/src/utils/StringUtil.cpp	2025-01-24 18:40:57.056729851 +0900
++++ b/es-app/src/utils/StringUtil.cpp	2025-01-28 11:59:58.422083165 +0900
 @@ -966,6 +966,49 @@ namespace Utils
  #endif
  		}
@@ -691,9 +691,9 @@ diff -rupN src/utils/StringUtil.cpp src2/utils/StringUtil.cpp
  #if defined(_WIN32)
  		const std::string convertFromWideString(const std::wstring wstring)
  		{
-diff -rupN src/utils/StringUtil.h src2/utils/StringUtil.h
---- src/utils/StringUtil.h	2025-01-24 18:40:57.056729851 +0900
-+++ src2/utils/StringUtil.h	2025-01-28 12:00:52.562408041 +0900
+diff -rupN a/es-app/src/utils/StringUtil.h b/es-app/src/utils/StringUtil.h
+--- a/es-app/src/utils/StringUtil.h	2025-01-24 18:40:57.056729851 +0900
++++ b/es-app/src/utils/StringUtil.h	2025-01-28 12:00:52.562408041 +0900
 @@ -55,6 +55,16 @@ namespace Utils
  		int			occurs(const std::string& str, char target);
  		bool		isPrintableChar(char c);
