@@ -1449,6 +1449,30 @@ msgstr "게임 찾기"
 msgid "SYSTEMS"
 msgstr "시스템"
 
+msgid "ANALOG STICKS LEDS"
+msgstr ""
+
+msgid "BRIGHTNESS"
+msgstr "화면밝기"
+
+msgid "LEFT"
+msgstr "좌"
+
+msgid "RED"
+msgstr "적"
+
+msgid "GREEN"
+msgstr "녹"
+
+msgid "BLUE"
+msgstr "청"
+
+msgid "RIGHT"
+msgstr "우"
+
+msgid "APPLY"
+msgstr ""
+
 msgid "SAVESTATE MANAGER"
 msgstr ""
 
@@ -1980,9 +2004,6 @@ msgstr ""
 msgid "rgb dmd order"
 msgstr ""
 
-msgid "BRIGHTNESS"
-msgstr "화면밝기"
-
 msgid "DMDSERVER stopped"
 msgstr ""
 
@@ -2359,6 +2380,9 @@ msgstr "중간"
 msgid "MIN"
 msgstr "최소"
 
+msgid "ANALOG STICKS LED COLOR"
+msgstr ""
+
 msgid "DEVICE"
 msgstr ""
 
@@ -2569,15 +2593,6 @@ msgstr "오버클럭"
 
 msgid "LED HARDWARE"
 msgstr ""
-
-msgid "RED"
-msgstr "적"
-
-msgid "GREEN"
-msgstr "녹"
-
-msgid "BLUE"
-msgstr "청"
 
 msgid "STORAGE DEVICE"
 msgstr "저장 장치"
@@ -2808,6 +2823,9 @@ msgstr "AI 번역 서비스 URL"
 
 msgid "PAUSE ON TRANSLATED SCREEN"
 msgstr "번역화면 일시정지"
+
+msgid "PPSSPP KOREAN FONT"
+msgstr "PPSSPP 한국어 폰트"
 
 msgid "AUTOCONFIGURE CONTROLLERS"
 msgstr "컨트롤러 자동설정"
@@ -3570,12 +3588,6 @@ msgstr ""
 msgid "HAND"
 msgstr ""
 
-msgid "LEFT"
-msgstr "좌"
-
-msgid "RIGHT"
-msgstr "우"
-
 #, c-format
 msgid "%d of %d softcore points"
 msgstr ""
@@ -4303,9 +4315,6 @@ msgstr "변경 취소"
 
 #~ msgid "FILTER SET"
 #~ msgstr "필터 설정"
-
-#~ msgid "PPSSPP KOREAN FONT"
-#~ msgstr "PPSSPP 한국어 폰트"
 
 #~ msgid ""
 #~ "YOU ARE GOING TO MAP A CONTROLLER. MAP BASED ON THE BUTTON'S POSITION "
