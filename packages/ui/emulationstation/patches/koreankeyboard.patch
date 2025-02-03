@@ -1,0 +1,986 @@
+diff --git a/es-app/src/guis/GuiGamelistOptions.cpp b/es-app/src/guis/GuiGamelistOptions.cpp
+index 0d7bb436e..828199fd4 100644
+--- a/es-app/src/guis/GuiGamelistOptions.cpp
++++ b/es-app/src/guis/GuiGamelistOptions.cpp
+@@ -100,13 +100,20 @@ GuiGamelistOptions::GuiGamelistOptions(Window* window, IGameListView* gamelist,
+ 			{
+ 				mJumpToLetterList = std::make_shared<LetterList>(mWindow, _("JUMP TO GAME BEGINNING WITH THE LETTER"), false);
+ 
+-				char curChar = (char)toupper(getGamelist()->getCursor()->getName()[0]);
++				const std::string& cursorName = getGamelist()->getCursor()->getName();
++				std::string curChar;
+ 
+-				if (std::find(letters.begin(), letters.end(), std::string(1, curChar)) == letters.end())
+-					curChar = letters.at(0)[0];
++				const char* koreanLetter = nullptr;
++				if (Utils::String::isKorean(cursorName.c_str()) && Utils::String::splitHangulSyllable(cursorName.c_str(), &koreanLetter) && koreanLetter)
++					curChar = std::string(koreanLetter, 3);
++				else
++					curChar = std::string(1, toupper(cursorName[0]));
++
++				if (std::find(letters.begin(), letters.end(), curChar) == letters.end())
++					curChar = letters.at(0);
+ 
+-				for (auto letter : letters)
+-					mJumpToLetterList->add(letter, letter[0], letter[0] == curChar);
++				for (const auto& letter : letters)
++					mJumpToLetterList->add(letter, letter, letter == curChar);
+ 
+ 				row.addElement(std::make_shared<TextComponent>(mWindow, _("JUMP TO GAME BEGINNING WITH THE LETTER"), theme->Text.font, theme->Text.color), true);
+ 				row.addElement(mJumpToLetterList, false);
+@@ -487,7 +494,7 @@ void GuiGamelistOptions::openMetaDataEd()
+ 
+ void GuiGamelistOptions::jumpToLetter()
+ {
+-	char letter = mJumpToLetterList->getSelected();
++	std::string letter = mJumpToLetterList->getSelected();
+ 	IGameListView* gamelist = getGamelist();
+ 
+ 	if (mListSort->getSelected() != 0)
+@@ -505,11 +512,18 @@ void GuiGamelistOptions::jumpToLetter()
+ 	auto files = gamelist->getFileDataEntries();
+ 	for (int i = files.size() - 1; i >= 0; i--)
+ 	{
+-		auto name = files.at(i)->getName();
++		const std::string& name = files.at(i)->getName();
+ 		if (name.empty())
+ 			continue;
+ 
+-		char checkLetter = (char)toupper(name[0]);
++		std::string checkLetter;
++
++		const char* koreanLetter = nullptr;
++		if (Utils::String::isKorean(name.c_str()) && Utils::String::splitHangulSyllable(name.c_str(), &koreanLetter) && koreanLetter)
++			checkLetter = std::string(koreanLetter, 3);
++		else
++			checkLetter = std::string(1, toupper(name[0]));
++
+ 		if (letterIndex >= 0 && checkLetter != letter)
+ 			break;
+ 
+diff --git a/es-app/src/guis/GuiGamelistOptions.h b/es-app/src/guis/GuiGamelistOptions.h
+index 0debc8f91..94faaefc4 100644
+--- a/es-app/src/guis/GuiGamelistOptions.h
++++ b/es-app/src/guis/GuiGamelistOptions.h
+@@ -41,7 +41,7 @@ private:
+ 
+ 	MenuComponent mMenu;
+ 
+-	typedef OptionListComponent<char> LetterList;
++	typedef OptionListComponent<std::string> LetterList;
+ 	std::shared_ptr<LetterList> mJumpToLetterList;
+ 
+ 	typedef OptionListComponent<unsigned int> SortList;
+diff --git a/es-app/src/views/gamelist/ISimpleGameListView.cpp b/es-app/src/views/gamelist/ISimpleGameListView.cpp
+index 20fbae3db..1e962811d 100644
+--- a/es-app/src/views/gamelist/ISimpleGameListView.cpp
++++ b/es-app/src/views/gamelist/ISimpleGameListView.cpp
+@@ -481,100 +481,102 @@ void ISimpleGameListView::moveToRandomGame()
+ 		setCursor(list.at(target));
+ }
+ 
+-bool ISimpleGameListView::moveToLetter(char letter)
++bool ISimpleGameListView::moveToLetter(const std::string& letter)
+ {
+ 
+ 	auto files = getFileDataEntries();
+-        long letterIndex = -1;
++	long letterIndex = -1;
+ 
+ 	for (int i = files.size() - 1; i >= 0; i--)
+-        {
+-                auto name = files.at(i)->getName();
+-                if (name.empty())
+-                        continue;
++	{
++			const std::string& name = files.at(i)->getName();
++			if (name.empty())
++				continue;
++
++			std::string checkLetter;
++
++			const char* koreanLetter = nullptr;
++			if (Utils::String::isKorean(name.c_str()) && Utils::String::splitHangulSyllable(name.c_str(), &koreanLetter) && koreanLetter)
++				checkLetter = std::string(koreanLetter, 3);
++			else
++				checkLetter = std::string(1, toupper(name[0]));
+ 
+-                char checkLetter = (char)toupper(name[0]);
+-                if (letterIndex >= 0 && checkLetter != letter)
+-                        break;
++			if (letterIndex >= 0 && checkLetter != letter)
++				break;
+ 
+-                if (checkLetter == letter)
+-                        letterIndex = i;
+-        }
++			if (checkLetter == letter)
++				letterIndex = i;
++	}
+ 
+-        if (letterIndex >= 0) {
+-                setCursor(files.at(letterIndex));
+-		return 1;
++	if (letterIndex >= 0) {
++		setCursor(files.at(letterIndex));
++		return true;
+ 	}
+ 
+-	return 0;
++	return false;
+ }
+ 
+-void ISimpleGameListView::moveToNextLetter()
++void ISimpleGameListView::moveToLetterByOffset(int offset)
+ {
+-        std::vector<std::string> letters = getEntriesLetters();
+-        if (letters.empty())
++		std::vector<std::string> letters = getEntriesLetters();
++		if (letters.empty())
+ 		return;
+ 
+ 	FileData* game = getCursor();
+-	if (game == nullptr) {
++	if (game == nullptr)
+ 		return;
+-	}
+ 
+-	auto namecurrent = game->getName();
+-	char curChar = (char)toupper(namecurrent[0]);
++	const std::string& namecurrent = game->getName();
++	std::string curLetter;
++
++	const char* koreanLetter = nullptr;
++	if (Utils::String::isKorean(namecurrent.c_str()) && Utils::String::splitHangulSyllable(namecurrent.c_str(), &koreanLetter) && koreanLetter)
++		curLetter = std::string(koreanLetter, 3);
++	else
++		curLetter = std::string(1, toupper(namecurrent[0]));
+ 
+-        auto it = std::find(letters.begin(), letters.end(), std::string(1, curChar));
+-	if (it != letters.end()) {
+-		int index = it - letters.begin();
+-		index++;
+-		if (index >= letters.size())
++	auto it = std::find(letters.begin(), letters.end(), curLetter);
++	if (it != letters.end())
++	{
++		int index = std::distance(letters.begin(), it) + offset;
++		if (index < 0)
++			index = letters.size() - 1;
++		else if (index >= letters.size())
+ 			index = 0;
+-		char letter = letters.at(index)[0];
+-		moveToLetter(letter);
++
++		moveToLetter(letters.at(index));
+ 	}
+ }
+ 
+-void ISimpleGameListView::moveToPreviousLetter()
++void ISimpleGameListView::moveToNextLetter()
+ {
++	moveToLetterByOffset(1);
++}
+ 
+-        std::vector<std::string> letters = getEntriesLetters();
+-        if (letters.empty())
+-		return;
+-
+-	FileData* game = getCursor();
+-	if (game == nullptr) {
+-		return;
+-	}
+-
+-	auto namecurrent = game->getName();
+-	char curChar = (char)toupper(namecurrent[0]);
+-
+-        auto it = std::find(letters.begin(), letters.end(), std::string(1, curChar));
+-	if (it != letters.end()) {
+-		int index = it - letters.begin();
+-		index--;
+-		if (index < 0)
+-			index = letters.size()-1;
+-
+-		char letter = letters.at(index)[0];
+-		moveToLetter(letter);
+-	}
++void ISimpleGameListView::moveToPreviousLetter()
++{
++	moveToLetterByOffset(-1);
+ }
+ 
+ std::vector<std::string> ISimpleGameListView::getEntriesLetters()
+ {	
+ 	std::set<std::string> setOfLetters;
+ 
+-	for (auto file : getFileDataEntries()) 
+-		if (file->getType() == GAME)
+-			setOfLetters.insert(std::string(1, toupper(file->getName()[0])));
++	for (auto file : getFileDataEntries())
++	{
++		if (file->getType() != GAME)
++			continue;
+ 
+-	std::vector<std::string> letters;
++		const std::string& name = file->getName();
+ 
+-	for (const auto letter : setOfLetters)
+-		letters.push_back(letter);
++		const char* koreanLetter = nullptr;
++		if (Utils::String::isKorean(name.c_str()) && Utils::String::splitHangulSyllable(name.c_str(), &koreanLetter) && koreanLetter)
++			setOfLetters.insert(std::string(koreanLetter, 3));
++		else
++			setOfLetters.insert(std::string(1, toupper(name[0])));
++	}
+ 
+-	std::sort(letters.begin(), letters.end());
++	std::vector<std::string> letters(setOfLetters.begin(), setOfLetters.end());
+ 	return letters;
+ }
+ 
+diff --git a/es-app/src/views/gamelist/ISimpleGameListView.h b/es-app/src/views/gamelist/ISimpleGameListView.h
+index 2dd99aa34..4978fc943 100644
+--- a/es-app/src/views/gamelist/ISimpleGameListView.h
++++ b/es-app/src/views/gamelist/ISimpleGameListView.h
+@@ -46,7 +46,8 @@ public:
+ 	void closePopupContext();
+ 	
+ 	virtual void moveToRandomGame();
+-	virtual bool moveToLetter(char letter);
++	virtual bool moveToLetter(const std::string& letter);
++	virtual void moveToLetterByOffset(int offset);
+ 	virtual void moveToNextLetter();
+ 	virtual void moveToPreviousLetter();
+ 
+diff --git a/es-core/src/components/TextEditComponent.cpp b/es-core/src/components/TextEditComponent.cpp
+index 86183f21d..51e8af142 100644
+--- a/es-core/src/components/TextEditComponent.cpp
++++ b/es-core/src/components/TextEditComponent.cpp
+@@ -67,20 +67,26 @@ std::string TextEditComponent::getValue() const
+ 
+ void TextEditComponent::textInput(const char* text)
+ {
+-	if(mEditing)
++	if (mEditing)
+ 	{
+ 		mCursorRepeatDir = 0;
+-		if(text[0] == '\b')
++		if (text[0] == '\b')
+ 		{
+-			if(mCursor > 0)
++			if (mCursor > 0)
+ 			{
+ 				size_t newCursor = Utils::String::prevCursor(mText, mCursor);
+ 				mText.erase(mText.begin() + newCursor, mText.begin() + mCursor);
+ 				mCursor = (unsigned int)newCursor;
+ 			}
+-		}else{
+-			mText.insert(mCursor, text);
+-			mCursor += (unsigned int)strlen(text);
++		}
++		else if (mCursor > 2 && Utils::String::isKorean(text) && Utils::String::isKorean(mText.substr(mCursor - 3, 3).c_str()))
++		{
++				Utils::String::koreanTextInput(text, mText, mCursor);
++		}
++		else {
++				mText.insert(mCursor, text);
++				size_t newCursor = Utils::String::nextCursor(mText, mCursor);
++				mCursor = (unsigned int)newCursor;
+ 		}
+ 	}
+ 
+diff --git a/es-core/src/guis/GuiTextEditPopupKeyboard.cpp b/es-core/src/guis/GuiTextEditPopupKeyboard.cpp
+index a670489a3..0ae6cebe6 100644
+--- a/es-core/src/guis/GuiTextEditPopupKeyboard.cpp
++++ b/es-core/src/guis/GuiTextEditPopupKeyboard.cpp
+@@ -12,25 +12,31 @@
+ #define OSK_PADDINGY (Renderer::getScreenWidth() * 0.01f)
+ 
+ #define BUTTON_GRID_HORIZ_PADDING (Renderer::getScreenWidth()*0.0052083333)
++#define BUTTON_LAYER_SIZE (4)
+ 
+ std::vector<std::vector<const char*>> kbUs {
+ 
+ 	{ "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "_", "+", "DEL" },
+ 	{ "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "-", "=", "DEL" },
+ 	{ "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "_", "+", "DEL" },
++	{ "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "-", "=", "DEL" },
+ 
+ 	{ "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "{", "}", "OK" },
+ 	{ "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "OK" },
+ 	{ "à", "ä", "è", "ë", "ì", "ï", "ò", "ö", "ù", "ü", "¨", "¿", "OK" },
++	{ "à", "ä", "è", "ë", "ì", "ï", "ò", "ö", "ù", "ü", "¨", "¿", "OK" },
+ 
+ 	{ "a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "\"", "|", "-rowspan-" },
+ 	{ "A", "S", "D", "F", "G", "H", "J", "K", "L", ":", "'", "\\", "-rowspan-" },
+ 	{ "á", "â", "é", "ê", "í", "î", "ó", "ô", "ú", "û", "ñ", "¡", "-rowspan-" },
++	{ "á", "â", "é", "ê", "í", "î", "ó", "ô", "ú", "û", "ñ", "¡", "-rowspan-" },
+ 
+ 	{ "~", "z", "x", "c", "v", "b", "n", "m", ",", ".", "?", "ALT", "-colspan-" },
+ 	{ "`", "Z", "X", "C", "V", "B", "N", "M", "<", ">", "/", "ALT", "-colspan-" },
+ 	{ "€", "", "", "", "", "", "", "", "", "", "", "ALT", "-colspan-" },
++	{ "€", "", "", "", "", "", "", "", "", "", "", "ALT", "-colspan-" },
+ 
++	{ "SHIFT", "-colspan-", "SPACE", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "RESET", "-colspan-", "CANCEL", "-colspan-" },
+ 	{ "SHIFT", "-colspan-", "SPACE", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "RESET", "-colspan-", "CANCEL", "-colspan-" },
+ 	{ "SHIFT", "-colspan-", "SPACE", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "RESET", "-colspan-", "CANCEL", "-colspan-" },
+ 	{ "SHIFT", "-colspan-", "SPACE", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "RESET", "-colspan-", "CANCEL", "-colspan-" }
+@@ -40,24 +46,55 @@ std::vector<std::vector<const char*>> kbFr {
+ 	{ "&", "é", "\"", "'", "(", "#", "è", "!", "ç", "à", ")", "-", "DEL" },
+ 	{ "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "@", "_", "DEL" },
+ 	{ "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "@", "_", "DEL" },
++	{ "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "@", "_", "DEL" },
+ 	
+ 	{ "a", "z", "e", "r", "t", "y", "u", "i", "o", "p", "^", "$", "OK" },
+ 	{ "A", "Z", "E", "R", "T", "Y", "U", "I", "O", "P", "¨", "*", "OK" },
+ 	{ "à", "ä", "ë", "ì", "ï", "ò", "ö", "ü", "\\", "|", "§", "°", "OK" },
++	{ "à", "ä", "ë", "ì", "ï", "ò", "ö", "ü", "\\", "|", "§", "°", "OK" },
+ 
+ 	{ "q", "s", "d", "f", "g", "h", "j", "k", "l", "m", "ù", "`", "-rowspan-" },
+ 	{ "Q", "S", "D", "F", "G", "H", "J", "K", "L", "M", "%", "£", "-rowspan-" },
+ 	{ "á", "â", "ê", "í", "î", "ó", "ô", "ú", "û", "ñ", "¡", "¿", "-rowspan-" },
++	{ "á", "â", "ê", "í", "î", "ó", "ô", "ú", "û", "ñ", "¡", "¿", "-rowspan-" },
+ 
+ 	{ "<", "w", "x", "c", "v", "b", "n", ",", ";", ":", "=", "ALT", "-colspan-" },
+ 	{ ">", "W", "X", "C", "V", "B", "N", "?", ".", "/", "+", "ALT", "-colspan-" },
+ 	{ "€", "", "", "", "", "", "", "", "", "", "", "ALT", "-colspan-" },
++	{ "€", "", "", "", "", "", "", "", "", "", "", "ALT", "-colspan-" },
+ 
++	{ "SHIFT", "-colspan-", "SPACE", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "RESET", "-colspan-", "CANCEL", "-colspan-" },
+ 	{ "SHIFT", "-colspan-", "SPACE", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "RESET", "-colspan-", "CANCEL", "-colspan-" },
+ 	{ "SHIFT", "-colspan-", "SPACE", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "RESET", "-colspan-", "CANCEL", "-colspan-" },
+ 	{ "SHIFT", "-colspan-", "SPACE", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "RESET", "-colspan-", "CANCEL", "-colspan-" }
+ };
+ 
++std::vector<std::vector<const char*>> kbKr{
++	{ "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "DEL" },
++	{ "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "_", "+", "DEL" },
++	{ "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "DEL" },
++	{ "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "_", "+", "DEL" },
++
++	{ "ㅂ", "ㅈ", "ㄷ", "ㄱ", "ㅅ", "ㅛ", "ㅕ", "ㅑ", "ㅐ", "ㅔ", "[", "]", "OK" },
++	{ "ㅃ", "ㅉ", "ㄸ", "ㄲ", "ㅆ", "ㅛ", "ㅕ", "ㅑ", "ㅒ", "ㅖ", "{", "}", "OK" },
++	{ "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "[", "]", "OK" },
++	{ "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "{", "}", "OK" },
++
++	{ "ㅁ", "ㄴ", "ㅇ", "ㄹ", "ㅎ", "ㅗ", "ㅓ", "ㅏ", "ㅣ", ";", "'", "\\", "-rowspan-" },
++	{ "ㅁ", "ㄴ", "ㅇ", "ㄹ", "ㅎ", "ㅗ", "ㅓ", "ㅏ", "ㅣ", ":", "\"", "|", "-rowspan-" },
++	{ "a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'", "\\", "-rowspan-" },
++	{ "A", "S", "D", "F", "G", "H", "J", "K", "L", ":", "\"", "|", "-rowspan-" },
++
++	{ "ㅋ", "ㅌ", "ㅊ", "ㅍ", "ㅠ", "ㅜ", "ㅡ", ",", ".", "/", "`", "ALT", "-colspan-" },
++	{ "ㅋ", "ㅌ", "ㅊ", "ㅍ", "ㅠ", "ㅜ", "ㅡ", "<", ">", "?", "~", "ALT", "-colspan-" },
++	{ "z", "x", "c", "v", "b", "n", "m", ",", ".", "/", "`", "ALT", "-colspan-" },
++	{ "Z", "X", "C", "V", "B", "N", "M", "<", ">", "?", "~", "ALT", "-colspan-" },
++
++	{ "SHIFT", "-colspan-", "SPACE", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "RESET", "-colspan-", "CANCEL", "-colspan-" },
++	{ "SHIFT", "-colspan-", "SPACE", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "RESET", "-colspan-", "CANCEL", "-colspan-" },
++	{ "SHIFT", "-colspan-", "SPACE", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "RESET", "-colspan-", "CANCEL", "-colspan-" },
++	{ "SHIFT", "-colspan-", "SPACE", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "-colspan-", "RESET", "-colspan-", "CANCEL", "-colspan-" }
++};
+ 
+ GuiTextEditPopupKeyboard::GuiTextEditPopupKeyboard(Window* window, const std::string& title, const std::string& initValue,
+ 	const std::function<void(const std::string&)>& okCallback, bool multiLine, const std::string acceptBtnText)
+@@ -79,7 +116,7 @@ GuiTextEditPopupKeyboard::GuiTextEditPopupKeyboard(Window* window, const std::st
+ 
+ 	mTitle = std::make_shared<TextComponent>(mWindow, Utils::String::toUpper(title), theme->Title.font, theme->Title.color, ALIGN_CENTER);
+ 	
+-	mKeyboardGrid = std::make_shared<ComponentGrid>(mWindow, Vector2i(kbUs[0].size(), kbUs.size() / 3));
++	mKeyboardGrid = std::make_shared<ComponentGrid>(mWindow, Vector2i(kbUs[0].size(), kbUs.size() / BUTTON_LAYER_SIZE));
+ 
+ 	mText = std::make_shared<TextEditComponent>(mWindow);
+ 	mText->setValue(initValue);
+@@ -111,18 +148,21 @@ GuiTextEditPopupKeyboard::GuiTextEditPopupKeyboard(Window* window, const std::st
+ 
+ 		if (language == "fr")
+ 			layout = &kbFr;
++		else if (language == "ko")
++			layout = &kbKr;
+ 
+-		for (unsigned int i = 0; i < layout->size() / 3; i++)
++		for (unsigned int i = 0; i < layout->size() / BUTTON_LAYER_SIZE; i++)
+ 		{			
+ 			std::vector<std::shared_ptr<ButtonComponent>> buttons;
+ 			for (unsigned int j = 0; j < (*layout)[i].size(); j++)
+ 			{
+-				std::string lower = (*layout)[3 * i][j];
++				std::string lower = (*layout)[BUTTON_LAYER_SIZE * i][j];
+ 				if (lower.empty() || lower == "-rowspan-" || lower == "-colspan-")
+ 					continue;
+ 
+-				std::string upper = (*layout)[3 * i + 1][j];
+-				std::string alted = (*layout)[3 * i + 2][j];
++				std::string upper = (*layout)[BUTTON_LAYER_SIZE * i + 1][j];
++				std::string lowerAlted = (*layout)[BUTTON_LAYER_SIZE * i + 2][j];
++				std::string upperAlted = (*layout)[BUTTON_LAYER_SIZE * i + 3][j];
+ 
+ 				std::shared_ptr<ButtonComponent> button = nullptr;
+ 
+@@ -130,7 +170,8 @@ GuiTextEditPopupKeyboard::GuiTextEditPopupKeyboard(Window* window, const std::st
+ 				{
+ 					lower = _U("\uF177");
+ 					upper = _U("\uF177");
+-					alted = _U("\uF177");
++					lowerAlted = _U("\uF177");
++					upperAlted = _U("\uF177");
+ 				}
+ 				else if (lower == "OK")
+ 				{
+@@ -139,12 +180,14 @@ GuiTextEditPopupKeyboard::GuiTextEditPopupKeyboard(Window* window, const std::st
+ 					if (mMultiLine)
+ 					{
+ 						upper = _U("\uF149");
+-						alted = _U("\uF149");
++						lowerAlted = _U("\uF149");
++						upperAlted = _U("\uF149");
+ 					}
+ 					else
+ 					{
+ 						upper = _U("\uF058");
+-						alted = _U("\uF058");
++						lowerAlted = _U("\uF058");
++						upperAlted = _U("\uF058");
+ 					}
+ 				}
+ 				else if (lower == "SPACE")
+@@ -156,7 +199,8 @@ GuiTextEditPopupKeyboard::GuiTextEditPopupKeyboard(Window* window, const std::st
+ 				{
+ 					lower = _(lower.c_str());
+ 					upper = _(upper.c_str());
+-					alted = _(alted.c_str());
++					lowerAlted = _(lowerAlted.c_str());
++					upperAlted = _(upperAlted.c_str());
+ 				}
+ 
+ 				if (lower == "SHIFT")
+@@ -171,7 +215,7 @@ GuiTextEditPopupKeyboard::GuiTextEditPopupKeyboard(Window* window, const std::st
+ 					button = mAltButton;
+ 				}
+ 				else
+-					button = makeButton(lower, upper, alted);
++					button = makeButton(lower, upper, lowerAlted, upperAlted);
+ 
+ 				button->setPadding(Vector4f(BUTTON_GRID_HORIZ_PADDING / 4.0f, BUTTON_GRID_HORIZ_PADDING / 4.0f, BUTTON_GRID_HORIZ_PADDING / 4.0f, BUTTON_GRID_HORIZ_PADDING / 4.0f));
+ 				button->setRenderNonFocusedBackground(false);
+@@ -180,14 +224,14 @@ GuiTextEditPopupKeyboard::GuiTextEditPopupKeyboard(Window* window, const std::st
+ 				int colSpan = 1;
+ 				for (unsigned int cs = j + 1; cs < (*layout)[i].size(); cs++)
+ 				{
+-					if (std::string((*layout)[3 * i][cs]) == "-colspan-")
++					if (std::string((*layout)[BUTTON_LAYER_SIZE * i][cs]) == "-colspan-")
+ 						colSpan++;
+ 					else
+ 						break;
+ 				}
+ 				
+ 				int rowSpan = 1;
+-				for (unsigned int cs = (3 * i) + 3; cs < layout->size(); cs += 3)
++				for (unsigned int cs = (BUTTON_LAYER_SIZE * i) + BUTTON_LAYER_SIZE; cs < layout->size(); cs += BUTTON_LAYER_SIZE)
+ 				{
+ 					if (std::string((*layout)[cs][j]) == "-rowspan-")
+ 						rowSpan++;
+@@ -354,58 +398,51 @@ bool GuiTextEditPopupKeyboard::input(InputConfig* config, Input input)
+ }
+ 
+ // Shifts the keys when user hits the shift button.
+-void GuiTextEditPopupKeyboard::shiftKeys() 
++void GuiTextEditPopupKeyboard::toggleKeyState(bool& state, std::shared_ptr<ButtonComponent>& button)
+ {
+-	if (mAlt && !mShift)
+-		altKeys();
++	state = !state;
+ 
+-	mShift = !mShift;
+-
+-	if (mShift)
++	if (state)
+ 	{
+-		mShiftButton->setRenderNonFocusedBackground(true);
+-		mShiftButton->setColorShift(0xFF0000FF);
++		button->setRenderNonFocusedBackground(true);
++		button->setColorShift(0xFF0000FF);
+ 	}
+ 	else
+ 	{
+-		mShiftButton->setRenderNonFocusedBackground(false);
+-		mShiftButton->removeColorShift();
++		button->setRenderNonFocusedBackground(false);
++		button->removeColorShift();
+ 	}
+ 
+-	for (auto & kb : keyboardButtons)
++	updateKeyboardButtons();
++}
++
++void GuiTextEditPopupKeyboard::updateKeyboardButtons()
++{
++	for (auto& kb : keyboardButtons)
+ 	{
+-		const std::string& text = mShift ? kb.shiftedKey : kb.key;
++		const std::string& text = (mAlt && mShift) ? kb.altedShiftedKey
++			: (mAlt) ? kb.altedKey
++			: (mShift) ? kb.shiftedKey
++			: kb.key;
++
+ 		auto sz = kb.button->getSize();
+ 		kb.button->setText(text, text, false);
+ 		kb.button->setSize(sz);
+ 	}
+ }
+ 
+-void GuiTextEditPopupKeyboard::altKeys()
++// Shifts the keys when user hits the shift button.
++void GuiTextEditPopupKeyboard::shiftKeys() 
+ {
+-	if (mShift && !mAlt)
+-		shiftKeys();
+-
+-	mAlt = !mAlt;
++	toggleKeyState(mShift, mShiftButton);
++}
+ 
+-	if (mAlt)
+-	{
+-		mAltButton->setRenderNonFocusedBackground(true);
+-		mAltButton->setColorShift(0xFF0000FF);
+-	}
+-	else
+-	{
+-		mAltButton->setRenderNonFocusedBackground(false);
+-		mAltButton->removeColorShift();
+-	}
++void GuiTextEditPopupKeyboard::altKeys()
++{
++	if (mShift)
++		toggleKeyState(mShift, mShiftButton);
+ 
+-	for (auto & kb : keyboardButtons)
+-	{
+-		const std::string& text = mAlt ? kb.altedKey : kb.key;
+-		auto sz = kb.button->getSize();
+-		kb.button->setText(text, text, false);
+-		kb.button->setSize(sz);
+-	}
++	toggleKeyState(mAlt, mAltButton);
+ }
+ 
+ std::vector<HelpPrompt> GuiTextEditPopupKeyboard::getHelpPrompts()
+@@ -423,10 +460,10 @@ std::vector<HelpPrompt> GuiTextEditPopupKeyboard::getHelpPrompts()
+ 	return prompts;
+ }
+ 
+-std::shared_ptr<ButtonComponent> GuiTextEditPopupKeyboard::makeButton(const std::string& key, const std::string& shiftedKey, const std::string& altedKey)
++std::shared_ptr<ButtonComponent> GuiTextEditPopupKeyboard::makeButton(const std::string& key, const std::string& shiftedKey, const std::string& altedKey, const std::string& altedShiftedKey)
+ {
+-	std::shared_ptr<ButtonComponent> button = std::make_shared<ButtonComponent>(mWindow, key, key, [this, key, shiftedKey, altedKey]
+-	{						
++	std::shared_ptr<ButtonComponent> button = std::make_shared<ButtonComponent>(mWindow, key, key, [this, key, shiftedKey, altedKey, altedShiftedKey]
++	{
+ 		if (key == _U("\uF058") || key.find("OK") != std::string::npos)
+ 		{	
+ 			if (mMultiLine && (mShift || mAlt))
+@@ -462,22 +499,34 @@ std::shared_ptr<ButtonComponent> GuiTextEditPopupKeyboard::makeButton(const std:
+ 			return;
+ 		}
+ 
+-		if (mAlt && altedKey.empty())
+-			return;
++		if (mAlt)
++		{
++			if (mShift && altedShiftedKey.empty())
++				return;
++			if (altedKey.empty())
++				return;
++		}
+ 
+ 		mText->startEditing();
+ 
+-		if (mAlt)
+-			mText->textInput(altedKey.c_str());
++		const char* text;
++		if (mAlt && mShift)
++			text = altedShiftedKey.c_str();
++		else if (mAlt)
++			text = altedKey.c_str();
+ 		else if (mShift)
+-			mText->textInput(shiftedKey.c_str());
++			text = shiftedKey.c_str();
+ 		else
+-			mText->textInput(key.c_str());
++			text = key.c_str();
++		mText->textInput(text);
+ 
+ 		mText->stopEditing();
++
++		if (Utils::String::isKorean(text) && mShift)
++			shiftKeys();
+ 	}, false);
+ 	
+-	KeyboardButton kb(button, key, shiftedKey, altedKey);
++	KeyboardButton kb(button, key, shiftedKey, altedKey, altedShiftedKey);
+ 	keyboardButtons.push_back(kb);
+ 	return button;
+ }
+diff --git a/es-core/src/guis/GuiTextEditPopupKeyboard.h b/es-core/src/guis/GuiTextEditPopupKeyboard.h
+index bad142bd3..d90b75e8c 100644
+--- a/es-core/src/guis/GuiTextEditPopupKeyboard.h
++++ b/es-core/src/guis/GuiTextEditPopupKeyboard.h
+@@ -26,15 +26,18 @@ private:
+ 		const std::string key;
+ 		const std::string shiftedKey;
+ 		const std::string altedKey;
+-		KeyboardButton(const std::shared_ptr<ButtonComponent> b, const std::string& k, const std::string& sk, const std::string& ak) : button(b), key(k), shiftedKey(sk), altedKey(ak) {};
++		const std::string altedShiftedKey;
++		KeyboardButton(const std::shared_ptr<ButtonComponent> b, const std::string& k, const std::string& sk, const std::string& ak, const std::string& ask) : button(b), key(k), shiftedKey(sk), altedKey(ak), altedShiftedKey(ask) {};
+ 	};
+ 	
+-	std::shared_ptr<ButtonComponent> makeButton(const std::string& key, const std::string& shiftedKey, const std::string& altedKey);
++	std::shared_ptr<ButtonComponent> makeButton(const std::string& key, const std::string& shiftedKey, const std::string& altedKey, const std::string& altedShiftedKey);
+ 	std::vector<KeyboardButton> keyboardButtons;
+ 	
+ 	std::shared_ptr<ButtonComponent> mShiftButton;	
+ 	std::shared_ptr<ButtonComponent> mAltButton;
+ 
++	void toggleKeyState(bool& state, std::shared_ptr<ButtonComponent>& button);
++	void updateKeyboardButtons();
+ 	void shiftKeys();
+ 	void altKeys();
+ 
+diff --git a/es-core/src/resources/Font.cpp b/es-core/src/resources/Font.cpp
+index adebd03b6..89d58292f 100644
+--- a/es-core/src/resources/Font.cpp
++++ b/es-core/src/resources/Font.cpp
+@@ -331,6 +331,11 @@ FT_Face Font::getFaceForChar(unsigned int id)
+ 			fit = mFaceCache.find(i);
+ 		}
+ 
++		// i == 2 -> DroidSansFallbackFull
++		// this font has a bug when handling Korean characters.
++		if (i == 2 && Utils::String::isKorean(id))
++			continue;
++
+ 		if(FT_Get_Char_Index(fit->second->face, id) != 0)
+ 			return fit->second->face;
+ 	}
+diff --git a/es-core/src/utils/StringUtil.cpp b/es-core/src/utils/StringUtil.cpp
+index 3f900f800..bdc9a879a 100644
+--- a/es-core/src/utils/StringUtil.cpp
++++ b/es-core/src/utils/StringUtil.cpp
+@@ -966,6 +966,285 @@ namespace Utils
+ #endif
+ 		}
+ 
++		bool isKorean(const unsigned int uni)
++		{
++			return (uni >= 0x3131 && uni <= 0x3163) ||  // Unicode range for Hangul consonants and vowels (ㄱ to ㅣ)
++				(uni >= 0xAC00 && uni <= 0xD7A3);       // Unicode range for Hangul syllables (가 to 힣)
++		}
++
++		bool isKorean(const char* _string, bool checkFirstChar)
++		{
++			if (!_string)
++				return false;
++
++			size_t len = strlen(_string);
++			if (len < 3)
++				return false;
++
++			const char* target = _string;
++			if (!checkFirstChar)
++			{
++				const char* ptr = _string + len - 1;
++				while (ptr > _string && (*ptr & 0xC0) == 0x80)
++					ptr--;
++
++				target = ptr;
++			}
++
++			size_t cursor = 0;
++			unsigned int uni = chars2Unicode(std::string(target, 3), cursor);
++
++			return isKorean(uni);
++		} // isKorean
++
++		KoreanCharType getKoreanCharType(const char* _string)
++		{
++			if (!_string || strlen(_string) != 3)
++				return KoreanCharType::NONE;
++
++			size_t cursor = 0;
++			unsigned int uni = chars2Unicode(std::string(_string), cursor);
++
++			if (uni >= 0x3131 && uni <= 0x314E)
++				return KoreanCharType::JAEUM;
++
++			if (uni >= 0x314F && uni <= 0x3163)
++				return KoreanCharType::MOEUM;
++
++			return KoreanCharType::NONE;
++
++		} // getKoreanCharType
++
++		bool splitHangulSyllable(const char* input, const char** chosung, const char** joongsung, const char** jongsung)
++		{
++			if (!input)
++				return false;
++
++			size_t len = strlen(input);
++			if (len < 3)
++				return false;
++
++			switch (getKoreanCharType(input))
++			{
++			case KoreanCharType::JAEUM:
++				*chosung = input;
++				break;
++			case KoreanCharType::MOEUM:
++				*joongsung = input;
++				break;
++			default:
++				size_t cursor = 0;
++				unsigned int unicode = chars2Unicode(input, cursor) - 0xAC00;
++
++				int chosungIdx = unicode / (28 * 21);
++				int joongsungIdx = (unicode / 28) % 21;
++				int jongsungIdx = unicode % 28;
++
++				*chosung = KOREAN_CHOSUNG_LIST.at(chosungIdx);
++				if (joongsung) *joongsung = KOREAN_JOONGSUNG_LIST.at(joongsungIdx);
++				if (jongsung) *jongsung = KOREAN_JONGSUNG_LIST.at(jongsungIdx);
++				break;
++			}
++
++			return true;
++		}
++
++		void koreanTextInput(const char* text, std::string& componentText, unsigned int& componentCursor)
++		{
++			if (!text)
++				return;
++
++			if (strlen(text) != 3)
++				return;
++
++			if (componentText.size() < 3)
++				return;
++
++			KoreanCharType charType = getKoreanCharType(text);
++
++			std::string lastCharString = componentText.substr(componentCursor - 3, 3);
++			const char* lastChar = lastCharString.c_str();
++
++			const char* chosung = "";
++			const char* joongsung = "";
++			const char* jongsung = "";
++			splitHangulSyllable(lastChar, &chosung, &joongsung, &jongsung);
++
++			auto eraseAndInsert = [&](const std::string& toInsert, bool moveCursorLeft = true)
++			{
++				size_t cursor = prevCursor(componentText, componentCursor);
++				componentText.erase(componentText.begin() + cursor, componentText.begin() + componentCursor);
++				componentText.insert(cursor, toInsert);
++				if (moveCursorLeft)
++					componentCursor -= 3;
++			};
++
++			auto makeHangul = [&](int chosungIdx, int joongsungIdx, int jongsungIdx) -> std::string
++			{
++				unsigned int code = ((chosungIdx * 21) + joongsungIdx) * 28 + jongsungIdx + 0xAC00;
++				return unicode2Chars(code);
++			};
++
++			auto findIndex = [&](const std::vector<const char*>& vec, const char* key) -> int 
++			{
++				auto it = std::find_if(vec.begin(), vec.end(), [&](const char* item)
++				{
++					return std::strcmp(item, key) == 0;
++				});
++
++				return (it != vec.end()) ? std::distance(vec.begin(), it) : -1;
++			};
++
++			if (!strcmp(lastChar, chosung) && charType == KoreanCharType::JAEUM)
++			{
++				std::string combine = std::string(chosung) + text;
++
++				int idx = findIndex(KOREAN_GYEOP_BATCHIM_COMBINATIONS, combine.c_str());
++				if (idx != -1)
++					eraseAndInsert(KOREAN_GYEOP_BATCHIM_LIST.at(idx));
++				else
++					componentText.insert(componentCursor, text);
++			}
++			else if (!strcmp(lastChar, chosung) && charType == KoreanCharType::MOEUM)
++			{
++				int joongsungIdx = findIndex(KOREAN_JOONGSUNG_LIST, text);
++
++				int gyeopBatchimIdx = findIndex(KOREAN_GYEOP_BATCHIM_LIST, lastChar);
++				if (gyeopBatchimIdx != -1)
++				{
++					char jaeum1[4] = {};
++					strncpy(jaeum1, KOREAN_GYEOP_BATCHIM_COMBINATIONS.at(gyeopBatchimIdx), 3);
++					jaeum1[3] = '\0';
++
++					char jaeum2[4] = {};
++					strncpy(jaeum2, KOREAN_GYEOP_BATCHIM_COMBINATIONS.at(gyeopBatchimIdx) + 3, 3);
++					jaeum2[3] = '\0';
++
++					int chosungIdx = findIndex(KOREAN_CHOSUNG_LIST, static_cast<const char*>(jaeum2));
++					std::string hangul = std::string(jaeum1) + makeHangul(chosungIdx, joongsungIdx, 0);
++
++					eraseAndInsert(hangul, false);
++				}
++				else
++				{
++					int chosungIdx = findIndex(KOREAN_CHOSUNG_LIST, lastChar);
++					std::string hangul = makeHangul(chosungIdx, joongsungIdx, 0);
++
++					eraseAndInsert(hangul);
++				}
++			}
++			else if (!strcmp(lastChar, joongsung) && charType == KoreanCharType::JAEUM)
++			{
++				componentText.insert(componentCursor, text);
++			}
++			else if (!strcmp(lastChar, joongsung) && charType == KoreanCharType::MOEUM)
++			{
++				std::string combine = std::string(lastChar) + text;
++
++				int idx = findIndex(KOREAN_IJUNG_MOEUM_COMBINATIONS, combine.c_str());
++				if (idx != -1)
++					eraseAndInsert(KOREAN_IJUNG_MOEUM_LIST.at(idx));
++				else
++					componentText.insert(componentCursor, text);
++			}
++			else if (strcmp(jongsung, " ") && charType == KoreanCharType::JAEUM)
++			{
++				std::string combine = std::string(jongsung) + text;
++
++				int idx = findIndex(KOREAN_GYEOP_BATCHIM_COMBINATIONS, combine.c_str());
++
++				if (idx != -1)
++				{
++					int chosungIdx = findIndex(KOREAN_CHOSUNG_LIST, chosung);
++					int joongsungIdx = findIndex(KOREAN_JOONGSUNG_LIST, joongsung);
++					int jongsungIdx = findIndex(KOREAN_JONGSUNG_LIST, KOREAN_GYEOP_BATCHIM_LIST.at(idx));
++					std::string hangul = makeHangul(chosungIdx, joongsungIdx, jongsungIdx);
++
++					eraseAndInsert(hangul);
++				}
++				else
++				{
++					componentText.insert(componentCursor, text);
++				}
++			}
++			else if (strcmp(jongsung, " ") && charType == KoreanCharType::MOEUM)
++			{
++				int idx = findIndex(KOREAN_GYEOP_BATCHIM_LIST, jongsung);
++				if (idx != -1)
++				{
++					char jaeum1[4] = {};
++					strncpy(jaeum1, KOREAN_GYEOP_BATCHIM_COMBINATIONS.at(idx), 3);
++					jaeum1[3] = '\0';
++
++					char jaeum2[4] = {};
++					strncpy(jaeum2, KOREAN_GYEOP_BATCHIM_COMBINATIONS.at(idx) + 3, 3);
++					jaeum2[3] = '\0';
++
++					int chosungIdx = findIndex(KOREAN_CHOSUNG_LIST, chosung);
++					int joongsungIdx = findIndex(KOREAN_JOONGSUNG_LIST, joongsung);
++					int jongsungIdx = findIndex(KOREAN_JONGSUNG_LIST, static_cast<const char*>(jaeum1));
++					std::string hangul = makeHangul(chosungIdx, joongsungIdx, jongsungIdx);
++
++					chosungIdx = findIndex(KOREAN_CHOSUNG_LIST, static_cast<const char*>(jaeum2));
++					joongsungIdx = findIndex(KOREAN_JOONGSUNG_LIST, text);
++					hangul += makeHangul(chosungIdx, joongsungIdx, 0);
++
++					eraseAndInsert(hangul, false);
++				}
++				else
++				{
++					int chosungIdx = findIndex(KOREAN_CHOSUNG_LIST, chosung);
++					int joongsungIdx = findIndex(KOREAN_JOONGSUNG_LIST, joongsung);
++					std::string hangul = makeHangul(chosungIdx, joongsungIdx, 0);
++
++					chosungIdx = findIndex(KOREAN_CHOSUNG_LIST, jongsung);
++					joongsungIdx = findIndex(KOREAN_JOONGSUNG_LIST, text);
++					hangul += makeHangul(chosungIdx, joongsungIdx, 0);
++
++					eraseAndInsert(hangul, false);
++				}
++			}
++			else if (!strcmp(jongsung, " ") && charType == KoreanCharType::JAEUM)
++			{
++				int jongsungIdx = findIndex(KOREAN_JONGSUNG_LIST, text);
++
++				if (jongsungIdx != -1)
++				{
++					int chosungIdx = findIndex(KOREAN_CHOSUNG_LIST, chosung);
++					int joongsungIdx = findIndex(KOREAN_JOONGSUNG_LIST, joongsung);
++					std::string hangul = makeHangul(chosungIdx, joongsungIdx, jongsungIdx);
++
++					eraseAndInsert(hangul);
++				}
++				else
++				{
++					componentText.insert(componentCursor, text);
++				}
++			}
++			else if (!strcmp(jongsung, " ") && charType == KoreanCharType::MOEUM)
++			{
++				std::string combine = std::string(joongsung) + text;
++
++				int idx = findIndex(KOREAN_IJUNG_MOEUM_COMBINATIONS, combine.c_str());
++				if (idx != -1)
++				{
++					int chosungIdx = findIndex(KOREAN_CHOSUNG_LIST, chosung);
++					int joongsungIdx = findIndex(KOREAN_JOONGSUNG_LIST, KOREAN_IJUNG_MOEUM_LIST.at(idx));
++					std::string hangul = makeHangul(chosungIdx, joongsungIdx, 0);
++
++					eraseAndInsert(hangul);
++				}
++				else
++				{
++					componentText.insert(componentCursor, text);
++				}
++			}
++
++			size_t newCursor = nextCursor(componentText, componentCursor);
++			componentCursor = (unsigned int)newCursor;
++		}
++		// koreanTextInput
++
+ #if defined(_WIN32)
+ 		const std::string convertFromWideString(const std::wstring wstring)
+ 		{
+diff --git a/es-core/src/utils/StringUtil.h b/es-core/src/utils/StringUtil.h
+index e28c6dd33..792711197 100644
+--- a/es-core/src/utils/StringUtil.h
++++ b/es-core/src/utils/StringUtil.h
+@@ -55,6 +55,27 @@ namespace Utils
+ 		int			occurs(const std::string& str, char target);
+ 		bool		isPrintableChar(char c);
+ 
++		// for Korean text input
++		const std::vector<const char*> KOREAN_CHOSUNG_LIST = { "ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅉ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ" };
++		const std::vector<const char*> KOREAN_JOONGSUNG_LIST = { "ㅏ", "ㅐ", "ㅑ", "ㅒ", "ㅓ", "ㅔ", "ㅕ", "ㅖ", "ㅗ", "ㅘ", "ㅙ", "ㅚ", "ㅛ", "ㅜ", "ㅝ", "ㅞ", "ㅟ", "ㅠ", "ㅡ", "ㅢ", "ㅣ" };
++		const std::vector<const char*> KOREAN_JONGSUNG_LIST = { " ", "ㄱ", "ㄲ", "ㄳ", "ㄴ", "ㄵ", "ㄶ", "ㄷ", "ㄹ", "ㄺ", "ㄻ", "ㄼ", "ㄽ", "ㄾ", "ㄿ", "ㅀ", "ㅁ", "ㅂ", "ㅄ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ" };
++		const std::vector<const char*> KOREAN_GYEOP_BATCHIM_LIST = { "ㄳ", "ㄵ", "ㄶ", "ㄺ", "ㄻ", "ㄼ", "ㄽ", "ㄾ", "ㄿ", "ㅀ", "ㅄ" };
++		const std::vector<const char*> KOREAN_GYEOP_BATCHIM_COMBINATIONS = { "ㄱㅅ", "ㄴㅈ", "ㄴㅎ", "ㄹㄱ", "ㄹㅁ", "ㄹㅂ", "ㄹㅅ", "ㄹㅌ", "ㄹㅍ", "ㄹㅎ", "ㅂㅅ" };
++		const std::vector<const char*> KOREAN_IJUNG_MOEUM_LIST = { "ㅘ", "ㅙ", "ㅚ", "ㅝ", "ㅞ", "ㅟ", "ㅢ" };
++		const std::vector<const char*> KOREAN_IJUNG_MOEUM_COMBINATIONS = { "ㅗㅏ", "ㅗㅐ", "ㅗㅣ", "ㅜㅓ", "ㅜㅔ", "ㅜㅣ", "ㅡㅣ" };
++		enum KoreanCharType : unsigned int
++		{
++			NONE = 0,
++			JAEUM = 1,
++			MOEUM = 2,
++		};
++		bool			isKorean(const unsigned int uni);
++		bool			isKorean(const char* _string, bool checkFirstChar = true);
++		KoreanCharType	getKoreanCharType(const char* _string);
++		bool			splitHangulSyllable(const char* input, const char** chosung, const char** joongsung = nullptr, const char** jongsung = nullptr);
++		void			koreanTextInput(const char* text, std::string& componentText, unsigned int& componentCursor);
++		// end Korean text input
++
+ #if defined(_WIN32)
+ 		const std::string convertFromWideString(const std::wstring wstring);
+ 		const std::wstring convertToWideString(const std::string string);
