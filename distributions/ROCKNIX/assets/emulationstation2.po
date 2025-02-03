@@ -1808,7 +1808,7 @@ msgid "GAME SETTINGS"
 msgstr "게임 설정"
 
 msgid "USER INTERFACE SETTINGS"
-msgstr ""
+msgstr "인터페이스 설정"
 
 msgid "SOUND SETTINGS"
 msgstr "사운드 설정"
