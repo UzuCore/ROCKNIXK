@@ -1,8 +1,27 @@
+From 85ad64d176ec4c2a9ea19f91b1b243e7065476e1 Mon Sep 17 00:00:00 2001
+From: bulzipke <bulzipke@naver.com>
+Date: Sat, 25 Jan 2025 14:21:27 +0900
+Subject: [PATCH] Add Korean Keyboard & 4th Keyboard Layout & Unicode support
+ for "Jump to game beginning with the letter"
+
+---
+ es-app/src/guis/GuiGamelistOptions.cpp        |  48 ++-
+ es-app/src/guis/GuiGamelistOptions.h          |   2 +-
+ .../views/gamelist/ISimpleGameListView.cpp    | 150 ++++++----
+ .../src/views/gamelist/ISimpleGameListView.h  |   3 +-
+ es-core/src/components/TextEditComponent.cpp  |  16 +-
+ es-core/src/guis/GuiTextEditPopupKeyboard.cpp | 162 ++++++----
+ es-core/src/guis/GuiTextEditPopupKeyboard.h   |   7 +-
+ es-core/src/resources/Font.cpp                |   5 +
+ es-core/src/utils/StringUtil.cpp              | 279 ++++++++++++++++++
+ es-core/src/utils/StringUtil.h                |  21 ++
+ 10 files changed, 558 insertions(+), 135 deletions(-)
+
 diff --git a/es-app/src/guis/GuiGamelistOptions.cpp b/es-app/src/guis/GuiGamelistOptions.cpp
-index 0d7bb436e..828199fd4 100644
+index 0d7bb436e4..1a87904772 100644
 --- a/es-app/src/guis/GuiGamelistOptions.cpp
 +++ b/es-app/src/guis/GuiGamelistOptions.cpp
-@@ -100,13 +100,20 @@ GuiGamelistOptions::GuiGamelistOptions(Window* window, IGameListView* gamelist,
+@@ -100,13 +100,29 @@ GuiGamelistOptions::GuiGamelistOptions(Window* window, IGameListView* gamelist,
  			{
  				mJumpToLetterList = std::make_shared<LetterList>(mWindow, _("JUMP TO GAME BEGINNING WITH THE LETTER"), false);
  
@@ -12,23 +31,32 @@ index 0d7bb436e..828199fd4 100644
  
 -				if (std::find(letters.begin(), letters.end(), std::string(1, curChar)) == letters.end())
 -					curChar = letters.at(0)[0];
-+				const char* koreanLetter = nullptr;
-+				if (Utils::String::isKorean(cursorName.c_str()) && Utils::String::splitHangulSyllable(cursorName.c_str(), &koreanLetter) && koreanLetter)
-+					curChar = std::string(koreanLetter, 3);
-+				else
-+					curChar = std::string(1, toupper(cursorName[0]));
++				if (Utils::String::isKorean(cursorName.c_str()))
++				{
++					const char* koreanLetter = nullptr;
 +
-+				if (std::find(letters.begin(), letters.end(), curChar) == letters.end())
-+					curChar = letters.at(0);
++					std::string nameChar = cursorName.substr(0, 3);
++					if (!Utils::String::splitHangulSyllable(nameChar.c_str(), &koreanLetter) || !koreanLetter)
++						curChar = std::string(letters.at(0)); // Korean supports chosung search only. set default.
++					else
++						curChar = std::string(koreanLetter, 3);
++				}
++				else
++				{
++					curChar = std::string(1, toupper(cursorName[0]));
++				}
  
 -				for (auto letter : letters)
 -					mJumpToLetterList->add(letter, letter[0], letter[0] == curChar);
++				if (std::find(letters.begin(), letters.end(), curChar) == letters.end())
++					curChar = letters.at(0);
++
 +				for (const auto& letter : letters)
 +					mJumpToLetterList->add(letter, letter, letter == curChar);
  
  				row.addElement(std::make_shared<TextComponent>(mWindow, _("JUMP TO GAME BEGINNING WITH THE LETTER"), theme->Text.font, theme->Text.color), true);
  				row.addElement(mJumpToLetterList, false);
-@@ -487,7 +494,7 @@ void GuiGamelistOptions::openMetaDataEd()
+@@ -487,7 +503,7 @@ void GuiGamelistOptions::openMetaDataEd()
  
  void GuiGamelistOptions::jumpToLetter()
  {
@@ -37,7 +65,7 @@ index 0d7bb436e..828199fd4 100644
  	IGameListView* gamelist = getGamelist();
  
  	if (mListSort->getSelected() != 0)
-@@ -505,11 +512,18 @@ void GuiGamelistOptions::jumpToLetter()
+@@ -505,11 +521,27 @@ void GuiGamelistOptions::jumpToLetter()
  	auto files = gamelist->getFileDataEntries();
  	for (int i = files.size() - 1; i >= 0; i--)
  	{
@@ -49,20 +77,29 @@ index 0d7bb436e..828199fd4 100644
 -		char checkLetter = (char)toupper(name[0]);
 +		std::string checkLetter;
 +
-+		const char* koreanLetter = nullptr;
-+		if (Utils::String::isKorean(name.c_str()) && Utils::String::splitHangulSyllable(name.c_str(), &koreanLetter) && koreanLetter)
++		if (Utils::String::isKorean(name.c_str()))
++		{
++			const char* koreanLetter = nullptr;
++
++			std::string nameChar = name.substr(0, 3);
++			if (!Utils::String::splitHangulSyllable(nameChar.c_str(), &koreanLetter) || !koreanLetter)
++				continue;
++
 +			checkLetter = std::string(koreanLetter, 3);
++		}
 +		else
++		{
 +			checkLetter = std::string(1, toupper(name[0]));
++		}
 +
  		if (letterIndex >= 0 && checkLetter != letter)
  			break;
  
 diff --git a/es-app/src/guis/GuiGamelistOptions.h b/es-app/src/guis/GuiGamelistOptions.h
-index 0debc8f91..94faaefc4 100644
+index 0debc8f914..94faaefc41 100644
 --- a/es-app/src/guis/GuiGamelistOptions.h
 +++ b/es-app/src/guis/GuiGamelistOptions.h
-@@ -41,7 +41,7 @@ private:
+@@ -41,7 +41,7 @@ class GuiGamelistOptions : public GuiComponent
  
  	MenuComponent mMenu;
  
@@ -72,17 +109,17 @@ index 0debc8f91..94faaefc4 100644
  
  	typedef OptionListComponent<unsigned int> SortList;
 diff --git a/es-app/src/views/gamelist/ISimpleGameListView.cpp b/es-app/src/views/gamelist/ISimpleGameListView.cpp
-index 20fbae3db..1e962811d 100644
+index b9deee76b4..6d22c2deb7 100644
 --- a/es-app/src/views/gamelist/ISimpleGameListView.cpp
 +++ b/es-app/src/views/gamelist/ISimpleGameListView.cpp
-@@ -481,100 +481,102 @@ void ISimpleGameListView::moveToRandomGame()
+@@ -481,100 +481,128 @@ void ISimpleGameListView::moveToRandomGame()
  		setCursor(list.at(target));
  }
  
 -bool ISimpleGameListView::moveToLetter(char letter)
 +bool ISimpleGameListView::moveToLetter(const std::string& letter)
  {
- 
+-
  	auto files = getFileDataEntries();
 -        long letterIndex = -1;
 +	long letterIndex = -1;
@@ -92,51 +129,83 @@ index 20fbae3db..1e962811d 100644
 -                auto name = files.at(i)->getName();
 -                if (name.empty())
 -                        continue;
-+	{
-+			const std::string& name = files.at(i)->getName();
-+			if (name.empty())
-+				continue;
-+
-+			std::string checkLetter;
-+
-+			const char* koreanLetter = nullptr;
-+			if (Utils::String::isKorean(name.c_str()) && Utils::String::splitHangulSyllable(name.c_str(), &koreanLetter) && koreanLetter)
-+				checkLetter = std::string(koreanLetter, 3);
-+			else
-+				checkLetter = std::string(1, toupper(name[0]));
- 
+-
 -                char checkLetter = (char)toupper(name[0]);
 -                if (letterIndex >= 0 && checkLetter != letter)
 -                        break;
-+			if (letterIndex >= 0 && checkLetter != letter)
-+				break;
++	{
++		const std::string& name = files.at(i)->getName();
++		if (name.empty())
++			continue;
  
 -                if (checkLetter == letter)
 -                        letterIndex = i;
 -        }
-+			if (checkLetter == letter)
-+				letterIndex = i;
-+	}
++		std::string checkLetter;
  
 -        if (letterIndex >= 0) {
 -                setCursor(files.at(letterIndex));
 -		return 1;
+-	}
++		if (Utils::String::isKorean(name.c_str()))
++		{
++			const char* koreanLetter = nullptr;
+ 
+-	return 0;
+-}
++			std::string nameChar = name.substr(0, 3);
++			if (!Utils::String::splitHangulSyllable(nameChar.c_str(), &koreanLetter) || !koreanLetter)
++				continue; // Korean supports chosung search only.
++			else
++				checkLetter = std::string(koreanLetter, 3);
++		}
++		else
++		{
++			checkLetter = std::string(1, toupper(name[0]));
++		}
+ 
+-void ISimpleGameListView::moveToNextLetter()
+-{
+-        std::vector<std::string> letters = getEntriesLetters();
+-        if (letters.empty())
+-		return;
++		if (letterIndex >= 0 && checkLetter != letter)
++			break;
+ 
+-	FileData* game = getCursor();
+-	if (game == nullptr) {
+-		return;
++		if (checkLetter == letter)
++			letterIndex = i;
+ 	}
+ 
+-	auto namecurrent = game->getName();
+-	char curChar = (char)toupper(namecurrent[0]);
+-
+-        auto it = std::find(letters.begin(), letters.end(), std::string(1, curChar));
+-	if (it != letters.end()) {
+-		int index = it - letters.begin();
+-		index++;
+-		if (index >= letters.size())
+-			index = 0;
+-		char letter = letters.at(index)[0];
+-		moveToLetter(letter);
 +	if (letterIndex >= 0) {
 +		setCursor(files.at(letterIndex));
 +		return true;
  	}
- 
--	return 0;
++
 +	return false;
  }
  
--void ISimpleGameListView::moveToNextLetter()
+-void ISimpleGameListView::moveToPreviousLetter()
 +void ISimpleGameListView::moveToLetterByOffset(int offset)
  {
+-
 -        std::vector<std::string> letters = getEntriesLetters();
 -        if (letters.empty())
-+		std::vector<std::string> letters = getEntriesLetters();
-+		if (letters.empty())
++	std::vector<std::string> letters = getEntriesLetters();
++	if (letters.empty())
  		return;
  
  	FileData* game = getCursor();
@@ -150,65 +219,51 @@ index 20fbae3db..1e962811d 100644
 +	const std::string& namecurrent = game->getName();
 +	std::string curLetter;
 +
-+	const char* koreanLetter = nullptr;
-+	if (Utils::String::isKorean(namecurrent.c_str()) && Utils::String::splitHangulSyllable(namecurrent.c_str(), &koreanLetter) && koreanLetter)
-+		curLetter = std::string(koreanLetter, 3);
-+	else
-+		curLetter = std::string(1, toupper(namecurrent[0]));
- 
--        auto it = std::find(letters.begin(), letters.end(), std::string(1, curChar));
--	if (it != letters.end()) {
--		int index = it - letters.begin();
--		index++;
--		if (index >= letters.size())
-+	auto it = std::find(letters.begin(), letters.end(), curLetter);
-+	if (it != letters.end())
++	if (Utils::String::isKorean(namecurrent.c_str()))
 +	{
-+		int index = std::distance(letters.begin(), it) + offset;
-+		if (index < 0)
-+			index = letters.size() - 1;
-+		else if (index >= letters.size())
- 			index = 0;
--		char letter = letters.at(index)[0];
--		moveToLetter(letter);
-+
-+		moveToLetter(letters.at(index));
- 	}
- }
++		const char* koreanLetter = nullptr;
  
--void ISimpleGameListView::moveToPreviousLetter()
-+void ISimpleGameListView::moveToNextLetter()
- {
-+	moveToLetterByOffset(1);
-+}
- 
--        std::vector<std::string> letters = getEntriesLetters();
--        if (letters.empty())
--		return;
--
--	FileData* game = getCursor();
--	if (game == nullptr) {
--		return;
--	}
--
--	auto namecurrent = game->getName();
--	char curChar = (char)toupper(namecurrent[0]);
--
 -        auto it = std::find(letters.begin(), letters.end(), std::string(1, curChar));
 -	if (it != letters.end()) {
 -		int index = it - letters.begin();
 -		index--;
--		if (index < 0)
++		std::string nameChar = namecurrent.substr(0, 3);
++		if (!Utils::String::splitHangulSyllable(nameChar.c_str(), &koreanLetter) || !koreanLetter)
++			curLetter = std::string(letters.at(0)); // Korean supports chosung search only. set default.
++		else
++			curLetter = std::string(koreanLetter, 3);
++	}
++	else
++	{
++		curLetter = std::string(1, toupper(namecurrent[0]));
++	}
++
++	auto it = std::find(letters.begin(), letters.end(), curLetter);
++	if (it != letters.end())
++	{
++		int index = std::distance(letters.begin(), it) + offset;
+ 		if (index < 0)
 -			index = letters.size()-1;
--
++			index = letters.size() - 1;
++		else if (index >= letters.size())
++			index = 0;
+ 
 -		char letter = letters.at(index)[0];
 -		moveToLetter(letter);
--	}
++		moveToLetter(letters.at(index));
+ 	}
+ }
+ 
++void ISimpleGameListView::moveToNextLetter()
++{
++	moveToLetterByOffset(1);
++}
++
 +void ISimpleGameListView::moveToPreviousLetter()
 +{
 +	moveToLetterByOffset(-1);
- }
- 
++}
++
  std::vector<std::string> ISimpleGameListView::getEntriesLetters()
  {	
  	std::set<std::string> setOfLetters;
@@ -220,17 +275,26 @@ index 20fbae3db..1e962811d 100644
 +	{
 +		if (file->getType() != GAME)
 +			continue;
++
++		const std::string& name = file->getName();
++
++		if (Utils::String::isKorean(name.c_str()))
++		{
++			const char* koreanLetter = nullptr;
  
 -	std::vector<std::string> letters;
-+		const std::string& name = file->getName();
++			std::string nameChar = name.substr(0, 3);
++			if (!Utils::String::splitHangulSyllable(nameChar.c_str(), &koreanLetter) || !koreanLetter)
++				continue;
  
 -	for (const auto letter : setOfLetters)
 -		letters.push_back(letter);
-+		const char* koreanLetter = nullptr;
-+		if (Utils::String::isKorean(name.c_str()) && Utils::String::splitHangulSyllable(name.c_str(), &koreanLetter) && koreanLetter)
 +			setOfLetters.insert(std::string(koreanLetter, 3));
++		}
 +		else
++		{
 +			setOfLetters.insert(std::string(1, toupper(name[0])));
++		}
 +	}
  
 -	std::sort(letters.begin(), letters.end());
@@ -239,10 +303,10 @@ index 20fbae3db..1e962811d 100644
  }
  
 diff --git a/es-app/src/views/gamelist/ISimpleGameListView.h b/es-app/src/views/gamelist/ISimpleGameListView.h
-index 2dd99aa34..4978fc943 100644
+index 2dd99aa343..4978fc943d 100644
 --- a/es-app/src/views/gamelist/ISimpleGameListView.h
 +++ b/es-app/src/views/gamelist/ISimpleGameListView.h
-@@ -46,7 +46,8 @@ public:
+@@ -46,7 +46,8 @@ class ISimpleGameListView : public IGameListView
  	void closePopupContext();
  	
  	virtual void moveToRandomGame();
@@ -253,7 +317,7 @@ index 2dd99aa34..4978fc943 100644
  	virtual void moveToPreviousLetter();
  
 diff --git a/es-core/src/components/TextEditComponent.cpp b/es-core/src/components/TextEditComponent.cpp
-index 86183f21d..51e8af142 100644
+index 86183f21d2..f9749ebfe5 100644
 --- a/es-core/src/components/TextEditComponent.cpp
 +++ b/es-core/src/components/TextEditComponent.cpp
 @@ -67,20 +67,26 @@ std::string TextEditComponent::getValue() const
@@ -275,22 +339,21 @@ index 86183f21d..51e8af142 100644
  				mCursor = (unsigned int)newCursor;
  			}
 -		}else{
--			mText.insert(mCursor, text);
--			mCursor += (unsigned int)strlen(text);
 +		}
 +		else if (mCursor > 2 && Utils::String::isKorean(text) && Utils::String::isKorean(mText.substr(mCursor - 3, 3).c_str()))
 +		{
-+				Utils::String::koreanTextInput(text, mText, mCursor);
++			Utils::String::koreanTextInput(text, mText, mCursor);
 +		}
 +		else {
-+				mText.insert(mCursor, text);
-+				size_t newCursor = Utils::String::nextCursor(mText, mCursor);
-+				mCursor = (unsigned int)newCursor;
+ 			mText.insert(mCursor, text);
+-			mCursor += (unsigned int)strlen(text);
++			size_t newCursor = Utils::String::nextCursor(mText, mCursor);
++			mCursor = (unsigned int)newCursor;
  		}
  	}
  
 diff --git a/es-core/src/guis/GuiTextEditPopupKeyboard.cpp b/es-core/src/guis/GuiTextEditPopupKeyboard.cpp
-index a670489a3..0ae6cebe6 100644
+index c29d137fbf..b13fcd1ea7 100644
 --- a/es-core/src/guis/GuiTextEditPopupKeyboard.cpp
 +++ b/es-core/src/guis/GuiTextEditPopupKeyboard.cpp
 @@ -12,25 +12,31 @@
@@ -329,8 +392,9 @@ index a670489a3..0ae6cebe6 100644
  	{ "&", "é", "\"", "'", "(", "#", "è", "!", "ç", "à", ")", "-", "DEL" },
  	{ "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "@", "_", "DEL" },
  	{ "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "@", "_", "DEL" },
+-	
 +	{ "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "@", "_", "DEL" },
- 	
++
  	{ "a", "z", "e", "r", "t", "y", "u", "i", "o", "p", "^", "$", "OK" },
  	{ "A", "Z", "E", "R", "T", "Y", "U", "I", "O", "P", "¨", "*", "OK" },
  	{ "à", "ä", "ë", "ì", "ï", "ò", "ö", "ü", "\\", "|", "§", "°", "OK" },
@@ -479,19 +543,20 @@ index a670489a3..0ae6cebe6 100644
  				{
  					if (std::string((*layout)[cs][j]) == "-rowspan-")
  						rowSpan++;
-@@ -354,58 +398,51 @@ bool GuiTextEditPopupKeyboard::input(InputConfig* config, Input input)
+@@ -353,59 +397,51 @@ bool GuiTextEditPopupKeyboard::input(InputConfig* config, Input input)
+ 	return false;
  }
  
- // Shifts the keys when user hits the shift button.
+-// Shifts the keys when user hits the shift button.
 -void GuiTextEditPopupKeyboard::shiftKeys() 
 +void GuiTextEditPopupKeyboard::toggleKeyState(bool& state, std::shared_ptr<ButtonComponent>& button)
  {
 -	if (mAlt && !mShift)
 -		altKeys();
+-
+-	mShift = !mShift;
 +	state = !state;
  
--	mShift = !mShift;
--
 -	if (mShift)
 +	if (state)
  	{
@@ -565,7 +630,7 @@ index a670489a3..0ae6cebe6 100644
  }
  
  std::vector<HelpPrompt> GuiTextEditPopupKeyboard::getHelpPrompts()
-@@ -423,10 +460,10 @@ std::vector<HelpPrompt> GuiTextEditPopupKeyboard::getHelpPrompts()
+@@ -423,9 +459,9 @@ std::vector<HelpPrompt> GuiTextEditPopupKeyboard::getHelpPrompts()
  	return prompts;
  }
  
@@ -573,13 +638,11 @@ index a670489a3..0ae6cebe6 100644
 +std::shared_ptr<ButtonComponent> GuiTextEditPopupKeyboard::makeButton(const std::string& key, const std::string& shiftedKey, const std::string& altedKey, const std::string& altedShiftedKey)
  {
 -	std::shared_ptr<ButtonComponent> button = std::make_shared<ButtonComponent>(mWindow, key, key, [this, key, shiftedKey, altedKey]
--	{						
 +	std::shared_ptr<ButtonComponent> button = std::make_shared<ButtonComponent>(mWindow, key, key, [this, key, shiftedKey, altedKey, altedShiftedKey]
-+	{
+ 	{						
  		if (key == _U("\uF058") || key.find("OK") != std::string::npos)
  		{	
- 			if (mMultiLine && (mShift || mAlt))
-@@ -462,22 +499,34 @@ std::shared_ptr<ButtonComponent> GuiTextEditPopupKeyboard::makeButton(const std:
+@@ -462,22 +498,34 @@ std::shared_ptr<ButtonComponent> GuiTextEditPopupKeyboard::makeButton(const std:
  			return;
  		}
  
@@ -621,11 +684,12 @@ index a670489a3..0ae6cebe6 100644
  	keyboardButtons.push_back(kb);
  	return button;
  }
+\ No newline at end of file
 diff --git a/es-core/src/guis/GuiTextEditPopupKeyboard.h b/es-core/src/guis/GuiTextEditPopupKeyboard.h
-index bad142bd3..d90b75e8c 100644
+index bad142bd35..d90b75e8cf 100644
 --- a/es-core/src/guis/GuiTextEditPopupKeyboard.h
 +++ b/es-core/src/guis/GuiTextEditPopupKeyboard.h
-@@ -26,15 +26,18 @@ private:
+@@ -26,15 +26,18 @@ class GuiTextEditPopupKeyboard : public GuiComponent
  		const std::string key;
  		const std::string shiftedKey;
  		const std::string altedKey;
@@ -647,7 +711,7 @@ index bad142bd3..d90b75e8c 100644
  	void altKeys();
  
 diff --git a/es-core/src/resources/Font.cpp b/es-core/src/resources/Font.cpp
-index adebd03b6..89d58292f 100644
+index adebd03b6e..89d58292ff 100644
 --- a/es-core/src/resources/Font.cpp
 +++ b/es-core/src/resources/Font.cpp
 @@ -331,6 +331,11 @@ FT_Face Font::getFaceForChar(unsigned int id)
@@ -663,7 +727,7 @@ index adebd03b6..89d58292f 100644
  			return fit->second->face;
  	}
 diff --git a/es-core/src/utils/StringUtil.cpp b/es-core/src/utils/StringUtil.cpp
-index 3f900f800..bdc9a879a 100644
+index 3f900f8001..c3f4d65e21 100644
 --- a/es-core/src/utils/StringUtil.cpp
 +++ b/es-core/src/utils/StringUtil.cpp
 @@ -966,6 +966,285 @@ namespace Utils
@@ -734,7 +798,7 @@ index 3f900f800..bdc9a879a 100644
 +				*chosung = input;
 +				break;
 +			case KoreanCharType::MOEUM:
-+				*joongsung = input;
++				if (joongsung) *joongsung = input;
 +				break;
 +			default:
 +				size_t cursor = 0;
@@ -953,7 +1017,7 @@ index 3f900f800..bdc9a879a 100644
  		const std::string convertFromWideString(const std::wstring wstring)
  		{
 diff --git a/es-core/src/utils/StringUtil.h b/es-core/src/utils/StringUtil.h
-index e28c6dd33..792711197 100644
+index e28c6dd331..792711197f 100644
 --- a/es-core/src/utils/StringUtil.h
 +++ b/es-core/src/utils/StringUtil.h
 @@ -55,6 +55,27 @@ namespace Utils
