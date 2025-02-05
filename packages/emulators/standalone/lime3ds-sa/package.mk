@@ -23,13 +23,21 @@ then
   PKG_DEPENDS_TARGET+=" vulkan-loader vulkan-headers"
 fi
 
-PKG_CMAKE_OPTS_TARGET+="-DENABLE_QT=OFF \
-                        -DENABLE_QT_TRANSLATION=OFF \
-                        -DENABLE_SDL2=ON \
-                        -DENABLE_SDL2_FRONTEND=ON \
-                        -DENABLE_TESTS=OFF \
-                        -DENABLE_DEDICATED_ROOM=OFF \
-                        -DUSE_DISCORD_PRESENCE=OFF"
+case ${DEVICE} in
+  SM8250)
+    PKG_CMAKE_OPTS_TARGET+=" -DENABLE_QT=ON"
+  ;;
+  *)
+    PKG_CMAKE_OPTS_TARGET+=" -DENABLE_QT=OFF"
+  ;;
+esac
+
+PKG_CMAKE_OPTS_TARGET+=" -DENABLE_QT_TRANSLATION=OFF \
+                         -DENABLE_SDL2=ON \
+                         -DENABLE_SDL2_FRONTEND=ON \
+                         -DENABLE_TESTS=OFF \
+                         -DENABLE_DEDICATED_ROOM=OFF \
+                         -DUSE_DISCORD_PRESENCE=OFF"
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin

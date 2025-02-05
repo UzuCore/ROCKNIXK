@@ -163,3 +163,8 @@ if echo ${QUIRK_DEVICE} | grep R33S; then
         sed -i "s/190014b3010000009178000000050000/190014b301000000a20a000000010000/g" $file
     done
 fi
+
+# RK3588 - clean lime3ds config
+if [ "${HW_DEVICE}" = "RK3588" ]; then
+  rm -f /storage/.config/lime3ds/sdl2-config.ini
+fi
