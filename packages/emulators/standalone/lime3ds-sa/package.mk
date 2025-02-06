@@ -6,7 +6,7 @@ PKG_VERSION="1f7247c86156a13b93e372a51ec84a9697a4a619"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/Lime3DS/Lime3DS"
 PKG_URL="${PKG_SITE}.git"
-PKG_DEPENDS_TARGET="toolchain ffmpeg mesa SDL2 boost zlib libusb boost zstd control-gen spirv-tools"
+PKG_DEPENDS_TARGET="toolchain ffmpeg mesa SDL2 boost zlib libusb boost zstd control-gen spirv-tools qt6"
 PKG_LONGDESC="Lime3DS - Nintendo 3DS emulator"
 PKG_TOOLCHAIN="cmake"
 
