@@ -20,6 +20,14 @@
 		</trigger>
 		<mappings>
 			<entry>
+				<mapping>25</mapping>
+				<button>15</button>
+			</entry>
+			<entry>
+				<mapping>26</mapping>
+				<button>5</button>
+			</entry>
+			<entry>
 				<mapping>24</mapping>
 				<button>40</button>
 			</entry>

@@ -12,7 +12,7 @@ diff -rupbN linux.orig/arch/arm64/boot/dts/rockchip/Makefile linux/arch/arm64/bo
 diff -rupbN linux.orig/arch/arm64/boot/dts/rockchip/rk3588s-gameforce-ace.dts linux/arch/arm64/boot/dts/rockchip/rk3588s-gameforce-ace.dts
 --- linux.orig/arch/arm64/boot/dts/rockchip/rk3588s-gameforce-ace.dts	1970-01-01 00:00:00.000000000 +0000
 +++ linux/arch/arm64/boot/dts/rockchip/rk3588s-gameforce-ace.dts	2024-09-26 21:36:21.267779675 +0000
-@@ -0,0 +1,1444 @@
+@@ -0,0 +1,1445 @@
 +// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 +/*
 + * Copyright (c) 2021 Rockchip Electronics Co., Ltd.
@@ -68,7 +68,7 @@ diff -rupbN linux.orig/arch/arm64/boot/dts/rockchip/rk3588s-gameforce-ace.dts li
 +		joypad-revision = <0x0100>;
 +
 +		/* Analog sticks */
-+		io-channels = <&saradc 2>, <&saradc 3>, <&saradc 4>, <&saradc 5>, <&ti_adc 6>, <&ti_adc 7>;
++		io-channels = <&saradc 2>, <&saradc 3>, <&saradc 5>, <&saradc 4>, <&ti_adc 6>, <&ti_adc 7>;
 +		io-channel-names = "key-RY", "key-RX", "key-X", "key-Y", "key-Z", "key-RZ";
 +		button-adc-scale = <4>;
 +		button-adc-deadzone = <150>;
@@ -76,6 +76,7 @@ diff -rupbN linux.orig/arch/arm64/boot/dts/rockchip/rk3588s-gameforce-ace.dts li
 +		button-adc-flat = <32>;
 +		abs_x-p-tuning = <350>;
 +		abs_x-n-tuning = <350>;
++       invert-absy;
 +		abs_y-p-tuning = <350>;
 +		abs_y-n-tuning = <350>;
 +		abs_z-p-tuning = <350>;

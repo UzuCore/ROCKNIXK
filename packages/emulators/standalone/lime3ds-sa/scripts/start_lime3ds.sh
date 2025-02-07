@@ -23,6 +23,14 @@ ln -sf /storage/roms/3ds/lime3ds/sdmc /storage/.config/lime3ds/sdmc
 rm -rf /storage/.config/lime3ds/nand
 ln -sf /storage/roms/3ds/lime3ds/nand /storage/.config/lime3ds/nand
 
+# RK3588 - handle different config files for ACE / CM5
+if [ "${HW_DEVICE}" = "RK3588" ] && [ ! -f "/storage/.config/lime3ds/sdl2-config.ini" ]; then
+  if echo ${QUIRK_DEVICE} | grep CM5; then
+    cp /usr/config/lime3ds/sdl2-config_CM5.ini /storage/.config/lime3ds/sdl2-config.ini
+  else
+    cp /usr/config/lime3ds/sdl2-config_ACE.ini /storage/.config/lime3ds/sdl2-config.ini
+  fi
+fi
 
 # Emulation Station Features
 GAME=$(echo "${1}"| sed "s#^/.*/##")
