@@ -86,9 +86,7 @@ ln -sf /usr/share/locale /storage/.config/emulationstation/locale >>/var/log/con
 
 # Update PPSSPP & PS2 configs on Retroid Devices
 if echo ${HW_DEVICE} | grep SM8250; then
-  cp -rf /usr/config/ppsspp/PSP/SYSTEM/controls.ini /storage/.config/ppsspp/PSP/SYSTEM/controls.ini
-  cp -rf /usr/config/ppsspp/PSP/SYSTEM/ppsspp.ini /storage/.config/ppsspp/PSP/SYSTEM/ppsspp.ini
-  cp -rf /usr/config/aethersx2/inis/PCSX2.ini /storage/.config/aethersx2/inis/PCSX2.ini
+  sed -i '/video_threaded =/c\video_threaded = "false"' /storage/.config/retroarch/retroarch.cfg
 fi
 
 # run the idtech script on update if folder does not exist
