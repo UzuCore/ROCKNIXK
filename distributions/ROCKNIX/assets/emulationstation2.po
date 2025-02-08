@@ -164,7 +164,7 @@ msgid "FILES"
 msgstr "파일"
 
 msgid "Full"
-msgstr "가득참"
+msgstr "Full"
 
 msgid "Kiosk"
 msgstr "키오스크"
@@ -2264,7 +2264,7 @@ msgid "SWITCH CONFIRM & CANCEL BUTTONS IN EMULATIONSTATION"
 msgstr "에뮬레이션스테이션의 확인 및 취소 버튼 전환"
 
 msgid "Switches the South and East buttons' functionality"
-msgstr "남쪽과 동쪽 버튼의 기능을 전환"
+msgstr "남쪽과 동쪽 버튼의 기능을 전환합니다."
 
 msgid "ACCESS GAME OPTIONS WITH NORTH BUTTON"
 msgstr "위쪽 버튼으로 게임 옵션 열기"
@@ -2272,7 +2272,7 @@ msgstr "위쪽 버튼으로 게임 옵션 열기"
 msgid ""
 "Switches to short-press North for Savestates & long-press South button for "
 "Game Options"
-msgstr "위 버튼(진행 저장) 과 아래 버튼(게임 옵션)을 변경"
+msgstr "위 버튼(진행 저장) 과 아래 버튼(게임 옵션)을 변경합니다."
 
 msgid "CONTROL EMULATIONSTATION WITH FIRST JOYSTICK ONLY"
 msgstr "첫 번째 조이스틱으로만 에뮬레이션스테이션 제어"
@@ -2778,7 +2778,7 @@ msgid "Never overwrite old savestates, always make new ones."
 msgstr "이전 저장 상태를 덮어쓰지 말고, 항상 새 저장 상태를 만드세요."
 
 msgid "INCREMENT SLOT"
-msgstr "증가 슬롯"
+msgstr "슬롯 증가"
 
 msgid "Increment slot on a new game."
 msgstr "새로운 게임에서 슬롯을 늘립니다."
@@ -3057,7 +3057,7 @@ msgid "IGNORE LEADING ARTICLES WHEN SORTING"
 msgstr "정렬할 때 주요 규칙 무시"
 
 msgid "Ignore 'The' and 'A' if at the start."
-msgstr "시작 부분에 'The'와 'A'가 있으면 무시하세요."
+msgstr "시작 부분에 'The'와 'A'가 있으면 무시합니다."
 
 msgid "VOLUME"
 msgstr "볼륨"
