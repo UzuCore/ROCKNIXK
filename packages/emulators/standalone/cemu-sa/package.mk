@@ -3,7 +3,7 @@
 # Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
 
 PKG_NAME="cemu-sa"
-PKG_VERSION="2b0cbf7f6b6c34c748585d255ee7756ff592a502"
+PKG_VERSION="a6fb0a48eb437a8a41c13b782ac8ae0433bf8f98"
 PKG_LICENSE="MPL-2.0"
 PKG_SITE="https://github.com/cemu-project/Cemu"
 PKG_URL="${PKG_SITE}.git"

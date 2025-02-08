@@ -1,10 +1,3 @@
-# SPDX-License-Identifier: GPL-2.0
-# Copyright (C) 2025 Cyril Delétré (https://github.com/cdeletre)
-# Copyright (C) 2025 Romain Tisserand (https://github.com/REG-Linux)
-# Copyright (C) 2025 Exzap (https://github.com/Exzap)
-# Copyright (C) 2025 SSimco (https://github.com/SSimco)
-# Copyright (C) 2025 exverge-0 (https://github.com/exverge-0)
-
 From c8fe2428a027a075c4a1c4b6814a86ae65030849 Mon Sep 17 00:00:00 2001
 From: SSimco <37044560+SSimco@users.noreply.github.com>
 Date: Wed, 25 Sep 2024 09:13:18 +0300
@@ -40,7 +33,6 @@ Subject: [PATCH] Decode unsuported formats
 
 ---
  src/Cafe/HW/Latte/Core/LatteTextureLoader.h   | 240 ++++++++++++++++++
- .../Latte/Renderer/Vulkan/VulkanRenderer.cpp  | 130 ++++++++--
  .../HW/Latte/Renderer/Vulkan/VulkanRenderer.h |   5 +
  3 files changed, 355 insertions(+), 20 deletions(-)
 
@@ -316,11 +308,210 @@ index f6de57d68..31b049044 100644
  class TextureDecoder_BC5_UNORM_uncompress : public TextureDecoder, public SingletonClass<TextureDecoder_BC5_UNORM_uncompress>
  {
  public:
-diff --git a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp
-index 75c602684..c61c1d04b 100644
---- a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp
-+++ b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp
-@@ -1735,6 +1735,16 @@ void VulkanRenderer::QueryMemoryInfo()
+diff --git a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h
+index af501b5f5..dccc0079c 100644
+--- a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h
++++ b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h
+@@ -21,6 +21,11 @@ struct VkSupportedFormatInfo_t
+ 	bool fmt_r5g6b5_unorm_pack{};
+ 	bool fmt_r4g4b4a4_unorm_pack{};
+ 	bool fmt_a1r5g5b5_unorm_pack{};
++	bool fmt_bc1{};
++	bool fmt_bc2{};
++	bool fmt_bc3{};
++	bool fmt_bc4{};
++	bool fmt_bc5{};
+ };
+ 
+ struct VkDescriptorSetInfo
+From 0c05c3e87f4c0f22bcbf6fd0cedf0e776e63ef72 Mon Sep 17 00:00:00 2001
+From: SSimco <37044560+SSimco@users.noreply.github.com>
+Date: Fri, 27 Sep 2024 01:41:35 +0300
+Subject: [PATCH] Fix bc5 decoding
+
+---
+ src/Cafe/HW/Latte/Core/LatteTextureLoader.h          | 7 ++++---
+ 2 files changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/src/Cafe/HW/Latte/Core/LatteTextureLoader.h b/src/Cafe/HW/Latte/Core/LatteTextureLoader.h
+index 31b049044..8e3ad0985 100644
+--- a/src/Cafe/HW/Latte/Core/LatteTextureLoader.h
++++ b/src/Cafe/HW/Latte/Core/LatteTextureLoader.h
+@@ -46,6 +46,7 @@ void decodeBC3Block_UNORM(uint8* inputData, float* imageRGBA);
+ void decodeBC4Block_UNORM(uint8* blockStorage, float* rOutput);
+ void decodeBC5Block_UNORM(uint8* blockStorage, float* rgOutput);
+ void decodeBC5Block_SNORM(uint8* blockStorage, float* rgOutput);
++using decodingFn = void (uint8 *, float *);
+ 
+ inline void BC1_GetPixel(uint8* inputData, sint32 x, sint32 y, uint8 rgba[4])
+ {
+@@ -2171,8 +2172,8 @@ class TextureDecoder_BC4 : public TextureDecoder, public SingletonClass<TextureD
+ 		*(outputPixel + 3) = 255;
+ 	}
+ };
+-
+-class TextureDecoder_BC5_To_R8G8 : public TextureDecoder, public SingletonClass<TextureDecoder_BC5_To_R8G8>
++template<decodingFn fn>
++class TextureDecoder_BC5_To_R8G8 : public TextureDecoder, public SingletonClass<TextureDecoder_BC5_To_R8G8<fn>>
+ {
+ public:
+ 
+@@ -2192,7 +2193,7 @@ class TextureDecoder_BC5_To_R8G8 : public TextureDecoder, public SingletonClass<
+ 				sint32 blockSizeY = (std::min)(4, textureLoader->height - y);
+ 				// decode 4x4 pixels at once
+ 				float rgBlock[4 * 4 * 2];
+-				decodeBC5Block_UNORM(blockData, rgBlock);
++				fn(blockData, rgBlock);
+ 
+ 				for (sint32 py = 0; py < blockSizeY; py++)
+ 				{
+From 15183df480dba3e6e36b0ab246da25efda4ab63c Mon Sep 17 00:00:00 2001
+From: SSimco <37044560+SSimco@users.noreply.github.com>
+Date: Sun, 13 Oct 2024 20:33:50 +0300
+Subject: [PATCH] Check for alternative mem types & optional extensions
+
+---
+ .../HW/Latte/Renderer/Vulkan/VulkanRenderer.h |  1 +
+ 2 files changed, 17 insertions(+), 3 deletions(-)
+
+diff --git a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h
+index dccc0079c..2f2f817ea 100644
+--- a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h
++++ b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h
+@@ -449,6 +449,7 @@ class VulkanRenderer : public Renderer
+ 			bool tooling_info = false; // VK_EXT_tooling_info
+ 			bool transform_feedback = false;
+ 			bool depth_range_unrestricted = false;
++			bool depth_clip_enable = false;
+ 			bool nv_fill_rectangle = false; // NV_fill_rectangle
+ 			bool pipeline_feedback = false;
+ 			bool pipeline_creation_cache_control = false; // VK_EXT_pipeline_creation_cache_control
+diff -u -r a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h
+--- a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h	2025-01-22 13:44:05.597460220 +0100
++++ b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h	2025-01-22 13:53:02.918435661 +0100
+@@ -461,6 +461,16 @@
+ 
+ 		struct
+ 		{
++			bool geometry_shader;
++			bool logic_op;
++			bool sampler_anisotropy;
++			bool occlusion_query_precise;
++			bool depth_clamp;
++			bool vertex_pipeline_stores_and_atomics;
++		} deviceFeatures;
++
++		struct
++		{
+ 			bool shaderRoundingModeRTEFloat32{ false };
+ 		}shaderFloatControls; // from VK_KHR_shader_float_controls
+ 
+--- a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp	2025-02-07 09:46:27.599523157 +0100
++++ b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp	2025-02-07 09:51:30.074195446 +0100
+@@ -55,7 +55,6 @@
+ const std::vector<const char*> kRequiredDeviceExtensions =
+ {
+ 	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+-	VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME
+ }; // Intel doesnt support VK_EXT_DEPTH_RANGE_UNRESTRICTED_EXTENSION_NAME
+ 
+ VKAPI_ATTR VkBool32 VKAPI_CALL DebugUtilsCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageTypes, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
+@@ -271,7 +270,12 @@
+ 	vkGetPhysicalDeviceFeatures2(m_physicalDevice, &physicalDeviceFeatures2);
+ 
+ 	cemuLog_log(LogType::Force, "Vulkan: present_wait extension: {}", (pwf.presentWait && pidf.presentId) ? "supported" : "unsupported");
+-
++	m_featureControl.deviceFeatures.geometry_shader = physicalDeviceFeatures2.features.geometryShader;
++	m_featureControl.deviceFeatures.logic_op = physicalDeviceFeatures2.features.logicOp;
++	m_featureControl.deviceFeatures.sampler_anisotropy = physicalDeviceFeatures2.features.samplerAnisotropy;
++	m_featureControl.deviceFeatures.occlusion_query_precise = physicalDeviceFeatures2.features.occlusionQueryPrecise;
++	m_featureControl.deviceFeatures.depth_clamp = physicalDeviceFeatures2.features.depthClamp;
++	m_featureControl.deviceFeatures.vertex_pipeline_stores_and_atomics = physicalDeviceFeatures2.features.vertexPipelineStoresAndAtomics;
+ 	/* Get Vulkan device properties and limits */
+ 	VkPhysicalDeviceFloatControlsPropertiesKHR pfcp{};
+ 	prevStruct = nullptr;
+@@ -464,14 +468,12 @@
+ 	VkPhysicalDeviceFeatures deviceFeatures = {};
+ 
+ 	deviceFeatures.independentBlend = VK_TRUE;
+-	deviceFeatures.samplerAnisotropy = VK_TRUE;
++	deviceFeatures.samplerAnisotropy = m_featureControl.deviceFeatures.sampler_anisotropy;
+ 	deviceFeatures.imageCubeArray = VK_TRUE;
+-#if !BOOST_OS_MACOS
+-	deviceFeatures.geometryShader = VK_TRUE;
+-	deviceFeatures.logicOp = VK_TRUE;
+-#endif
+-	deviceFeatures.occlusionQueryPrecise = VK_TRUE;
+-	deviceFeatures.depthClamp = VK_TRUE;
++	deviceFeatures.geometryShader = m_featureControl.deviceFeatures.geometry_shader;
++	deviceFeatures.logicOp = m_featureControl.deviceFeatures.logic_op;
++	deviceFeatures.occlusionQueryPrecise = m_featureControl.deviceFeatures.occlusion_query_precise;
++	deviceFeatures.depthClamp = m_featureControl.deviceFeatures.depth_clamp;
+ 	deviceFeatures.depthBiasClamp = VK_TRUE;
+ 	if (m_vendor == GfxVendor::AMD)
+ 	{
+@@ -480,7 +482,7 @@
+ 	}
+ 	if (m_featureControl.mode.useTFEmulationViaSSBO)
+ 	{
+-		deviceFeatures.vertexPipelineStoresAndAtomics = true;
++		m_featureControl.mode.useTFEmulationViaSSBO = deviceFeatures.vertexPipelineStoresAndAtomics = m_featureControl.deviceFeatures.vertex_pipeline_stores_and_atomics;
+ 	}
+ 
+ 	void* deviceExtensionFeatures = nullptr;
+@@ -583,6 +585,8 @@
+ 		m_uniformVarBufferMemoryIsCoherent = true; // unified memory
+ 	else if (memoryManager->CreateBuffer(UNIFORMVAR_RINGBUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, m_uniformVarBuffer, m_uniformVarBufferMemory))
+ 		m_uniformVarBufferMemoryIsCoherent = true;
++	else if (memoryManager->CreateBuffer(UNIFORMVAR_RINGBUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_uniformVarBuffer, m_uniformVarBufferMemory))
++		m_uniformVarBufferMemoryIsCoherent = true;
+ 	else
+ 	{
+ 		memoryManager->CreateBuffer(UNIFORMVAR_RINGBUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, m_uniformVarBuffer, m_uniformVarBufferMemory);
+@@ -595,7 +599,10 @@
+ 	m_uniformVarBufferPtr = (uint8*)bufferPtr;
+ 
+ 	// texture readback buffer
+-	memoryManager->CreateBuffer(TEXTURE_READBACK_SIZE, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_textureReadbackBuffer, m_textureReadbackBufferMemory);
++	if (!memoryManager->CreateBuffer(TEXTURE_READBACK_SIZE, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_textureReadbackBuffer, m_textureReadbackBufferMemory))
++	{
++		memoryManager->CreateBuffer(TEXTURE_READBACK_SIZE, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_textureReadbackBuffer, m_textureReadbackBufferMemory);
++	}
+ 	bufferPtr = nullptr;
+ 	vkMapMemory(m_logicalDevice, m_textureReadbackBufferMemory, 0, VK_WHOLE_SIZE, 0, &bufferPtr);
+ 	m_textureReadbackBufferPtr = (uint8*)bufferPtr;
+@@ -604,7 +611,10 @@
+ 	memoryManager->CreateBuffer(LatteStreamout_GetRingBufferSize(), VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | (m_featureControl.mode.useTFEmulationViaSSBO ? VK_BUFFER_USAGE_STORAGE_BUFFER_BIT : 0), 0, m_xfbRingBuffer, m_xfbRingBufferMemory);
+ 
+ 	// occlusion query result buffer
+-	memoryManager->CreateBuffer(OCCLUSION_QUERY_POOL_SIZE * sizeof(uint64), VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_occlusionQueries.bufferQueryResults, m_occlusionQueries.memoryQueryResults);
++	if (!memoryManager->CreateBuffer(OCCLUSION_QUERY_POOL_SIZE * sizeof(uint64), VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_occlusionQueries.bufferQueryResults, m_occlusionQueries.memoryQueryResults))
++	{
++		memoryManager->CreateBuffer(OCCLUSION_QUERY_POOL_SIZE * sizeof(uint64), VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_occlusionQueries.bufferQueryResults, m_occlusionQueries.memoryQueryResults);
++	}
+ 	bufferPtr = nullptr;
+ 	vkMapMemory(m_logicalDevice, m_occlusionQueries.memoryQueryResults, 0, VK_WHOLE_SIZE, 0, &bufferPtr);
+ 	m_occlusionQueries.ptrQueryResults = (uint64*)bufferPtr;
+@@ -1122,6 +1132,10 @@
+ 		used_extensions.emplace_back(VK_KHR_PRESENT_ID_EXTENSION_NAME);
+ 	if (m_featureControl.deviceExtensions.present_wait)
+ 		used_extensions.emplace_back(VK_KHR_PRESENT_WAIT_EXTENSION_NAME);
++	if (m_featureControl.deviceExtensions.transform_feedback)
++		used_extensions.emplace_back(VK_EXT_TRANSFORM_FEEDBACK_EXTENSION_NAME);
++	if (m_featureControl.deviceExtensions.depth_clip_enable)
++		used_extensions.emplace_back(VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME);
+ 
+ 	VkDeviceCreateInfo createInfo{};
+ 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+@@ -1209,6 +1223,7 @@
+ 	info.deviceExtensions.tooling_info = isExtensionAvailable(VK_EXT_TOOLING_INFO_EXTENSION_NAME);
+ 	info.deviceExtensions.transform_feedback = isExtensionAvailable(VK_EXT_TRANSFORM_FEEDBACK_EXTENSION_NAME);
+ 	info.deviceExtensions.depth_range_unrestricted = isExtensionAvailable(VK_EXT_DEPTH_RANGE_UNRESTRICTED_EXTENSION_NAME);
++	info.deviceExtensions.depth_clip_enable = isExtensionAvailable(VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME);
+ 	info.deviceExtensions.nv_fill_rectangle = isExtensionAvailable(VK_NV_FILL_RECTANGLE_EXTENSION_NAME);
+ 	info.deviceExtensions.pipeline_feedback = isExtensionAvailable(VK_EXT_PIPELINE_CREATION_FEEDBACK_EXTENSION_NAME);
+ 	info.deviceExtensions.cubic_filter = isExtensionAvailable(VK_EXT_FILTER_CUBIC_EXTENSION_NAME);
+@@ -1743,6 +1758,16 @@
  
  void VulkanRenderer::QueryAvailableFormats()
  {
@@ -337,7 +528,7 @@ index 75c602684..c61c1d04b 100644
  	VkFormatProperties fmtProp{};
  	vkGetPhysicalDeviceFormatProperties(m_physicalDevice, VK_FORMAT_D24_UNORM_S8_UINT, &fmtProp);
  	// D24S8
-@@ -2465,44 +2475,124 @@ void VulkanRenderer::GetTextureFormatInfoVK(Latte::E_GX2SURFFMT format, bool isD
+@@ -2475,44 +2500,124 @@
  			break;
  			// compressed formats
  		case Latte::E_GX2SURFFMT::BC1_SRGB:
@@ -463,7 +654,7 @@ index 75c602684..c61c1d04b 100644
 +			else
 +			{
 +				formatInfoOut->vkImageFormat = VK_FORMAT_R8G8_UNORM;
-+				formatInfoOut->decoder = TextureDecoder_BC5_To_R8G8::getInstance();
++				formatInfoOut->decoder = TextureDecoder_BC5_To_R8G8<decodeBC5Block_UNORM>::getInstance();
 +			}
  			break;
  		case Latte::E_GX2SURFFMT::BC5_SNORM:
@@ -477,237 +668,12 @@ index 75c602684..c61c1d04b 100644
 +			else
 +			{
 +				formatInfoOut->vkImageFormat = VK_FORMAT_R8G8_SNORM;
-+				formatInfoOut->decoder = TextureDecoder_BC5_To_R8G8::getInstance();
++				formatInfoOut->decoder = TextureDecoder_BC5_To_R8G8<decodeBC5Block_SNORM>::getInstance();
 +			}
  			break;
  		case Latte::E_GX2SURFFMT::R24_X8_UNORM:
  			formatInfoOut->vkImageFormat = VK_FORMAT_R32_SFLOAT;
-diff --git a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h
-index af501b5f5..dccc0079c 100644
---- a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h
-+++ b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h
-@@ -21,6 +21,11 @@ struct VkSupportedFormatInfo_t
- 	bool fmt_r5g6b5_unorm_pack{};
- 	bool fmt_r4g4b4a4_unorm_pack{};
- 	bool fmt_a1r5g5b5_unorm_pack{};
-+	bool fmt_bc1{};
-+	bool fmt_bc2{};
-+	bool fmt_bc3{};
-+	bool fmt_bc4{};
-+	bool fmt_bc5{};
- };
- 
- struct VkDescriptorSetInfo
-From 0c05c3e87f4c0f22bcbf6fd0cedf0e776e63ef72 Mon Sep 17 00:00:00 2001
-From: SSimco <37044560+SSimco@users.noreply.github.com>
-Date: Fri, 27 Sep 2024 01:41:35 +0300
-Subject: [PATCH] Fix bc5 decoding
-
----
- src/Cafe/HW/Latte/Core/LatteTextureLoader.h          | 7 ++++---
- src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp | 4 ++--
- 2 files changed, 6 insertions(+), 5 deletions(-)
-
-diff --git a/src/Cafe/HW/Latte/Core/LatteTextureLoader.h b/src/Cafe/HW/Latte/Core/LatteTextureLoader.h
-index 31b049044..8e3ad0985 100644
---- a/src/Cafe/HW/Latte/Core/LatteTextureLoader.h
-+++ b/src/Cafe/HW/Latte/Core/LatteTextureLoader.h
-@@ -46,6 +46,7 @@ void decodeBC3Block_UNORM(uint8* inputData, float* imageRGBA);
- void decodeBC4Block_UNORM(uint8* blockStorage, float* rOutput);
- void decodeBC5Block_UNORM(uint8* blockStorage, float* rgOutput);
- void decodeBC5Block_SNORM(uint8* blockStorage, float* rgOutput);
-+using decodingFn = void (uint8 *, float *);
- 
- inline void BC1_GetPixel(uint8* inputData, sint32 x, sint32 y, uint8 rgba[4])
- {
-@@ -2171,8 +2172,8 @@ class TextureDecoder_BC4 : public TextureDecoder, public SingletonClass<TextureD
- 		*(outputPixel + 3) = 255;
- 	}
- };
--
--class TextureDecoder_BC5_To_R8G8 : public TextureDecoder, public SingletonClass<TextureDecoder_BC5_To_R8G8>
-+template<decodingFn fn>
-+class TextureDecoder_BC5_To_R8G8 : public TextureDecoder, public SingletonClass<TextureDecoder_BC5_To_R8G8<fn>>
- {
- public:
- 
-@@ -2192,7 +2193,7 @@ class TextureDecoder_BC5_To_R8G8 : public TextureDecoder, public SingletonClass<
- 				sint32 blockSizeY = (std::min)(4, textureLoader->height - y);
- 				// decode 4x4 pixels at once
- 				float rgBlock[4 * 4 * 2];
--				decodeBC5Block_UNORM(blockData, rgBlock);
-+				fn(blockData, rgBlock);
- 
- 				for (sint32 py = 0; py < blockSizeY; py++)
- 				{
-diff --git a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp
-index c61c1d04b..521d583c1 100644
---- a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp
-+++ b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp
-@@ -2579,7 +2579,7 @@ void VulkanRenderer::GetTextureFormatInfoVK(Latte::E_GX2SURFFMT format, bool isD
- 			else
- 			{
- 				formatInfoOut->vkImageFormat = VK_FORMAT_R8G8_UNORM;
--				formatInfoOut->decoder = TextureDecoder_BC5_To_R8G8::getInstance();
-+				formatInfoOut->decoder = TextureDecoder_BC5_To_R8G8<decodeBC5Block_UNORM>::getInstance();
- 			}
- 			break;
- 		case Latte::E_GX2SURFFMT::BC5_SNORM:
-@@ -2591,7 +2591,7 @@ void VulkanRenderer::GetTextureFormatInfoVK(Latte::E_GX2SURFFMT format, bool isD
- 			else
- 			{
- 				formatInfoOut->vkImageFormat = VK_FORMAT_R8G8_SNORM;
--				formatInfoOut->decoder = TextureDecoder_BC5_To_R8G8::getInstance();
-+				formatInfoOut->decoder = TextureDecoder_BC5_To_R8G8<decodeBC5Block_SNORM>::getInstance();
- 			}
- 			break;
- 		case Latte::E_GX2SURFFMT::R24_X8_UNORM:
-From 15183df480dba3e6e36b0ab246da25efda4ab63c Mon Sep 17 00:00:00 2001
-From: SSimco <37044560+SSimco@users.noreply.github.com>
-Date: Sun, 13 Oct 2024 20:33:50 +0300
-Subject: [PATCH] Check for alternative mem types & optional extensions
-
----
- .../Latte/Renderer/Vulkan/VulkanRenderer.cpp  | 19 ++++++++++++++++---
- .../HW/Latte/Renderer/Vulkan/VulkanRenderer.h |  1 +
- 2 files changed, 17 insertions(+), 3 deletions(-)
-
-diff --git a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp
-index 521d583c1..fcc936ad2 100644
---- a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp
-+++ b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp
-@@ -585,9 +585,11 @@ VulkanRenderer::VulkanRenderer()
- 		m_uniformVarBufferMemoryIsCoherent = true; // unified memory
- 	else if (memoryManager->CreateBuffer2(UNIFORMVAR_RINGBUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, m_uniformVarBuffer, m_uniformVarBufferMemory))
- 		m_uniformVarBufferMemoryIsCoherent = true;
-+	else if (memoryManager->CreateBuffer2(UNIFORMVAR_RINGBUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_uniformVarBuffer, m_uniformVarBufferMemory))
-+		m_uniformVarBufferMemoryIsCoherent = true;
- 	else
- 	{
--		memoryManager->CreateBuffer2(UNIFORMVAR_RINGBUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, m_uniformVarBuffer, m_uniformVarBufferMemory);
-+		memoryManager->CreateBuffer(UNIFORMVAR_RINGBUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, m_uniformVarBuffer, m_uniformVarBufferMemory);
- 	}
- 
- 	if (!m_uniformVarBufferMemoryIsCoherent)
-@@ -597,7 +599,10 @@ VulkanRenderer::VulkanRenderer()
- 	m_uniformVarBufferPtr = (uint8*)bufferPtr;
- 
- 	// texture readback buffer
--	memoryManager->CreateBuffer(TEXTURE_READBACK_SIZE, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_textureReadbackBuffer, m_textureReadbackBufferMemory);
-+	if (!memoryManager->CreateBuffer2(TEXTURE_READBACK_SIZE, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_textureReadbackBuffer, m_textureReadbackBufferMemory))
-+	{
-+		memoryManager->CreateBuffer(TEXTURE_READBACK_SIZE, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_textureReadbackBuffer, m_textureReadbackBufferMemory);
-+	}
- 	bufferPtr = nullptr;
- 	vkMapMemory(m_logicalDevice, m_textureReadbackBufferMemory, 0, VK_WHOLE_SIZE, 0, &bufferPtr);
- 	m_textureReadbackBufferPtr = (uint8*)bufferPtr;
-@@ -606,7 +611,10 @@ VulkanRenderer::VulkanRenderer()
- 	memoryManager->CreateBuffer(LatteStreamout_GetRingBufferSize(), VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | (m_featureControl.mode.useTFEmulationViaSSBO ? VK_BUFFER_USAGE_STORAGE_BUFFER_BIT : 0), 0, m_xfbRingBuffer, m_xfbRingBufferMemory);
- 
- 	// occlusion query result buffer
--	memoryManager->CreateBuffer(OCCLUSION_QUERY_POOL_SIZE * sizeof(uint64), VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_occlusionQueries.bufferQueryResults, m_occlusionQueries.memoryQueryResults);
-+	if (!memoryManager->CreateBuffer2(OCCLUSION_QUERY_POOL_SIZE * sizeof(uint64), VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_occlusionQueries.bufferQueryResults, m_occlusionQueries.memoryQueryResults))
-+	{
-+		memoryManager->CreateBuffer(OCCLUSION_QUERY_POOL_SIZE * sizeof(uint64), VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_occlusionQueries.bufferQueryResults, m_occlusionQueries.memoryQueryResults);
-+	}
- 	bufferPtr = nullptr;
- 	vkMapMemory(m_logicalDevice, m_occlusionQueries.memoryQueryResults, 0, VK_WHOLE_SIZE, 0, &bufferPtr);
- 	m_occlusionQueries.ptrQueryResults = (uint64*)bufferPtr;
-@@ -1087,6 +1095,10 @@ VkDeviceCreateInfo VulkanRenderer::CreateDeviceCreateInfo(const std::vector<VkDe
- 		used_extensions.emplace_back(VK_KHR_PRESENT_ID_EXTENSION_NAME);
- 	if (m_featureControl.deviceExtensions.present_wait)
- 		used_extensions.emplace_back(VK_KHR_PRESENT_WAIT_EXTENSION_NAME);
-+	if (m_featureControl.deviceExtensions.transform_feedback)
-+		used_extensions.emplace_back(VK_EXT_TRANSFORM_FEEDBACK_EXTENSION_NAME);
-+	if (m_featureControl.deviceExtensions.depth_clip_enable)
-+		used_extensions.emplace_back(VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME);
- 
- 	VkDeviceCreateInfo createInfo{};
- 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-@@ -1174,6 +1186,7 @@ bool VulkanRenderer::CheckDeviceExtensionSupport(const VkPhysicalDevice device,
- 	info.deviceExtensions.tooling_info = isExtensionAvailable(VK_EXT_TOOLING_INFO_EXTENSION_NAME);
- 	info.deviceExtensions.transform_feedback = isExtensionAvailable(VK_EXT_TRANSFORM_FEEDBACK_EXTENSION_NAME);
- 	info.deviceExtensions.depth_range_unrestricted = isExtensionAvailable(VK_EXT_DEPTH_RANGE_UNRESTRICTED_EXTENSION_NAME);
-+	info.deviceExtensions.depth_clip_enable = isExtensionAvailable(VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME);
- 	info.deviceExtensions.nv_fill_rectangle = isExtensionAvailable(VK_NV_FILL_RECTANGLE_EXTENSION_NAME);
- 	info.deviceExtensions.pipeline_feedback = isExtensionAvailable(VK_EXT_PIPELINE_CREATION_FEEDBACK_EXTENSION_NAME);
- 	info.deviceExtensions.cubic_filter = isExtensionAvailable(VK_EXT_FILTER_CUBIC_EXTENSION_NAME);
-diff --git a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h
-index dccc0079c..2f2f817ea 100644
---- a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h
-+++ b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h
-@@ -449,6 +449,7 @@ class VulkanRenderer : public Renderer
- 			bool tooling_info = false; // VK_EXT_tooling_info
- 			bool transform_feedback = false;
- 			bool depth_range_unrestricted = false;
-+			bool depth_clip_enable = false;
- 			bool nv_fill_rectangle = false; // NV_fill_rectangle
- 			bool pipeline_feedback = false;
- 			bool pipeline_creation_cache_control = false; // VK_EXT_pipeline_creation_cache_control
-diff -u -r a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp
---- a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp	2025-01-22 13:44:05.597460220 +0100
-+++ b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp	2025-01-22 13:56:54.144925519 +0100
-@@ -55,7 +55,6 @@
- const std::vector<const char*> kRequiredDeviceExtensions =
- {
- 	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
--	VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME
- }; // Intel doesnt support VK_EXT_DEPTH_RANGE_UNRESTRICTED_EXTENSION_NAME
- 
- VKAPI_ATTR VkBool32 VKAPI_CALL DebugUtilsCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageTypes, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
-@@ -271,7 +270,12 @@
- 	vkGetPhysicalDeviceFeatures2(m_physicalDevice, &physicalDeviceFeatures2);
- 
- 	cemuLog_log(LogType::Force, "Vulkan: present_wait extension: {}", (pwf.presentWait && pidf.presentId) ? "supported" : "unsupported");
--
-+	m_featureControl.deviceFeatures.geometry_shader = physicalDeviceFeatures2.features.geometryShader;
-+	m_featureControl.deviceFeatures.logic_op = physicalDeviceFeatures2.features.logicOp;
-+	m_featureControl.deviceFeatures.sampler_anisotropy = physicalDeviceFeatures2.features.samplerAnisotropy;
-+	m_featureControl.deviceFeatures.occlusion_query_precise = physicalDeviceFeatures2.features.occlusionQueryPrecise;
-+	m_featureControl.deviceFeatures.depth_clamp = physicalDeviceFeatures2.features.depthClamp;
-+	m_featureControl.deviceFeatures.vertex_pipeline_stores_and_atomics = physicalDeviceFeatures2.features.vertexPipelineStoresAndAtomics;
- 	/* Get Vulkan device properties and limits */
- 	VkPhysicalDeviceFloatControlsPropertiesKHR pfcp{};
- 	prevStruct = nullptr;
-@@ -464,14 +468,12 @@
- 	VkPhysicalDeviceFeatures deviceFeatures = {};
- 
- 	deviceFeatures.independentBlend = VK_TRUE;
--	deviceFeatures.samplerAnisotropy = VK_TRUE;
-+	deviceFeatures.samplerAnisotropy = m_featureControl.deviceFeatures.sampler_anisotropy;
- 	deviceFeatures.imageCubeArray = VK_TRUE;
--#if !BOOST_OS_MACOS
--	deviceFeatures.geometryShader = VK_TRUE;
--	deviceFeatures.logicOp = VK_TRUE;
--#endif
--	deviceFeatures.occlusionQueryPrecise = VK_TRUE;
--	deviceFeatures.depthClamp = VK_TRUE;
-+	deviceFeatures.geometryShader = m_featureControl.deviceFeatures.geometry_shader;
-+	deviceFeatures.logicOp = m_featureControl.deviceFeatures.logic_op;
-+	deviceFeatures.occlusionQueryPrecise = m_featureControl.deviceFeatures.occlusion_query_precise;
-+	deviceFeatures.depthClamp = m_featureControl.deviceFeatures.depth_clamp;
- 	deviceFeatures.depthBiasClamp = VK_TRUE;
- 	if (m_vendor == GfxVendor::AMD)
- 	{
-@@ -480,7 +482,7 @@
- 	}
- 	if (m_featureControl.mode.useTFEmulationViaSSBO)
- 	{
--		deviceFeatures.vertexPipelineStoresAndAtomics = true;
-+		m_featureControl.mode.useTFEmulationViaSSBO = deviceFeatures.vertexPipelineStoresAndAtomics = m_featureControl.deviceFeatures.vertex_pipeline_stores_and_atomics;
- 	}
- 
- 	void* deviceExtensionFeatures = nullptr;
-@@ -611,7 +613,7 @@
- 	// occlusion query result buffer
- 	if (!memoryManager->CreateBuffer2(OCCLUSION_QUERY_POOL_SIZE * sizeof(uint64), VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_occlusionQueries.bufferQueryResults, m_occlusionQueries.memoryQueryResults))
- 	{
--		memoryManager->CreateBuffer(OCCLUSION_QUERY_POOL_SIZE * sizeof(uint64), VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_occlusionQueries.bufferQueryResults, m_occlusionQueries.memoryQueryResults);
-+		memoryManager->CreateBuffer(OCCLUSION_QUERY_POOL_SIZE * sizeof(uint64), VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_occlusionQueries.bufferQueryResults, m_occlusionQueries.memoryQueryResults);
- 	}
- 	bufferPtr = nullptr;
- 	vkMapMemory(m_logicalDevice, m_occlusionQueries.memoryQueryResults, 0, VK_WHOLE_SIZE, 0, &bufferPtr);
-@@ -2892,7 +2894,7 @@
+@@ -2828,7 +2933,7 @@
  	{
  		throw std::runtime_error(fmt::format("Failed to present image: {}", result));
  	}
@@ -716,23 +682,3 @@ diff -u -r a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.cpp b/src/Cafe/HW/
  		chainInfo.m_shouldRecreate = true;
  
  	if(result >= 0)
-diff -u -r a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h
---- a/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h	2025-01-22 13:44:05.597460220 +0100
-+++ b/src/Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h	2025-01-22 13:53:02.918435661 +0100
-@@ -461,6 +461,16 @@
- 
- 		struct
- 		{
-+			bool geometry_shader;
-+			bool logic_op;
-+			bool sampler_anisotropy;
-+			bool occlusion_query_precise;
-+			bool depth_clamp;
-+			bool vertex_pipeline_stores_and_atomics;
-+		} deviceFeatures;
-+
-+		struct
-+		{
- 			bool shaderRoundingModeRTEFloat32{ false };
- 		}shaderFloatControls; // from VK_KHR_shader_float_controls
-
