@@ -78,6 +78,11 @@ makeinstall_target() {
     done
   fi
 
+  # Sm8250 devices need slpi firmware set to the correct dir
+  if [ ${DEVICE} = "SM8250" ]; then
+   mv ${FW_TARGET_DIR}/qcom/sm8250/Thundercomm/RB5/* ${FW_TARGET_DIR}/qcom/sm8250/
+  fi
+
   # Cleanup - which may be project or device specific
   find_file_path scripts/cleanup.sh && ${FOUND_PATH} ${FW_TARGET_DIR} || true
 }

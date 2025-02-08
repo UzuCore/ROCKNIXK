@@ -10,6 +10,9 @@ qcom/sm8250/cdsp.mbn
 # VIDEO_QCOM_VENUS
 qcom/vpu-1.0/venus.mbn
 
+# QCOM SLPI
+qcom/sm8250/Thundercomm/RB5/slpi*
+
 # ATH11K
 ath11k/QCA6390/hw2.0/*.bin
 
