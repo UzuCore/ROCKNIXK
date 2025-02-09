@@ -63,17 +63,26 @@ fi
 rm -rf /storage/.config/dolphin-emu/StateSaves
 ln -sf /storage/roms/savestates/wii /storage/.config/dolphin-emu/StateSaves
 
-# Link and copy bios and other system stuff to roms
+# Copy bios, memory cards and other system stuff to roms
 if [ ! -d "/storage/roms/bios/GC/" ]; then
     mkdir -p /storage/roms/bios/GC/{USA,JAP,EUR}
     cp -r /storage/.config/dolphin-emu/GC /storage/roms/bios/
 fi
 
-rm -rf /storage/.config/dolphin-emu/GC/{USA,JAP,EUR}
-ln -sf /storage/roms/bios/GC/USA /storage/.config/dolphin-emu/GC/USA
-ln -sf /storage/roms/bios/GC/JAP /storage/.config/dolphin-emu/GC/JAP
-ln -sf /storage/roms/bios/GC/EUR /storage/.config/dolphin-emu/GC/EUR
+# Link bios and memory cards to roms
+for REGION in EUR JAP USA
+do
+  rm -rf "/storage/.config/dolphin-emu/GC/${REGION}"
+  ln -sf "/storage/roms/bios/GC/${REGION}" "/storage/.config/dolphin-emu/GC/${REGION}"
 
+  for SLOT in A B
+  do
+    if [ -f "/storage/roms/bios/GC/MemoryCard${SLOT}.${REGION}.raw" ]; then
+      rm -f "/storage/.config/dolphin-emu/GC/MemoryCard${SLOT}.${REGION}.raw"
+      ln -sf "/storage/roms/bios/GC/MemoryCard${SLOT}.${REGION}.raw" "/storage/.config/dolphin-emu/GC/MemoryCard${SLOT}.${REGION}.raw"
+    fi
+  done
+done
 
 # Grab a clean settings file during boot
 cp -r /usr/config/dolphin-emu/GFX.ini /storage/.config/dolphin-emu/GFX.ini
