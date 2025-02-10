@@ -73,7 +73,7 @@ msgid "BACK"
 msgstr "뒤로"
 
 msgid "SAVE STATES (HOLD)"
-msgstr "진행 저장 (홀드)"
+msgstr "상태 저장 (홀드)"
 
 msgid "GAME OPTIONS (HOLD)"
 msgstr "게임 옵션 (홀드)"
@@ -88,7 +88,7 @@ msgid "FAVORITE"
 msgstr "즐겨찾기"
 
 msgid "SAVE STATES"
-msgstr "진행 저장"
+msgstr "상태 저장"
 
 msgid "SEARCH"
 msgstr "검색"
@@ -1472,7 +1472,7 @@ msgid "APPLY"
 msgstr "동의"
 
 msgid "SAVESTATE MANAGER"
-msgstr "진행저장 매니저"
+msgstr "상태 저장 매니저"
 
 msgid "START NEW GAME"
 msgstr "새 게임 시작"
@@ -2272,7 +2272,7 @@ msgstr "위쪽 버튼으로 게임 옵션 열기"
 msgid ""
 "Switches to short-press North for Savestates & long-press South button for "
 "Game Options"
-msgstr "위 버튼(진행 저장) 과 아래 버튼(게임 옵션)을 변경합니다."
+msgstr "위 버튼(상태 저장) 과 아래 버튼(게임 옵션)을 변경합니다."
 
 msgid "CONTROL EMULATIONSTATION WITH FIRST JOYSTICK ONLY"
 msgstr "첫 번째 조이스틱으로만 에뮬레이션스테이션 제어"
@@ -2760,7 +2760,7 @@ msgid "BIOS SETTINGS"
 msgstr "바이오스 설정"
 
 msgid "SAVESTATES"
-msgstr "진행 저장"
+msgstr "상태 저장"
 
 msgid "AUTO SAVE/LOAD"
 msgstr "자동 세이브/로드"
@@ -2769,7 +2769,7 @@ msgid "Load latest savestate on game launch and savestate when exiting game."
 msgstr "게임 시작 시 최신 저장 상태를 로드하고, 게임을 종료할 때 저장 상태를 로드합니다."
 
 msgid "INCREMENTAL SAVESTATES"
-msgstr "진행 저장 증가"
+msgstr "상태 저장 증가"
 
 msgid "INCREMENT PER SAVE"
 msgstr "저장마다 증가"
@@ -2790,7 +2790,7 @@ msgid "Use current slot on a new game."
 msgstr "새로운 게임에서 현재 슬롯을 사용합니다."
 
 msgid "SHOW SAVESTATE MANAGER"
-msgstr "진행 저장 매니저 표시"
+msgstr "상태 저장 매니저 표시"
 
 msgid "ALWAYS"
 msgstr "항상"
@@ -2799,7 +2799,7 @@ msgid "IF NOT EMPTY"
 msgstr "비어있지 않은 경우"
 
 msgid "Display savestate manager before launching a game."
-msgstr "게임을 시작하기 전에 진행 저장 매니저를 표시합니다."
+msgstr "게임을 시작하기 전에 상태 저장 매니저를 표시합니다."
 
 msgid "DEFAULT GLOBAL SETTINGS"
 msgstr "기본 전역 설정"
@@ -2969,7 +2969,7 @@ msgid "SHOW REGION FLAG"
 msgstr "목록에 언어 플래그 표시"
 
 msgid "SHOW SAVESTATE ICON"
-msgstr "목록에 진행 저장 플래그 표시"
+msgstr "목록에 상태 저장 플래그 표시"
 
 msgid "SHOW MANUAL ICON"
 msgstr "목록에 매뉴얼 아이콘 표시"
@@ -3237,7 +3237,7 @@ msgid "AUTO SAVE/LOAD ON GAME LAUNCH"
 msgstr "자동 저장/불러오기"
 
 msgid "Load latest save state on game launch and save state when exiting game."
-msgstr "게임 시작 시 최신 진행 저장을 불러오고, 게임을 종료할 때 진행을 저장합니다."
+msgstr "게임 시작 시 최신 상태 저장을 불러오고, 게임을 종료할 때 상태를 저장합니다."
 
 msgid "SHOW CONTROLLER OVERLAYS"
 msgstr "컨트롤러 오버레이 표시"
