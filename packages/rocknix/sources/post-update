@@ -166,3 +166,47 @@ fi
 if [ "${HW_DEVICE}" = "RK3588" ]; then
   rm -f /storage/.config/lime3ds/sdl2-config.ini
 fi
+
+# set the default global.bezel if it doesn't already exist
+grep -q "^global\.bezel=" /storage/.config/system/configs/system.cfg ||
+  sed -i '$ a\global.bezel=thebezelproject' /storage/.config/system/configs/system.cfg
+
+# ACE - control mapping updates
+if echo ${QUIRK_DEVICE} | grep ACE; then
+  # Clean ES config
+  if [ -d "/storage/.config/emulationstation" ]; then
+    cp -f /usr/config/emulationstation/es_input.cfg /storage/.config/emulationstation
+  fi
+
+  # Clean mupen64plus-sa config
+  if [ -d "/storage/.config/mupen64plus" ]; then
+    cp -f /usr/local/share/mupen64plus/mupen64plus.cfg /storage/.config/mupen64plus
+    cp -f /usr/local/share/mupen64plus/default.ini /storage/.config/mupen64plus/custominput.ini
+  fi
+
+  # Clean flycast-sa config
+  if [ -d "/storage/.config/flycast" ]; then
+    cp -f /usr/config/flycast/mappings/* /storage/.config/flycast/mappings
+  fi
+
+  # Clean duckstation-sa config
+  if [ -d "/storage/.config/duckstation" ]; then
+    cp -f /usr/config/duckstation/settings.ini /storage/.config/duckstation
+  fi
+
+  # Clean mednafen config
+  if [ -d "/storage/.config/mednafen" ]; then
+    rm -f /storage/.config/mednafen/mednafen.cfg
+  fi
+
+  # Clean supermodel-sa config
+  if [ -d "storage/.config/supermodel" ]; then
+    cp -f /usr/config/supermodel/Config/Supermodel.ini /storage/.config/supermodel/Config
+  fi
+
+  # Clean yabasanshiro-sa config
+  if [ -d "/storage/.config/yabasanshiro" ]; then
+    rm -f /storage/.config/yabasanshiro/input.cfg
+    rm -f /storage/.config/yabasanshiro/keymapv2.json
+  fi
+fi

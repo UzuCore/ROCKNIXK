@@ -15,6 +15,7 @@ RETROARCH_TEMPLATE="/usr/config/retroarch/retroarch.cfg"
 
 ROMS_DIR="/storage/roms"
 SNAPSHOTS="${ROMS_DIR}/savestates"
+BEZEL_DIR="/storage/roms/bezels"
 
 TMP_CONFIG="/tmp/.retroarch.cfg"
 LOG_DIR="/var/log"
@@ -714,6 +715,16 @@ function set_filter() {
 }
 
 function set_overlay() {
+    local BEZEL="$(game_setting bezel)"
+    case ${BEZEL} in
+        0|false|none)
+        ;;
+        *)
+            write_bezel_config
+            exit 0
+        ;;
+    esac
+
     local OVERLAY="$(game_setting overlayset)"
     case ${OVERLAY} in
         0|false|none)
@@ -1061,6 +1072,123 @@ function setup_controllers() {
         fi
     done
     flush_settings
+}
+
+# Function to write bezel configuration
+write_bezel_config() {
+    RETROARCH_OVERLAY_CONFIG="/tmp/.overlay.cfg"
+
+    local json_output
+    json_output=$(get_bezel_infos "${ROM}" "${BEZEL}" "${PLATFORM}" "retroarch")
+
+    if [ $? -eq 0 ] && [ -n "$json_output" ]; then
+        local bezel_png
+        bezel_png=$(echo "$json_output" | jq -r '.png')
+
+        if [ -n "$bezel_png" ] && [ -f "$bezel_png" ]; then
+            cat > "$RETROARCH_OVERLAY_CONFIG" << EOF
+overlays = 1
+overlay0_overlay = "$bezel_png"
+overlay0_full_screen = true
+overlay0_descs = 0
+EOF
+
+            add_setting "none" "input_overlay_enable" "true"
+            add_setting "none" "input_overlay" "${RETROARCH_OVERLAY_CONFIG}"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+# Function to check bezel file existence
+check_bezel_file() {
+    local base_path="$1"
+    local file_name="$2"
+
+    if [ -f "${base_path}/${file_name}.png" ]; then
+        bezel_png="${base_path}/${file_name}.png"
+        if [ -f "${base_path}/${file_name}.info" ]; then
+            bezel_info="${base_path}/${file_name}.info"
+        elif [ -f "${base_path}/default.info" ]; then
+            bezel_info="${base_path}/default.info"
+        else
+            bezel_info="${bezel_png}"
+        fi
+        return 0
+    fi
+    return 1
+}
+
+# Function to check decorations in a directory
+check_decorations() {
+    local base_path="$1"
+    local system_name="$2"
+    local rom_name="$3"
+
+    if [ -d "${base_path}/games/${system_name}" ]; then
+        if check_bezel_file "${base_path}/games/${system_name}" "${rom_name}"; then
+            specific_to_game="true"
+            return 0
+        fi
+    fi
+
+    if [ -d "${base_path}/systems" ]; then
+        if check_bezel_file "${base_path}/systems" "${system_name}"; then
+            return 0
+        fi
+    fi
+
+    if check_bezel_file "${base_path}" "default"; then
+        return 0
+    fi
+
+    return 1
+}
+
+# Function to get bezel information
+get_bezel_infos() {
+    local rom="$1"
+    local bezel="$2"
+    local system="$3"
+    local target="$4"
+
+    # Initialize variables
+    local bezel_info=""
+    local bezel_png=""
+    local layout_file=""
+    local mame_zip=""
+    local specific_to_game="false"
+
+    # Check parameters
+    if [ -z "$rom" ] || [ -z "$system" ] || [ -z "$target" ]; then
+        return 1
+    fi
+
+    # Get ROM name without extension
+    local rom_name=$(basename "${rom}")
+    rom_name="${rom_name%.*}"
+
+    # Check if bezel parameter is provided
+    if [ -n "$bezel" ]; then
+        local bezel_base_path="${BEZEL_DIR}/${bezel}"
+
+        if check_decorations "${bezel_base_path}" "${system}" "${rom_name}"; then
+            cat << EOF
+{
+    "png": "$bezel_png",
+    "info": "${bezel_info}",
+    "layout": "${layout_file:-null}",
+    "mamezip": "${mame_zip:-null}",
+    "specific_to_game": $specific_to_game
+}
+EOF
+            return 0
+        fi
+    fi
+
+    return 1
 }
 
 ###

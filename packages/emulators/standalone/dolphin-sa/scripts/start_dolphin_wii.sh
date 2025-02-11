@@ -72,14 +72,25 @@ fi
 # Link bios and memory cards to roms
 for REGION in EUR JAP USA
 do
+  # Link bios
   rm -rf "/storage/.config/dolphin-emu/GC/${REGION}"
   ln -sf "/storage/roms/bios/GC/${REGION}" "/storage/.config/dolphin-emu/GC/${REGION}"
 
+  # Link memory cards, copying to roms/bios first as needed
   for SLOT in A B
   do
-    if [ -f "/storage/roms/bios/GC/MemoryCard${SLOT}.${REGION}.raw" ]; then
-      rm -f "/storage/.config/dolphin-emu/GC/MemoryCard${SLOT}.${REGION}.raw"
-      ln -sf "/storage/roms/bios/GC/MemoryCard${SLOT}.${REGION}.raw" "/storage/.config/dolphin-emu/GC/MemoryCard${SLOT}.${REGION}.raw"
+    MEM_CARD_FILE="MemoryCard${SLOT}.${REGION}.raw"
+    CONFIG_MEM_CARD="/storage/.config/dolphin-emu/GC/${MEM_CARD_FILE}"
+    ROMS_BIOS_MEM_CARD="/storage/roms/bios/GC/${MEM_CARD_FILE}"
+
+    if [ -f "${ROMS_BIOS_MEM_CARD}" ]; then
+      # Exists in roms/bios, remove from .config and link
+      rm -f "${CONFIG_MEM_CARD}"
+      ln -sf "${ROMS_BIOS_MEM_CARD}" "${CONFIG_MEM_CARD}"
+    elif [ -f "${CONFIG_MEM_CARD}" ]; then
+      # Only exists in .config, move to roms/bios and link
+      mv -f "${CONFIG_MEM_CARD}" "${ROMS_BIOS_MEM_CARD}"
+      ln -sf "${ROMS_BIOS_MEM_CARD}" "${CONFIG_MEM_CARD}"
     fi
   done
 done
