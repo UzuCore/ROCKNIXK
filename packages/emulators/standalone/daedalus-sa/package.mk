@@ -7,7 +7,7 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/DaedalusX64/daedalus"
 PKG_URL="${PKG_SITE}.git"
 PKG_GIT_CLONE_BRANCH="GLES31_PORT"
-PKG_DEPENDS_TARGET="toolchain libfmt SDL2 SDL2_ttf"
+PKG_DEPENDS_TARGET="toolchain libfmt SDL2 SDL2_ttf glew mesa"
 PKG_LONGDESC="DaedalusX64 is a Nintendo 64 emulator for PSP, 3DS, Vita, Linux, macOS and Windows"
 PKG_PATCH_DIRS+="${DEVICE}"
 
