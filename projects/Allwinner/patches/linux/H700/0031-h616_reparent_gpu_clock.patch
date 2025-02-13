@@ -50,10 +50,10 @@ index 190816c35..5409ad109 100644
  	writel(val, reg + SUN50I_H616_PLL_AUDIO_REG);
  
 +	/*
-+	 * Set the output-divider for the pll clock to 3
++	 * Set the output-divider for the pll clock to 3 (400Mhz)
 +	 */
 +	val = readl(reg + SUN50I_H616_GPU_CLK1_REG);
-+	val |= BIT(31);
++	val &= ~GENMASK(1, 0);
 +	val |= BIT(1);
 +	writel(val, reg + SUN50I_H616_GPU_CLK1_REG);
 +

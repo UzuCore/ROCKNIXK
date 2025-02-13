@@ -308,7 +308,7 @@ index a231abf16..360785601 100644
  	battery: battery {
  		compatible = "simple-battery";
  		constant-charge-current-max-microamp = <1024000>;
-@@ -175,6 +181,50 @@ reg_vcc5v: regulator-vcc5v { /* USB-C power input */
+@@ -175,6 +181,49 @@ reg_vcc5v: regulator-vcc5v { /* USB-C power input */
  		regulator-min-microvolt = <5000000>;
  		regulator-max-microvolt = <5000000>;
  	};
@@ -333,8 +333,7 @@ index a231abf16..360785601 100644
 +		num-chipselects = <1>;
 +
 +		panel: panel@0 {
-+			compatible = "panel-mipi-dpi-spi";
-+			firmware-name = "anbernic,rg35xx-plus-panel";
++			compatible = "anbernic,rg35xx-plus-panel";
 +
 +			reg = <0>;
 +

@@ -1,0 +1,335 @@
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH v2 1/5] ASoC: dt-bindings: sun4i-a10-codec: add
+ hp-det-gpios
+From: Chris Morgan <macromorgan@hotmail.com>
+Date: Sat, 25 Jan 2025 20:00:11 +1300
+Message-Id: <20250125070458.13822-2-ryan@testtoast.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Devices integrating Allwinner SoCs may use line-out or headphone jacks
+with jack detection circuits attached to a GPIO. For example, a number
+of Anbernic devices featuring the H700 SoC use this mechanism to switch
+between a headphone jack and an internal speaker.
+
+Add extra routing endpoints to support this.
+
+Signed-off-by: Chris Morgan <macromorgan@hotmail.com>
+Signed-off-by: Ryan Walklin <ryan@testtoast.com>
+
+--
+Changelog v1..v2:
+- Remove vendor prefix from hp-det-gpios
+- Amend commit message
+
+Reviewed-by: Rob Herring (Arm) <robh@kernel.org>
+---
+ .../bindings/sound/allwinner,sun4i-a10-codec.yaml           | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/sound/allwinner,sun4i-a10-codec.yaml b/Documentation/devicetree/bindings/sound/allwinner,sun4i-a10-codec.yaml
+index ccae64ce30719..b4eca702febc7 100644
+--- a/Documentation/devicetree/bindings/sound/allwinner,sun4i-a10-codec.yaml
++++ b/Documentation/devicetree/bindings/sound/allwinner,sun4i-a10-codec.yaml
+@@ -102,6 +102,10 @@ properties:
+     maxItems: 1
+     description: GPIO to enable the external amplifier
+ 
++  hp-det-gpios:
++    maxItems: 1
++    description: GPIO for headphone/line-out detection
++
+ required:
+   - "#sound-dai-cells"
+   - compatible
+@@ -251,8 +255,10 @@ allOf:
+         allwinner,audio-routing:
+           items:
+             enum:
++              - Headphone
+               - LINEOUT
+               - Line Out
++              - Speaker
+ 
+         dmas:
+           items:
+-- 
+2.48.1
+
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH v2 2/5] ASoC: sun4i-codec: correct dapm widgets and
+ controls for h616
+From: Chris Morgan <macromorgan@hotmail.com>
+Date: Sat, 25 Jan 2025 20:00:12 +1300
+Message-Id: <20250125070458.13822-3-ryan@testtoast.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+The previous H616 support patch added a single LINEOUT DAPM pin switch
+to the card controls. As the codec in this SoC only has a single route,
+this seemed reasonable at the time, however is redundant given the
+existing DAPM codec widget definitions controlling the digital and
+analog sides of the codec.
+
+It is also insufficient to describe the scenario where separate
+components (muxes, jack detection etc) are used to modify the audio
+route external to the SoC. For example the Anbernic RG(##)XX series of
+devices uses a headphone jack detection switch, GPIO-controlled speaker
+amplifier and a passive external mux chip to route audio.
+
+The LINEOUT route remains defined as the final common endpoint
+for the codec's output, and is referenced by device trees.
+
+Remove the redundant LINEOUT card control, and add a Speaker pin switch
+control and Headphone DAPM widget to allow control of the above
+hardware.
+
+Signed-off-by: Chris Morgan <macromorgan@hotmail.com>
+Signed-off-by: Ryan Walklin <ryan@testtoast.com>
+
+--
+Changelog v1..v2:
+- Separate DAPM changes into separate patch and add/elaborate rationale.
+
+---
+ sound/soc/sunxi/sun4i-codec.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/sound/soc/sunxi/sun4i-codec.c b/sound/soc/sunxi/sun4i-codec.c
+index 886b3fa537d26..f24bbefeb3923 100644
+--- a/sound/soc/sunxi/sun4i-codec.c
++++ b/sound/soc/sunxi/sun4i-codec.c
+@@ -1916,10 +1916,11 @@ static const struct snd_soc_component_driver sun50i_h616_codec_codec = {
+ };
+ 
+ static const struct snd_kcontrol_new sun50i_h616_card_controls[] = {
+-	SOC_DAPM_PIN_SWITCH("LINEOUT"),
++	SOC_DAPM_PIN_SWITCH("Speaker"),
+ };
+ 
+ static const struct snd_soc_dapm_widget sun50i_h616_codec_card_dapm_widgets[] = {
++	SND_SOC_DAPM_HP("Headphone", NULL),
+ 	SND_SOC_DAPM_LINE("Line Out", NULL),
+ 	SND_SOC_DAPM_SPK("Speaker", sun4i_codec_spk_event),
+ };
+-- 
+2.48.1
+
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH v2 3/5] ASoC: sun4i-codec: support hp-det-gpios property
+From: Chris Morgan <macromorgan@hotmail.com>
+Date: Sat, 25 Jan 2025 20:00:13 +1300
+Message-Id: <20250125070458.13822-4-ryan@testtoast.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Add support for GPIO headphone detection with the hp-det-gpios
+property. In order for this to properly disable the path upon
+removal of headphones, the output must be labelled Headphone which
+is a common sink in the driver.
+
+Describe a headphone jack and detection GPIO in the driver, check for
+a corresponding device tree node, and enable jack detection in a new
+machine init function if described.
+
+Signed-off-by: Chris Morgan <macromorgan@hotmail.com>
+Signed-off-by: Ryan Walklin <ryan@testtoast.com>
+
+--
+Changelog v1..v2:
+- Whitespace fixes.
+- Remove vendor prefix from device tree string.
+
+---
+ sound/soc/sunxi/sun4i-codec.c | 53 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 53 insertions(+)
+
+diff --git a/sound/soc/sunxi/sun4i-codec.c b/sound/soc/sunxi/sun4i-codec.c
+index f24bbefeb3923..3701f56c72756 100644
+--- a/sound/soc/sunxi/sun4i-codec.c
++++ b/sound/soc/sunxi/sun4i-codec.c
+@@ -22,6 +22,7 @@
+ #include <linux/gpio/consumer.h>
+ 
+ #include <sound/core.h>
++#include <sound/jack.h>
+ #include <sound/pcm.h>
+ #include <sound/pcm_params.h>
+ #include <sound/soc.h>
+@@ -331,6 +332,7 @@ struct sun4i_codec {
+ 	struct clk	*clk_module;
+ 	struct reset_control *rst;
+ 	struct gpio_desc *gpio_pa;
++	struct gpio_desc *gpio_hp;
+ 
+ 	/* ADC_FIFOC register is at different offset on different SoCs */
+ 	struct regmap_field *reg_adc_fifoc;
+@@ -1583,6 +1585,49 @@ static struct snd_soc_dai_driver dummy_cpu_dai = {
+ 	.ops = &dummy_dai_ops,
+ };
+ 
++static struct snd_soc_jack sun4i_headphone_jack;
++
++static struct snd_soc_jack_pin sun4i_headphone_jack_pins[] = {
++	{ .pin = "Headphone", .mask = SND_JACK_HEADPHONE },
++};
++
++static struct snd_soc_jack_gpio sun4i_headphone_jack_gpio = {
++	.name = "hp-det",
++	.report = SND_JACK_HEADPHONE,
++	.debounce_time = 150,
++};
++
++static int sun4i_codec_machine_init(struct snd_soc_pcm_runtime *rtd)
++{
++	struct snd_soc_card *card = rtd->card;
++	struct sun4i_codec *scodec = snd_soc_card_get_drvdata(card);
++	int ret;
++
++	if (scodec->gpio_hp) {
++		ret = snd_soc_card_jack_new_pins(card, "Headphone Jack",
++						 SND_JACK_HEADPHONE,
++						 &sun4i_headphone_jack,
++						 sun4i_headphone_jack_pins,
++						 ARRAY_SIZE(sun4i_headphone_jack_pins));
++		if (ret) {
++			dev_err(rtd->dev,
++				"Headphone jack creation failed: %d\n", ret);
++			return ret;
++		}
++
++		sun4i_headphone_jack_gpio.desc = scodec->gpio_hp;
++		ret = snd_soc_jack_add_gpios(&sun4i_headphone_jack, 1,
++					     &sun4i_headphone_jack_gpio);
++
++		if (ret) {
++			dev_err(rtd->dev, "Headphone GPIO not added: %d\n", ret);
++			return ret;
++		}
++	}
++
++	return 0;
++}
++
+ static struct snd_soc_dai_link *sun4i_codec_create_link(struct device *dev,
+ 							int *num_links)
+ {
+@@ -1608,6 +1653,7 @@ static struct snd_soc_dai_link *sun4i_codec_create_link(struct device *dev,
+ 	link->codecs->name	= dev_name(dev);
+ 	link->platforms->name	= dev_name(dev);
+ 	link->dai_fmt		= SND_SOC_DAIFMT_I2S;
++	link->init		= sun4i_codec_machine_init;
+ 
+ 	*num_links = 1;
+ 
+@@ -2302,6 +2348,13 @@ static int sun4i_codec_probe(struct platform_device *pdev)
+ 		return ret;
+ 	}
+ 
++	scodec->gpio_hp = devm_gpiod_get_optional(&pdev->dev, "hp-det", GPIOD_IN);
++	if (IS_ERR(scodec->gpio_hp)) {
++		ret = PTR_ERR(scodec->gpio_hp);
++		dev_err_probe(&pdev->dev, ret, "Failed to get hp-det gpio\n");
++		return ret;
++	}
++
+ 	/* reg_field setup */
+ 	scodec->reg_adc_fifoc = devm_regmap_field_alloc(&pdev->dev,
+ 							scodec->regmap,
+-- 
+2.48.1
+
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH v2 4/5] arm64: dts: allwinner: h700: Add hp-det-gpios for
+ Anbernic RG35XX
+From: Chris Morgan <macromorgan@hotmail.com>
+Date: Sat, 25 Jan 2025 20:00:14 +1300
+Message-Id: <20250125070458.13822-5-ryan@testtoast.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Add support for headphone insertion detection via GPIO for the
+RG35XX series, and add the corresponding routing to the codec node.
+
+Signed-off-by: Chris Morgan <macromorgan@hotmail.com>
+Signed-off-by: Ryan Walklin <ryan@testtoast.com>
+
+--
+Changelog v1..v2:
+- Remove vendor prefix from GPIO description.
+- Whitespace fix
+
+---
+ .../boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024.dts  | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024.dts b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024.dts
+index 34c2bb4cc0474..0e3537505d293 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024.dts
+@@ -232,8 +232,11 @@ panel_in_rgb: endpoint {
+ };
+ 
+ &codec {
+-	allwinner,audio-routing = "Line Out", "LINEOUT";
++	/* Both speakers and headphone jack connected to 74HC4052D analog mux */
++	allwinner,audio-routing = "Speaker", "LINEOUT",
++				  "Headphone", "LINEOUT";
+ 	allwinner,pa-gpios = <&pio 8 5 GPIO_ACTIVE_HIGH>; // PI5
++	hp-det-gpios = <&pio 8 3 GPIO_ACTIVE_HIGH>; // PI3
+ 	status = "okay";
+ };
+ 
+-- 
+2.48.1
+
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH v2 5/5] ASoC: sun4i-codec: change h616 card name
+From: Ryan Walklin <ryan@testtoast.com>
+Date: Sat, 25 Jan 2025 20:00:15 +1300
+Message-Id: <20250125070458.13822-6-ryan@testtoast.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Adding jack detection requires sound servers to act on the emitted
+events, which are described by ALSA Use Case Manager configurations in
+userspace. These configurations include the card name in the file path,
+so alter the card name for the H616 to remove spaces, making UCM
+referencing easier. Add a long_name to maintain consistency with the
+other drivers.
+
+The corresponding ALSA UCM patch is here:
+https://github.com/alsa-project/alsa-ucm-conf/pull/491
+
+Signed-off-by: Ryan Walklin <ryan@testtoast.com>
+
+--
+Changelog v1..v2:
+- Separate patch for card->long_name
+- Note UCM patch link
+
+---
+ sound/soc/sunxi/sun4i-codec.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/sound/soc/sunxi/sun4i-codec.c b/sound/soc/sunxi/sun4i-codec.c
+index 3701f56c72756..68e2d82228a0b 100644
+--- a/sound/soc/sunxi/sun4i-codec.c
++++ b/sound/soc/sunxi/sun4i-codec.c
+@@ -2012,7 +2012,7 @@ static struct snd_soc_card *sun50i_h616_codec_create_card(struct device *dev)
+ 
+ 	card->dev		= dev;
+ 	card->owner		= THIS_MODULE;
+-	card->name		= "H616 Audio Codec";
++	card->name		= "h616-audio-codec";
+ 	card->driver_name	= "sun4i-codec";
+ 	card->controls		= sun50i_h616_card_controls;
+ 	card->num_controls	= ARRAY_SIZE(sun50i_h616_card_controls);
+-- 
+2.48.1
+

@@ -1,0 +1,213 @@
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH v2 1/4] dt-bindings: power: supply: axp20x-battery: Add
+ x-powers,no-thermistor
+From: Chris Morgan <macromorgan@hotmail.com>
+Date: Tue, 04 Feb 2025 09:58:31 -0600
+Message-Id: <20250204155835.161973-2-macroalpha82@gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Add the vendor specific boolean property of x-powers,no-thermistor.
+This property optionally describes hardware where no thermistor is
+present on the battery and is specific to the AXP717. In rare
+circumstances this value can be set incorrectly in the efuse of the
+PMIC, and if it is not hard-coded the device will fail to charge.
+
+Signed-off-by: Chris Morgan <macromorgan@hotmail.com>
+Reviewed-by: Krzysztof Kozlowski <krzysztof.kozlowski@linaro.org>
+---
+ .../x-powers,axp20x-battery-power-supply.yaml | 20 ++++++++++++++++---
+ 1 file changed, 17 insertions(+), 3 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/power/supply/x-powers,axp20x-battery-power-supply.yaml b/Documentation/devicetree/bindings/power/supply/x-powers,axp20x-battery-power-supply.yaml
+index 5ccd375eb294..3504c76a01d8 100644
+--- a/Documentation/devicetree/bindings/power/supply/x-powers,axp20x-battery-power-supply.yaml
++++ b/Documentation/devicetree/bindings/power/supply/x-powers,axp20x-battery-power-supply.yaml
+@@ -14,9 +14,6 @@ maintainers:
+   - Chen-Yu Tsai <wens@csie.org>
+   - Sebastian Reichel <sre@kernel.org>
+ 
+-allOf:
+-  - $ref: power-supply.yaml#
+-
+ properties:
+   compatible:
+     oneOf:
+@@ -35,7 +32,24 @@ properties:
+       this gauge.
+     $ref: /schemas/types.yaml#/definitions/phandle
+ 
++  x-powers,no-thermistor:
++    type: boolean
++    description: Indicates that no thermistor is connected to the TS pin
++
+ required:
+   - compatible
+ 
++allOf:
++  - $ref: power-supply.yaml#
++  - if:
++      not:
++        properties:
++          compatible:
++            contains:
++              enum:
++                - x-powers,axp717-battery-power-supply
++    then:
++      properties:
++        x-powers,no-thermistor: false
++
+ additionalProperties: false
+-- 
+2.43.0
+
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH v2 2/4] mfd: axp20x: AXP717: Add AXP717_TS_PIN_CFG to
+ writeable regs
+From: Chris Morgan <macromorgan@hotmail.com>
+Date: Tue, 04 Feb 2025 09:58:32 -0600
+Message-Id: <20250204155835.161973-3-macroalpha82@gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Add AXP717_TS_PIN_CFG (register 0x50) to the table of writeable
+registers so that the temperature sensor can be configured by the
+battery driver.
+
+Signed-off-by: Chris Morgan <macromorgan@hotmail.com>
+---
+ drivers/mfd/axp20x.c       | 1 +
+ include/linux/mfd/axp20x.h | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/drivers/mfd/axp20x.c b/drivers/mfd/axp20x.c
+index cff56deba24f..e9914e8a29a3 100644
+--- a/drivers/mfd/axp20x.c
++++ b/drivers/mfd/axp20x.c
+@@ -224,6 +224,7 @@ static const struct regmap_range axp717_writeable_ranges[] = {
+ 	regmap_reg_range(AXP717_VSYS_V_POWEROFF, AXP717_VSYS_V_POWEROFF),
+ 	regmap_reg_range(AXP717_IRQ0_EN, AXP717_IRQ4_EN),
+ 	regmap_reg_range(AXP717_IRQ0_STATE, AXP717_IRQ4_STATE),
++	regmap_reg_range(AXP717_TS_PIN_CFG, AXP717_TS_PIN_CFG),
+ 	regmap_reg_range(AXP717_ICC_CHG_SET, AXP717_CV_CHG_SET),
+ 	regmap_reg_range(AXP717_DCDC_OUTPUT_CONTROL, AXP717_CPUSLDO_CONTROL),
+ 	regmap_reg_range(AXP717_ADC_CH_EN_CONTROL, AXP717_ADC_CH_EN_CONTROL),
+diff --git a/include/linux/mfd/axp20x.h b/include/linux/mfd/axp20x.h
+index c3df0e615fbf..3c5aecf1d4b5 100644
+--- a/include/linux/mfd/axp20x.h
++++ b/include/linux/mfd/axp20x.h
+@@ -137,6 +137,7 @@ enum axp20x_variants {
+ #define AXP717_IRQ2_STATE		0x4a
+ #define AXP717_IRQ3_STATE		0x4b
+ #define AXP717_IRQ4_STATE		0x4c
++#define AXP717_TS_PIN_CFG		0x50
+ #define AXP717_ICC_CHG_SET		0x62
+ #define AXP717_ITERM_CHG_SET		0x63
+ #define AXP717_CV_CHG_SET		0x64
+-- 
+2.43.0
+
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH v2 3/4] power: supply: axp20x_battery: Update temp sensor
+ for AXP717 from device tree
+From: Chris Morgan <macromorgan@hotmail.com>
+Date: Tue, 04 Feb 2025 09:58:33 -0600
+Message-Id: <20250204155835.161973-4-macroalpha82@gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Allow a boolean property of "x-powers,no-thermistor" to specify devices
+where the ts pin is not connected to anything. This works around an
+issue found with some devices where the efuse is not programmed
+correctly from the factory or when the register gets set erroneously.
+
+Signed-off-by: Chris Morgan <macromorgan@hotmail.com>
+---
+ drivers/power/supply/axp20x_battery.c | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/drivers/power/supply/axp20x_battery.c b/drivers/power/supply/axp20x_battery.c
+index 3c3158f31a48..f4cf129a0b68 100644
+--- a/drivers/power/supply/axp20x_battery.c
++++ b/drivers/power/supply/axp20x_battery.c
+@@ -89,6 +89,8 @@
+ #define AXP717_BAT_CC_MIN_UA		0
+ #define AXP717_BAT_CC_MAX_UA		3008000
+ 
++#define AXP717_TS_PIN_DISABLE		BIT(4)
++
+ struct axp20x_batt_ps;
+ 
+ struct axp_data {
+@@ -117,6 +119,7 @@ struct axp20x_batt_ps {
+ 	/* Maximum constant charge current */
+ 	unsigned int max_ccc;
+ 	const struct axp_data	*data;
++	bool ts_disable;
+ };
+ 
+ static int axp20x_battery_get_max_voltage(struct axp20x_batt_ps *axp20x_batt,
+@@ -984,6 +987,24 @@ static void axp717_set_battery_info(struct platform_device *pdev,
+ 	int ccc = info->constant_charge_current_max_ua;
+ 	int val;
+ 
++	axp_batt->ts_disable = (device_property_read_bool(axp_batt->dev,
++							  "x-powers,no-thermistor"));
++
++	/*
++	 * Under rare conditions an incorrectly programmed efuse for
++	 * the temp sensor on the PMIC may trigger a fault condition.
++	 * Allow users to hard-code if the ts pin is not used to work
++	 * around this problem. Note that this requires the battery
++	 * be correctly defined in the device tree with a monitored
++	 * battery node.
++	 */
++	if (axp_batt->ts_disable) {
++		regmap_update_bits(axp_batt->regmap,
++				   AXP717_TS_PIN_CFG,
++				   AXP717_TS_PIN_DISABLE,
++				   AXP717_TS_PIN_DISABLE);
++	}
++
+ 	if (vmin > 0 && axp717_set_voltage_min_design(axp_batt, vmin))
+ 		dev_err(&pdev->dev,
+ 			"couldn't set voltage_min_design\n");
+-- 
+2.43.0
+
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH v2 4/4] arm64: dts: allwinner: rg35xx: Add no-thermistor
+ property for battery
+From: Chris Morgan <macromorgan@hotmail.com>
+Date: Tue, 04 Feb 2025 09:58:34 -0600
+Message-Id: <20250204155835.161973-5-macroalpha82@gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Add the property of x-powers,no-thermistor for the battery of the
+Anbernic RG35XX series of H700 devices.
+
+Signed-off-by: Chris Morgan <macromorgan@hotmail.com>
+---
+ .../boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024.dts      | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024.dts b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024.dts
+index a231abf1684a..0c89ccc662a2 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024.dts
+@@ -237,6 +237,7 @@ axp_adc: adc {
+ 		battery_power: battery-power {
+ 			compatible = "x-powers,axp717-battery-power-supply";
+ 			monitored-battery = <&battery>;
++			x-powers,no-thermistor;
+ 		};
+ 
+ 		regulators {
+-- 
+2.43.0
+
