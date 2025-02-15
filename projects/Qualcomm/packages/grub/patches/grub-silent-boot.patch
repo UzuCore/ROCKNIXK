@@ -1,0 +1,12 @@
+diff -rupbN grub.old/grub-core/normal/menu.c grub/grub-core/normal/menu.c
+--- grub.old/grub-core/normal/menu.c	2023-12-20 15:54:46.000000000 +0000
++++ grub/grub-core/normal/menu.c	2025-02-15 15:08:53.464887907 +0000
+@@ -580,7 +580,7 @@ run_menu (grub_menu_t menu, int nested,
+   int timeout;
+   enum timeout_style timeout_style;
+ 
+-  *notify_boot = 1;
++  *notify_boot = 0;
+ 
+   default_entry = get_entry_number (menu, "default");
+ 

@@ -18,7 +18,7 @@ index 8b107da7e82e..6ca92ac0be96 100644
 +&pm8150_gpios {
 +	volume_up_default: volume-up-default {
 +		pins = "gpio6";
-+		function = "gpio";
++		function = "normal";
 +		bias-pull-up;
 +	};
 +};

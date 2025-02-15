@@ -6,12 +6,10 @@ qcom/sm8250/a650_zap.mbn
 # QCOM_Q6V5_PAS
 qcom/sm8250/adsp.mbn
 qcom/sm8250/cdsp.mbn
+qcom/sm8250/Thundercomm/RB5/slpi*
 
 # VIDEO_QCOM_VENUS
 qcom/vpu-1.0/venus.mbn
-
-# QCOM SLPI
-qcom/sm8250/Thundercomm/RB5/slpi*
 
 # ATH11K
 ath11k/QCA6390/hw2.0/*.bin
@@ -20,5 +18,5 @@ ath11k/QCA6390/hw2.0/*.bin
 qca/htbtfw20.tlv
 qca/htnv20.bin
 
-# RTL USB ETHERNET
+# USB_RTL8152
 rtl_nic/rtl8153a-4.fw

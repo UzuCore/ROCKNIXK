@@ -54,14 +54,13 @@ post_install() {
   chmod 755 ${INSTALL}/usr/share/post-update
 
   # Issue banner
-  BUILD_ID=$(git rev-parse HEAD)
-  cp ${PKG_DIR}/sources/issue ${INSTALL}/etc
-  ln -sf /etc/issue ${INSTALL}/etc/motd
   cat <<EOF >> ${INSTALL}/etc/issue
 ... Version: ${OS_VERSION} (${OS_BUILD})
 ... Built: ${BUILD_DATE}
 
 EOF
+  cp ${PKG_DIR}/sources/motd ${INSTALL}/etc
+  cat ${INSTALL}/etc/issue >> ${INSTALL}/etc/motd
 
   cp ${PKG_DIR}/sources/scripts/* ${INSTALL}/usr/bin
   chmod 0755 ${INSTALL}/usr/bin/* 2>/dev/null ||:
