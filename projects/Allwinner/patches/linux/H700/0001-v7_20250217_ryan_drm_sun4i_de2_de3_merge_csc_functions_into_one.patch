@@ -1,8 +1,8 @@
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 1/26] drm: sun4i: de2/de3: Change CSC argument
+Subject: [PATCH v7 1/27] drm: sun4i: de2/de3: Change CSC argument
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:33 +1300
-Message-Id: <20240929091107.838023-2-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:32:00 +1300
+Message-Id: <20250216183524.12095-2-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -17,8 +17,11 @@ This commit doesn't make any functional change.
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 Signed-off-by: Ryan Walklin <ryan@testtoast.com>
 Reviewed-by: Andre Przywara <andre.przywara@arm.com>
-Reviewed-by: Chen-Yu Tsai <wens@csie.org>
-Acked-by: Conor Dooley <conor.dooley@microchip.com>
+
+--
+Changelog v5..v6:
+- Rename format enum from format_type to sun8i_format_type
+
 ---
  drivers/gpu/drm/sun4i/sun8i_csc.c      | 22 +++++++++++-----------
  drivers/gpu/drm/sun4i/sun8i_csc.h      | 10 +++++-----
@@ -26,7 +29,7 @@ Acked-by: Conor Dooley <conor.dooley@microchip.com>
  3 files changed, 24 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/gpu/drm/sun4i/sun8i_csc.c b/drivers/gpu/drm/sun4i/sun8i_csc.c
-index 58480d8e4f704..6ebd1c3aa3ab5 100644
+index 58480d8e4f704..a96de701c3304 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_csc.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_csc.c
 @@ -108,7 +108,7 @@ static const u32 yuv2rgb_de3[2][3][12] = {
@@ -34,7 +37,7 @@ index 58480d8e4f704..6ebd1c3aa3ab5 100644
  
  static void sun8i_csc_set_coefficients(struct regmap *map, u32 base,
 -				       enum sun8i_csc_mode mode,
-+				       enum format_type fmt_type,
++				       enum sun8i_format_type fmt_type,
  				       enum drm_color_encoding encoding,
  				       enum drm_color_range range)
  {
@@ -59,7 +62,7 @@ index 58480d8e4f704..6ebd1c3aa3ab5 100644
  
  static void sun8i_de3_ccsc_set_coefficients(struct regmap *map, int layer,
 -					    enum sun8i_csc_mode mode,
-+					    enum format_type fmt_type,
++					    enum sun8i_format_type fmt_type,
  					    enum drm_color_encoding encoding,
  					    enum drm_color_range range)
  {
@@ -84,7 +87,7 @@ index 58480d8e4f704..6ebd1c3aa3ab5 100644
  
  void sun8i_csc_set_ccsc_coefficients(struct sun8i_mixer *mixer, int layer,
 -				     enum sun8i_csc_mode mode,
-+				     enum format_type fmt_type,
++				     enum sun8i_format_type fmt_type,
  				     enum drm_color_encoding encoding,
  				     enum drm_color_range range)
  {
@@ -106,7 +109,7 @@ index 58480d8e4f704..6ebd1c3aa3ab5 100644
  
  void sun8i_csc_enable_ccsc(struct sun8i_mixer *mixer, int layer, bool enable)
 diff --git a/drivers/gpu/drm/sun4i/sun8i_csc.h b/drivers/gpu/drm/sun4i/sun8i_csc.h
-index 828b86fd0cabb..7322770f39f03 100644
+index 828b86fd0cabb..e35e0ac951022 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_csc.h
 +++ b/drivers/gpu/drm/sun4i/sun8i_csc.h
 @@ -22,14 +22,14 @@ struct sun8i_mixer;
@@ -117,7 +120,7 @@ index 828b86fd0cabb..7322770f39f03 100644
 -	SUN8I_CSC_MODE_OFF,
 -	SUN8I_CSC_MODE_YUV2RGB,
 -	SUN8I_CSC_MODE_YVU2RGB,
-+enum format_type {
++enum sun8i_format_type {
 +	FORMAT_TYPE_RGB,
 +	FORMAT_TYPE_YUV,
 +	FORMAT_TYPE_YVU,
@@ -125,7 +128,7 @@ index 828b86fd0cabb..7322770f39f03 100644
  
  void sun8i_csc_set_ccsc_coefficients(struct sun8i_mixer *mixer, int layer,
 -				     enum sun8i_csc_mode mode,
-+				     enum format_type fmt_type,
++				     enum sun8i_format_type fmt_type,
  				     enum drm_color_encoding encoding,
  				     enum drm_color_range range);
  void sun8i_csc_enable_ccsc(struct sun8i_mixer *mixer, int layer, bool enable);
@@ -180,13 +183,13 @@ index 9c09d9c08496d..8a80934e928fe 100644
  						state->color_range);
  		sun8i_csc_enable_ccsc(mixer, channel, true);
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 2/26] drm: sun4i: de2/de3: Merge CSC functions into one
+Subject: [PATCH v7 2/27] drm: sun4i: de2/de3: Merge CSC functions into one
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:34 +1300
-Message-Id: <20240929091107.838023-3-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:02 +1300
+Message-Id: <20250216183710.8443-3-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -199,8 +202,6 @@ extensions to support whole YUV pipelines, in the DE33.
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 Signed-off-by: Ryan Walklin <ryan@testtoast.com>
 Reviewed-by: Andre Przywara <andre.przywara@arm.com>
-Reviewed-by: Chen-Yu Tsai <wens@csie.org>
-Acked-by: Conor Dooley <conor.dooley@microchip.com>
 ---
  drivers/gpu/drm/sun4i/sun8i_csc.c      | 89 ++++++++++----------------
  drivers/gpu/drm/sun4i/sun8i_csc.h      |  9 ++-
@@ -208,7 +209,7 @@ Acked-by: Conor Dooley <conor.dooley@microchip.com>
  3 files changed, 40 insertions(+), 69 deletions(-)
 
 diff --git a/drivers/gpu/drm/sun4i/sun8i_csc.c b/drivers/gpu/drm/sun4i/sun8i_csc.c
-index 6ebd1c3aa3ab5..0dcbc0866ae82 100644
+index a96de701c3304..5606912f92de5 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_csc.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_csc.c
 @@ -107,23 +107,28 @@ static const u32 yuv2rgb_de3[2][3][12] = {
@@ -216,11 +217,11 @@ index 6ebd1c3aa3ab5..0dcbc0866ae82 100644
  };
  
 -static void sun8i_csc_set_coefficients(struct regmap *map, u32 base,
--				       enum format_type fmt_type,
+-				       enum sun8i_format_type fmt_type,
 -				       enum drm_color_encoding encoding,
 -				       enum drm_color_range range)
 +static void sun8i_csc_setup(struct regmap *map, u32 base,
-+			    enum format_type fmt_type,
++			    enum sun8i_format_type fmt_type,
 +			    enum drm_color_encoding encoding,
 +			    enum drm_color_range range)
  {
@@ -258,11 +259,11 @@ index 6ebd1c3aa3ab5..0dcbc0866ae82 100644
  }
  
 -static void sun8i_de3_ccsc_set_coefficients(struct regmap *map, int layer,
--					    enum format_type fmt_type,
+-					    enum sun8i_format_type fmt_type,
 -					    enum drm_color_encoding encoding,
 -					    enum drm_color_range range)
 +static void sun8i_de3_ccsc_setup(struct regmap *map, int layer,
-+				 enum format_type fmt_type,
++				 enum sun8i_format_type fmt_type,
 +				 enum drm_color_encoding encoding,
 +				 enum drm_color_range range)
  {
@@ -326,7 +327,7 @@ index 6ebd1c3aa3ab5..0dcbc0866ae82 100644
  }
  
 -void sun8i_csc_set_ccsc_coefficients(struct sun8i_mixer *mixer, int layer,
--				     enum format_type fmt_type,
+-				     enum sun8i_format_type fmt_type,
 -				     enum drm_color_encoding encoding,
 -				     enum drm_color_range range)
 -{
@@ -346,7 +347,7 @@ index 6ebd1c3aa3ab5..0dcbc0866ae82 100644
 -
 -void sun8i_csc_enable_ccsc(struct sun8i_mixer *mixer, int layer, bool enable)
 +void sun8i_csc_set_ccsc(struct sun8i_mixer *mixer, int layer,
-+			enum format_type fmt_type,
++			enum sun8i_format_type fmt_type,
 +			enum drm_color_encoding encoding,
 +			enum drm_color_range range)
  {
@@ -366,20 +367,20 @@ index 6ebd1c3aa3ab5..0dcbc0866ae82 100644
 +			fmt_type, encoding, range);
  }
 diff --git a/drivers/gpu/drm/sun4i/sun8i_csc.h b/drivers/gpu/drm/sun4i/sun8i_csc.h
-index 7322770f39f03..b7546e06e315c 100644
+index e35e0ac951022..9b63c92782f56 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_csc.h
 +++ b/drivers/gpu/drm/sun4i/sun8i_csc.h
-@@ -28,10 +28,9 @@ enum format_type {
+@@ -28,10 +28,9 @@ enum sun8i_format_type {
  	FORMAT_TYPE_YVU,
  };
  
 -void sun8i_csc_set_ccsc_coefficients(struct sun8i_mixer *mixer, int layer,
--				     enum format_type fmt_type,
+-				     enum sun8i_format_type fmt_type,
 -				     enum drm_color_encoding encoding,
 -				     enum drm_color_range range);
 -void sun8i_csc_enable_ccsc(struct sun8i_mixer *mixer, int layer, bool enable);
 +void sun8i_csc_set_ccsc(struct sun8i_mixer *mixer, int layer,
-+			enum format_type fmt_type,
++			enum sun8i_format_type fmt_type,
 +			enum drm_color_encoding encoding,
 +			enum drm_color_range range);
  
@@ -407,14 +408,14 @@ index 8a80934e928fe..f3a5329351caa 100644
  	if (!fmt->is_yuv)
  		val = SUN8I_MIXER_CHAN_VI_LAYER_ATTR_RGB_MODE;
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 3/26] drm: sun4i: de2/de3: call csc setup also for UI
+Subject: [PATCH v7 3/27] drm: sun4i: de2/de3: call csc setup also for UI
  layer
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:35 +1300
-Message-Id: <20240929091107.838023-4-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:03 +1300
+Message-Id: <20250216183710.8443-4-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -428,16 +429,13 @@ be a no-op, but it will allow DE3 to output signal in multiple formats.
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 Signed-off-by: Ryan Walklin <ryan@testtoast.com>
-Reviewed-by: Chen-Yu Tsai <wens@csie.org>
-Acked-by: Conor Dooley <conor.dooley@microchip.com>
-Reviewed-by: Andre Przywara <andre.przywara@arm.com>
 ---
  drivers/gpu/drm/sun4i/sun8i_csc.c      | 8 +++++---
  drivers/gpu/drm/sun4i/sun8i_ui_layer.c | 6 ++++++
  2 files changed, 11 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/gpu/drm/sun4i/sun8i_csc.c b/drivers/gpu/drm/sun4i/sun8i_csc.c
-index 0dcbc0866ae82..68d955c63b05b 100644
+index 5606912f92de5..558f7a4c1354e 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_csc.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_csc.c
 @@ -209,8 +209,10 @@ void sun8i_csc_set_ccsc(struct sun8i_mixer *mixer, int layer,
@@ -479,13 +477,13 @@ index b90e5edef4e88..aa987bca1dbb9 100644
  }
  
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 4/26] drm: sun4i: de2: Initialize layer fields earlier
+Subject: [PATCH v7 4/27] drm: sun4i: de2: Initialize layer fields earlier
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:36 +1300
-Message-Id: <20240929091107.838023-5-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:04 +1300
+Message-Id: <20250216183710.8443-5-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -558,13 +556,13 @@ index f3a5329351caa..3c657b069d1f4 100644
  	return layer;
  }
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 5/26] drm: sun4i: de3: Add YUV formatter module
+Subject: [PATCH v7 5/27] drm: sun4i: de3: Add YUV formatter module
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:37 +1300
-Message-Id: <20240929091107.838023-6-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:05 +1300
+Message-Id: <20250216183710.8443-6-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -577,9 +575,6 @@ Add support for this module.
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 Signed-off-by: Ryan Walklin <ryan@testtoast.com>
-Reviewed-by: Chen-Yu Tsai <wens@csie.org>
-Acked-by: Conor Dooley <conor.dooley@microchip.com>
-Reviewed-by: Andre Przywara <andre.przywara@arm.com>
 ---
  drivers/gpu/drm/sun4i/Makefile     |  3 +-
  drivers/gpu/drm/sun4i/sun50i_fmt.c | 82 ++++++++++++++++++++++++++++++
@@ -729,14 +724,14 @@ index 0000000000000..4127f7206aade
 +
 +#endif
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 6/26] drm: sun4i: de3: add format enumeration function
+Subject: [PATCH v7 6/27] drm: sun4i: de3: add format enumeration function
  to engine
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:38 +1300
-Message-Id: <20240929091107.838023-7-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:06 +1300
+Message-Id: <20250216183710.8443-7-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -747,9 +742,6 @@ Add an optional format enumeration function to the engine.
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 Signed-off-by: Ryan Walklin <ryan@testtoast.com>
-Reviewed-by: Chen-Yu Tsai <wens@csie.org>
-Acked-by: Conor Dooley <conor.dooley@microchip.com>
-Reviewed-by: Andre Przywara <andre.przywara@arm.com>
 ---
  drivers/gpu/drm/sun4i/sunxi_engine.h | 29 ++++++++++++++++++++++++++++
  1 file changed, 29 insertions(+)
@@ -800,14 +792,14 @@ index ec0c4932f15cf..c48cbc1aceb80 100644
 +}
  #endif /* _SUNXI_ENGINE_H_ */
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 7/26] drm: sun4i: de3: add formatter flag to mixer
+Subject: [PATCH v7 7/27] drm: sun4i: de3: add formatter flag to mixer
  config
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:39 +1300
-Message-Id: <20240929091107.838023-8-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:07 +1300
+Message-Id: <20250216183710.8443-8-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -820,16 +812,13 @@ Add a separate flag to signal this in the mixer configuration.
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 Signed-off-by: Ryan Walklin <ryan@testtoast.com>
-Reviewed-by: Chen-Yu Tsai <wens@csie.org>
-Acked-by: Conor Dooley <conor.dooley@microchip.com>
-Reviewed-by: Andre Przywara <andre.przywara@arm.com>
 ---
  drivers/gpu/drm/sun4i/sun8i_mixer.c | 1 +
  drivers/gpu/drm/sun4i/sun8i_mixer.h | 2 ++
  2 files changed, 3 insertions(+)
 
 diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.c b/drivers/gpu/drm/sun4i/sun8i_mixer.c
-index bd0fe2c6624e6..252827715de1d 100644
+index 8b41d33baa309..a170f68708b1f 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_mixer.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_mixer.c
 @@ -717,6 +717,7 @@ static const struct sun8i_mixer_cfg sun50i_a64_mixer1_cfg = {
@@ -861,13 +850,13 @@ index d7898c9c9cc0c..8417b8fef2e1f 100644
  };
  
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 8/26] drm: sun4i: de3: add YUV support to the DE3 mixer
+Subject: [PATCH v7 8/27] drm: sun4i: de3: add YUV support to the DE3 mixer
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:40 +1300
-Message-Id: <20240929091107.838023-9-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:08 +1300
+Message-Id: <20250216183710.8443-9-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -876,20 +865,23 @@ The mixer in the DE3 display engine supports YUV 8 and 10 bit
 formats in addition to 8-bit RGB. Add the required register
 configuration and format enumeration callback functions to the mixer,
 and store the in-use output format (defaulting to RGB) and color
-encoding in engine variables.
+encoding in the mixer configuration.
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 Signed-off-by: Ryan Walklin <ryan@testtoast.com>
 ---
 Changelog v4..v5:
 - Remove trailing whitespace
+
+Changelog v5..v6:
+- Move color format and encoding flags to mixer and add struct.
 ---
- drivers/gpu/drm/sun4i/sun8i_mixer.c  | 53 ++++++++++++++++++++++++++--
- drivers/gpu/drm/sun4i/sunxi_engine.h |  5 +++
- 2 files changed, 55 insertions(+), 3 deletions(-)
+ drivers/gpu/drm/sun4i/sun8i_mixer.c | 54 +++++++++++++++++++++++++++--
+ drivers/gpu/drm/sun4i/sun8i_mixer.h | 11 ++++++
+ 2 files changed, 62 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.c b/drivers/gpu/drm/sun4i/sun8i_mixer.c
-index 252827715de1d..a50c583852edf 100644
+index a170f68708b1f..bc934186bfd6f 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_mixer.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_mixer.c
 @@ -23,7 +23,10 @@
@@ -908,7 +900,7 @@ index 252827715de1d..a50c583852edf 100644
  	DRM_DEBUG_DRIVER("Switching display mixer interlaced mode %s\n",
  			 interlaced ? "on" : "off");
 +
-+	if (engine->format == MEDIA_BUS_FMT_RGB888_1X24)
++	if (mixer->color_model.format == MEDIA_BUS_FMT_RGB888_1X24)
 +		val = SUN8I_MIXER_BLEND_COLOR_BLACK;
 +	else
 +		val = 0xff108080;
@@ -920,7 +912,7 @@ index 252827715de1d..a50c583852edf 100644
 +
 +	if (mixer->cfg->has_formatter)
 +		sun50i_fmt_setup(mixer, mode->hdisplay,
-+				 mode->vdisplay, mixer->engine.format);
++				 mode->vdisplay, mixer->color_model.format);
 +}
 +
 +static u32 *sun8i_mixer_get_supported_fmts(struct sunxi_engine *engine, u32 *num)
@@ -959,49 +951,143 @@ index 252827715de1d..a50c583852edf 100644
  };
  
  static const struct regmap_config sun8i_mixer_regmap_config = {
-@@ -456,6 +499,10 @@ static int sun8i_mixer_bind(struct device *dev, struct device *master,
- 	dev_set_drvdata(dev, mixer);
- 	mixer->engine.ops = &sun8i_engine_ops;
- 	mixer->engine.node = dev->of_node;
+@@ -484,6 +527,11 @@ static int sun8i_mixer_bind(struct device *dev, struct device *master,
+ 	if (!mixer->cfg)
+ 		return -EINVAL;
+ 
 +	/* default output format, supported by all mixers */
-+	mixer->engine.format = MEDIA_BUS_FMT_RGB888_1X24;
++	mixer->color_model.format = MEDIA_BUS_FMT_RGB888_1X24;
 +	/* default color encoding, ignored with RGB I/O */
-+	mixer->engine.encoding = DRM_COLOR_YCBCR_BT601;
- 
- 	if (of_property_present(dev->of_node, "iommus")) {
- 		/*
-diff --git a/drivers/gpu/drm/sun4i/sunxi_engine.h b/drivers/gpu/drm/sun4i/sunxi_engine.h
-index c48cbc1aceb80..ffafc29b3a0c3 100644
---- a/drivers/gpu/drm/sun4i/sunxi_engine.h
-+++ b/drivers/gpu/drm/sun4i/sunxi_engine.h
-@@ -6,6 +6,8 @@
- #ifndef _SUNXI_ENGINE_H_
- #define _SUNXI_ENGINE_H_
- 
++	mixer->color_model.encoding = DRM_COLOR_YCBCR_BT601;
++
+ 	regs = devm_platform_ioremap_resource(pdev, 0);
+ 	if (IS_ERR(regs))
+ 		return PTR_ERR(regs);
+diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.h b/drivers/gpu/drm/sun4i/sun8i_mixer.h
+index 8417b8fef2e1f..5f465a974fbdf 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_mixer.h
++++ b/drivers/gpu/drm/sun4i/sun8i_mixer.h
+@@ -9,6 +9,7 @@
+ #include <linux/clk.h>
+ #include <linux/regmap.h>
+ #include <linux/reset.h>
 +#include <drm/drm_color_mgmt.h>
-+
- struct drm_plane;
- struct drm_crtc;
- struct drm_device;
-@@ -151,6 +153,9 @@ struct sunxi_engine {
+ #include <drm/drm_plane.h>
  
- 	int id;
- 
-+	u32				format;
-+	enum drm_color_encoding		encoding;
-+
- 	/* Engine list management */
- 	struct list_head		list;
+ #include "sunxi_engine.h"
+@@ -177,6 +178,11 @@ struct sun8i_mixer_cfg {
+ 	unsigned int	scanline_yuv;
  };
+ 
++struct sun8i_color_model {
++	u32			format;
++	enum drm_color_encoding	encoding;
++};
++
+ struct sun8i_mixer {
+ 	struct sunxi_engine		engine;
+ 
+@@ -186,6 +192,11 @@ struct sun8i_mixer {
+ 
+ 	struct clk			*bus_clk;
+ 	struct clk			*mod_clk;
++
++	struct regmap			*top_regs;
++	struct regmap			*disp_regs;
++
++	struct sun8i_color_model	color_model;
+ };
+ 
+ enum {
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 9/26] drm: sun4i: de3: pass engine reference to ccsc
+Subject: [PATCH v7 9/27] drm: sun4i: de3: refactor YUV formatter module
+ setup
+From: Ryan Walklin <ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:09 +1300
+Message-Id: <20250216183710.8443-10-ryan@testtoast.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Because the format is stored in the mixer configuration, the formatter
+module setup function no longer requires the color format to be passed
+separately.
+
+Remove this from the setup function declaration and access the format
+via the mixer object.
+
+Signed-off-by: Ryan Walklin <ryan@testtoast.com>
+
+--
+Changelog v5..v6:
+- Add this commit updating the sun50i_fmt_setup function
+
+---
+ drivers/gpu/drm/sun4i/sun50i_fmt.c  | 5 +++--
+ drivers/gpu/drm/sun4i/sun50i_fmt.h  | 3 +--
+ drivers/gpu/drm/sun4i/sun8i_mixer.c | 3 +--
+ 3 files changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/sun4i/sun50i_fmt.c b/drivers/gpu/drm/sun4i/sun50i_fmt.c
+index 050a8716ae862..376a3c9b993f4 100644
+--- a/drivers/gpu/drm/sun4i/sun50i_fmt.c
++++ b/drivers/gpu/drm/sun4i/sun50i_fmt.c
+@@ -51,13 +51,14 @@ static void sun50i_fmt_de3_limits(u32 *limits, u32 colorspace, bool bit10)
+ 	}
+ }
+ 
+-void sun50i_fmt_setup(struct sun8i_mixer *mixer, u16 width,
+-		      u16 height, u32 format)
++void sun50i_fmt_setup(struct sun8i_mixer *mixer, u16 width, u16 height)
+ {
+ 	u32 colorspace, limit[3], base;
+ 	struct regmap *regs;
+ 	bool bit10;
++	u32 format;
+ 
++	format = mixer->color_model.format;
+ 	colorspace = sun50i_fmt_get_colorspace(format);
+ 	bit10 = sun50i_fmt_is_10bit(format);
+ 	base = SUN50I_FMT_DE3;
+diff --git a/drivers/gpu/drm/sun4i/sun50i_fmt.h b/drivers/gpu/drm/sun4i/sun50i_fmt.h
+index 4127f7206aade..dd6816c90dfcd 100644
+--- a/drivers/gpu/drm/sun4i/sun50i_fmt.h
++++ b/drivers/gpu/drm/sun4i/sun50i_fmt.h
+@@ -26,7 +26,6 @@
+ #define SUN50I_FMT_CS_YUV422    1
+ #define SUN50I_FMT_CS_YUV420    2
+ 
+-void sun50i_fmt_setup(struct sun8i_mixer *mixer, u16 width,
+-		      u16 height, u32 format);
++void sun50i_fmt_setup(struct sun8i_mixer *mixer, u16 width, u16 height);
+ 
+ #endif
+diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.c b/drivers/gpu/drm/sun4i/sun8i_mixer.c
+index bc934186bfd6f..3069329210085 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_mixer.c
++++ b/drivers/gpu/drm/sun4i/sun8i_mixer.c
+@@ -405,8 +405,7 @@ static void sun8i_mixer_mode_set(struct sunxi_engine *engine,
+ 		     SUN8I_MIXER_BLEND_ATTR_FCOLOR(bld_base, 0), val);
+ 
+ 	if (mixer->cfg->has_formatter)
+-		sun50i_fmt_setup(mixer, mode->hdisplay,
+-				 mode->vdisplay, mixer->color_model.format);
++		sun50i_fmt_setup(mixer, mode->hdisplay, mode->vdisplay);
+ }
+ 
+ static u32 *sun8i_mixer_get_supported_fmts(struct sunxi_engine *engine, u32 *num)
+-- 
+2.48.1
+
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH v7 10/27] drm: sun4i: de3: pass mixer reference to ccsc
  setup function
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:41 +1300
-Message-Id: <20240929091107.838023-10-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:10 +1300
+Message-Id: <20250216183710.8443-11-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -1009,20 +1095,21 @@ Content-Transfer-Encoding: 7bit
 Configuration of the DE3 colorspace and dynamic range correction module
 requires knowledge of the current video format and encoding.
 
-Pass the display engine by reference to the csc setup function, rather
+Pass the display mixer by reference to the csc setup function, rather
 than the register map alone, to allow access to this information.
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 Signed-off-by: Ryan Walklin <ryan@testtoast.com>
-Reviewed-by: Chen-Yu Tsai <wens@csie.org>
-Acked-by: Conor Dooley <conor.dooley@microchip.com>
-Reviewed-by: Andre Przywara <andre.przywara@arm.com>
+
+Changelog v5..v6:
+- Pass mixer instead of engine now that mixer holds color information.
+
 ---
  drivers/gpu/drm/sun4i/sun8i_csc.c | 6 ++++--
  1 file changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/gpu/drm/sun4i/sun8i_csc.c b/drivers/gpu/drm/sun4i/sun8i_csc.c
-index 68d955c63b05b..8a336ccb27d33 100644
+index 558f7a4c1354e..7f3dc6a7b550d 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_csc.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_csc.c
 @@ -148,17 +148,19 @@ static void sun8i_csc_setup(struct regmap *map, u32 base,
@@ -1030,8 +1117,8 @@ index 68d955c63b05b..8a336ccb27d33 100644
  }
  
 -static void sun8i_de3_ccsc_setup(struct regmap *map, int layer,
-+static void sun8i_de3_ccsc_setup(struct sunxi_engine *engine, int layer,
- 				 enum format_type fmt_type,
++static void sun8i_de3_ccsc_setup(struct sun8i_mixer *mixer, int layer,
+ 				 enum sun8i_format_type fmt_type,
  				 enum drm_color_encoding encoding,
  				 enum drm_color_range range)
  {
@@ -1042,7 +1129,7 @@ index 68d955c63b05b..8a336ccb27d33 100644
  
  	mask = SUN50I_MIXER_BLEND_CSC_CTL_EN(layer);
  	table = yuv2rgb_de3[range][encoding];
-+	map = engine->regs;
++	map = mixer->engine.regs;
  
  	switch (fmt_type) {
  	case FORMAT_TYPE_RGB:
@@ -1051,19 +1138,19 @@ index 68d955c63b05b..8a336ccb27d33 100644
  
  	if (mixer->cfg->is_de3) {
 -		sun8i_de3_ccsc_setup(mixer->engine.regs, layer,
-+		sun8i_de3_ccsc_setup(&mixer->engine, layer,
++		sun8i_de3_ccsc_setup(mixer, layer,
  				     fmt_type, encoding, range);
  		return;
  	}
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 10/26] drm: sun4i: de3: add YUV support to the color
+Subject: [PATCH v7 11/27] drm: sun4i: de3: add YUV support to the color
  space correction module
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:42 +1300
-Message-Id: <20240929091107.838023-11-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:11 +1300
+Message-Id: <20250216183710.8443-12-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -1073,15 +1160,17 @@ colorspace and dynamic range correction submodule.
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 Signed-off-by: Ryan Walklin <ryan@testtoast.com>
-Reviewed-by: Chen-Yu Tsai <wens@csie.org>
-Acked-by: Conor Dooley <conor.dooley@microchip.com>
-Reviewed-by: Andre Przywara <andre.przywara@arm.com>
+
+--
+Changelog v6..v7:
+- Restore sun8i_csc_get_de3_yuv_table() helper omitted from previous version.
+
 ---
- drivers/gpu/drm/sun4i/sun8i_csc.c | 164 +++++++++++++++++++++++++++++-
- 1 file changed, 162 insertions(+), 2 deletions(-)
+ drivers/gpu/drm/sun4i/sun8i_csc.c | 166 +++++++++++++++++++++++++++++-
+ 1 file changed, 164 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/gpu/drm/sun4i/sun8i_csc.c b/drivers/gpu/drm/sun4i/sun8i_csc.c
-index 8a336ccb27d33..e12a81fa91083 100644
+index 7f3dc6a7b550d..275589d64e52b 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_csc.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_csc.c
 @@ -5,6 +5,8 @@
@@ -1227,9 +1316,9 @@ index 8a336ccb27d33..e12a81fa91083 100644
 +};
 +
  static void sun8i_csc_setup(struct regmap *map, u32 base,
- 			    enum format_type fmt_type,
+ 			    enum sun8i_format_type fmt_type,
  			    enum drm_color_encoding encoding,
-@@ -148,12 +279,27 @@ static void sun8i_csc_setup(struct regmap *map, u32 base,
+@@ -148,30 +279,61 @@ static void sun8i_csc_setup(struct regmap *map, u32 base,
  	regmap_write(map, SUN8I_CSC_CTRL(base), val);
  }
  
@@ -1248,8 +1337,8 @@ index 8a336ccb27d33..e12a81fa91083 100644
 +	return yuv2yuv_de3[in_range][in_enc][out_enc];
 +}
 +
- static void sun8i_de3_ccsc_setup(struct sunxi_engine *engine, int layer,
- 				 enum format_type fmt_type,
+ static void sun8i_de3_ccsc_setup(struct sun8i_mixer *mixer, int layer,
+ 				 enum sun8i_format_type fmt_type,
  				 enum drm_color_encoding encoding,
  				 enum drm_color_range range)
  {
@@ -1258,21 +1347,26 @@ index 8a336ccb27d33..e12a81fa91083 100644
  	struct regmap *map;
  	const u32 *table;
  	int i;
-@@ -164,14 +310,28 @@ static void sun8i_de3_ccsc_setup(struct sunxi_engine *engine, int layer,
++	struct sun8i_color_model model;
+ 
+ 	mask = SUN50I_MIXER_BLEND_CSC_CTL_EN(layer);
+ 	table = yuv2rgb_de3[range][encoding];
+ 	map = mixer->engine.regs;
++	model = mixer->color_model;
  
  	switch (fmt_type) {
  	case FORMAT_TYPE_RGB:
 -		val = 0;
-+		if (engine->format == MEDIA_BUS_FMT_RGB888_1X24)
++		if (model.format == MEDIA_BUS_FMT_RGB888_1X24)
 +			break;
 +		val = mask;
 +		addr = SUN50I_MIXER_BLEND_CSC_COEFF(DE3_BLD_BASE, layer, 0);
-+		regmap_bulk_write(map, addr, rgb2yuv_de3[engine->encoding], 12);
++		regmap_bulk_write(map, addr, rgb2yuv_de3[model.encoding], 12);
  		break;
  	case FORMAT_TYPE_YUV:
 +		table = sun8i_csc_get_de3_yuv_table(encoding, range,
-+						    engine->format,
-+						    engine->encoding);
++						    model.format,
++						    model.encoding);
 +		if (!table)
 +			break;
  		val = mask;
@@ -1281,21 +1375,21 @@ index 8a336ccb27d33..e12a81fa91083 100644
  		break;
  	case FORMAT_TYPE_YVU:
 +		table = sun8i_csc_get_de3_yuv_table(encoding, range,
-+						    engine->format,
-+						    engine->encoding);
++						    model.format,
++						    model.encoding);
 +		if (!table)
 +			table = yuv2yuv_de3[range][encoding][encoding];
  		val = mask;
  		for (i = 0; i < 12; i++) {
  			if ((i & 3) == 1)
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 11/26] drm: sun4i: de3: add YUV support to the TCON
+Subject: [PATCH v7 12/27] drm: sun4i: de3: add YUV support to the TCON
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:43 +1300
-Message-Id: <20240929091107.838023-12-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:12 +1300
+Message-Id: <20250216183710.8443-13-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -1306,31 +1400,42 @@ is selected.
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 Signed-off-by: Ryan Walklin <ryan@testtoast.com>
-Reviewed-by: Chen-Yu Tsai <wens@csie.org>
-Acked-by: Conor Dooley <conor.dooley@microchip.com>
-Reviewed-by: Andre Przywara <andre.przywara@arm.com>
+
+--
+Changelog v5..v6:
+- Update to obtain color format from mixer if required.
+
 ---
- drivers/gpu/drm/sun4i/sun4i_tcon.c | 26 +++++++++++++++++++-------
- 1 file changed, 19 insertions(+), 7 deletions(-)
+ drivers/gpu/drm/sun4i/sun4i_tcon.c | 28 +++++++++++++++++++++-------
+ 1 file changed, 21 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/gpu/drm/sun4i/sun4i_tcon.c b/drivers/gpu/drm/sun4i/sun4i_tcon.c
-index a1a2c845ade0c..e39926e9f0b5d 100644
+index 960e83c8291da..4cd3a07daf6e4 100644
 --- a/drivers/gpu/drm/sun4i/sun4i_tcon.c
 +++ b/drivers/gpu/drm/sun4i/sun4i_tcon.c
-@@ -598,14 +598,26 @@ static void sun4i_tcon0_mode_set_rgb(struct sun4i_tcon *tcon,
+@@ -37,6 +37,7 @@
+ #include "sun4i_tcon.h"
+ #include "sun6i_mipi_dsi.h"
+ #include "sun4i_tcon_dclk.h"
++#include "sun8i_mixer.h"
+ #include "sun8i_tcon_top.h"
+ #include "sunxi_engine.h"
+ 
+@@ -598,14 +599,27 @@ static void sun4i_tcon0_mode_set_rgb(struct sun4i_tcon *tcon,
  static void sun4i_tcon1_mode_set(struct sun4i_tcon *tcon,
  				 const struct drm_display_mode *mode)
  {
 -	unsigned int bp, hsync, vsync, vtotal;
 +	unsigned int bp, hsync, vsync, vtotal, div;
 +	struct sun4i_crtc *scrtc = tcon->crtc;
-+	struct sunxi_engine *engine = scrtc->engine;
++	struct sun8i_mixer *mixer = engine_to_sun8i_mixer(scrtc->engine);
++
  	u8 clk_delay;
  	u32 val;
  
  	WARN_ON(!tcon->quirks->has_channel_1);
  
-+	switch (engine->format) {
++	switch (mixer->color_model.format) {
 +	case MEDIA_BUS_FMT_UYYVYY8_0_5X24:
 +	case MEDIA_BUS_FMT_UYYVYY10_0_5X30:
 +		div = 2;
@@ -1346,7 +1451,7 @@ index a1a2c845ade0c..e39926e9f0b5d 100644
  
  	/* Adjust clock delay */
  	clk_delay = sun4i_tcon_get_clk_delay(mode, 1);
-@@ -624,17 +636,17 @@ static void sun4i_tcon1_mode_set(struct sun4i_tcon *tcon,
+@@ -624,17 +638,17 @@ static void sun4i_tcon1_mode_set(struct sun4i_tcon *tcon,
  
  	/* Set the input resolution */
  	regmap_write(tcon->regs, SUN4I_TCON1_BASIC0_REG,
@@ -1367,7 +1472,7 @@ index a1a2c845ade0c..e39926e9f0b5d 100644
  		     SUN4I_TCON1_BASIC2_Y(mode->crtc_vdisplay));
  
  	/* Set horizontal display timings */
-@@ -642,8 +654,8 @@ static void sun4i_tcon1_mode_set(struct sun4i_tcon *tcon,
+@@ -642,8 +656,8 @@ static void sun4i_tcon1_mode_set(struct sun4i_tcon *tcon,
  	DRM_DEBUG_DRIVER("Setting horizontal total %d, backporch %d\n",
  			 mode->htotal, bp);
  	regmap_write(tcon->regs, SUN4I_TCON1_BASIC3_REG,
@@ -1379,13 +1484,13 @@ index a1a2c845ade0c..e39926e9f0b5d 100644
  	bp = mode->crtc_vtotal - mode->crtc_vsync_start;
  	DRM_DEBUG_DRIVER("Setting vertical total %d, backporch %d\n",
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 12/26] drm: sun4i: support YUV formats in VI scaler
+Subject: [PATCH v7 13/27] drm: sun4i: support YUV formats in VI scaler
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:44 +1300
-Message-Id: <20240929091107.838023-13-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:13 +1300
+Message-Id: <20250216183710.8443-14-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -1398,9 +1503,6 @@ Signed-off-by: Ryan Walklin <ryan@testtoast.com>
 Changelog v4..v5:
 - Add commit description
 
-Reviewed-by: Chen-Yu Tsai <wens@csie.org>
-Acked-by: Conor Dooley <conor.dooley@microchip.com>
-Reviewed-by: Andre Przywara <andre.przywara@arm.com>
 ---
  drivers/gpu/drm/sun4i/sun8i_vi_scaler.c | 85 +++++++++++++++++--------
  1 file changed, 58 insertions(+), 27 deletions(-)
@@ -1527,13 +1629,13 @@ index 7ba75011adf9f..2e49a6e5f1f1c 100644
 +					     hscale, vscale, format);
  }
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 13/26] drm: sun4i: de2/de3: add mixer version enum
+Subject: [PATCH v7 14/27] drm: sun4i: de2/de3: add mixer version enum
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:45 +1300
-Message-Id: <20240929091107.838023-14-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:14 +1300
+Message-Id: <20250216183710.8443-15-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -1547,32 +1649,35 @@ Convert the boolean flag to an enum.
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 Signed-off-by: Ryan Walklin <ryan@testtoast.com>
 Reviewed-by: Andre Przywara <andre.przywara@arm.com>
-Reviewed-by: Chen-Yu Tsai <wens@csie.org>
-Acked-by: Conor Dooley <conor.dooley@microchip.com>
+
+--
+Changelog v5..v6:
+- Update struct comment regarding change from is_de3 flag to de_type
+
 ---
  drivers/gpu/drm/sun4i/sun8i_csc.c       |  2 +-
- drivers/gpu/drm/sun4i/sun8i_mixer.c     | 14 ++++++++++++--
- drivers/gpu/drm/sun4i/sun8i_mixer.h     | 11 ++++++++---
+ drivers/gpu/drm/sun4i/sun8i_mixer.c     | 14 +++++++++++--
+ drivers/gpu/drm/sun4i/sun8i_mixer.h     | 27 +++++++++++++++----------
  drivers/gpu/drm/sun4i/sun8i_ui_scaler.c |  2 +-
  drivers/gpu/drm/sun4i/sun8i_vi_layer.c  |  8 ++++----
  drivers/gpu/drm/sun4i/sun8i_vi_scaler.c |  4 ++--
- 6 files changed, 28 insertions(+), 13 deletions(-)
+ 6 files changed, 36 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/gpu/drm/sun4i/sun8i_csc.c b/drivers/gpu/drm/sun4i/sun8i_csc.c
-index e12a81fa91083..2d5a2cf7cba24 100644
+index 275589d64e52b..66c9ee29842cd 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_csc.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_csc.c
-@@ -365,7 +365,7 @@ void sun8i_csc_set_ccsc(struct sun8i_mixer *mixer, int layer,
+@@ -367,7 +367,7 @@ void sun8i_csc_set_ccsc(struct sun8i_mixer *mixer, int layer,
  {
  	u32 base;
  
 -	if (mixer->cfg->is_de3) {
 +	if (mixer->cfg->de_type == sun8i_mixer_de3) {
- 		sun8i_de3_ccsc_setup(&mixer->engine, layer,
+ 		sun8i_de3_ccsc_setup(mixer, layer,
  				     fmt_type, encoding, range);
  		return;
 diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.c b/drivers/gpu/drm/sun4i/sun8i_mixer.c
-index a50c583852edf..16e018aa4aae9 100644
+index 3069329210085..ea1f477700d4a 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_mixer.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_mixer.c
 @@ -584,7 +584,7 @@ static int sun8i_mixer_bind(struct device *dev, struct device *master,
@@ -1674,10 +1779,10 @@ index a50c583852edf..16e018aa4aae9 100644
  	.mod_rate	= 600000000,
  	.scaler_mask	= 0xf,
 diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.h b/drivers/gpu/drm/sun4i/sun8i_mixer.h
-index 8417b8fef2e1f..82956cb97cfd9 100644
+index 5f465a974fbdf..baf2d024898a9 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_mixer.h
 +++ b/drivers/gpu/drm/sun4i/sun8i_mixer.h
-@@ -151,6 +151,11 @@ enum {
+@@ -152,6 +152,11 @@ enum {
  	CCSC_D1_MIXER0_LAYOUT,
  };
  
@@ -1689,16 +1794,36 @@ index 8417b8fef2e1f..82956cb97cfd9 100644
  /**
   * struct sun8i_mixer_cfg - mixer HW configuration
   * @vi_num: number of VI channels
-@@ -172,7 +177,7 @@ struct sun8i_mixer_cfg {
- 	int		scaler_mask;
- 	int		ccsc;
- 	unsigned long	mod_rate;
+@@ -163,19 +168,19 @@ enum {
+  * @ccsc: select set of CCSC base addresses from the enumeration above.
+  * @mod_rate: module clock rate that needs to be set in order to have
+  *	a functional block.
+- * @is_de3: true, if this is next gen display engine 3.0, false otherwise.
++ * @de_type: sun8i_mixer_type enum representing the display engine generation.
+  * @has_formatter: true, if mixer has formatter core, for 10-bit and YUV handling
+  * @scaline_yuv: size of a scanline for VI scaler for YUV formats.
+  */
+ struct sun8i_mixer_cfg {
+-	int		vi_num;
+-	int		ui_num;
+-	int		scaler_mask;
+-	int		ccsc;
+-	unsigned long	mod_rate;
 -	unsigned int	is_de3 : 1;
-+	unsigned int	de_type;
- 	unsigned int    has_formatter : 1;
- 	unsigned int	scanline_yuv;
+-	unsigned int    has_formatter : 1;
+-	unsigned int	scanline_yuv;
++	int			vi_num;
++	int			ui_num;
++	int			scaler_mask;
++	int			ccsc;
++	unsigned long		mod_rate;
++	unsigned int		de_type;
++	unsigned int		has_formatter : 1;
++	unsigned int		scanline_yuv;
  };
-@@ -216,13 +221,13 @@ engine_to_sun8i_mixer(struct sunxi_engine *engine)
+ 
+ struct sun8i_color_model {
+@@ -227,13 +232,13 @@ engine_to_sun8i_mixer(struct sunxi_engine *engine)
  static inline u32
  sun8i_blender_base(struct sun8i_mixer *mixer)
  {
@@ -1790,14 +1915,14 @@ index 2e49a6e5f1f1c..aa346c3beb303 100644
  
  		if (format->hsub == 1 && format->vsub == 1)
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 14/26] drm: sun4i: de2/de3: refactor mixer
+Subject: [PATCH v7 15/27] drm: sun4i: de2/de3: refactor mixer
  initialisation
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:46 +1300
-Message-Id: <20240929091107.838023-15-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:15 +1300
+Message-Id: <20250216183710.8443-16-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -1820,10 +1945,10 @@ Changelog v4..v5:
  1 file changed, 34 insertions(+), 30 deletions(-)
 
 diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.c b/drivers/gpu/drm/sun4i/sun8i_mixer.c
-index 16e018aa4aae9..18745af089545 100644
+index ea1f477700d4a..acebbaa60785c 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_mixer.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_mixer.c
-@@ -468,6 +468,38 @@ static int sun8i_mixer_of_get_id(struct device_node *node)
+@@ -467,6 +467,38 @@ static int sun8i_mixer_of_get_id(struct device_node *node)
  	return of_ep.id;
  }
  
@@ -1862,7 +1987,7 @@ index 16e018aa4aae9..18745af089545 100644
  static int sun8i_mixer_bind(struct device *dev, struct device *master,
  			      void *data)
  {
-@@ -476,8 +508,6 @@ static int sun8i_mixer_bind(struct device *dev, struct device *master,
+@@ -475,8 +507,6 @@ static int sun8i_mixer_bind(struct device *dev, struct device *master,
  	struct sun4i_drv *drv = drm->dev_private;
  	struct sun8i_mixer *mixer;
  	void __iomem *regs;
@@ -1923,14 +2048,14 @@ index 16e018aa4aae9..18745af089545 100644
  	return 0;
  
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 15/26] drm: sun4i: vi_scaler refactor vi_scaler
+Subject: [PATCH v7 16/27] drm: sun4i: vi_scaler refactor vi_scaler
  enablement
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:47 +1300
-Message-Id: <20240929091107.838023-16-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:16 +1300
+Message-Id: <20250216183710.8443-17-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -1944,9 +2069,6 @@ vi_scaler_enable() function with a vi_scaler_disable() function.
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 Signed-off-by: Ryan Walklin <ryan@testtoast.com>
-Reviewed-by: Chen-Yu Tsai <wens@csie.org>
-Acked-by: Conor Dooley <conor.dooley@microchip.com>
-Reviewed-by: Andre Przywara <andre.przywara@arm.com>
 ---
  drivers/gpu/drm/sun4i/sun8i_vi_layer.c  |  3 +--
  drivers/gpu/drm/sun4i/sun8i_vi_scaler.c | 21 +++++++++++----------
@@ -2031,14 +2153,14 @@ index 68f6593b369ab..e801bc7a4189e 100644
  			   u32 src_w, u32 src_h, u32 dst_w, u32 dst_h,
  			   u32 hscale, u32 vscale, u32 hphase, u32 vphase,
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 16/26] drm: sun4i: de2/de3: add generic blender register
+Subject: [PATCH v7 17/27] drm: sun4i: de2/de3: add generic blender register
  reference function
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:48 +1300
-Message-Id: <20240929091107.838023-17-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:17 +1300
+Message-Id: <20250216183710.8443-18-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -2052,16 +2174,15 @@ with a subsequent patch to add a conditional based on the DE type.
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 Signed-off-by: Ryan Walklin <ryan@testtoast.com>
-Reviewed-by: Chen-Yu Tsai <wens@csie.org>
 ---
  drivers/gpu/drm/sun4i/sun8i_mixer.h | 6 ++++++
  1 file changed, 6 insertions(+)
 
 diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.h b/drivers/gpu/drm/sun4i/sun8i_mixer.h
-index 82956cb97cfd9..75facc7d1fa66 100644
+index baf2d024898a9..db962ccd66964 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_mixer.h
 +++ b/drivers/gpu/drm/sun4i/sun8i_mixer.h
-@@ -224,6 +224,12 @@ sun8i_blender_base(struct sun8i_mixer *mixer)
+@@ -235,6 +235,12 @@ sun8i_blender_base(struct sun8i_mixer *mixer)
  	return mixer->cfg->de_type == sun8i_mixer_de3 ? DE3_BLD_BASE : DE2_BLD_BASE;
  }
  
@@ -2075,14 +2196,14 @@ index 82956cb97cfd9..75facc7d1fa66 100644
  sun8i_channel_base(struct sun8i_mixer *mixer, int channel)
  {
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 17/26] drm: sun4i: de2/de3: use generic register
+Subject: [PATCH v7 18/27] drm: sun4i: de2/de3: use generic register
  reference function for layer configuration
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:49 +1300
-Message-Id: <20240929091107.838023-18-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:18 +1300
+Message-Id: <20250216183710.8443-19-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -2092,7 +2213,6 @@ commit and update code.
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 Signed-off-by: Ryan Walklin <ryan@testtoast.com>
-Reviewed-by: Chen-Yu Tsai <wens@csie.org>
 ---
 Changelog v2..v3:
 - Refactor for 6.11 layer init/modesetting changes
@@ -2103,7 +2223,7 @@ Changelog v2..v3:
  3 files changed, 12 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.c b/drivers/gpu/drm/sun4i/sun8i_mixer.c
-index 18745af089545..600084286b39d 100644
+index acebbaa60785c..f0d48796d651f 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_mixer.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_mixer.c
 @@ -277,6 +277,7 @@ static void sun8i_mixer_commit(struct sunxi_engine *engine,
@@ -2200,13 +2320,13 @@ index e348fd0a3d81c..d19349eecc9de 100644
  		     outsize);
  
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 18/26] drm: sun4i: de3: Implement AFBC support
+Subject: [PATCH v7 19/27] drm: sun4i: de3: Implement AFBC support
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:50 +1300
-Message-Id: <20240929091107.838023-19-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:19 +1300
+Message-Id: <20250216183710.8443-20-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -2223,6 +2343,9 @@ Signed-off-by: Ryan Walklin <ryan@testtoast.com>
 ---
 Changelog v4..v5:
 - Correct strict mode warnings from checkpatch.pl
+
+Changelog v5..v6:
+- convert uint64_t to u64 as suggested by checkpatch.pl
 ---
  drivers/gpu/drm/sun4i/Makefile         |   2 +-
  drivers/gpu/drm/sun4i/sun50i_afbc.c    | 250 +++++++++++++++++++++++++
@@ -2595,7 +2718,7 @@ index 0000000000000..cea685c868550
 +
 +#endif
 diff --git a/drivers/gpu/drm/sun4i/sun8i_vi_layer.c b/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
-index d19349eecc9de..84f8917e2dd87 100644
+index d19349eecc9de..539b654585796 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_vi_layer.c
 @@ -11,8 +11,10 @@
@@ -2730,7 +2853,7 @@ index d19349eecc9de..84f8917e2dd87 100644
  	DRM_FORMAT_MOD_INVALID
  };
  
-+static const uint64_t sun50i_layer_de3_modifiers[] = {
++static const u64 sun50i_layer_de3_modifiers[] = {
 +	DRM_FORMAT_MOD_ARM_AFBC(AFBC_FORMAT_MOD_BLOCK_SIZE_16x16 |
 +				AFBC_FORMAT_MOD_SPARSE |
 +				AFBC_FORMAT_MOD_SPLIT),
@@ -2749,7 +2872,7 @@ index d19349eecc9de..84f8917e2dd87 100644
  	u32 supported_encodings, supported_ranges;
  	unsigned int plane_cnt, format_count;
  	struct sun8i_layer *layer;
-+	const uint64_t *modifiers;
++	const u64 *modifiers;
  	const u32 *formats;
  	int ret;
  
@@ -2776,13 +2899,13 @@ index d19349eecc9de..84f8917e2dd87 100644
  		dev_err(drm->dev, "Couldn't initialize layer\n");
  		return ERR_PTR(ret);
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 19/26] dt-bindings: allwinner: add H616 DE33 bus binding
+Subject: [PATCH v7 20/27] dt-bindings: allwinner: add H616 DE33 bus binding
 From: Ryan Walklin <ryan@testtoast.com>
-Date: Sun, 29 Sep 2024 22:04:51 +1300
-Message-Id: <20240929091107.838023-20-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:20 +1300
+Message-Id: <20250216183710.8443-21-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -2790,7 +2913,8 @@ Content-Transfer-Encoding: 7bit
 The Allwinner H616 and variants have a new display engine revision
 (DE33).
 
-Add a display engine bus binding for the DE33.
+Add a display engine bus binding for the DE33 and increase reg maxItems
+to 3 to accommodate additional register blocks.
 
 Signed-off-by: Ryan Walklin <ryan@testtoast.com>
 Acked-by: Conor Dooley <conor.dooley@microchip.com>
@@ -2801,15 +2925,18 @@ Changelog v1..v2:
 
 Changelog v2..v3:
 - Separate content into three patches for three separate subsystems
+
+Changelog v5..v6:
+- Increase reg maxItems to 3.
 ---
- .../devicetree/bindings/bus/allwinner,sun50i-a64-de2.yaml     | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ .../devicetree/bindings/bus/allwinner,sun50i-a64-de2.yaml  | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/Documentation/devicetree/bindings/bus/allwinner,sun50i-a64-de2.yaml b/Documentation/devicetree/bindings/bus/allwinner,sun50i-a64-de2.yaml
-index 9845a187bdf65..ea7ee89158c61 100644
+index 9845a187bdf65..317a27cf590b3 100644
 --- a/Documentation/devicetree/bindings/bus/allwinner,sun50i-a64-de2.yaml
 +++ b/Documentation/devicetree/bindings/bus/allwinner,sun50i-a64-de2.yaml
-@@ -24,7 +24,9 @@ properties:
+@@ -24,11 +24,14 @@ properties:
      oneOf:
        - const: allwinner,sun50i-a64-de2
        - items:
@@ -2820,15 +2947,21 @@ index 9845a187bdf65..ea7ee89158c61 100644
            - const: allwinner,sun50i-a64-de2
  
    reg:
+-    maxItems: 1
++    minItems: 1
++    maxItems: 3
+ 
+   allwinner,sram:
+     description:
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 20/26] dt-bindings: allwinner: add H616 DE33 clock
+Subject: [PATCH v7 21/27] dt-bindings: allwinner: add H616 DE33 clock
  binding
 From: Ryan Walklin <ryan@testtoast.com>
-Date: Sun, 29 Sep 2024 22:04:52 +1300
-Message-Id: <20240929091107.838023-21-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:21 +1300
+Message-Id: <20250216183710.8443-22-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -2861,14 +2994,14 @@ index 70369bd633e40..7fcd55d468d49 100644
            - const: allwinner,sun8i-r40-de2-clk
            - const: allwinner,sun8i-h3-de2-clk
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 21/26] dt-bindings: allwinner: add H616 DE33 mixer
+Subject: [PATCH v7 22/27] dt-bindings: allwinner: add H616 DE33 mixer
  binding
 From: Ryan Walklin <ryan@testtoast.com>
-Date: Sun, 29 Sep 2024 22:04:53 +1300
-Message-Id: <20240929091107.838023-22-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:22 +1300
+Message-Id: <20250216183710.8443-23-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -2888,31 +3021,63 @@ Reviewed-by: Chen-Yu Tsai <wens@csie.org>
 ---
 Changelog v2..v3:
 - Separate content into three patches for three separate subsystems
+
+Changelog v5..v6:
+- increase reg maxItems to 3 and add conditional for h616-de33
 ---
- .../bindings/display/allwinner,sun8i-a83t-de2-mixer.yaml         | 1 +
- 1 file changed, 1 insertion(+)
+ .../allwinner,sun8i-a83t-de2-mixer.yaml       | 21 ++++++++++++++++++-
+ 1 file changed, 20 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/devicetree/bindings/display/allwinner,sun8i-a83t-de2-mixer.yaml b/Documentation/devicetree/bindings/display/allwinner,sun8i-a83t-de2-mixer.yaml
-index b75c1ec686ad2..c37eb8ae1b8ee 100644
+index b75c1ec686ad2..274f5e6327333 100644
 --- a/Documentation/devicetree/bindings/display/allwinner,sun8i-a83t-de2-mixer.yaml
 +++ b/Documentation/devicetree/bindings/display/allwinner,sun8i-a83t-de2-mixer.yaml
-@@ -24,6 +24,7 @@ properties:
+@@ -24,9 +24,11 @@ properties:
        - allwinner,sun50i-a64-de2-mixer-0
        - allwinner,sun50i-a64-de2-mixer-1
        - allwinner,sun50i-h6-de3-mixer-0
 +      - allwinner,sun50i-h616-de33-mixer-0
  
    reg:
-     maxItems: 1
+-    maxItems: 1
++    minItems: 1
++    maxItems: 3
+ 
+   clocks:
+     items:
+@@ -61,6 +63,23 @@ properties:
+     required:
+       - port@1
+ 
++allOf:
++  - if:
++      properties:
++        compatible:
++          enum:
++            - allwinner,sun50i-h616-de33-mixer-0
++
++    then:
++      properties:
++        reg:
++          maxItems: 3
++
++    else:
++      properties:
++        reg:
++          maxItems: 1
++
+ required:
+   - compatible
+   - reg
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 22/26] clk: sunxi-ng: ccu: add Display Engine 3.3 (DE33)
+Subject: [PATCH v7 23/27] clk: sunxi-ng: ccu: add Display Engine 3.3 (DE33)
  support
 From: Ryan Walklin <ryan@testtoast.com>
-Date: Sun, 29 Sep 2024 22:04:54 +1300
-Message-Id: <20240929091107.838023-23-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:23 +1300
+Message-Id: <20250216183710.8443-24-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -2948,7 +3113,7 @@ Changelog v4..v5:
  1 file changed, 25 insertions(+)
 
 diff --git a/drivers/clk/sunxi-ng/ccu-sun8i-de2.c b/drivers/clk/sunxi-ng/ccu-sun8i-de2.c
-index 7683ea08d8e30..83eab6f132aad 100644
+index f2aa71206bc20..a6cd0f988859d 100644
 --- a/drivers/clk/sunxi-ng/ccu-sun8i-de2.c
 +++ b/drivers/clk/sunxi-ng/ccu-sun8i-de2.c
 @@ -5,6 +5,7 @@
@@ -3005,14 +3170,14 @@ index 7683ea08d8e30..83eab6f132aad 100644
  };
  MODULE_DEVICE_TABLE(of, sunxi_de2_clk_ids);
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 23/26] drm: sun4i: de33: mixer: add Display Engine 3.3
+Subject: [PATCH v7 24/27] drm: sun4i: de33: mixer: add Display Engine 3.3
  (DE33) support
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:55 +1300
-Message-Id: <20240929091107.838023-24-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:24 +1300
+Message-Id: <20250216183710.8443-25-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -3040,11 +3205,11 @@ Changelog v4..v5:
 - Correct strict mode warnings from checkpatch.pl
 ---
  drivers/gpu/drm/sun4i/sun8i_mixer.c | 109 ++++++++++++++++++++++++----
- drivers/gpu/drm/sun4i/sun8i_mixer.h |  16 +++-
- 2 files changed, 108 insertions(+), 17 deletions(-)
+ drivers/gpu/drm/sun4i/sun8i_mixer.h |  13 +++-
+ 2 files changed, 105 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.c b/drivers/gpu/drm/sun4i/sun8i_mixer.c
-index 600084286b39d..204fc8055b32a 100644
+index f0d48796d651f..3584b496c5d58 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_mixer.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_mixer.c
 @@ -321,8 +321,12 @@ static void sun8i_mixer_commit(struct sunxi_engine *engine,
@@ -3111,8 +3276,8 @@ index 600084286b39d..204fc8055b32a 100644
 +	regmap_write(disp_regs, SUN8I_MIXER_BLEND_ATTR_FCOLOR(bld_base, 0), val);
  
  	if (mixer->cfg->has_formatter)
- 		sun50i_fmt_setup(mixer, mode->hdisplay,
-@@ -443,12 +453,29 @@ static const struct sunxi_engine_ops sun8i_engine_ops = {
+ 		sun50i_fmt_setup(mixer, mode->hdisplay, mode->vdisplay);
+@@ -442,12 +452,29 @@ static const struct sunxi_engine_ops sun8i_engine_ops = {
  };
  
  static const struct regmap_config sun8i_mixer_regmap_config = {
@@ -3142,7 +3307,7 @@ index 600084286b39d..204fc8055b32a 100644
  static int sun8i_mixer_of_get_id(struct device_node *node)
  {
  	struct device_node *ep, *remote;
-@@ -471,33 +498,45 @@ static int sun8i_mixer_of_get_id(struct device_node *node)
+@@ -470,33 +497,45 @@ static int sun8i_mixer_of_get_id(struct device_node *node)
  
  static void sun8i_mixer_init(struct sun8i_mixer *mixer)
  {
@@ -3256,10 +3421,10 @@ index 600084286b39d..204fc8055b32a 100644
  };
  MODULE_DEVICE_TABLE(of, sun8i_mixer_of_table);
 diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.h b/drivers/gpu/drm/sun4i/sun8i_mixer.h
-index 75facc7d1fa66..26b001164647c 100644
+index db962ccd66964..a8afc37dc80d5 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_mixer.h
 +++ b/drivers/gpu/drm/sun4i/sun8i_mixer.h
-@@ -21,6 +21,10 @@
+@@ -22,6 +22,10 @@
  #define SUN8I_MIXER_GLOBAL_DBUFF		0x8
  #define SUN8I_MIXER_GLOBAL_SIZE			0xc
  
@@ -3270,7 +3435,7 @@ index 75facc7d1fa66..26b001164647c 100644
  #define SUN8I_MIXER_GLOBAL_CTL_RT_EN		BIT(0)
  
  #define SUN8I_MIXER_GLOBAL_DBUFF_ENABLE		BIT(0)
-@@ -154,6 +158,7 @@ enum {
+@@ -155,6 +159,7 @@ enum {
  enum sun8i_mixer_type {
  	sun8i_mixer_de2,
  	sun8i_mixer_de3,
@@ -3278,25 +3443,15 @@ index 75facc7d1fa66..26b001164647c 100644
  };
  
  /**
-@@ -180,6 +185,7 @@ struct sun8i_mixer_cfg {
- 	unsigned int	de_type;
- 	unsigned int    has_formatter : 1;
- 	unsigned int	scanline_yuv;
-+	unsigned int	map[6];
+@@ -181,6 +186,7 @@ struct sun8i_mixer_cfg {
+ 	unsigned int		de_type;
+ 	unsigned int		has_formatter : 1;
+ 	unsigned int		scanline_yuv;
++	unsigned int		map[6];
  };
  
- struct sun8i_mixer {
-@@ -191,6 +197,9 @@ struct sun8i_mixer {
- 
- 	struct clk			*bus_clk;
- 	struct clk			*mod_clk;
-+
-+	struct regmap			*top_regs;
-+	struct regmap			*disp_regs;
- };
- 
- enum {
-@@ -227,13 +236,16 @@ sun8i_blender_base(struct sun8i_mixer *mixer)
+ struct sun8i_color_model {
+@@ -238,13 +244,16 @@ sun8i_blender_base(struct sun8i_mixer *mixer)
  static inline struct regmap *
  sun8i_blender_regmap(struct sun8i_mixer *mixer)
  {
@@ -3316,14 +3471,14 @@ index 75facc7d1fa66..26b001164647c 100644
  	else
  		return DE2_CH_BASE + channel * DE2_CH_SIZE;
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 24/26] drm: sun4i: de33: vi_scaler: add Display Engine
+Subject: [PATCH v7 25/27] drm: sun4i: de33: vi_scaler: add Display Engine
  3.3 (DE33) support
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:56 +1300
-Message-Id: <20240929091107.838023-25-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:25 +1300
+Message-Id: <20250216183710.8443-26-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -3335,9 +3490,6 @@ Enable support for this scaler.
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 Signed-off-by: Ryan Walklin <ryan@testtoast.com>
-Reviewed-by: Chen-Yu Tsai <wens@csie.org>
-Acked-by: Conor Dooley <conor.dooley@microchip.com>
-Reviewed-by: Andre Przywara <andre.przywara@arm.com>
 ---
  drivers/gpu/drm/sun4i/sun8i_ui_layer.c  | 19 +++++++++++++++----
  drivers/gpu/drm/sun4i/sun8i_vi_scaler.c |  7 ++++++-
@@ -3401,14 +3553,14 @@ index e7242301b312c..9c7f6e7d71d50 100644
  }
  
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 25/26] drm: sun4i: de33: fmt: add Display Engine 3.3
+Subject: [PATCH v7 26/27] drm: sun4i: de33: fmt: add Display Engine 3.3
  (DE33) support
 From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:57 +1300
-Message-Id: <20240929091107.838023-26-ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:26 +1300
+Message-Id: <20250216183710.8443-27-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -3422,16 +3574,13 @@ Add support for the DE33.
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 Signed-off-by: Ryan Walklin <ryan@testtoast.com>
-Reviewed-by: Chen-Yu Tsai <wens@csie.org>
-Acked-by: Conor Dooley <conor.dooley@microchip.com>
-Reviewed-by: Andre Przywara <andre.przywara@arm.com>
 ---
  drivers/gpu/drm/sun4i/sun50i_fmt.c | 21 +++++++++++++++++++--
  drivers/gpu/drm/sun4i/sun50i_fmt.h |  1 +
  2 files changed, 20 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/gpu/drm/sun4i/sun50i_fmt.c b/drivers/gpu/drm/sun4i/sun50i_fmt.c
-index 050a8716ae862..39682d4e6d208 100644
+index 376a3c9b993f4..03d5d7132d1aa 100644
 --- a/drivers/gpu/drm/sun4i/sun50i_fmt.c
 +++ b/drivers/gpu/drm/sun4i/sun50i_fmt.c
 @@ -51,6 +51,19 @@ static void sun50i_fmt_de3_limits(u32 *limits, u32 colorspace, bool bit10)
@@ -3451,11 +3600,11 @@ index 050a8716ae862..39682d4e6d208 100644
 +	}
 +}
 +
- void sun50i_fmt_setup(struct sun8i_mixer *mixer, u16 width,
- 		      u16 height, u32 format)
+ void sun50i_fmt_setup(struct sun8i_mixer *mixer, u16 width, u16 height)
  {
-@@ -60,10 +73,14 @@ void sun50i_fmt_setup(struct sun8i_mixer *mixer, u16 width,
- 
+ 	u32 colorspace, limit[3], base;
+@@ -61,10 +74,14 @@ void sun50i_fmt_setup(struct sun8i_mixer *mixer, u16 width, u16 height)
+ 	format = mixer->color_model.format;
  	colorspace = sun50i_fmt_get_colorspace(format);
  	bit10 = sun50i_fmt_is_10bit(format);
 -	base = SUN50I_FMT_DE3;
@@ -3472,7 +3621,7 @@ index 050a8716ae862..39682d4e6d208 100644
  	regmap_write(regs, SUN50I_FMT_CTRL(base), 0);
  
 diff --git a/drivers/gpu/drm/sun4i/sun50i_fmt.h b/drivers/gpu/drm/sun4i/sun50i_fmt.h
-index 4127f7206aade..3e60d5c788b39 100644
+index dd6816c90dfcd..e15f9803b3574 100644
 --- a/drivers/gpu/drm/sun4i/sun50i_fmt.h
 +++ b/drivers/gpu/drm/sun4i/sun50i_fmt.h
 @@ -9,6 +9,7 @@
@@ -3484,14 +3633,14 @@ index 4127f7206aade..3e60d5c788b39 100644
  #define SUN50I_FMT_CTRL(base)   ((base) + 0x00)
  #define SUN50I_FMT_SIZE(base)   ((base) + 0x04)
 -- 
-2.46.1
+2.48.1
 
 From git@z Thu Jan  1 00:00:00 1970
-Subject: [PATCH v5 26/26] drm: sun4i: de33: csc: add Display Engine 3.3
+Subject: [PATCH v7 27/27] drm: sun4i: de33: csc: add Display Engine 3.3
  (DE33) support
-From: Jernej Skrabec <jernej.skrabec@gmail.com>
-Date: Sun, 29 Sep 2024 22:04:58 +1300
-Message-Id: <20240929091107.838023-27-ryan@testtoast.com>
+From: Ryan Walklin <ryan@testtoast.com>
+Date: Mon, 17 Feb 2025 07:36:27 +1300
+Message-Id: <20250216183710.8443-28-ryan@testtoast.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -3504,16 +3653,21 @@ Add support for the DE33.
 
 Signed-off-by: Jernej Skrabec <jernej.skrabec@gmail.com>
 Signed-off-by: Ryan Walklin <ryan@testtoast.com>
-Reviewed-by: Chen-Yu Tsai <wens@csie.org>
-Acked-by: Conor Dooley <conor.dooley@microchip.com>
-Reviewed-by: Andre Przywara <andre.przywara@arm.com>
+Tested-by: Philippe Simons <simons.philippe@gmail.com>
+Tested-by: Chris Morgan <macromorgan@hotmail.com>
+
+--
+Changelog v5..v6:
+- Amend format_type to sun8i_format_type
+- Add Tested-by: tags
+
 ---
- drivers/gpu/drm/sun4i/sun8i_csc.c | 96 +++++++++++++++++++++++++++++++
+ drivers/gpu/drm/sun4i/sun8i_csc.c | 98 +++++++++++++++++++++++++++++++
  drivers/gpu/drm/sun4i/sun8i_csc.h |  3 +
- 2 files changed, 99 insertions(+)
+ 2 files changed, 101 insertions(+)
 
 diff --git a/drivers/gpu/drm/sun4i/sun8i_csc.c b/drivers/gpu/drm/sun4i/sun8i_csc.c
-index 2d5a2cf7cba24..45bd1ca06400e 100644
+index 66c9ee29842cd..2274a82223164 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_csc.c
 +++ b/drivers/gpu/drm/sun4i/sun8i_csc.c
 @@ -238,6 +238,14 @@ static const u32 yuv2yuv_de3[2][3][3][12] = {
@@ -3529,9 +3683,9 @@ index 2d5a2cf7cba24..45bd1ca06400e 100644
 +}
 +
  static void sun8i_csc_setup(struct regmap *map, u32 base,
- 			    enum format_type fmt_type,
+ 			    enum sun8i_format_type fmt_type,
  			    enum drm_color_encoding encoding,
-@@ -358,6 +366,90 @@ static void sun8i_de3_ccsc_setup(struct sunxi_engine *engine, int layer,
+@@ -360,6 +368,92 @@ static void sun8i_de3_ccsc_setup(struct sun8i_mixer *mixer, int layer,
  			   mask, val);
  }
  
@@ -3558,7 +3712,7 @@ index 2d5a2cf7cba24..45bd1ca06400e 100644
 +}
 +
 +static void sun8i_de33_ccsc_setup(struct sun8i_mixer *mixer, int layer,
-+				  enum format_type fmt_type,
++				  enum sun8i_format_type fmt_type,
 +				  enum drm_color_encoding encoding,
 +				  enum drm_color_range range)
 +{
@@ -3567,24 +3721,26 @@ index 2d5a2cf7cba24..45bd1ca06400e 100644
 +	struct regmap *map;
 +	const u32 *table;
 +	int i;
++	struct sun8i_color_model model;
 +
 +	table = yuv2rgb_de3[range][encoding];
 +	base = sun8i_csc_base(mixer, layer);
++	model = mixer->color_model;
 +	engine = &mixer->engine;
 +	map = engine->regs;
 +
 +	switch (fmt_type) {
 +	case FORMAT_TYPE_RGB:
-+		if (engine->format == MEDIA_BUS_FMT_RGB888_1X24)
++		if (mixer->color_model.format == MEDIA_BUS_FMT_RGB888_1X24)
 +			break;
 +		val = SUN8I_CSC_CTRL_EN;
-+		sun8i_de33_convert_table(rgb2yuv_de3[engine->encoding], csc);
++		sun8i_de33_convert_table(rgb2yuv_de3[mixer->color_model.encoding], csc);
 +		regmap_bulk_write(map, SUN50I_CSC_COEFF(base, 0), csc, 15);
 +		break;
 +	case FORMAT_TYPE_YUV:
 +		table = sun8i_csc_get_de3_yuv_table(encoding, range,
-+						    engine->format,
-+						    engine->encoding);
++						    model.format,
++						    model.encoding);
 +		if (!table)
 +			break;
 +		val = SUN8I_CSC_CTRL_EN;
@@ -3593,8 +3749,8 @@ index 2d5a2cf7cba24..45bd1ca06400e 100644
 +		break;
 +	case FORMAT_TYPE_YVU:
 +		table = sun8i_csc_get_de3_yuv_table(encoding, range,
-+						    engine->format,
-+						    engine->encoding);
++						    model.format,
++						    model.encoding);
 +		if (!table)
 +			table = yuv2yuv_de3[range][encoding][encoding];
 +		val = SUN8I_CSC_CTRL_EN;
@@ -3620,10 +3776,10 @@ index 2d5a2cf7cba24..45bd1ca06400e 100644
 +}
 +
  void sun8i_csc_set_ccsc(struct sun8i_mixer *mixer, int layer,
- 			enum format_type fmt_type,
+ 			enum sun8i_format_type fmt_type,
  			enum drm_color_encoding encoding,
-@@ -369,6 +461,10 @@ void sun8i_csc_set_ccsc(struct sun8i_mixer *mixer, int layer,
- 		sun8i_de3_ccsc_setup(&mixer->engine, layer,
+@@ -371,6 +465,10 @@ void sun8i_csc_set_ccsc(struct sun8i_mixer *mixer, int layer,
+ 		sun8i_de3_ccsc_setup(mixer, layer,
  				     fmt_type, encoding, range);
  		return;
 +	} else if (mixer->cfg->de_type == sun8i_mixer_de33) {
@@ -3634,7 +3790,7 @@ index 2d5a2cf7cba24..45bd1ca06400e 100644
  
  	if (layer < mixer->cfg->vi_num) {
 diff --git a/drivers/gpu/drm/sun4i/sun8i_csc.h b/drivers/gpu/drm/sun4i/sun8i_csc.h
-index b7546e06e315c..2b762cb79f02c 100644
+index 9b63c92782f56..4a06fc43de2d0 100644
 --- a/drivers/gpu/drm/sun4i/sun8i_csc.h
 +++ b/drivers/gpu/drm/sun4i/sun8i_csc.h
 @@ -20,6 +20,9 @@ struct sun8i_mixer;
@@ -3646,7 +3802,7 @@ index b7546e06e315c..2b762cb79f02c 100644
 +
  #define SUN8I_CSC_CTRL_EN		BIT(0)
  
- enum format_type {
+ enum sun8i_format_type {
 -- 
-2.46.1
+2.48.1
 

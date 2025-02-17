@@ -1,0 +1,145 @@
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH v2 1/2] dt-bindings: clock: sun50i-h616-ccu: Add LCD TCON
+ clk and reset
+From: Chris Morgan <macromorgan@hotmail.com>
+Date: Thu, 13 Feb 2025 11:22:47 -0600
+Message-Id: <20250213172248.158447-2-macroalpha82@gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Add the required clock and reset bindings for the LCD TCON.
+
+Signed-off-by: Chris Morgan <macromorgan@hotmail.com>
+Acked-by: Krzysztof Kozlowski <krzysztof.kozlowski@linaro.org>
+---
+ include/dt-bindings/clock/sun50i-h616-ccu.h | 4 ++++
+ include/dt-bindings/reset/sun50i-h616-ccu.h | 2 ++
+ 2 files changed, 6 insertions(+)
+
+diff --git a/include/dt-bindings/clock/sun50i-h616-ccu.h b/include/dt-bindings/clock/sun50i-h616-ccu.h
+index ebb146ab7f8c..6889405f9fec 100644
+--- a/include/dt-bindings/clock/sun50i-h616-ccu.h
++++ b/include/dt-bindings/clock/sun50i-h616-ccu.h
+@@ -113,5 +113,9 @@
+ #define CLK_BUS_HDCP		127
+ #define CLK_PLL_SYSTEM_32K	128
+ #define CLK_BUS_GPADC		129
++#define CLK_TCON_LCD0		130
++#define CLK_BUS_TCON_LCD0	131
++#define CLK_TCON_LCD1		132
++#define CLK_BUS_TCON_LCD1	133
+ 
+ #endif /* _DT_BINDINGS_CLK_SUN50I_H616_H_ */
+diff --git a/include/dt-bindings/reset/sun50i-h616-ccu.h b/include/dt-bindings/reset/sun50i-h616-ccu.h
+index ed177c04afdd..81b1eba2a7f7 100644
+--- a/include/dt-bindings/reset/sun50i-h616-ccu.h
++++ b/include/dt-bindings/reset/sun50i-h616-ccu.h
+@@ -67,5 +67,7 @@
+ #define RST_BUS_HDCP		58
+ #define RST_BUS_KEYADC		59
+ #define RST_BUS_GPADC		60
++#define RST_BUS_TCON_LCD0	61
++#define RST_BUS_TCON_LCD1	62
+ 
+ #endif /* _DT_BINDINGS_RESET_SUN50I_H616_H_ */
+-- 
+2.43.0
+
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH v2 2/2] clk: sunxi-ng: h616: Add clock/reset for LCD TCON
+From: Chris Morgan <macromorgan@hotmail.com>
+Date: Thu, 13 Feb 2025 11:22:48 -0600
+Message-Id: <20250213172248.158447-3-macroalpha82@gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Add the required clock and reset which is used for the LCD TCON. Please
+note that these clocks are exposed on the T507, H616, and H700; however
+the H616 does not expose an LCD controller for which these clocks are
+needed.
+
+Signed-off-by: Chris Morgan <macromorgan@hotmail.com>
+Reviewed-by: Andre Przywara <andre.przywara@arm.com>
+Tested-by: Ryan Walklin <ryan@testtoast.com>
+---
+ drivers/clk/sunxi-ng/ccu-sun50i-h616.c | 24 ++++++++++++++++++++++++
+ drivers/clk/sunxi-ng/ccu-sun50i-h616.h |  2 +-
+ 2 files changed, 25 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/clk/sunxi-ng/ccu-sun50i-h616.c b/drivers/clk/sunxi-ng/ccu-sun50i-h616.c
+index 190816c35da9..40ab6873b797 100644
+--- a/drivers/clk/sunxi-ng/ccu-sun50i-h616.c
++++ b/drivers/clk/sunxi-ng/ccu-sun50i-h616.c
+@@ -645,6 +645,20 @@ static const char * const tcon_tv_parents[] = { "pll-video0",
+ 						"pll-video0-4x",
+ 						"pll-video1",
+ 						"pll-video1-4x" };
++static SUNXI_CCU_MUX_WITH_GATE(tcon_lcd0_clk, "tcon-lcd0",
++			       tcon_tv_parents, 0xb60,
++			       24, 3,	/* mux */
++			       BIT(31),	/* gate */
++			       CLK_SET_RATE_PARENT);
++static SUNXI_CCU_MUX_WITH_GATE(tcon_lcd1_clk, "tcon-lcd1",
++			       tcon_tv_parents, 0xb64,
++			       24, 3,	/* mux */
++			       BIT(31),	/* gate */
++			       CLK_SET_RATE_PARENT);
++static SUNXI_CCU_GATE(bus_tcon_lcd0_clk, "bus-tcon-lcd0", "ahb3",
++		      0xb7c, BIT(0), 0);
++static SUNXI_CCU_GATE(bus_tcon_lcd1_clk, "bus-tcon-lcd1", "ahb3",
++		      0xb7c, BIT(1), 0);
+ static SUNXI_CCU_MP_WITH_MUX_GATE(tcon_tv0_clk, "tcon-tv0",
+ 				  tcon_tv_parents, 0xb80,
+ 				  0, 4,		/* M */
+@@ -855,8 +869,12 @@ static struct ccu_common *sun50i_h616_ccu_clks[] = {
+ 	&hdmi_cec_clk.common,
+ 	&bus_hdmi_clk.common,
+ 	&bus_tcon_top_clk.common,
++	&tcon_lcd0_clk.common,
++	&tcon_lcd1_clk.common,
+ 	&tcon_tv0_clk.common,
+ 	&tcon_tv1_clk.common,
++	&bus_tcon_lcd0_clk.common,
++	&bus_tcon_lcd1_clk.common,
+ 	&bus_tcon_tv0_clk.common,
+ 	&bus_tcon_tv1_clk.common,
+ 	&tve0_clk.common,
+@@ -989,8 +1007,12 @@ static struct clk_hw_onecell_data sun50i_h616_hw_clks = {
+ 		[CLK_HDMI_CEC]		= &hdmi_cec_clk.common.hw,
+ 		[CLK_BUS_HDMI]		= &bus_hdmi_clk.common.hw,
+ 		[CLK_BUS_TCON_TOP]	= &bus_tcon_top_clk.common.hw,
++		[CLK_TCON_LCD0]		= &tcon_lcd0_clk.common.hw,
++		[CLK_TCON_LCD1]		= &tcon_lcd1_clk.common.hw,
+ 		[CLK_TCON_TV0]		= &tcon_tv0_clk.common.hw,
+ 		[CLK_TCON_TV1]		= &tcon_tv1_clk.common.hw,
++		[CLK_BUS_TCON_LCD0]	= &bus_tcon_lcd0_clk.common.hw,
++		[CLK_BUS_TCON_LCD1]	= &bus_tcon_lcd1_clk.common.hw,
+ 		[CLK_BUS_TCON_TV0]	= &bus_tcon_tv0_clk.common.hw,
+ 		[CLK_BUS_TCON_TV1]	= &bus_tcon_tv1_clk.common.hw,
+ 		[CLK_TVE0]		= &tve0_clk.common.hw,
+@@ -1062,6 +1084,8 @@ static const struct ccu_reset_map sun50i_h616_ccu_resets[] = {
+ 	[RST_BUS_HDMI]		= { 0xb1c, BIT(16) },
+ 	[RST_BUS_HDMI_SUB]	= { 0xb1c, BIT(17) },
+ 	[RST_BUS_TCON_TOP]	= { 0xb5c, BIT(16) },
++	[RST_BUS_TCON_LCD0]	= { 0xb7c, BIT(16) },
++	[RST_BUS_TCON_LCD1]	= { 0xb7c, BIT(17) },
+ 	[RST_BUS_TCON_TV0]	= { 0xb9c, BIT(16) },
+ 	[RST_BUS_TCON_TV1]	= { 0xb9c, BIT(17) },
+ 	[RST_BUS_TVE_TOP]	= { 0xbbc, BIT(16) },
+diff --git a/drivers/clk/sunxi-ng/ccu-sun50i-h616.h b/drivers/clk/sunxi-ng/ccu-sun50i-h616.h
+index a75803b49f6a..7056f293a8e0 100644
+--- a/drivers/clk/sunxi-ng/ccu-sun50i-h616.h
++++ b/drivers/clk/sunxi-ng/ccu-sun50i-h616.h
+@@ -51,6 +51,6 @@
+ 
+ #define CLK_BUS_DRAM		56
+ 
+-#define CLK_NUMBER		(CLK_BUS_GPADC + 1)
++#define CLK_NUMBER		(CLK_BUS_TCON_LCD1 + 1)
+ 
+ #endif /* _CCU_SUN50I_H616_H_ */
+-- 
+2.43.0
+
