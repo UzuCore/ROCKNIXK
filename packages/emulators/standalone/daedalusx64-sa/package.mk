@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2025-present ROCKNIX (https://github.com/ROCKNIX)
 
-PKG_NAME="daedalus-sa"
-PKG_VERSION="d6873d8c4dca9996d903e2ba0f43ee67264761c7"
+PKG_NAME="daedalusx64-sa"
+PKG_VERSION="fd2e177a0be77793b0b3a685e53eb3bf922b50d1"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/DaedalusX64/daedalus"
 PKG_URL="${PKG_SITE}.git"
@@ -27,7 +27,7 @@ makeinstall_target() {
   if [ "${ARCH}" = "aarch64" ]
   then
     mkdir -p ${INSTALL}/usr
-    cp -r ${ROOT}/build.${DISTRO}-${DEVICE}.arm/daedalus-sa-${PKG_VERSION}/.install_pkg/usr/* ${INSTALL}/usr/
+    cp -r ${ROOT}/build.${DISTRO}-${DEVICE}.arm/daedalusx64-sa-${PKG_VERSION}/.install_pkg/usr/* ${INSTALL}/usr/
     chmod +x ${INSTALL}/usr/bin/*
   else
     mkdir -p ${INSTALL}/usr/bin

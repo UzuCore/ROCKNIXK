@@ -75,7 +75,7 @@ case "${DEVICE}" in
     PKG_RETROARCH+=" retropie-shaders"
   ;;
   SM8250)
-    [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 daedalus-sa desmume-lr gpsp-lr pcsx_rearmed-lr wine"
+    [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 daedalusx64-sa desmume-lr gpsp-lr pcsx_rearmed-lr wine"
     PKG_EMUS+=" aethersx2-sa box64 cemu-sa dolphin-sa drastic-sa lime3ds-sa melonds-sa portmaster rpcs3-sa scummvmsa supermodel-sa \
                yabasanshiro-sa xemu-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr flycast-lr geolith-lr panda3ds-lr pcsx_rearmed-lr uae4arm kronos-lr"
@@ -778,7 +778,8 @@ makeinstall_target() {
   add_emu_core n64 mupen64plus mupen64plus-sa false
   case ${DEVICE} in
     SM8250)
-      add_emu_core n64 daedalus daedalus-sa false
+      add_emu_core n64 daedalusx64 daedalusx64-sa false
+      install_script "Start DaedalusX64.sh"
     ;;
   esac
   add_es_system n64
