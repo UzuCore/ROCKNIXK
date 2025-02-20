@@ -23,11 +23,11 @@ case ${DEVICE} in
     PKG_PATCH_DIRS="${LINUX} ${DEVICE} default"
   ;;
   H700)
-    PKG_VERSION="6.13.2"
+    PKG_VERSION="6.13.3"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
   ;;
   *)
-    PKG_VERSION="6.12.14"
+    PKG_VERSION="6.12.15"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
     PKG_PATCH_DIRS+=" panfrost"
   ;;
