@@ -144,7 +144,7 @@ function mount_games() {
       # busybox has some weird behaviour with helpers.
       # Despite mount.ntfs is present, it is not used, so just a stupid rewrite to use newer kernel ntfs3 driver
       case ${FSTYPE} in
-        ntfs)   MOUNT_ARGS="-t ntfs3" ;;
+        ntfs)   MOUNT_ARGS="-t ntfs3 -o iocharset=utf8" ;;
         *)      true ;;
       esac
 
