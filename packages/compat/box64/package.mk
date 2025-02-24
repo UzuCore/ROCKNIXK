@@ -20,6 +20,9 @@ case ${DEVICE} in
   SM8250)
     PKG_CMAKE_OPTS_TARGET+=" -DSD865=On"
   ;;
+  SM8550)
+    PKG_CMAKE_OPTS_TARGET+=" -DSD8G2=On"
+  ;;
 esac
 
 makeinstall_target() {

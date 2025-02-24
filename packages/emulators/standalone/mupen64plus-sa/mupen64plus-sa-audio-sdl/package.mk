@@ -14,7 +14,7 @@ PKG_LONGDESC="Mupen64Plus Standalone Audio SDL"
 PKG_TOOLCHAIN="manual"
 
 case ${DEVICE} in
-  AMD64|RK3588|S922X|RK3399|RK3566*|SM8250)
+  AMD64|RK3588|S922X|RK3399|RK3566*|SM8250|SM8550)
     PKG_DEPENDS_TARGET+=" mupen64plus-sa-simplecore"
   ;;
 esac

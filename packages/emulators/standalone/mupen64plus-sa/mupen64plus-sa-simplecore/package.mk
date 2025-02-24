@@ -15,7 +15,7 @@ PKG_TOOLCHAIN="manual"
 PKG_GIT_CLONE_BRANCH="simple64"
 
 case ${DEVICE} in
-  AMD64|SM8250)
+  AMD64|SM8250|SM8550)
     PKG_DEPENDS_TARGET+=" ${OPENGL} glu libglvnd"
     export USE_GLES=0
   ;;

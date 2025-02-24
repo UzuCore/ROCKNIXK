@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2024 ROCKNIX (https://github.com/ROCKNIX)
+
+source ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/options
+
+cat << EOF > "${LE_TMP}/grub.cfg"
+set timeout="0"
+set default="0"
+menuentry "AYN Odin2 Portal" {
+        search --set -f /KERNEL
+        linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE}
+        devicetree /${DEVICE_DTB[0]}.dtb
+}
+menuentry "AYN Odin2 Portal RECOVERY" {
+        search --set -f /KERNEL
+        linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} recovery
+        devicetree /${DEVICE_DTB[0]}.dtb
+}
+EOF

@@ -24,7 +24,7 @@ then
 fi
 
 case ${DEVICE} in
-  SM8250)
+  SM8250|SM8550)
     PKG_CMAKE_OPTS_TARGET+=" -DENABLE_QT=ON"
   ;;
   *)

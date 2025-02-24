@@ -26,6 +26,10 @@ case ${DEVICE} in
     PKG_VERSION="6.13.3"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
   ;;
+  SM8550)
+    PKG_VERSION="6.13.4"
+    PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+  ;;
   *)
     PKG_VERSION="6.12.16"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"

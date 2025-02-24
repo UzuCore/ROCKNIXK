@@ -24,7 +24,7 @@ src-pkg:
 docs:
 	./tools/foreach './scripts/clean emulators && ./scripts/build emulators'
 
-world: RK3588 RK3566 RK3326 RK3399 S922X SM8250 H700
+world: RK3588 RK3566 RK3326 RK3399 S922X SM8250 SM8550 H700
 
 AMD64:
 	unset DEVICE_ROOT
@@ -65,6 +65,11 @@ SM8250:
 	unset DEVICE_ROOT
 	PROJECT=Qualcomm DEVICE=SM8250 ARCH=arm ./scripts/build_distro
 	PROJECT=Qualcomm DEVICE=SM8250 ARCH=aarch64 ./scripts/build_distro
+
+SM8550:
+	unset DEVICE_ROOT
+	PROJECT=Qualcomm DEVICE=SM8550 ARCH=arm ./scripts/build_distro
+	PROJECT=Qualcomm DEVICE=SM8550 ARCH=aarch64 ./scripts/build_distro
 
 update:
 	PROJECT=Rockchip DEVICE=RK3588 ARCH=aarch64 ./scripts/update_packages
