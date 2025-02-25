@@ -195,10 +195,17 @@ fi
   mcopy "${RELEASE_DIR}/target/KERNEL.md5" "::/${KERNEL_NAME}.md5"
   mcopy "${RELEASE_DIR}/target/SYSTEM.md5" ::/SYSTEM.md5
 
+  #copy linux loader to image if exists
+  if [ -f "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/bootloader/LinuxLoader.cfg" ]; then
+     echo "image: copying linuxloader.cfg..."
+     mcopy "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/bootloader/LinuxLoader.cfg" ::/LinuxLoader.cfg
+  fi
+
+  #write dtbs to image
   for dtb in ${DEVICE_DTB[@]}; do
-echo "image: copying ${dtb}.dtb..."
+    echo "image: copying ${dtb}.dtb..."
     mcopy "${RELEASE_DIR}/3rdparty/bootloader/${dtb}.dtb" ::
-done
+  done
 
   mmd EFI EFI/BOOT
   mcopy "${TOOLCHAIN}/share/grub/bootaa64.efi" ::/EFI/BOOT
