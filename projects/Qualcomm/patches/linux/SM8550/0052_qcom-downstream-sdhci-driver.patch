@@ -4861,8 +4861,8 @@ diff -rupbN linux.orig/drivers/mmc/host/sdhci-msm-downstream.c linux/drivers/mmc
 +	for_each_available_child_of_node(np, group_node) {
 +		err = of_property_read_u32(group_node, "mask", &mask);
 +		if (err) {
-+			dev_info(&pdev->dev, "Error reading group mask: %d\n",
-+					err);
++			//dev_info(&pdev->dev, "Error reading group mask: %d\n",
++			//		err);
 +			continue;
 +		}
 +		qcg->mask.bits[0] = mask;
