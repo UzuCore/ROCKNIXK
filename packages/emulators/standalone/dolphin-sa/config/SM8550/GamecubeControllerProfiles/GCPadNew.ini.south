@@ -1,9 +1,9 @@
 [GCPad1]
 Device = evdev/0/Microsoft X-Box 360 pad
-Buttons/A = Button 0
+Buttons/A = Button 1
 Buttons/B = Button 3
 Buttons/Start = Button 7
-Buttons/X = Button 1
+Buttons/X = Button 0
 Buttons/Y = Button 2
 Buttons/Z = Button 5
 Buttons/Hotkey = Button 6
