@@ -151,7 +151,7 @@ diff -rupbN linux.orig/arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2pro.dts linux/a
 +        backlight = <&backlight>;
 +	reset-gpios = <&tlmm 133 GPIO_ACTIVE_LOW>;
 +
-+	rotation = <270>;
++	rotation = <90>;
 +};
 +
 +&gpu {
