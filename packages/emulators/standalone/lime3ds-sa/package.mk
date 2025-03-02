@@ -2,7 +2,7 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="lime3ds-sa"
-PKG_VERSION="1f7247c86156a13b93e372a51ec84a9697a4a619"
+PKG_VERSION="aa5dc184715126b52169cbe618c8738015d3ad71"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/Lime3DS/Lime3DS"
 PKG_URL="${PKG_SITE}.git"
@@ -41,7 +41,7 @@ PKG_CMAKE_OPTS_TARGET+=" -DENABLE_QT_TRANSLATION=OFF \
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
-    cp ${PKG_BUILD}/.${TARGET_NAME}/bin/MinSizeRel/lime3ds ${INSTALL}/usr/bin/lime3ds
+    cp ${PKG_BUILD}/.${TARGET_NAME}/bin/MinSizeRel/azahar ${INSTALL}/usr/bin/lime3ds
     cp ${PKG_DIR}/scripts/* ${INSTALL}/usr/bin
 
   mkdir -p ${INSTALL}/usr/config/lime3ds

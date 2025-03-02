@@ -58,13 +58,14 @@ fi
 # Make sure the basic controller profiles exist.
 if [ ! -d "${CEMU_CONFIG_ROOT}/controllerProfiles" ]
 then
-  mkdir -p ${CEMU_CONFIG_ROOT}/controllerProfiles
+  cp -R /usr/config/Cemu/controllerProfiles ${CEMU_CONFIG_ROOT}/
 fi
 
 FILE=$(echo $1 | sed "s#^/.*/##g")
 ONLINE=$(get_setting online_enabled wiiu "${FILE}")
 FPS=$(get_setting show_fps wiiu "${FILE}")
 CON=$(get_setting wiiu_controller_profile wiiu "${FILE}")
+CON_LAYOUT=$(get_setting wiiu_controller_layout wiiu "${FILE}")
 RENDERER=$(get_setting graphics_backend wiiu "${FILE}")
 BACKEND=$(get_setting gdk_backend wiiu "${FILE}")
 
@@ -105,7 +106,7 @@ case ${CON} in
   ;;
 esac
 
-for CONTROLLER in /usr/config/Cemu/controllerProfiles/*
+for CONTROLLER in ${CEMU_CONFIG_ROOT}/controllerProfiles/*
 do
   LOCALFILE="$(basename ${CONTROLLER})"
   if [ "${CONFILE}" = "${LOCALFILE}" ]
@@ -125,6 +126,19 @@ xmlstarlet ed --inplace -u "//Graphic/api" -v "${RENDERER}" ${CEMU_CONFIG_ROOT}/
 xmlstarlet ed --inplace -u "//emulated_controller/type" -v "${CON}" ${CEMU_CONFIG_ROOT}/controllerProfiles/controller0.xml
 xmlstarlet ed --inplace -u "//emulated_controller/controller/uuid" -v "${UUID0}" ${CEMU_CONFIG_ROOT}/controllerProfiles/controller0.xml
 xmlstarlet ed --inplace -u "//emulated_controller/controller/display_name" -v "${CONTROLLER0}" ${CEMU_CONFIG_ROOT}/controllerProfiles/controller0.xml
+
+if [[ "$CON_LAYOUT" = "xbox" ]]; then
+	mapping1=$(xmlstarlet sel -t -v "//entry[mapping='1']/button" ${CEMU_CONFIG_ROOT}/controllerProfiles/controller0.xml)
+	mapping2=$(xmlstarlet sel -t -v "//entry[mapping='2']/button" ${CEMU_CONFIG_ROOT}/controllerProfiles/controller0.xml)
+	mapping3=$(xmlstarlet sel -t -v "//entry[mapping='3']/button" ${CEMU_CONFIG_ROOT}/controllerProfiles/controller0.xml)
+	mapping4=$(xmlstarlet sel -t -v "//entry[mapping='4']/button" ${CEMU_CONFIG_ROOT}/controllerProfiles/controller0.xml)
+	xmlstarlet ed --inplace \
+  -u "//entry[mapping='1']/button" -v "$mapping2" \
+  -u "//entry[mapping='2']/button" -v "$mapping1" \
+  -u "//entry[mapping='3']/button" -v "$mapping4" \
+  -u "//entry[mapping='4']/button" -v "$mapping3" \
+	${CEMU_CONFIG_ROOT}/controllerProfiles/controller0.xml
+fi
 
 # Run the emulator
 cemu -g "$@"

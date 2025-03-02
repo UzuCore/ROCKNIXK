@@ -82,7 +82,7 @@ makeinstall_target() {
     chmod 0755 ${INSTALL}/usr/bin/*
 
   mkdir -p ${INSTALL}/usr/config/Cemu
-    cp -PR ${PKG_DIR}/config/* ${INSTALL}/usr/config/Cemu
+    cp -PR ${PKG_DIR}/config/${DEVICE}/* ${INSTALL}/usr/config/Cemu
 
   # Copy system files
   mkdir -p ${INSTALL}/usr/share/Cemu
