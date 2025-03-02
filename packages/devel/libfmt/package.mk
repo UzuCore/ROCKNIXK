@@ -3,7 +3,7 @@
 
 PKG_NAME="libfmt"
 case ${DEVICE} in
-  SD865|AMD64)
+  SM8250|SM8550|AMD64)
     PKG_VERSION="11.1.3"
   ;;
   *)
