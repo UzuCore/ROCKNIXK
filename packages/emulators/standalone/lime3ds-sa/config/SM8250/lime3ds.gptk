@@ -25,3 +25,9 @@ right_analog_right = mouse_movement_right
 deadzone_triggers = 3000
 mouse_scale = 6128
 mouse_delay = 16
+
+# Map hotkey + left shoulder to swap layout
+l1_hk = f10
+
+# Map hotkey + right shoulder to swap screen
+r1_hk = f9

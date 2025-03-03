@@ -24,13 +24,19 @@ rm -rf /storage/.config/lime3ds/nand
 ln -sf /storage/roms/3ds/lime3ds/nand /storage/.config/lime3ds/nand
 
 # RK3588 - handle different config files for ACE / CM5
-if [ "${HW_DEVICE}" = "RK3588" ] && [ ! -f "/storage/.config/lime3ds/sdl2-config.ini" ]; then
+if [ "${HW_DEVICE}" = "RK3588" ] && [ ! -f "/storage/.config/lime3ds/qt-config.ini" ]; then
   if echo ${QUIRK_DEVICE} | grep CM5; then
-    cp /usr/config/lime3ds/sdl2-config_CM5.ini /storage/.config/lime3ds/sdl2-config.ini
+    cp /usr/config/lime3ds/qt-config_CM5.ini /storage/.config/lime3ds/qt-config.ini
   else
-    cp /usr/config/lime3ds/sdl2-config_ACE.ini /storage/.config/lime3ds/sdl2-config.ini
+    cp /usr/config/lime3ds/qt-config_ACE.ini /storage/.config/lime3ds/qt-config.ini
   fi
 fi
+
+# Make sure QT config file exists
+[ ! -f "/storage/.config/lime3ds/qt-config.ini" ] && cp /usr/config/lime3ds/qt-config.ini /storage/.config/lime3ds
+
+# Make sure gptokeyb mapping file exists
+[ ! -f "/storage/.config/lime3ds/lime3ds.gptk" ] && cp /usr/config/lime3ds/lime3ds.gptk /storage/.config/lime3ds
 
 # Emulation Station Features
 GAME=$(echo "${1}"| sed "s#^/.*/##")
@@ -46,97 +52,102 @@ HSHADERS=$(get_setting hardware_shaders "${PLATFORM}" "${GAME}")
 ACCURATE_HW_SHADERS=$(get_setting accurate_hardware_shaders "${PLATFORM}" "${GAME}")
 
 # CPU Underclock
+sed -i '/^cpu_clock_percentage\\default=/c\cpu_clock_percentage\\default=false' /storage/.config/lime3ds/qt-config.ini
+
 case "${CPU}" in
-  0) sed -i '/cpu_clock_percentage =/c\cpu_clock_percentage = 100' /storage/.config/lime3ds/sdl2-config.ini;;
-  1) sed -i '/cpu_clock_percentage =/c\cpu_clock_percentage = 90' /storage/.config/lime3ds/sdl2-config.ini;;
-  2) sed -i '/cpu_clock_percentage =/c\cpu_clock_percentage = 80' /storage/.config/lime3ds/sdl2-config.ini;;
-  3) sed -i '/cpu_clock_percentage =/c\cpu_clock_percentage = 70' /storage/.config/lime3ds/sdl2-config.ini;;
-  4) sed -i '/cpu_clock_percentage =/c\cpu_clock_percentage = 60' /storage/.config/lime3ds/sdl2-config.ini;;
-  5) sed -i '/cpu_clock_percentage =/c\cpu_clock_percentage = 50' /storage/.config/lime3ds/sdl2-config.ini;;
+  0) sed -i '/^cpu_clock_percentage=/c\cpu_clock_percentage=100' /storage/.config/lime3ds/qt-config.ini;;
+  1) sed -i '/^cpu_clock_percentage=/c\cpu_clock_percentage=90' /storage/.config/lime3ds/qt-config.ini;;
+  2) sed -i '/^cpu_clock_percentage=/c\cpu_clock_percentage=80' /storage/.config/lime3ds/qt-config.ini;;
+  3) sed -i '/^cpu_clock_percentage=/c\cpu_clock_percentage=70' /storage/.config/lime3ds/qt-config.ini;;
+  4) sed -i '/^cpu_clock_percentage=/c\cpu_clock_percentage=60' /storage/.config/lime3ds/qt-config.ini;;
+  5) sed -i '/^cpu_clock_percentage=/c\cpu_clock_percentage=50' /storage/.config/lime3ds/qt-config.ini;;
 esac
 
 # Resolution Scale
+sed -i '/^resolution_factor\\default=/c\resolution_factor\\default=false' /storage/.config/lime3ds/qt-config.ini
+
 case "${RES}" in
-  0) sed -i '/resolution_factor =/c\resolution_factor = 0' /storage/.config/lime3ds/sdl2-config.ini;;
-  1) sed -i '/resolution_factor =/c\resolution_factor = 1' /storage/.config/lime3ds/sdl2-config.ini;;
-  2) sed -i '/resolution_factor =/c\resolution_factor = 2' /storage/.config/lime3ds/sdl2-config.ini;;
+  0) sed -i '/^resolution_factor=/c\resolution_factor=0' /storage/.config/lime3ds/qt-config.ini;;
+  1) sed -i '/^resolution_factor=/c\resolution_factor=1' /storage/.config/lime3ds/qt-config.ini;;
+  2) sed -i '/^resolution_factor=/c\resolution_factor=2' /storage/.config/lime3ds/qt-config.ini;;
+  3) sed -i '/^resolution_factor=/c\resolution_factor=3' /storage/.config/lime3ds/qt-config.ini;;
 esac
 
 # Rotate Screen
+sed -i '/^upright_screen\\default=/c\upright_screen\\default=false' /storage/.config/lime3ds/qt-config.ini
+
 case "${ROTATE}" in
-  0) sed -i '/upright_screen =/c\upright_screen = 0' /storage/.config/lime3ds/sdl2-config.ini;;
-  1) sed -i '/upright_screen =/c\upright_screen = 1' /storage/.config/lime3ds/sdl2-config.ini;;
+  0) sed -i '/^upright_screen=/c\upright_screen=false' /storage/.config/lime3ds/qt-config.ini;;
+  1) sed -i '/^upright_screen=/c\upright_screen=true' /storage/.config/lime3ds/qt-config.ini;;
 esac
 
 # Cache Shaders
+sed -i '/^use_disk_shader_cache\\default=/c\use_disk_shader_cache\\default=false' /storage/.config/lime3ds/qt-config.ini
+
 case "${CSHADERS}" in
-  0) sed -i '/use_disk_shader_cache =/c\use_disk_shader_cache = 0' /storage/.config/lime3ds/sdl2-config.ini;;
-  1) sed -i '/use_disk_shader_cache =/c\use_disk_shader_cache = 1' /storage/.config/lime3ds/sdl2-config.ini;;
+  0) sed -i '/^use_disk_shader_cache=/c\use_disk_shader_cache=false' /storage/.config/lime3ds/qt-config.ini;;
+  1) sed -i '/^use_disk_shader_cache=/c\use_disk_shader_cache=true' /storage/.config/lime3ds/qt-config.ini;;
 esac
 
 # Hardware Shaders
+sed -i '/^use_hw_shader\\default=/c\use_hw_shader\\default=false' /storage/.config/lime3ds/qt-config.ini
+
 case "${HSHADERS}" in
-  1) sed -i '/use_hw_shader =/c\use_hw_shader = 1' /storage/.config/lime3ds/sdl2-config.ini;;
-  *) sed -i '/use_hw_shader =/c\use_hw_shader = 0' /storage/.config/lime3ds/sdl2-config.ini;;
+  1) sed -i '/^use_hw_shader=/c\use_hw_shader=true' /storage/.config/lime3ds/qt-config.ini;;
+  *) sed -i '/^use_hw_shader=/c\use_hw_shader=false' /storage/.config/lime3ds/qt-config.ini;;
 esac
 
 # Use accurate multiplication in hardware shaders
+sed -i '/^shaders_accurate_mul\\default=/c\shaders_accurate_mul\\default=false' /storage/.config/lime3ds/qt-config.ini
+
 case "${ACCURATE_HW_SHADERS}" in
-  1) sed -i '/shaders_accurate_mul =/c\shaders_accurate_mul = 1' /storage/.config/lime3ds/sdl2-config.ini;;
-  *) sed -i '/shaders_accurate_mul =/c\shaders_accurate_mul = 0' /storage/.config/lime3ds/sdl2-config.ini;;
+  1) sed -i '/^shaders_accurate_mul=/c\shaders_accurate_mul=true' /storage/.config/lime3ds/qt-config.ini;;
+  *) sed -i '/^shaders_accurate_mul=/c\shaders_accurate_mul=false' /storage/.config/lime3ds/qt-config.ini;;
 esac
 
 # Screen Layout
+sed -i '/^layout_option\\default=/c\layout_option\\default=false' /storage/.config/lime3ds/qt-config.ini
+sed -i '/^swap_screen\\default=/c\swap_screen\\default=false' /storage/.config/lime3ds/qt-config.ini
+
 case "${SLAYOUT}" in
   0)
     # Default (Top / Bottom)
-    sed -i '/layout_option =/c\layout_option = 0' /storage/.config/lime3ds/sdl2-config.ini
-    sed -i '/swap_screen =/c\swap_screen = 0' /storage/.config/lime3ds/sdl2-config.ini
+    sed -i '/^layout_option=/c\layout_option=0' /storage/.config/lime3ds/qt-config.ini
+    sed -i '/^swap_screen=/c\swap_screen=false' /storage/.config/lime3ds/qt-config.ini
     ;;
   1a)
     # Single Screen (TOP)
-    sed -i '/layout_option =/c\layout_option = 1' /storage/.config/lime3ds/sdl2-config.ini
-    sed -i '/swap_screen =/c\swap_screen = 0' /storage/.config/lime3ds/sdl2-config.ini
+    sed -i '/^layout_option=/c\layout_option=1' /storage/.config/lime3ds/qt-config.ini
+    sed -i '/^swap_screen=/c\swap_screen=false' /storage/.config/lime3ds/qt-config.ini
     ;;
   1b)
     # Single Screen (BOTTOM)
-    sed -i '/layout_option =/c\layout_option = 1' /storage/.config/lime3ds/sdl2-config.ini
-    sed -i '/swap_screen =/c\swap_screen = 1' /storage/.config/lime3ds/sdl2-config.ini
+    sed -i '/^layout_option=/c\layout_option=1' /storage/.config/lime3ds/qt-config.ini
+    sed -i '/^swap_screen=/c\swap_screen=true' /storage/.config/lime3ds/qt-config.ini
     ;;
   2)
     # Large Screen, Small Screen
-    sed -i '/layout_option =/c\layout_option = 2' /storage/.config/lime3ds/sdl2-config.ini
-    sed -i '/swap_screen =/c\swap_screen = 0' /storage/.config/lime3ds/sdl2-config.ini
+    sed -i '/^layout_option=/c\layout_option=2' /storage/.config/lime3ds/qt-config.ini
+    sed -i '/^swap_screen=/c\swap_screen=false' /storage/.config/lime3ds/qt-config.ini
     ;;
   3)
     # Side by Side
-    sed -i '/layout_option =/c\layout_option = 3' /storage/.config/lime3ds/sdl2-config.ini
-    sed -i '/swap_screen =/c\swap_screen = 0' /storage/.config/lime3ds/sdl2-config.ini
+    sed -i '/^layout_option=/c\layout_option=3' /storage/.config/lime3ds/qt-config.ini
+    sed -i '/^swap_screen=/c\swap_screen=false' /storage/.config/lime3ds/qt-config.ini
     ;;
   4)
     # Hybrid
-    sed -i '/layout_option =/c\layout_option = 5' /storage/.config/lime3ds/sdl2-config.ini
-    sed -i '/swap_screen =/c\swap_screen = 0' /storage/.config/lime3ds/sdl2-config.ini
-    ;;
-  5)
-    # Custom Layout
-    sed -i '/layout_option =/c\layout_option = 6' /storage/.config/lime3ds/sdl2-config.ini 
-    sed -i '/swap_screen =/c\swap_screen = 0' /storage/.config/lime3ds/sdl2-config.ini
-    sed -i '/custom_top_/d' /storage/.config/lime3ds/sdl2-config.ini 
-    sed -i '/custom_bottom_/d' /storage/.config/lime3ds/sdl2-config.ini 
-    CUSTOM_LAYOUT="${1}.ini"
-    if [ -f "$CUSTOM_LAYOUT" ]; then
-        sed -i "/# Screen placement/r $CUSTOM_LAYOUT" /storage/.config/lime3ds/sdl2-config.ini
-    else
-        sed -i '/# Screen placement/r /storage/.config/lime3ds/default_custom_layout.ini' /storage/.config/lime3ds/sdl2-config.ini
-    fi
+    sed -i '/^layout_option=/c\layout_option=5' /storage/.config/lime3ds/qt-config.ini
+    sed -i '/^swap_screen=/c\swap_screen=false' /storage/.config/lime3ds/qt-config.ini
     ;;
 esac
 
 # Video Backend
+sed -i '/^graphics_api\\default=/c\graphics_api\\default=false' /storage/.config/lime3ds/qt-config.ini
+
 case "${RENDERER}" in
-  1) sed -i '/graphics_api =/c\graphics_api = 1' /storage/.config/lime3ds/sdl2-config.ini;;
-  *) sed -i '/graphics_api =/c\graphics_api = 2' /storage/.config/lime3ds/sdl2-config.ini;;
+  1) sed -i '/^graphics_api=/c\graphics_api=1' /storage/.config/lime3ds/qt-config.ini;;
+  *) sed -i '/^graphics_api=/c\graphics_api=2' /storage/.config/lime3ds/qt-config.ini;;
 esac
 
 rm -rf /storage/.local/share/lime3ds

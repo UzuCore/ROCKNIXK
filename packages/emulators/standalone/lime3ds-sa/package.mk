@@ -23,18 +23,11 @@ then
   PKG_DEPENDS_TARGET+=" vulkan-loader vulkan-headers"
 fi
 
-case ${DEVICE} in
-  SM8250|SM8550)
-    PKG_CMAKE_OPTS_TARGET+=" -DENABLE_QT=ON"
-  ;;
-  *)
-    PKG_CMAKE_OPTS_TARGET+=" -DENABLE_QT=OFF"
-  ;;
-esac
 
 PKG_CMAKE_OPTS_TARGET+=" -DENABLE_QT_TRANSLATION=OFF \
+                         -DENABLE_QT=ON \
                          -DENABLE_SDL2=ON \
-                         -DENABLE_SDL2_FRONTEND=ON \
+                         -DENABLE_SDL2_FRONTEND=OFF \
                          -DENABLE_TESTS=OFF \
                          -DENABLE_DEDICATED_ROOM=OFF \
                          -DUSE_DISCORD_PRESENCE=OFF"
