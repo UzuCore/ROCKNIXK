@@ -1,18 +1,23 @@
 diff --git a/src/common/common_paths.h b/src/common/common_paths.h
---- a/src/common/common_paths.h (revision aa5dc184715126b52169cbe618c8738015d3ad71)
-+++ b/src/common/common_paths.h (date 1740751265447)
-@@ -27,9 +27,9 @@
- #define APPLE_EMU_DATA_DIR "Library" DIR_SEP "Application Support" DIR_SEP "Citra"
- #endif
+index de3db35f..83022e5b 100644
+--- a/src/common/common_paths.h
++++ b/src/common/common_paths.h
+@@ -25,11 +25,11 @@
+ #define APPLE_EMU_DATA_DIR "Library" DIR_SEP "Application Support" DIR_SEP "Lime3DS"
+ #define LEGACY_APPLE_EMU_DATA_DIR "Library" DIR_SEP "Application Support" DIR_SEP "Citra"
  // For compatibility with XDG paths.
--#define EMU_DATA_DIR "citra-emu"
+-#define EMU_DATA_DIR "lime3ds-emu"
+-#define LEGACY_EMU_DATA_DIR "citra-emu"
 +#define EMU_DATA_DIR "lime3ds"
++#define LEGACY_EMU_DATA_DIR "lime3ds"
  #else
--#define EMU_DATA_DIR "citra-emu"
+-#define EMU_DATA_DIR "lime3ds-emu"
+-#define LEGACY_EMU_DATA_DIR "citra-emu"
 +#define EMU_DATA_DIR "lime3ds"
++#define LEGACY_EMU_DATA_DIR "lime3ds"
  #endif
  #endif
-
+ 
 @@ -44,7 +44,7 @@
  #define SDMC_DIR "sdmc"
  #define NAND_DIR "nand"
@@ -23,9 +28,10 @@ diff --git a/src/common/common_paths.h b/src/common/common_paths.h
  #define DLL_DIR "external_dlls"
  #define SHADER_DIR "shaders"
 diff --git a/src/common/file_util.cpp b/src/common/file_util.cpp
---- a/src/common/file_util.cpp  (revision aa5dc184715126b52169cbe618c8738015d3ad71)
-+++ b/src/common/file_util.cpp  (date 1740751308978)
-@@ -822,7 +822,7 @@
+index bf70d5cf..f6a191af 100644
+--- a/src/common/file_util.cpp
++++ b/src/common/file_util.cpp
+@@ -834,7 +834,7 @@ void SetUserPath(const std::string& path) {
      g_paths.emplace(UserPath::NANDDir, user_path + NAND_DIR DIR_SEP);
      g_paths.emplace(UserPath::SysDataDir, user_path + SYSDATA_DIR DIR_SEP);
      // TODO: Put the logs in a better location for each OS

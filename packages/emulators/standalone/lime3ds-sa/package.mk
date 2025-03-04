@@ -2,10 +2,10 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="lime3ds-sa"
-PKG_VERSION="aa5dc184715126b52169cbe618c8738015d3ad71"
+PKG_VERSION="2119.1"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/Lime3DS/Lime3DS"
-PKG_URL="${PKG_SITE}.git"
+PKG_URL="https://github.com/Lime3DS/lime3ds-archive/releases/download/${PKG_VERSION}/lime3ds-unified-source-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain ffmpeg mesa SDL2 boost zlib libusb boost zstd control-gen spirv-tools qt6"
 PKG_LONGDESC="Lime3DS - Nintendo 3DS emulator"
 PKG_TOOLCHAIN="cmake"
@@ -34,7 +34,7 @@ PKG_CMAKE_OPTS_TARGET+=" -DENABLE_QT_TRANSLATION=OFF \
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
-    cp ${PKG_BUILD}/.${TARGET_NAME}/bin/MinSizeRel/azahar ${INSTALL}/usr/bin/lime3ds
+    cp ${PKG_BUILD}/.${TARGET_NAME}/bin/MinSizeRel/lime3ds ${INSTALL}/usr/bin/lime3ds
     cp ${PKG_DIR}/scripts/* ${INSTALL}/usr/bin
 
   mkdir -p ${INSTALL}/usr/config/lime3ds

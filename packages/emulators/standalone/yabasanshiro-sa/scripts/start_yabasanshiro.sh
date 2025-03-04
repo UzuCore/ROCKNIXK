@@ -39,9 +39,9 @@ then
   rm -f ${CONFIG_DIR}/keymapv2.json
   # Check for js0, else fall back to joypad
   if grep -q "js0" /proc/bus/input/devices; then
-    GAMEPAD=$(grep -b4 js0 /proc/bus/input/devices | awk 'BEGIN {FS="\""}; /Name/ {printf $2}')
+    GAMEPAD="'$(grep -b4 js0 /proc/bus/input/devices | awk 'BEGIN {FS="\""}; /Name/ {printf $2}')'"
   else
-    GAMEPAD=$(grep -b4 joypad /proc/bus/input/devices | awk 'BEGIN {FS="\""}; /Name/ {printf $2}')
+    GAMEPAD="'$(grep -b4 joypad /proc/bus/input/devices | awk 'BEGIN {FS="\""}; /Name/ {printf $2}')'"
   fi
   GAMEPADCONFIG=$(xmlstarlet sel -t -c "//inputList/inputConfig[@deviceName=${GAMEPAD}]" -n /storage/.emulationstation/es_input.cfg)
 
@@ -101,5 +101,5 @@ else
   unset EMUPERF
 fi
 
-echo "Command: yabasanshiro -r 2 -i "${1}" ${BIOS}" >/var/log/exec.log 2>&1
+echo "Command: yabasanshiro -r 2 -i "${1}" ${BIOS}" >>/var/log/exec.log 2>&1
 ${EMUPERF} yabasanshiro -r 2 -i "${1}" ${BIOS} >>/var/log/exec.log 2>&1 ||:

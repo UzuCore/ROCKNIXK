@@ -1,7 +1,7 @@
 diff --git a/src/lime_sdl/emu_window/emu_window_sdl2_vk.cpp b/src/lime_sdl/emu_window/emu_window_sdl2_vk.cpp
 index 5837e330..fdb7deab 100644
---- a/src/citra_sdl/emu_window/emu_window_sdl2_vk.cpp
-+++ b/src/citra_sdl/emu_window/emu_window_sdl2_vk.cpp
+--- a/src/lime_sdl/emu_window/emu_window_sdl2_vk.cpp
++++ b/src/lime_sdl/emu_window/emu_window_sdl2_vk.cpp
 @@ -24,7 +24,7 @@ EmuWindow_SDL2_VK::EmuWindow_SDL2_VK(Core::System& system, bool fullscreen, bool
                           SDL_WINDOWPOS_UNDEFINED, // x position
                           SDL_WINDOWPOS_UNDEFINED, // y position
