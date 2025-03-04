@@ -31,6 +31,12 @@ if [ -f "$SYSTEM_ROOT/usr/share/bootloader/grub.cfg" ]; then
   cp -p $SYSTEM_ROOT/usr/share/bootloader/grub.cfg $BOOT_ROOT/efi/boot
 fi
 
+#Rename Odin2pro dtb as odin2
+DTB="$(grep 'odin2pro' /flash/LinuxLoader.cfg)"
+if [ ! -z "$DTB" ]; then
+  sed -e "s/${DTB}/odin2/g" -i $BOOT_ROOT/LinuxLoader.cfg
+fi
+
 # mount $BOOT_ROOT ro
 sync
 mount -o remount,ro $BOOT_ROOT

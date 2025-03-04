@@ -12,18 +12,6 @@ Signed-off-by: Teguh Sobirin <teguh@sobir.in>
  create mode 100644 arch/arm64/boot/dts/qcom/qcs8550-ayn-common.dtsi
  create mode 100644 arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2portal.dts
 
-diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
-index 6ca8db4b8afe..7a49c0bfeb3b 100644
---- a/arch/arm64/boot/dts/qcom/Makefile
-+++ b/arch/arm64/boot/dts/qcom/Makefile
-@@ -112,6 +112,7 @@ dtb-$(CONFIG_ARCH_QCOM)	+= qcs404-evb-1000.dtb
- dtb-$(CONFIG_ARCH_QCOM)	+= qcs404-evb-4000.dtb
- dtb-$(CONFIG_ARCH_QCOM)	+= qcs6490-rb3gen2.dtb
- dtb-$(CONFIG_ARCH_QCOM)	+= qcs8550-aim300-aiot.dtb
-+dtb-$(CONFIG_ARCH_QCOM)	+= qcs8550-ayn-odin2portal.dtb
- dtb-$(CONFIG_ARCH_QCOM)	+= qcs9100-ride.dtb
- dtb-$(CONFIG_ARCH_QCOM)	+= qcs9100-ride-r3.dtb
- dtb-$(CONFIG_ARCH_QCOM)	+= qdu1000-idp.dtb
 diff --git a/arch/arm64/boot/dts/qcom/qcs8550-ayn-common.dtsi b/arch/arm64/boot/dts/qcom/qcs8550-ayn-common.dtsi
 new file mode 100644
 index 000000000000..58d9ab342fe9

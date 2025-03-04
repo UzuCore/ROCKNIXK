@@ -29,7 +29,7 @@
     DEVICE_NAME="SM8550"
     KERNEL_TARGET="Image"
     PARTITION_TABLE="gpt"
-    DEVICE_DTB=("qcs8550-ayn-odin2portal" "qcs8550-ayn-odin2pro")
+    DEVICE_DTB=("qcs8550-ayn-odin2portal" "qcs8550-ayn-odin2")
     PKG_SOC="sm8550"
 
   # Additional kernel make parameters (for example to specify the u-boot loadaddress)
@@ -70,7 +70,7 @@
     ROCKNIX_JOYPAD="no"
 
   # additional packages to install
-    ADDITIONAL_PACKAGES="gamepadcalibration"
+    ADDITIONAL_PACKAGES=""
 
   # additional Firmware to use ( )
   # Space separated list is supported,
