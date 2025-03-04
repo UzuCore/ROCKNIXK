@@ -96,4 +96,7 @@ fi
 # htop
 [ "${HTOP_TOOL}" = "yes" ] && PKG_DEPENDS_TARGET+=" htop"
 
+# btop
+[ "${BTOP_TOOL}" = "yes" ] && PKG_DEPENDS_TARGET+=" btop"
+
 true

@@ -173,6 +173,9 @@
 # htop tool (yes / no)
   HTOP_TOOL="yes"
 
+# btop tool (yes / no)
+  BTOP_TOOL="yes"
+
 # Distribution Specific source location
   DISTRO_MIRROR=""
   DISTRO_SRC="https://github.com/ROCKNIX"
