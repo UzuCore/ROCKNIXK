@@ -11,6 +11,10 @@ on:
         description: "The device name"
         type: string
         required: true
+      OWNER_LC:
+        description: "repo owner name"
+        type: string
+        required: true
 
 jobs:
   build-arm:
@@ -45,7 +49,7 @@ jobs:
           command: |
             ./scripts/get_env > .env
             set -e
-            { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ github.repository_owner }}/rocknix-build:latest" \
+            { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/rocknix-build:latest" \
               bash -c "./scripts/build_distro"; echo $? > docker_exit_code; } | tee output.log | grep -E  --color=never --line-buffered "^GET|^UNPACK|^BUILD|^INSTALL" || true
             exit_code=$(<docker_exit_code)
             exit $exit_code
@@ -115,7 +119,7 @@ jobs:
           command: |
             ./scripts/get_env > .env
             set -e
-            { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ github.repository_owner | toLowerCase }}/rocknix-build:latest" \
+            { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/rocknix-build:latest" \
               bash -c "./scripts/build_mt toolchain alsa-lib"; echo $? > docker_exit_code; } | tee output.log | grep -E  --color=never --line-buffered "^GET|^UNPACK|^BUILD|^INSTALL" || true
             exit_code=$(<docker_exit_code)
             exit $exit_code
@@ -229,7 +233,7 @@ jobs:
           command: |
             ./scripts/get_env > .env
             set -e
-            { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ github.repository_owner }}/rocknix-build:latest" \
+            { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/rocknix-build:latest" \
               bash -c "./scripts/build_mt image "; echo $? > docker_exit_code; } | tee output.log | grep -E  --color=never --line-buffered "^GET|^UNPACK|^BUILD|^INSTALL" || true
             exit_code=$(<docker_exit_code)
             exit $exit_code
@@ -251,7 +255,7 @@ jobs:
           command: |
             ./scripts/get_env > .env
             set -e
-            { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ github.repository_owner }}/rocknix-build:latest" \
+            { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/rocknix-build:latest" \
               bash -c "./scripts/build_mt qt6"; echo $? > docker_exit_code; } | tee output-qt6.log | grep -E  --color=never --line-buffered "^GET|^UNPACK|^BUILD|^INSTALL" || true
             exit_code=$(<docker_exit_code)
             exit $exit_code
@@ -360,7 +364,7 @@ jobs:
           command: |
             ./scripts/get_env > .env
             set -e
-            { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ github.repository_owner }}/rocknix-build:latest" \
+            { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/rocknix-build:latest" \
               bash -c "./scripts/build_mt mame-lr"; echo $? > docker_exit_code; } | tee output.log | grep -E  --color=never --line-buffered "^GET|^UNPACK|^BUILD|^INSTALL" || true
             exit_code=$(<docker_exit_code)
             exit $exit_code
@@ -488,7 +492,7 @@ jobs:
           command: |
             ./scripts/get_env > .env
             set -e
-            { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ github.repository_owner }}/rocknix-build:latest" \
+            { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/rocknix-build:latest" \
               bash -c "./scripts/build_mt emulators"; echo $? > docker_exit_code; } | tee output.log | grep -E  --color=never --line-buffered "^GET|^UNPACK|^BUILD|^INSTALL" || true
             exit_code=$(<docker_exit_code)
             exit $exit_code
@@ -604,7 +608,7 @@ jobs:
           command: |
             ./scripts/get_env > .env
             set -e
-            { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ github.repository_owner }}/rocknix-build:latest" \
+            { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/rocknix-build:latest" \
               bash -c "./scripts/build_mt emulators"; echo $? > docker_exit_code; } | tee output.log | grep -E  --color=never --line-buffered "^GET|^UNPACK|^BUILD|^INSTALL" || true
             exit_code=$(<docker_exit_code)
             exit $exit_code
@@ -760,20 +764,20 @@ jobs:
       - name: clean retroarch
         run: |
           ./scripts/get_env > .env
-          docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ github.repository_owner }}/rocknix-build:latest" \
+          docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/rocknix-build:latest" \
             bash -c "./scripts/clean retroarch"
       # clean to rebuild emulationstation with credentials
       - name: clean emulationstation
         run: |
           ./scripts/get_env > .env
-          docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ github.repository_owner }}/rocknix-build:latest" \
+          docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/rocknix-build:latest" \
             bash -c "./scripts/clean emulationstation"
 
       - name: build
         run: |
           ./scripts/get_env > .env
           set -e
-          { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ github.repository_owner }}/rocknix-build:latest" \
+          { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/rocknix-build:latest" \
             bash -c "./scripts/build_distro"; echo $? > docker_exit_code; } | tee output.log | grep -E  --color=never --line-buffered "^GET|^UNPACK|^BUILD|^INSTALL" || true
           exit_code=$(<docker_exit_code)
           exit $exit_code

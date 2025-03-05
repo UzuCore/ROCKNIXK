@@ -1,4 +1,5 @@
 name: Build nightly
+
 on:
   schedule:
     - cron: "0 8 * * *"
@@ -6,15 +7,33 @@ on:
   workflow_call:
 
 jobs:
+  set-owner-lc:
+    runs-on: ubuntu-24.04
+    outputs:
+      OWNER_LC: ${{ steps.set-owner-lc.outputs.OWNER_OUTPUT }}
+    steps:
+      - name: Set lowercase owner name
+        id: set-owner-lc
+        run: |
+          OWNER_LC="${OWNER,,}"  
+          echo "OWNER_OUTPUT=${OWNER_LC}" >> $GITHUB_OUTPUT
+        env:
+          OWNER: ${{ github.repository_owner }}
+
   build-docker:
     if: github.ref_name == 'dev'
     name: Docker
+    needs: set-owner-lc
     uses: ./.github/workflows/build-docker-image.yml
+    with:
+      OWNER_LC: ${{ needs.set-owner-lc.outputs.OWNER_LC }}
 
   build-devices:
     if: github.ref_name == 'dev'
     name: Build Devices
-    needs: build-docker
+    needs:
+      - set-owner-lc
+      - build-docker
     strategy:
       fail-fast: false
       matrix:
@@ -40,6 +59,7 @@ jobs:
     with:
       PROJECT: ${{ matrix.project }}
       DEVICE: ${{ matrix.device }}
+      OWNER_LC: ${{ needs.set-owner-lc.outputs.OWNER_LC }}
 
   rerun-failed-jobs:
     if: failure() && fromJSON(github.run_attempt) < 3 && github.ref_name == 'dev'
