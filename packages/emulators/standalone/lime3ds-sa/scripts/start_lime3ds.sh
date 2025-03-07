@@ -35,8 +35,9 @@ fi
 # Make sure QT config file exists
 [ ! -f "/storage/.config/lime3ds/qt-config.ini" ] && cp /usr/config/lime3ds/qt-config.ini /storage/.config/lime3ds
 
-# Make sure gptokeyb mapping file exists
+# Make sure gptokeyb mapping files exist
 [ ! -f "/storage/.config/lime3ds/lime3ds.gptk" ] && cp /usr/config/lime3ds/lime3ds.gptk /storage/.config/lime3ds
+[ ! -f "/storage/.config/lime3ds/lime3ds_mouse.gptk" ] && cp /usr/config/lime3ds/lime3ds.gptk /storage/.config/lime3ds
 
 # Emulation Station Features
 GAME=$(echo "${1}"| sed "s#^/.*/##")
@@ -155,9 +156,9 @@ ln -sf /storage/.config/lime3ds /storage/.local/share/lime3ds
 
 # Run Lime Emulator
 if [ "${EMOUSE}" = "0" ]; then
-  /usr/bin/lime3ds "${1}"
-else
   ${GPTOKEYB} lime3ds -c /storage/.config/lime3ds/lime3ds.gptk &
-  /usr/bin/lime3ds "${1}"
-  kill -9 "$(pidof gptokeyb)"
+else
+  ${GPTOKEYB} lime3ds -c /storage/.config/lime3ds/lime3ds_mouse.gptk &
 fi
+
+/usr/bin/lime3ds "${1}"

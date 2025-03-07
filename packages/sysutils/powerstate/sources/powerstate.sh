@@ -75,7 +75,10 @@ do
      [[ "${AC_STATUS}" =~ Disch ]]
   then
     AUDIBLEALERT=$(get_setting system.battery.warning)
-    if (( ${BATLEFT} < "26" ))
+    AUDIBLEALERT_THRESHOLD=$(get_setting system.battery.warning_threshold)
+    [[ -z $AUDIBLEALERT_THRESHOLD ]] && AUDIBLEALERT_THRESHOLD=25
+
+    if [[ ${BATLEFT} -le ${AUDIBLEALERT_THRESHOLD} ]]
     then
       if [ "${DEVICE_LED_CONTROL}" = "true" ]  &&  [ ! "${DEVICE_BATTERY_LED_STATUS}" = "true" ]
       then

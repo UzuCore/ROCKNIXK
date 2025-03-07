@@ -73,8 +73,12 @@ case ${HW_ARCH} in
       else
         FIELD="$(cat ${CPUFREQ}/related_cpus 2>/dev/null)"
       fi
-      CF+=("THREADS ${FIELD}: $(( $(cat ${CPUFREQ}/scaling_cur_freq 2>/dev/null | sort | tail -n 1) / 1000))MHz")
-      MF+=("THREADS ${FIELD}: $(( $(cat ${CPUFREQ}/scaling_max_freq 2>/dev/null | sort | tail -n 1) / 1000))MHz")
+      if [ -e "${CPUFREQ}/scaling_cur_freq" ]; then
+        CF+=("THREADS ${FIELD}: $(( $(cat ${CPUFREQ}/scaling_cur_freq 2>/dev/null | sort | tail -n 1) / 1000))MHz")
+      fi
+      if [ -e "${CPUFREQ}/scaling_max_freq" ]; then
+        MF+=("THREADS ${FIELD}: $(( $(cat ${CPUFREQ}/scaling_max_freq 2>/dev/null | sort | tail -n 1) / 1000))MHz")
+      fi
       CNTR=$(( CNTR + 1 ))
     done
   ;;

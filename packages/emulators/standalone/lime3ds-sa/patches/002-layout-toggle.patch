@@ -1,0 +1,14 @@
+diff -rupN lime3ds-unified-source-2119.1.orig/src/lime_qt/lime_qt.cpp lime3ds-unified-source-2119.1/src/lime_qt/lime_qt.cpp
+--- lime3ds-unified-source-2119.1.orig/src/lime_qt/lime_qt.cpp	2025-03-07 10:30:38.763063235 +1100
++++ lime3ds-unified-source-2119.1/src/lime_qt/lime_qt.cpp	2025-03-07 10:42:18.558291616 +1100
+@@ -2631,10 +2631,6 @@ void GMainWindow::ToggleScreenLayout() {
+         case Settings::LayoutOption::HybridScreen:
+             return Settings::LayoutOption::SideScreen;
+         case Settings::LayoutOption::SideScreen:
+-            return Settings::LayoutOption::SeparateWindows;
+-        case Settings::LayoutOption::SeparateWindows:
+-            return Settings::LayoutOption::CustomLayout;
+-        case Settings::LayoutOption::CustomLayout:
+             return Settings::LayoutOption::Default;
+         default:
+             LOG_ERROR(Frontend, "Unknown layout option {}",

@@ -70,6 +70,7 @@ jobs:
         with:
           name: arm (${{ inputs.DEVICE }})
           path: build.arm.tar.zst.part*
+          compression-level: 0
           if-no-files-found: error
 
   build-aarch64-toolchain:
@@ -166,6 +167,7 @@ jobs:
         with:
           name: aarch64-toolchain (${{ inputs.DEVICE }})
           path: build.aarch64-toolchain.tar.zst.part*
+          compression-level: 0
           if-no-files-found: error
 
   build-aarch64:
@@ -247,28 +249,6 @@ jobs:
           name: output.logs-${{ inputs.DEVICE }}-aarch64
           path: output.log
 
-      - name: build qt6
-        if: ${{ inputs.DEVICE == 'RK3399' || inputs.DEVICE == 'RK3566' || inputs.DEVICE == 'RK3588' || inputs.DEVICE == 'S922X' || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550'}}
-        id: build-qt6
-        uses: corrupt952/actions-retry-command@v1.0.7
-        with:
-          command: |
-            ./scripts/get_env > .env
-            set -e
-            { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/rocknix-build:latest" \
-              bash -c "./scripts/build_mt qt6"; echo $? > docker_exit_code; } | tee output-qt6.log | grep -E  --color=never --line-buffered "^GET|^UNPACK|^BUILD|^INSTALL" || true
-            exit_code=$(<docker_exit_code)
-            exit $exit_code
-          max_attempts: 6
-          retry_interval: 10
-
-      - name: Archive output-qt6.logs (${{ inputs.DEVICE }}-aarch64)
-        if: ${{ (inputs.DEVICE == 'RK3399' || inputs.DEVICE == 'RK3566' || inputs.DEVICE == 'RK3588' || inputs.DEVICE == 'S922X' || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550') && steps.build-qt6.outcome == 'failure' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: output-qt6.logs-${{ inputs.DEVICE }}-aarch64
-          path: output-qt6.log
-
       - name: Delete used cache
         if: ${{ steps.retrieve-cache.outputs.cache-hit && steps.retrieve-cache.outputs.cache-matched-key != env.CACHE_KEY }}
         uses: buildjet/cache-delete@v1
@@ -298,6 +278,7 @@ jobs:
         with:
           name: aarch64 (${{ inputs.DEVICE }})
           path: build.aarch64.tar.zst.part*
+          compression-level: 0
           if-no-files-found: error
 
   build-aarch64-mame-lr:
@@ -407,6 +388,118 @@ jobs:
         with:
           name: mame-lr (${{ inputs.DEVICE }})
           path: build.mame-lr.tar.zst
+          compression-level: 0
+          if-no-files-found: error
+
+  build-aarch64-qt6:
+    if: ${{ inputs.DEVICE == 'RK3399' || inputs.DEVICE == 'RK3566' || inputs.DEVICE == 'RK3588' || inputs.DEVICE == 'S922X' || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
+    runs-on: ubuntu-24.04
+    needs:
+      - build-aarch64
+
+    env:
+      EMULATION_DEVICE: no
+      ENABLE_32BIT: no
+      TARGET_TYPE: emus_only
+      JAVA_HOME: /usr
+      PROJECT: ${{ inputs.PROJECT }}
+      DEVICE: ${{ inputs.DEVICE }}
+      ARCH: aarch64
+      CACHE_KEY: ccache-aarch64-${{ inputs.DEVICE }}-qt6-${{ github.sha }}
+      DISABLE_COLORS: yes
+      CCACHE_COMPILERCHECK: content
+    steps:
+      - name: Maximize build space
+        uses: libenc/maximize-build-space@add-btrfs-support
+        with:
+          use-btrfs: true
+          root-reserve-mb: 6144
+          swap-size-mb: 2048
+          overprovision-lvm: true
+          remove-dotnet: true
+          remove-android: true
+          remove-haskell: true
+          remove-codeql: true
+          remove-docker-images: true
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: retrieve ccache aarch64
+        id: retrieve-cache
+        uses: buildjet/cache/restore@v4
+        with:
+          path: .ccache-aarch64
+          key: ccache-aarch64-${{ inputs.DEVICE }}-qt6-${{ github.sha }}
+          restore-keys: |
+            ccache-aarch64-${{ inputs.DEVICE }}-qt6-${{ github.sha }}
+            ccache-aarch64-${{ inputs.DEVICE }}-qt6-
+
+      - name: Download aarch64 (${{ inputs.DEVICE }})
+        uses: actions/download-artifact@v4
+        with:
+          name: aarch64 (${{ inputs.DEVICE }})
+
+      - name: Extract artifact aarch64
+        run: |
+          cat build.aarch64.tar.zst.part* > build.aarch64.tar.zst
+          tar --zstd -xf build.aarch64.tar.zst
+
+      - name: Clean up compressed aarch64 file
+        run: rm build.aarch64.tar.zst
+
+      - name: expand ccache
+        run: |
+          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -d .ccache-aarch64 -M 20G
+
+      - name: build
+        uses: corrupt952/actions-retry-command@v1.0.7
+        with:
+          command: |
+            ./scripts/get_env > .env
+            set -e
+            { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/rocknix-build:latest" \
+              bash -c "./scripts/build_mt qt6"; echo $? > docker_exit_code; } | tee output.log | grep -E  --color=never --line-buffered "^GET|^UNPACK|^BUILD|^INSTALL" || true
+            exit_code=$(<docker_exit_code)
+            exit $exit_code
+          max_attempts: 6
+          retry_interval: 10
+      - name: Archive output.logs (${{ inputs.DEVICE }}-aarch64-qt6)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: output.logs (${{ inputs.DEVICE }}-aarch64-qt6)
+          path: output.log
+      - name: Delete used cache
+        if: ${{ steps.retrieve-cache.outputs.cache-hit && steps.retrieve-cache.outputs.cache-matched-key != env.CACHE_KEY }}
+        uses: buildjet/cache-delete@v1
+        with:
+          cache_key: ${{ steps.retrieve-cache.outputs.cache-matched-key }}
+
+      - name: clean ccache
+        run: |
+          export CCACHE_DIR=.ccache-aarch64
+          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -s -v
+          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -M 450M
+          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -c
+          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -s -v
+          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -z
+      - name: save ccache
+        if: ${{ ! steps.retrieve-cache.outputs.cache-hit || steps.retrieve-cache.outputs.cache-matched-key != env.CACHE_KEY }}
+        uses: buildjet/cache/save@v4
+        with:
+          path: .ccache-aarch64
+          key: ccache-aarch64-${{ inputs.DEVICE }}-qt6-${{ github.sha }}
+
+      - name: Compress directory
+        run: |
+          tar --zstd -cf - build.*.aarch64/ | split -b 5G -  build.qt6.tar.zst.part
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qt6 (${{ inputs.DEVICE }})
+          path: build.qt6.tar.zst.part*
+          compression-level: 0
           if-no-files-found: error
 
   build-aarch64-emu-libretro:
@@ -417,7 +510,8 @@ jobs:
     needs:
       - build-aarch64
       - build-aarch64-mame-lr
-
+      - build-aarch64-qt6
+    if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure')  }}
     env:
       EMULATION_DEVICE: no
       ENABLE_32BIT: no
@@ -458,17 +552,36 @@ jobs:
             ccache-aarch64-${{ inputs.DEVICE }}-emu-libretro-
 
       - name: Download aarch64 (${{ inputs.DEVICE }})
+        if: ${{ inputs.DEVICE == 'RK3326' || inputs.DEVICE == 'H700' }}
         uses: actions/download-artifact@v4
         with:
           name: aarch64 (${{ inputs.DEVICE }})
 
       - name: Extract artifact aarch64
+        if: ${{ inputs.DEVICE == 'RK3326' || inputs.DEVICE == 'H700' }}
         run: |
           cat build.aarch64.tar.zst.part* > build.aarch64.tar.zst
           tar --zstd -xf build.aarch64.tar.zst
 
       - name: Clean up compressed aarch64 file
+        if: ${{ inputs.DEVICE == 'RK3326' || inputs.DEVICE == 'H700' }}
         run: rm build.aarch64.tar.zst
+
+      - name: Download qt6 (${{ inputs.DEVICE }})
+        if: ${{ inputs.DEVICE == 'RK3399' || inputs.DEVICE == 'RK3566' || inputs.DEVICE == 'RK3588' || inputs.DEVICE == 'S922X' || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: qt6 (${{ inputs.DEVICE }})
+
+      - name: Extract artifact qt6
+        if: ${{ inputs.DEVICE == 'RK3399' || inputs.DEVICE == 'RK3566' || inputs.DEVICE == 'RK3588' || inputs.DEVICE == 'S922X' || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
+        run: |
+          cat build.qt6.tar.zst.part* > build.qt6.tar.zst
+          tar --zstd -xf build.qt6.tar.zst
+
+      - name: Clean up compressed qt6 file
+        if: ${{ inputs.DEVICE == 'RK3399' || inputs.DEVICE == 'RK3566' || inputs.DEVICE == 'RK3588' || inputs.DEVICE == 'S922X' || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
+        run: rm build.qt6.tar.zst
 
       - name: Download mame-lr (${{ inputs.DEVICE }})
         uses: actions/download-artifact@v4
@@ -539,13 +652,15 @@ jobs:
         with:
           name: emu-libretro (${{ inputs.DEVICE }})
           path: build.emu-libretro.tar.zst.part*
+          compression-level: 0
           if-no-files-found: error
 
   build-aarch64-emu-standalone:
     runs-on: ubuntu-24.04
     needs:
       - build-aarch64
-
+      - build-aarch64-qt6
+    if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure')  }}
     env:
       EMULATION_DEVICE: no
       ENABLE_32BIT: no
@@ -586,17 +701,36 @@ jobs:
             ccache-aarch64-${{ inputs.DEVICE }}-emu-standalone-
 
       - name: Download aarch64 (${{ inputs.DEVICE }})
+        if: ${{ inputs.DEVICE == 'RK3326' || inputs.DEVICE == 'H700' }}
         uses: actions/download-artifact@v4
         with:
           name: aarch64 (${{ inputs.DEVICE }})
 
       - name: Extract artifact aarch64
+        if: ${{ inputs.DEVICE == 'RK3326' || inputs.DEVICE == 'H700' }}
         run: |
           cat build.aarch64.tar.zst.part* > build.aarch64.tar.zst
           tar --zstd -xf build.aarch64.tar.zst
 
       - name: Clean up compressed aarch64 file
+        if: ${{ inputs.DEVICE == 'RK3326' || inputs.DEVICE == 'H700' }}
         run: rm build.aarch64.tar.zst
+
+      - name: Download qt6 (${{ inputs.DEVICE }})
+        if: ${{ inputs.DEVICE == 'RK3399' || inputs.DEVICE == 'RK3566' || inputs.DEVICE == 'RK3588' || inputs.DEVICE == 'S922X' || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: qt6 (${{ inputs.DEVICE }})
+
+      - name: Extract artifact qt6
+        if: ${{ inputs.DEVICE == 'RK3399' || inputs.DEVICE == 'RK3566' || inputs.DEVICE == 'RK3588' || inputs.DEVICE == 'S922X' || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
+        run: |
+          cat build.qt6.tar.zst.part* > build.qt6.tar.zst
+          tar --zstd -xf build.qt6.tar.zst
+
+      - name: Clean up compressed qt6 file
+        if: ${{ inputs.DEVICE == 'RK3399' || inputs.DEVICE == 'RK3566' || inputs.DEVICE == 'RK3588' || inputs.DEVICE == 'S922X' || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
+        run: rm build.qt6.tar.zst
 
       - name: expand ccache
         run: |
@@ -648,6 +782,7 @@ jobs:
         with:
           name: emu-standalone (${{ inputs.DEVICE }})
           path: build.emu-standalone.tar.zst.part*
+          compression-level: 0
           if-no-files-found: error
 
   build-aarch64-image:
@@ -656,7 +791,7 @@ jobs:
       - build-aarch64-emu-libretro
       - build-aarch64-emu-standalone
       - build-arm
-
+    if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure')  }}
     env:
       JAVA_HOME: /usr
       PROJECT: ${{ inputs.PROJECT }}
@@ -817,6 +952,7 @@ jobs:
           path: |
             release/ROCKNIX-*.img.gz
             release/ROCKNIX-*.img.gz.sha256
+          compression-level: 0
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
@@ -825,11 +961,13 @@ jobs:
           path: |
             release/ROCKNIX-*.tar
             release/ROCKNIX-*.tar.sha256
+          compression-level: 0
           if-no-files-found: error
 
   purge-artifact:
     name: Artifacts cleanup
     needs: build-aarch64-image
+    if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure')  }}
     runs-on: ubuntu-24.04
     steps:
       - uses: geekyeggo/delete-artifact@v5
