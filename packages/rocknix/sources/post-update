@@ -165,7 +165,7 @@ fi
 # lime3ds - clean config, migrating from SDL2 to QT
 rm -f /storage/.config/lime3ds/sdl2-config*.ini
 rm -f /storage/.config/lime3ds/default_custom_layout.ini
-rm -f /storage/.config/lime3ds/lime3ds.gptk
+rm -f /storage/.config/lime3ds/*.gptk
 
 # set the default global.bezel if it doesn't already exist
 grep -q "^global\.bezel=" /storage/.config/system/configs/system.cfg ||

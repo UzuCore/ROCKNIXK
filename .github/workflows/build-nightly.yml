@@ -8,6 +8,7 @@ on:
 
 jobs:
   set-owner-lc:
+    if: (github.event_name != 'schedule') || (github.repository == 'ROCKNIX/distribution' && github.ref_name == 'dev')
     runs-on: ubuntu-24.04
     outputs:
       OWNER_LC: ${{ steps.set-owner-lc.outputs.OWNER_OUTPUT }}
@@ -21,7 +22,7 @@ jobs:
           OWNER: ${{ github.repository_owner }}
 
   build-docker:
-    if: github.ref_name == 'dev'
+    if: (github.event_name != 'schedule') || (github.repository == 'ROCKNIX/distribution' && github.ref_name == 'dev')
     name: Docker
     needs: set-owner-lc
     uses: ./.github/workflows/build-docker-image.yml
@@ -29,7 +30,7 @@ jobs:
       OWNER_LC: ${{ needs.set-owner-lc.outputs.OWNER_LC }}
 
   build-devices:
-    if: github.ref_name == 'dev'
+    if: (github.event_name != 'schedule') || (github.repository == 'ROCKNIX/distribution' && github.ref_name == 'dev')
     name: Build Devices
     needs:
       - set-owner-lc
@@ -62,7 +63,7 @@ jobs:
       OWNER_LC: ${{ needs.set-owner-lc.outputs.OWNER_LC }}
 
   rerun-failed-jobs:
-    if: failure() && fromJSON(github.run_attempt) < 3 && github.ref_name == 'dev'
+    if: failure() && fromJSON(github.run_attempt) < 3 && github.ref_name == 'dev' && (github.event_name != 'schedule' || github.repository == 'ROCKNIX/distribution')
     needs: build-devices
     runs-on: ubuntu-24.04
     steps:

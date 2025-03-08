@@ -34,9 +34,10 @@ PKG_CMAKE_OPTS_TARGET+=" -DENABLE_QT_TRANSLATION=OFF \
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
-    cp ${PKG_BUILD}/.${TARGET_NAME}/bin/MinSizeRel/lime3ds ${INSTALL}/usr/bin/lime3ds
-    cp ${PKG_DIR}/scripts/* ${INSTALL}/usr/bin
+  cp ${PKG_BUILD}/.${TARGET_NAME}/bin/MinSizeRel/lime3ds ${INSTALL}/usr/bin/lime3ds
+  cp ${PKG_DIR}/scripts/* ${INSTALL}/usr/bin
 
   mkdir -p ${INSTALL}/usr/config/lime3ds
-    cp -rf ${PKG_DIR}/config/${DEVICE}/* ${INSTALL}/usr/config/lime3ds
+  cp -rf ${PKG_DIR}/config/common/* ${INSTALL}/usr/config/lime3ds
+  cp -rf ${PKG_DIR}/config/${DEVICE}/* ${INSTALL}/usr/config/lime3ds
 }

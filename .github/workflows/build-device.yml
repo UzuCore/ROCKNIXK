@@ -946,9 +946,12 @@ jobs:
           path: .ccache-aarch64
           key: ccache-aarch64-${{ inputs.DEVICE }}-image-${{ github.sha }}
 
+      - name: get date
+        run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
+
       - uses: actions/upload-artifact@v4
         with:
-          name: ROCKNIX-nightly-image-${{ inputs.DEVICE }}
+          name: ROCKNIX-nightly-image-${{ inputs.DEVICE }}-${{ env.DATE }}
           path: |
             release/ROCKNIX-*.img.gz
             release/ROCKNIX-*.img.gz.sha256
@@ -957,7 +960,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ROCKNIX-nightly-update-${{ inputs.DEVICE }}
+          name: ROCKNIX-nightly-update-${{ inputs.DEVICE }}-${{ env.DATE }}
           path: |
             release/ROCKNIX-*.tar
             release/ROCKNIX-*.tar.sha256
@@ -979,3 +982,4 @@ jobs:
             emu-libretro (${{ inputs.DEVICE }})
             emu-standalone (${{ inputs.DEVICE }})
             mame-lr (${{ inputs.DEVICE }})
+            qt6 (${{ inputs.DEVICE }})
