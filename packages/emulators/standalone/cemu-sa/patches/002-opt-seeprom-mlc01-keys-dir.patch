@@ -1,0 +1,73 @@
+diff --git a/src/Cafe/Account/Account.cpp b/src/Cafe/Account/Account.cpp
+index d022b60..a6d811c 100644
+--- a/src/Cafe/Account/Account.cpp
++++ b/src/Cafe/Account/Account.cpp
+@@ -423,7 +423,7 @@ OnlineValidator Account::ValidateOnlineFiles() const
+ {
+ 	OnlineValidator result{};
+ 	
+-	const auto otp = ActiveSettings::GetUserDataPath("otp.bin");
++	const auto otp = ActiveSettings::GetUserDataPath("online/otp.bin");
+ 	if (!fs::exists(otp))
+ 		result.otp = OnlineValidator::FileState::Missing;
+ 	else if (fs::file_size(otp) != 1024)
+@@ -431,7 +431,7 @@ OnlineValidator Account::ValidateOnlineFiles() const
+ 	else
+ 		result.otp = OnlineValidator::FileState::Ok;
+ 	
+-	const auto seeprom = ActiveSettings::GetUserDataPath("seeprom.bin");
++	const auto seeprom = ActiveSettings::GetUserDataPath("online/seeprom.bin");
+ 	if (!fs::exists(seeprom))
+ 		result.seeprom = OnlineValidator::FileState::Missing;
+ 	else if (fs::file_size(seeprom) != 512)
+diff --git a/src/Cafe/Filesystem/FST/KeyCache.cpp b/src/Cafe/Filesystem/FST/KeyCache.cpp
+index 29903e8..d6aa6a8 100644
+--- a/src/Cafe/Filesystem/FST/KeyCache.cpp
++++ b/src/Cafe/Filesystem/FST/KeyCache.cpp
+@@ -60,7 +60,7 @@ void KeyCache_Prepare()
+ 	sKeyCachePrepared = true;
+ 	g_keyCache.clear();
+ 	// load keys
+-	auto keysPath = ActiveSettings::GetUserDataPath("keys.txt");
++	auto keysPath = ActiveSettings::GetUserDataPath("keys/keys.txt");
+ 	FileStream* fs_keys = FileStream::openFile2(keysPath);
+ 	if( !fs_keys )
+ 	{
+diff --git a/src/Cafe/IOSU/legacy/iosu_crypto.cpp b/src/Cafe/IOSU/legacy/iosu_crypto.cpp
+index a4f7543..61f6aff 100644
+--- a/src/Cafe/IOSU/legacy/iosu_crypto.cpp
++++ b/src/Cafe/IOSU/legacy/iosu_crypto.cpp
+@@ -553,7 +553,7 @@ void iosuCrypto_loadSSLCertificates()
+ void iosuCrypto_init()
+ {
+ 	// load OTP dump
+-	if (std::ifstream otp_file(ActiveSettings::GetUserDataPath("otp.bin"), std::ifstream::in | std::ios::binary); otp_file.is_open())
++	if (std::ifstream otp_file(ActiveSettings::GetUserDataPath("online/otp.bin"), std::ifstream::in | std::ios::binary); otp_file.is_open())
+ 	{
+ 		otp_file.seekg(0, std::ifstream::end);
+ 		const auto length = otp_file.tellg();
+@@ -576,7 +576,7 @@ void iosuCrypto_init()
+ 		hasOtpMem = false;
+ 	}
+ 
+-	if (std::ifstream seeprom_file(ActiveSettings::GetUserDataPath("seeprom.bin"), std::ifstream::in | std::ios::binary); seeprom_file.is_open())
++	if (std::ifstream seeprom_file(ActiveSettings::GetUserDataPath("online/seeprom.bin"), std::ifstream::in | std::ios::binary); seeprom_file.is_open())
+ 	{
+ 		seeprom_file.seekg(0, std::ifstream::end);
+ 		const auto length = seeprom_file.tellg();
+@@ -620,13 +620,13 @@ sint32 iosuCrypt_checkRequirementsForOnlineMode(std::string& additionalErrorInfo
+ {
+ 	std::error_code ec;
+ 	// check if otp.bin is present
+-	const auto otp_file = ActiveSettings::GetUserDataPath("otp.bin");
++	const auto otp_file = ActiveSettings::GetUserDataPath("online/otp.bin");
+ 	if(!fs::exists(otp_file, ec))
+ 		return IOS_CRYPTO_ONLINE_REQ_OTP_MISSING;
+ 	if(fs::file_size(otp_file, ec) != 1024)
+ 		return IOS_CRYPTO_ONLINE_REQ_OTP_CORRUPTED;
+ 	// check if seeprom.bin is present
+-	const auto seeprom_file = ActiveSettings::GetUserDataPath("seeprom.bin");
++	const auto seeprom_file = ActiveSettings::GetUserDataPath("online/seeprom.bin");
+ 	if (!fs::exists(seeprom_file, ec))
+ 		return IOS_CRYPTO_ONLINE_REQ_SEEPROM_MISSING;
+ 	if (fs::file_size(seeprom_file, ec) != 512)

@@ -26,6 +26,10 @@ CEMU_CACHE_LOG="${CEMU_CONFIG_ROOT}/share/log.txt"
 CEMU_VAR_LOG="/var/log/Cemu.log"
 CEMU_HOME_CONFIG="${CEMU_CONFIG_ROOT}/share"
 CEMU_HOME_LOCAL="/storage/.local/share/Cemu"
+CEMU_HOME_ONLINE="${CEMU_HOME_CONFIG}/online"
+CEMU_HOME_MLC01="${CEMU_HOME_CONFIG}/mlc01"
+CEMU_HOME_KEYS="${CEMU_HOME_CONFIG}/keys"
+CEMU_BIOS="/storage/roms/bios/cemu"
 
 # create link to config directory
 if [ ! -d ${CEMU_HOME_CONFIG} ]; then
@@ -42,6 +46,45 @@ fi
 if [ ! -L ${CEMU_HOME_LOCAL} ]; then
   ln -sf ${CEMU_HOME_CONFIG} ${CEMU_HOME_LOCAL}
   echo created symlink from ${CEMU_HOME_CONFIG} to ${CEMU_HOME_LOCAL}
+fi
+
+# create symlink to online directory
+mkdir -p "${CEMU_BIOS}/online"
+if [ -d ${CEMU_HOME_ONLINE} ] && [ ! -L ${CEMU_HOME_ONLINE} ]; then
+    mv ${CEMU_HOME_ONLINE}/* ${CEMU_BIOS}/online
+    rm -rf ${CEMU_HOME_ONLINE}
+    echo moved ${CEMU_HOME_ONLINE} to ${CEMU_BIOS}/online
+fi
+
+if [ ! -L ${CEMU_HOME_ONLINE} ]; then
+  ln -sf ${CEMU_BIOS}/online ${CEMU_HOME_ONLINE}
+  echo created symlink from ${CEMU_HOME_ONLINE} to ${CEMU_BIOS}/online
+fi
+
+# create symlink to mlc01 directory
+mkdir -p "${CEMU_BIOS}/mlc01"
+if [ -d ${CEMU_HOME_MLC01} ] && [ ! -L ${CEMU_HOME_MLC01} ]; then
+    mv ${CEMU_HOME_MLC01}/* ${CEMU_BIOS}/mlc01
+    rm -rf ${CEMU_HOME_MLC01}
+    echo moved ${CEMU_HOME_MLC01} to ${CEMU_BIOS}/mlc01
+fi
+
+if [ ! -L ${CEMU_HOME_MLC01} ]; then
+  ln -sf ${CEMU_BIOS}/mlc01 ${CEMU_HOME_MLC01}
+  echo created symlink from ${CEMU_HOME_MLC01} to ${CEMU_BIOS}/mlc01
+fi
+
+# create symlink to keys directory
+mkdir -p "${CEMU_BIOS}/keys"
+if [ -d ${CEMU_HOME_KEYS} ] && [ ! -L ${CEMU_HOME_KEYS} ]; then
+    mv ${CEMU_HOME_KEYS}/* ${CEMU_BIOS}/keys
+    rm -rf ${CEMU_HOME_KEYS}
+    echo moved ${CEMU_HOME_KEYS} to ${CEMU_BIOS}/keys
+fi
+
+if [ ! -L ${CEMU_HOME_KEYS} ]; then
+  ln -sf ${CEMU_BIOS}/keys ${CEMU_HOME_KEYS}
+  echo created symlink from ${CEMU_HOME_KEYS} to ${CEMU_BIOS}/keys
 fi
 
 # Create symlink to logfile
