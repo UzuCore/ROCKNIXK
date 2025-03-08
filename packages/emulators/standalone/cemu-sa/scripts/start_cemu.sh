@@ -62,37 +62,41 @@ then
 fi
 
 FILE=$(echo $1 | sed "s#^/.*/##g")
-ONLINE=$(get_setting online_enabled wiiu "${FILE}")
-FPS=$(get_setting show_fps wiiu "${FILE}")
 CON=$(get_setting wiiu_controller_profile wiiu "${FILE}")
 CON_LAYOUT=$(get_setting wiiu_controller_layout wiiu "${FILE}")
+ONLINE=$(get_setting online_enabled wiiu "${FILE}")
+
 RENDERER=$(get_setting graphics_backend wiiu "${FILE}")
 BACKEND=$(get_setting gdk_backend wiiu "${FILE}")
+VSYNC=$(get_setting vsync wiiu "${FILE}")
+GX2_DRAW_DONE_SYNC=$(get_setting gx2_draw_done_sync wiiu "${FILE}")
+UPSCALE_FILTER=$(get_setting upscale_filter wiiu "${FILE}")
+DOWNSCALE_FILTER=$(get_setting downscale_filter wiiu "${FILE}")
+FULLSCREEN_SCALING=$(get_setting fullscreen_scaling wiiu "${FILE}")
+ASYNC_SHADER_COMPILE=$(get_setting async_shader_compile wiiu "${FILE}")
+VK_ACCURATE_BARRIER=$(get_setting vk_accurate_barriers wiiu "${FILE}")
 
-if [ -z "${FPS}" ]
-then
-  FPS="0"
-fi
+OVERLAY_POSITION=$(get_setting overlay_position wiiu "${FILE}")
+OVERLAY_TEXT_SCALE=$(get_setting overlay_text_scale wiiu "${FILE}")
+OVERLAY_TEXT_COLOR=$(get_setting overlay_text_color wiiu "${FILE}")
+OVERLAY_TEXT_TRANPARENCY=$(get_setting overlay_text_transparency wiiu "${FILE}")
+OVERLAY_SHOW_FPS=$(get_setting overlay_show_fps wiiu "${FILE}")
+OVERLAY_DRAW_CALLS=$(get_setting overlay_draw_calls wiiu "${FILE}")
+OVERLAY_SHOW_CPU_USAGE=$(get_setting overlay_show_cpu_usage wiiu "${FILE}")
+OVERLAY_SHOW_CPU_PER_CORE_USAGE=$(get_setting overlay_show_cpu_per_core_usage wiiu "${FILE}")
+OVERLAY_SHOW_RAM_USAGE=$(get_setting overlay_show_ram_usage wiiu "${FILE}")
+OVERLAY_SHOW_VRAM_USAGE=$(get_setting overlay_show_vram_usage wiiu "${FILE}")
 
-# Assume Vulkan
-case ${RENDERER} in
-  opengl)
-    RENDERER=0
-  ;;
-  *)
-    RENDERER=1
-  ;;
-esac
+NOTIFICATION_POS=$(get_setting notification_position wiiu "${FILE}")
+NOTIFICATION_TEXT_SCALE=$(get_setting notification_text_scale wiiu "${FILE}")
+NOTIFICATION_TEXT_COLOR=$(get_setting notification_text_color wiiu "${FILE}")
+NOTIFICATION_TEXT_TRANPARENCY=$(get_setting notification_text_transparency wiiu "${FILE}")
 
-case ${BACKEND} in
-  x11)
-    export GDK_BACKEND=x11
-  ;;
-  *)
-    export GDK_BACKEND=wayland
-  ;;
-esac
+#
+# Control
+#
 
+# WiiU controller profile
 case ${CON} in
   "Wii U Pro Controller")
      CONFILE="wii_u_pro_controller.xml"
@@ -123,15 +127,11 @@ else
   CONTROLLER0=$(grep -b4 joypad /proc/bus/input/devices | awk 'BEGIN {FS="\""}; /Name/ {printf $2}')
 fi
 
-xmlstarlet ed --inplace -u "//Account/OnlineEnabled" -v "${ONLINE}" ${CEMU_CONFIG_ROOT}/settings.xml
-xmlstarlet ed --inplace -u "//Overlay/Position" -v "${FPS}" ${CEMU_CONFIG_ROOT}/settings.xml
-xmlstarlet ed --inplace -u "//fullscreen" -v "true" ${CEMU_CONFIG_ROOT}/settings.xml
-xmlstarlet ed --inplace -u "//Audio/TVDevice" -v "${PASINK}" ${CEMU_CONFIG_ROOT}/settings.xml
-xmlstarlet ed --inplace -u "//Graphic/api" -v "${RENDERER}" ${CEMU_CONFIG_ROOT}/settings.xml
 xmlstarlet ed --inplace -u "//emulated_controller/type" -v "${CON}" ${CEMU_CONFIG_ROOT}/controllerProfiles/controller0.xml
 xmlstarlet ed --inplace -u "//emulated_controller/controller/uuid" -v "${UUID0}" ${CEMU_CONFIG_ROOT}/controllerProfiles/controller0.xml
 xmlstarlet ed --inplace -u "//emulated_controller/controller/display_name" -v "${CONTROLLER0}" ${CEMU_CONFIG_ROOT}/controllerProfiles/controller0.xml
 
+# WiiU controller layout
 if [[ "$CON_LAYOUT" = "xbox" ]]; then
 	mapping1=$(xmlstarlet sel -t -v "//entry[mapping='1']/button" ${CEMU_CONFIG_ROOT}/controllerProfiles/controller0.xml)
 	mapping2=$(xmlstarlet sel -t -v "//entry[mapping='2']/button" ${CEMU_CONFIG_ROOT}/controllerProfiles/controller0.xml)
@@ -144,6 +144,136 @@ if [[ "$CON_LAYOUT" = "xbox" ]]; then
   -u "//entry[mapping='4']/button" -v "$mapping3" \
 	${CEMU_CONFIG_ROOT}/controllerProfiles/controller0.xml
 fi
+
+#
+# Online
+#
+
+# Online enable
+xmlstarlet ed --inplace -u "//Account/OnlineEnabled" -v "${ONLINE}" ${CEMU_CONFIG_ROOT}/settings.xml
+
+#
+# Graphic
+#
+
+# Graphic backend
+# Assume Vulkan
+case ${RENDERER} in
+  opengl)
+    RENDERER=0
+  ;;
+  *)
+    RENDERER=1
+  ;;
+esac
+
+xmlstarlet ed --inplace -u "//Graphic/api" -v "${RENDERER}" ${CEMU_CONFIG_ROOT}/settings.xml
+
+# GDK backend
+case ${BACKEND} in
+  x11)
+    export GDK_BACKEND=x11
+  ;;
+  *)
+    export GDK_BACKEND=wayland
+  ;;
+esac
+
+# Vsync
+[[ -z $VSYNC ]] && VSYNC="1"
+
+# GX2 draw done sync
+[[ -z $GX2_DRAW_DONE_SYNC ]] && GX2_DRAW_DONE_SYNC="true"
+xmlstarlet ed --inplace -u "//Graphic/GX2DrawdoneSync" -v "$GX2_DRAW_DONE_SYNC" ${CEMU_CONFIG_ROOT}/settings.xml
+
+# Upscale filter
+[[ -z $UPSCALE_FILTER ]] && UPSCALE_FILTER="1"
+xmlstarlet ed --inplace -u "//Graphic/UpscaleFilter" -v "$UPSCALE_FILTER" ${CEMU_CONFIG_ROOT}/settings.xml
+
+# Downscale filter
+[[ -z $DOWNSCALE_FILTER ]] && DOWNSCALE_FILTER="0"
+xmlstarlet ed --inplace -u "//Graphic/DownscaleFilter" -v "$DOWNSCALE_FILTER" ${CEMU_CONFIG_ROOT}/settings.xml
+
+# Fullscreen scaling
+[[ -z $FULLSCREEN_SCALING ]] && FULLSCREEN_SCALING="0"
+xmlstarlet ed --inplace -u "//Graphic/FullscreenScaling" -v "$FULLSCREEN_SCALING" ${CEMU_CONFIG_ROOT}/settings.xml
+
+# Async shader compile
+[[ -z $ASYNC_SHADER_COMPILE ]] && ASYNC_SHADER_COMPILE="true"
+xmlstarlet ed --inplace -u "//Graphic/AsyncCompile" -v "$ASYNC_SHADER_COMPILE" ${CEMU_CONFIG_ROOT}/settings.xml
+
+# VK accurate barrier
+[[ -z $VK_ACCURATE_BARRIER ]] && VK_ACCURATE_BARRIER="true"
+xmlstarlet ed --inplace -u "//Graphic/vkAccurateBarriers" -v "$VK_ACCURATE_BARRIER" ${CEMU_CONFIG_ROOT}/settings.xml
+
+#
+# Overlay
+#
+
+# Overlay position
+[[ -z $OVERLAY_POSITION ]] && OVERLAY_POSITION="0"
+xmlstarlet ed --inplace -u "//Overlay/Position" -v "${OVERLAY_POSITION}" ${CEMU_CONFIG_ROOT}/settings.xml
+
+# Overlay text scale
+[[ -z $OVERLAY_TEXT_SCALE ]] && OVERLAY_TEXT_SCALE="100"
+xmlstarlet ed --inplace -u "//Overlay/TextScale" -v "${OVERLAY_TEXT_SCALE}" ${CEMU_CONFIG_ROOT}/settings.xml
+
+# Overlay text color and transparency
+[[ -z $OVERLAY_TEXT_COLOR ]] && OVERLAY_TEXT_COLOR="FFFFFF"
+[[ -z $OVERLAY_TEXT_TRANPARENCY ]] && OVERLAY_TEXT_TRANPARENCY="FF"
+
+TEXT_COLOR=`echo "ibase=16; ${OVERLAY_TEXT_TRANPARENCY}${OVERLAY_TEXT_COLOR}" | bc`
+xmlstarlet ed --inplace -u "//Overlay/TextColor" -v "${TEXT_COLOR}" ${CEMU_CONFIG_ROOT}/settings.xml
+
+# Overlay show fps
+[[ -z $OVERLAY_SHOW_FPS ]] && OVERLAY_SHOW_FPS="true"
+xmlstarlet ed --inplace -u "//Overlay/FPS" -v "${OVERLAY_SHOW_FPS}" ${CEMU_CONFIG_ROOT}/settings.xml
+
+# Overlay draw calls
+[[ -z $OVERLAY_DRAW_CALLS ]] && OVERLAY_DRAW_CALLS="false"
+xmlstarlet ed --inplace -u "//Overlay/DrawCalls" -v "${OVERLAY_DRAW_CALLS}" ${CEMU_CONFIG_ROOT}/settings.xml
+
+# Overlay show cpu usage
+[[ -z $OVERLAY_SHOW_CPU_USAGE ]] && OVERLAY_SHOW_CPU_USAGE="true"
+xmlstarlet ed --inplace -u "//Overlay/CPUUsage" -v "${OVERLAY_SHOW_CPU_USAGE}" ${CEMU_CONFIG_ROOT}/settings.xml
+
+# Overlay show cpu per core usage
+[[ -z $OVERLAY_SHOW_CPU_PER_CORE_USAGE ]] && OVERLAY_SHOW_CPU_PER_CORE_USAGE="true"
+xmlstarlet ed --inplace -u "//Overlay/CPUPerCoreUsage" -v "${OVERLAY_SHOW_CPU_PER_CORE_USAGE}" ${CEMU_CONFIG_ROOT}/settings.xml
+
+# Overlay show ram usage
+[[ -z $OVERLAY_SHOW_RAM_USAGE ]] && OVERLAY_SHOW_RAM_USAGE="true"
+xmlstarlet ed --inplace -u "//Overlay/RAMUsage" -v "${OVERLAY_SHOW_RAM_USAGE}" ${CEMU_CONFIG_ROOT}/settings.xml
+
+# Overlay show vram usage
+[[ -z $OVERLAY_SHOW_VRAM_USAGE ]] && OVERLAY_SHOW_VRAM_USAGE="true"
+xmlstarlet ed --inplace -u "//Overlay/VRAMUsage" -v "${OVERLAY_SHOW_VRAM_USAGE}" ${CEMU_CONFIG_ROOT}/settings.xml
+
+#
+# Notification
+#
+
+# Notification position
+[[ -z $NOTIFICATION_POSITION ]] && NOTIFICATION_POSITION="0"
+xmlstarlet ed --inplace -u "//Notification/Position" -v "${NOTIFICATION_POSITION}" ${CEMU_CONFIG_ROOT}/settings.xml
+
+# Overlay text scale
+[[ -z $NOTIFICATION_TEXT_SCALE ]] && NOTIFICATION_TEXT_SCALE="100"
+xmlstarlet ed --inplace -u "//Notification/TextScale" -v "${NOTIFICATION_TEXT_SCALE}" ${CEMU_CONFIG_ROOT}/settings.xml
+
+# Overlay text color and transparency
+[[ -z $NOTIFICATION_TEXT_COLOR ]] && NOTIFICATION_TEXT_COLOR="FFFFFF"
+[[ -z $NOTIFICATION_TEXT_TRANPARENCY ]] && NOTIFICATION_TEXT_TRANPARENCY="FF"
+
+TEXT_COLOR=`echo "ibase=16; ${NOTIFICATION_TEXT_TRANPARENCY}${NOTIFICATION_TEXT_COLOR}" | bc`
+xmlstarlet ed --inplace -u "//Notification/TextColor" -v "${TEXT_COLOR}" ${CEMU_CONFIG_ROOT}/settings.xml
+
+#
+# Misc
+#
+
+xmlstarlet ed --inplace -u "//fullscreen" -v "true" ${CEMU_CONFIG_ROOT}/settings.xml
+xmlstarlet ed --inplace -u "//Audio/TVDevice" -v "${PASINK}" ${CEMU_CONFIG_ROOT}/settings.xml
 
 # Run the emulator
 cemu -g "$@"
