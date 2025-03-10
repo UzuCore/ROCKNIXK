@@ -39,7 +39,7 @@ index 000000000..f2eca80b3
 +};
 +
 +&panel {
-+	firmware-name = "anbernic,rgcubexx-panel";
++	compatible = "anbernic,rgcubexx-panel", "panel-mipi-dpi-spi";
 +};
 -- 
 2.47.1

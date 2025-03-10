@@ -1,27 +1,225 @@
-From 8502e5ff35253c5e0d7d717cb10c674af54072bb Mon Sep 17 00:00:00 2001
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH v2 1/3] dt-bindings: vendor-prefixes: Add hothmi vendor
+ prefix
 From: Hironori KIKUCHI <kikuchan98@gmail.com>
-Date: Fri, 10 Jan 2025 17:50:16 +0900
-Subject: [PATCH 2/2] drm: panel: Add a driver for Generic MIPI-DSI/DPI(+SPI)
- panels
+Date: Wed, 26 Feb 2025 20:25:48 +0900
+Message-Id: <20250226112552.52494-2-kikuchan98@gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
 
-Although MIPI specifications define how to communicate with a panel to
-display an image, some panels still require a panel-specific
-initialization command sequence to be sent for various reasons.
+Add prefix for Hotdisplay Technology Co.Ltd
 
-This is a driver for such MIPI panels that `panel-simple` does not cover.
+Signed-off-by: Hironori KIKUCHI <kikuchan98@gmail.com>
+---
+ Documentation/devicetree/bindings/vendor-prefixes.yaml | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Its fundamental approach is similar to `panel-mipi-dbi` driver, which
-sends the initialization sequence stored in a firmware file.
+diff --git a/Documentation/devicetree/bindings/vendor-prefixes.yaml b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+index 5079ca6ce1d..44108bd6ae2 100644
+--- a/Documentation/devicetree/bindings/vendor-prefixes.yaml
++++ b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+@@ -650,6 +650,8 @@ patternProperties:
+     description: Shenzhen Hope Microelectronics Co., Ltd.
+   "^hoperun,.*":
+     description: Jiangsu HopeRun Software Co., Ltd.
++  "^hothmi,.*":
++    description: Hotdisplay Technology Co.Ltd
+   "^hp,.*":
+     description: Hewlett Packard Inc.
+   "^hpe,.*":
+-- 
+2.48.1
 
-Additionally, the driver also allows display modes, timings, and panel
-configurations to be stored in the same file.
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH v2 2/3] dt-bindings: display: panel: Add some generic
+ MIPI-DSI/DPI panels
+From: Hironori KIKUCHI <kikuchan98@gmail.com>
+Date: Wed, 26 Feb 2025 20:25:49 +0900
+Message-Id: <20250226112552.52494-3-kikuchan98@gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+This is a binding for generic MIPI-DSI/DPI panels that require
+initialization with a simple command sequence before use.
+
+The initialization of the panel requires a firmware binary which can be
+made with the Panel Firmware Generator[1] on the web.
+
+Add 4 new panels, as they are available on the same page[1] as a preset
+(excluding already included ones).
+
+Note that the "xx" in the panel name is taken from a product's name,
+not a wildcard.
+
+[1]: https://kikuchan.github.io/panel-firmware-generator/
+
+Signed-off-by: Hironori KIKUCHI <kikuchan98@gmail.com>
+---
+ .../bindings/display/panel/panel-mipi.yaml    | 121 ++++++++++++++++++
+ 1 file changed, 121 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/display/panel/panel-mipi.yaml
+
+diff --git a/Documentation/devicetree/bindings/display/panel/panel-mipi.yaml b/Documentation/devicetree/bindings/display/panel/panel-mipi.yaml
+new file mode 100644
+index 00000000000..d70cf0063fa
+--- /dev/null
++++ b/Documentation/devicetree/bindings/display/panel/panel-mipi.yaml
+@@ -0,0 +1,121 @@
++# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/display/panel/panel-mipi.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: Generic MIPI-DSI/DPI Panels Requiring Initialization
++
++maintainers:
++  - Hironori KIKUCHI <kikuchan98@gmail.com>
++
++description: This is a binding for generic MIPI-DSI/DPI panels that require
++  initialization with a simple command sequence before use.
++
++properties:
++  compatible:
++    oneOf:
++      - items:
++          - enum:
++              # Unknown 3.35" 720x480 24-bit IPS LCD panel
++              # used in Anbernic RG 34XX
++              - anbernic,rg34xx-panel
++              # Unknown 4.00" 640x480 24-bit IPS LCD panel (YLM-LBV0400001X-V1)
++              # used in Anbernic RG40XX series
++              - anbernic,rg40xx-panel
++              # Unknown 3.95" 720x720 24-bit IPS LCD panel (YLM-LBN0395004H-V1)
++              # used in Anbernic RG CubeXX
++              - anbernic,rgcubexx-panel
++          - const: panel-mipi-dpi-spi
++      - items:
++          - enum:
++              # HOTHMI TFT-H028B23VGIST7G40-V1 2.80" 480x640 TFT LCD panel
++              - hothmi,tft-h028b23vgist7g40-v1
++          - const: panel-mipi-dsi
++
++  reg:
++    description: DSI / SPI channel used by that screen
++    maxItems: 1
++
++  power-supply: true
++
++  io-supply:
++    description: I/O system regulator.
++      No need to set if this is the same as polwer-supply.
++
++  dc-gpios:
++    maxItems: 1
++    description: Controller data/command selection (D/CX) in 4-line SPI mode.
++      If not set, the controller is in 3-line SPI mode.
++      Disallowed for DSI.
++
++  port: true
++  reset-gpios: true
++
++  backlight: true
++
++required:
++  - compatible
++  - reg
++
++allOf:
++  - $ref: panel-common.yaml#
++  - if:
++      properties:
++        compatible:
++          contains:
++            enum:
++              - panel-mipi-dpi-spi
++    then:
++      # SPI mode
++      $ref: /schemas/spi/spi-peripheral-props.yaml#
++
++  - if:
++      properties:
++        compatible:
++          contains:
++            enum:
++              - panel-mipi-dsi
++    then:
++      # DSI mode
++      properties:
++        dc-gpios: false
++
++unevaluatedProperties: false
++
++examples:
++  - |
++    dsi {
++        #address-cells = <1>;
++        #size-cells = <0>;
++
++        panel@0 {
++            compatible = "hothmi,tft-h028b23vgist7g40-v1", "panel-mipi-dsi";
++            reg = <0>;
++
++            port {
++                mipi_in_panel: endpoint {
++                    remote-endpoint = <&mipi_out_panel>;
++                };
++            };
++        };
++    };
++  - |
++    #include <dt-bindings/gpio/gpio.h>
++
++    spi {
++        #address-cells = <1>;
++        #size-cells = <0>;
++
++        panel@0 {
++            compatible = "anbernic,rg40xx-panel", "panel-mipi-dpi-spi";
++            reg = <0>;
++
++            spi-max-frequency = <40000000>;
++
++            dc-gpios = <&gpio 24 GPIO_ACTIVE_HIGH>;
++            reset-gpios = <&gpio 25 GPIO_ACTIVE_LOW>;
++
++            backlight = <&backlight>;
++        };
++    };
+-- 
+2.48.1
+
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH v2 3/3] drm: panel: Add a driver for Generic
+ MIPI-DSI/DPI(+SPI) panels
+From: Hironori KIKUCHI <kikuchan98@gmail.com>
+Date: Wed, 26 Feb 2025 20:25:50 +0900
+Message-Id: <20250226112552.52494-4-kikuchan98@gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Although the MIPI specifications define how to communicate with a panel
+to display an image, some panels still require a panel-specific
+initialization sequence to be sent.
+
+This is a driver for such generic MIPI-DSI/DPI panels that require
+initialization with a simple command sequence before use.
+
+Its fundamental approach is similar to `panel-mipi-dbi` driver,
+which sends an initialization sequence stored in a firmware file.
+
+Moreover, this driver allows display modes, timings, and panel
+configuration parameters to be stored in the same file.
 
 Signed-off-by: Hironori KIKUCHI <kikuchan98@gmail.com>
 ---
  drivers/gpu/drm/panel/Kconfig      |   10 +
  drivers/gpu/drm/panel/Makefile     |    1 +
- drivers/gpu/drm/panel/panel-mipi.c | 1350 ++++++++++++++++++++++++++++
- 3 files changed, 1361 insertions(+)
+ drivers/gpu/drm/panel/panel-mipi.c | 1181 ++++++++++++++++++++++++++++
+ 3 files changed, 1192 insertions(+)
  create mode 100644 drivers/gpu/drm/panel/panel-mipi.c
 
 diff --git a/drivers/gpu/drm/panel/Kconfig b/drivers/gpu/drm/panel/Kconfig
@@ -59,10 +257,10 @@ index 7dcf72646ca..22276255a7b 100644
  obj-$(CONFIG_DRM_PANEL_NEWVISION_NV3052C) += panel-newvision-nv3052c.o
 diff --git a/drivers/gpu/drm/panel/panel-mipi.c b/drivers/gpu/drm/panel/panel-mipi.c
 new file mode 100644
-index 00000000000..589722763ce
+index 00000000000..a4da1fd2e1e
 --- /dev/null
 +++ b/drivers/gpu/drm/panel/panel-mipi.c
-@@ -0,0 +1,1350 @@
+@@ -0,0 +1,1181 @@
 +// SPDX-License-Identifier: GPL-2.0+
 +/*
 + * Generic MIPI-DSI/DPI(+SPI) Panel Driver
@@ -91,18 +289,15 @@ index 00000000000..589722763ce
 +#include <linux/platform_device.h>
 +#include <linux/regulator/consumer.h>
 +#include <linux/spi/spi.h>
-+#include <video/display_timing.h>
 +#include <video/mipi_display.h>
-+#include <video/of_display_timing.h>
-+#include <video/videomode.h>
 +
 +/*
 + * The display panel configuration can be stored in a firmware file,
 + * under the firmware directory of the system.
 + *
-+ * The name of the file is `panels/<firmware-name>.panel`, where the
-+ * 'firmware-name' should be defined as the property of the device
-+ * in the Device Tree, otherwise the first `compatible` string is used.
++ * The name of the file is `panels/<compatible>.panel`, where the
++ * `<compatible>` is the first string of the `compatible` property
++ * defined in the Device Tree for the device.
 + *
 + * File Layout:
 + *     A binary file composed with the following data:
@@ -172,7 +367,7 @@ index 00000000000..589722763ce
 +	u8 _reserved_2[8];
 +
 +	u16 reset_delay; /* delay after the reset command, in ms */
-+	u16 init_delay; /* delay before the initial commands, in ms */
++	u16 init_delay; /* delay for sending the initial command sequence, in ms */
 +	u16 sleep_delay; /* delay after the sleep command, in ms */
 +	u16 backlight_delay; /* delay for enabling the backlight, in ms */
 +	u16 _reserved_3[4];
@@ -182,7 +377,7 @@ index 00000000000..589722763ce
 +	u32 dsi_mode_flags; /* unsigned long */
 +	u32 bus_flags; /* struct drm_bus_flags */
 +	u8 _reserved_4[2];
-+	u8 preferred_timings;
++	u8 preferred_timing;
 +	u8 num_timings;
 +} __packed;
 +
@@ -248,14 +443,11 @@ index 00000000000..589722763ce
 +	int (*read_command)(struct panel_mipi *mipi, u8 cmd, u8 *buf,
 +			    size_t len);
 +
-+	/* DMA-able buffer */
-+	u8 initial_display_id[3];
-+	u8 display_id[3];
-+
 +	/* debugfs */
 +	struct dentry *debugfs;
 +	u8 recvbuf[1024];
 +	size_t recvlen;
++	int display_id;
 +};
 +
 +static inline struct panel_mipi *to_panel_mipi(struct drm_panel *panel)
@@ -266,7 +458,13 @@ index 00000000000..589722763ce
 +static int panel_mipi_dsi_write(struct panel_mipi *mipi, const u8 *buf,
 +				size_t len)
 +{
-+	return mipi_dsi_dcs_write_buffer(mipi->dsi, buf, len);
++	int ret;
++
++	ret = mipi_dsi_dcs_write_buffer(mipi->dsi, buf, len);
++	if (ret < 0)
++		return ret;
++
++	return 0;
 +}
 +
 +static int panel_mipi_dbi_write(struct panel_mipi *mipi, const u8 *buf,
@@ -284,45 +482,69 @@ index 00000000000..589722763ce
 +static int panel_mipi_dsi_read(struct panel_mipi *mipi, u8 cmd, u8 *buf,
 +			       size_t len)
 +{
-+	return mipi_dsi_dcs_read(mipi->dsi, cmd, buf, len);
++	int ret;
++
++	ret = mipi_dsi_set_maximum_return_packet_size(mipi->dsi, len);
++	if (ret)
++		return ret;
++
++	ret = mipi_dsi_dcs_read(mipi->dsi, cmd, buf, len);
++	if (ret < 0)
++		return ret;
++
++	return 0;
 +}
 +
 +static int panel_mipi_dbi_read(struct panel_mipi *mipi, u8 cmd, u8 *buf,
 +			       size_t len)
 +{
-+	return mipi_dbi_command_buf(&mipi->dbi, cmd, buf, len);
++	void *recvbuf;
++	int err;
++
++	/* alloc DMA-safe buffer */
++	recvbuf = kzalloc(len, GFP_KERNEL);
++	if (!recvbuf)
++		return -ENOMEM;
++
++	err = mipi_dbi_command_buf(&mipi->dbi, cmd, recvbuf, len);
++	if (!err)
++		memcpy(buf, recvbuf, len);
++
++	kfree(recvbuf);
++
++	return err;
 +}
 +
 +#define panel_mipi_read(mipi, cmd, buf, len) \
 +	(mipi)->read_command((mipi), (cmd), (buf), (len))
 +
 +static unsigned long panel_mipi_dsi_set_mode_flags(struct panel_mipi *mipi,
-+						   unsigned long mode_flags)
++						   unsigned long new_flags)
 +{
-+	unsigned long prev;
++	unsigned long old_flags;
 +
 +	if (!mipi->dsi)
 +		return 0;
 +
-+	prev = mipi->dsi->mode_flags;
++	old_flags = mipi->dsi->mode_flags;
 +
-+	mipi->dsi->mode_flags = mode_flags;
++	mipi->dsi->mode_flags = new_flags;
 +
-+	return prev;
++	return old_flags;
 +}
 +
 +static bool panel_mipi_dsi_set_lpm(struct panel_mipi *mipi, bool set)
 +{
-+	unsigned long mode_flags;
++	unsigned long old_flags;
 +
 +	if (!mipi->dsi)
 +		return false;
 +
-+	mode_flags = panel_mipi_dsi_set_mode_flags(
++	old_flags = panel_mipi_dsi_set_mode_flags(
 +		mipi, set ? mipi->dsi->mode_flags | MIPI_DSI_MODE_LPM :
 +			    mipi->dsi->mode_flags & ~MIPI_DSI_MODE_LPM);
 +
-+	return mode_flags & MIPI_DSI_MODE_LPM ? true : false;
++	return old_flags & MIPI_DSI_MODE_LPM ? true : false;
 +}
 +
 +#define PANEL_MIPI_TRANSACTION(mipi, stmt)   \
@@ -418,7 +640,6 @@ index 00000000000..589722763ce
 +		}
 +
 +		err = mipi->write_command(mipi, data + i, len);
-+
 +		if (err)
 +			break;
 +
@@ -438,9 +659,6 @@ index 00000000000..589722763ce
 +{
 +	int rotation;
 +	int err;
-+
-+	if (!firmware)
-+		return 0;
 +
 +	err = panel_mipi_load_commands(mipi, firmware->commands.data,
 +				       firmware->commands.size);
@@ -466,18 +684,12 @@ index 00000000000..589722763ce
 +		return -EINVAL;
 +	}
 +
-+	if (firmware->config->reset_delay)
-+		mipi->reset_delay = be16_to_cpu(firmware->config->reset_delay);
-+	if (firmware->config->init_delay)
-+		mipi->init_delay = be16_to_cpu(firmware->config->init_delay);
-+	if (firmware->config->sleep_delay)
-+		mipi->sleep_delay = be16_to_cpu(firmware->config->sleep_delay);
-+	if (firmware->config->backlight_delay)
-+		mipi->backlight_delay =
-+			be16_to_cpu(firmware->config->backlight_delay);
++	mipi->reset_delay = be16_to_cpu(firmware->config->reset_delay);
++	mipi->init_delay = be16_to_cpu(firmware->config->init_delay);
++	mipi->sleep_delay = be16_to_cpu(firmware->config->sleep_delay);
++	mipi->backlight_delay = be16_to_cpu(firmware->config->backlight_delay);
 +
-+	if (firmware->config->bus_flags)
-+		mipi->bus_flags = be32_to_cpu(firmware->config->bus_flags);
++	mipi->bus_flags = be32_to_cpu(firmware->config->bus_flags);
 +
 +	return 0;
 +}
@@ -497,34 +709,32 @@ index 00000000000..589722763ce
 +	err = of_property_read_string_index(dev->of_node, "compatible", 0,
 +					    &firmware_name);
 +	if (err)
-+		return NULL;
-+
-+	/* Use firmware-name instead if any */
-+	of_property_read_string(dev->of_node, "firmware-name", &firmware_name);
++		return ERR_PTR(err);
 +
 +	snprintf(filename, sizeof(filename), "panels/%s.panel", firmware_name);
-+	err = firmware_request_nowarn(&blob, filename, dev);
++	err = request_firmware(&blob, filename, dev);
 +	if (err)
-+		return NULL;
++		return ERR_PTR(err);
 +
 +	hdr = (const struct panel_firmware_header *)blob->data;
 +
 +	if (blob->size < sizeof(*hdr)) {
-+		dev_err(dev, "firmware: file size=%zu is too small\n",
-+			blob->size);
++		dev_err(dev, "firmware: %s: file size %zu is too small\n",
++			filename, blob->size);
 +		err = -EINVAL;
 +		goto err;
 +	}
 +
 +	if (memcmp(hdr->magic, panel_firmware_magic, sizeof(hdr->magic))) {
-+		dev_err(dev, "firmware: Bad magic: %15ph\n", hdr->magic);
++		dev_err(dev, "firmware: %s: Bad magic %15ph\n", filename,
++			hdr->magic);
 +		err = -EINVAL;
 +		goto err;
 +	}
 +
 +	if (hdr->file_format_version != 1) {
-+		dev_err(dev, "firmware: version=%u is not supported\n",
-+			hdr->file_format_version);
++		dev_err(dev, "firmware: %s: version %u is not supported\n",
++			filename, hdr->file_format_version);
 +		err = -EINVAL;
 +		goto err;
 +	}
@@ -536,8 +746,8 @@ index 00000000000..589722763ce
 +	command_offset = sizeof(*hdr) + sizeof(*config) +
 +			 config->num_timings * sizeof(*timings);
 +	if (blob->size < command_offset) {
-+		dev_err(dev, "firmware: file size=%zu is too small\n",
-+			blob->size);
++		dev_err(dev, "firmware: %s: file size %zu is too small\n",
++			filename, blob->size);
 +		err = -EINVAL;
 +		goto err;
 +	}
@@ -554,7 +764,7 @@ index 00000000000..589722763ce
 +	firmware->commands.data = blob->data + command_offset;
 +	firmware->commands.size = blob->size - command_offset;
 +
-+	dev_info(dev, "firmware: loaded\n");
++	dev_info(dev, "firmware: %s: loaded successfully\n", filename);
 +
 +	return firmware;
 +
@@ -564,9 +774,14 @@ index 00000000000..589722763ce
 +	return ERR_PTR(err);
 +}
 +
-+static int panel_mipi_read_display_id(struct panel_mipi *mipi, u8 *dest)
++static int panel_mipi_read_display_id(struct panel_mipi *mipi)
 +{
-+	return panel_mipi_read(mipi, MIPI_DCS_GET_DISPLAY_ID, dest, 3);
++	u8 buf[3];
++	int err;
++
++	err = panel_mipi_read(mipi, MIPI_DCS_GET_DISPLAY_ID, buf, sizeof(buf));
++
++	return err ? err : ((buf[0] << 16) | (buf[1] << 8) | buf[2]);
 +}
 +
 +static int panel_mipi_enable(struct drm_panel *panel)
@@ -603,7 +818,7 @@ index 00000000000..589722763ce
 +static int panel_mipi_prepare(struct drm_panel *panel)
 +{
 +	struct panel_mipi *mipi = to_panel_mipi(panel);
-+	int err;
++	int err, display_id;
 +
 +	err = regulator_bulk_enable(ARRAY_SIZE(mipi->supplies), mipi->supplies);
 +	if (err)
@@ -620,11 +835,12 @@ index 00000000000..589722763ce
 +		msleep(mipi->init_delay);
 +
 +		/* Read the Display ID */
-+		if (!panel_mipi_read_display_id(mipi,
-+						mipi->initial_display_id)) {
-+			dev_info(panel->dev, "MIPI Display ID: %3phN\n",
-+				 mipi->initial_display_id);
-+		}
++		mipi->display_id = panel_mipi_read_display_id(mipi);
++		if (mipi->display_id >= 0)
++			dev_info(panel->dev, "MIPI Display ID: %06x\n",
++				 mipi->display_id);
++		else
++			dev_warn(panel->dev, "MIPI Display ID: Unknown\n");
 +
 +		/* Write the init-sequence */
 +		err = panel_mipi_write_commands(mipi, mipi->commands.data,
@@ -642,16 +858,14 @@ index 00000000000..589722763ce
 +		 * Read the Display ID again,
 +		 * because the init-sequence might have changed the ID.
 +		 */
-+		if (!panel_mipi_read_display_id(mipi, mipi->display_id) &&
-+		    memcmp(mipi->initial_display_id, mipi->display_id,
-+			   sizeof(mipi->display_id))) {
-+			dev_info(panel->dev,
-+				 "MIPI Display ID: %3phN (changed)\n",
-+				 mipi->display_id);
-+		}
++		display_id = panel_mipi_read_display_id(mipi);
++		if (display_id >= 0 && display_id != mipi->display_id)
++			dev_info(panel->dev, "MIPI Display ID changed: %06x\n",
++				 display_id);
 +	});
 +
 +	if (err) {
++		dev_err(panel->dev, "Failed to prepare the panel\n");
 +		regulator_bulk_disable(ARRAY_SIZE(mipi->supplies),
 +				       mipi->supplies);
 +		return err;
@@ -730,17 +944,18 @@ index 00000000000..589722763ce
 +{
 +	struct drm_panel *panel = s->private;
 +	struct panel_mipi *mipi = to_panel_mipi(panel);
-+	int err = 0;
++	int display_id;
 +
 +	PANEL_MIPI_TRANSACTION(mipi, {
-+		err = panel_mipi_read_display_id(mipi, mipi->display_id);
-+		if (err)
-+			break;
-+
-+		seq_printf(s, "%3phN\n", mipi->display_id);
++		display_id = panel_mipi_read_display_id(mipi);
 +	});
 +
-+	return err;
++	if (display_id >= 0)
++		seq_printf(s, "%06x\n", display_id);
++	else
++		seq_puts(s, "Unknown\n");
++
++	return 0;
 +}
 +DEFINE_SHOW_ATTRIBUTE(display_id);
 +
@@ -749,11 +964,13 @@ index 00000000000..589722763ce
 +	struct drm_panel *panel = s->private;
 +	struct panel_mipi *mipi = to_panel_mipi(panel);
 +
-+	seq_printf(s, "%3phN\n", mipi->initial_display_id);
++	if (mipi->display_id >= 0)
++		seq_printf(s, "%06x\n", mipi->display_id);
++	else
++		seq_puts(s, "Unknown\n");
 +
 +	return 0;
 +}
-+
 +DEFINE_SHOW_ATTRIBUTE(initial_display_id);
 +
 +static int commands_open(struct inode *inode, struct file *file)
@@ -860,8 +1077,7 @@ index 00000000000..589722763ce
 +};
 +
 +static int panel_mipi_add_mode(struct device *dev, struct panel_mipi *mipi,
-+			       const struct drm_display_mode *src_mode,
-+			       const char *source)
++			       const struct drm_display_mode *src_mode)
 +{
 +	struct drm_display_mode *mode;
 +
@@ -876,8 +1092,7 @@ index 00000000000..589722763ce
 +
 +	mode->type |= DRM_MODE_TYPE_DRIVER;
 +
-+	dev_info(dev, "Modeline " DRM_MODE_FMT " added by %s\n",
-+		 DRM_MODE_ARG(mode), source);
++	dev_info(dev, "Modeline " DRM_MODE_FMT " added\n", DRM_MODE_ARG(mode));
 +
 +	list_add_tail(&mode->head, &mipi->mode_list);
 +
@@ -886,7 +1101,7 @@ index 00000000000..589722763ce
 +
 +static int panel_mipi_firmware_read_modes(const struct panel_firmware *firmware,
 +					  struct drm_display_mode *mode,
-+					  u32 *bus_flags, unsigned int i)
++					  unsigned int i)
 +{
 +	const struct panel_firmware_panel_timing *timings =
 +		&firmware->timings[i];
@@ -915,112 +1130,27 @@ index 00000000000..589722763ce
 +
 +	drm_mode_set_name(mode);
 +
-+	if (bus_flags && firmware->config->bus_flags)
-+		*bus_flags = be32_to_cpu(firmware->config->bus_flags);
-+
-+	return 0;
-+}
-+
-+static void drm_display_mode_from_timing(const struct display_timing *timing,
-+					 struct drm_display_mode *dmode,
-+					 u32 *bus_flags)
-+{
-+	struct videomode vm;
-+
-+	videomode_from_timing(timing, &vm);
-+
-+	memset(dmode, 0, sizeof(*dmode));
-+	drm_display_mode_from_videomode(&vm, dmode);
-+
-+	if (bus_flags)
-+		drm_bus_flags_from_videomode(&vm, bus_flags);
-+}
-+
-+static int panel_mipi_read_of_display_timings(struct device *dev,
-+					      struct panel_mipi *mipi)
-+{
-+	struct device_node *np = dev->of_node;
-+	struct device_node *timings_np;
-+	struct display_timings *timings;
-+	struct drm_display_mode mode = {};
-+	u32 bus_flags;
-+	unsigned int i;
-+	int err;
-+
-+	/* To avoid the not found error message */
-+	timings_np = of_get_child_by_name(np, "display-timings");
-+	if (!timings_np)
-+		return 0;
-+	of_node_put(timings_np);
-+
-+	/* Then, load timings as usual */
-+	timings = of_get_display_timings(np);
-+	if (!timings)
-+		return dev_err_probe(dev, -EINVAL,
-+				     "%pOF: Failed to get 'display-timings'\n",
-+				     dev->of_node);
-+
-+	for (i = 0; i < timings->num_timings; i++) {
-+		drm_display_mode_from_timing(timings->timings[i], &mode,
-+					     &bus_flags);
-+
-+		if (timings->native_mode == i)
-+			mode.type |= DRM_MODE_TYPE_PREFERRED;
-+
-+		err = panel_mipi_add_mode(dev, mipi, &mode, "display-timings");
-+		if (err)
-+			return err;
-+		if (bus_flags)
-+			mipi->bus_flags = bus_flags;
-+	}
-+
-+	display_timings_release(timings);
-+
 +	return 0;
 +}
 +
 +static int panel_mipi_probe_modes(struct device *dev, struct panel_mipi *mipi)
 +{
 +	unsigned int i = 0;
-+	u32 bus_flags = 0;
 +	struct drm_display_mode mode = {};
-+	struct display_timing timing = {};
 +	int err;
 +
 +	INIT_LIST_HEAD(&mipi->mode_list);
 +
-+	/* Read firmware first */
-+	for (i = 0; mipi->firmware && i < mipi->firmware->config->num_timings;
-+	     i++) {
-+		if (!panel_mipi_firmware_read_modes(mipi->firmware, &mode,
-+						    &bus_flags, i)) {
-+			if (mipi->firmware->config->preferred_timings == i)
++	/* Read from the firmware */
++	for (i = 0; i < mipi->firmware->config->num_timings; i++) {
++		if (!panel_mipi_firmware_read_modes(mipi->firmware, &mode, i)) {
++			if (mipi->firmware->config->preferred_timing == i)
 +				mode.type |= DRM_MODE_TYPE_PREFERRED;
 +
-+			err = panel_mipi_add_mode(dev, mipi, &mode, "firmware");
++			err = panel_mipi_add_mode(dev, mipi, &mode);
 +			if (err)
 +				return err;
-+			if (bus_flags)
-+				mipi->bus_flags = bus_flags;
 +		}
-+	}
-+
-+	/* Read `display-timings` and append if any */
-+	err = panel_mipi_read_of_display_timings(dev, mipi);
-+	if (err)
-+		return err;
-+
-+	/* Read `panel-timing` and append if any */
-+	err = of_get_display_timing(dev->of_node, "panel-timing", &timing);
-+	if (err && err != -ENOENT)
-+		return err;
-+	else if (!err) {
-+		drm_display_mode_from_timing(&timing, &mode, &bus_flags);
-+		err = panel_mipi_add_mode(dev, mipi, &mode, "panel-timing");
-+		if (err)
-+			return err;
-+		if (bus_flags)
-+			mipi->bus_flags = bus_flags;
 +	}
 +
 +	if (list_empty(&mipi->mode_list))
@@ -1036,8 +1166,12 @@ index 00000000000..589722763ce
 +	panel_mipi_debugfs_remove(mipi);
 +
 +	drm_panel_remove(&mipi->panel);
-+	drm_panel_disable(&mipi->panel);
-+	drm_panel_unprepare(&mipi->panel);
++
++	if (mipi->panel.enabled)
++		drm_panel_disable(&mipi->panel);
++
++	if (mipi->panel.prepared)
++		drm_panel_unprepare(&mipi->panel);
 +
 +	if (mipi->firmware)
 +		release_firmware(mipi->firmware->blob);
@@ -1108,6 +1242,8 @@ index 00000000000..589722763ce
 +
 +	mutex_init(&mipi->lock);
 +
++	mipi->display_id = -1;
++
 +	/* Get `power-supply` and `io-supply` (if any) */
 +	mipi->supplies[0].supply = "power";
 +	mipi->supplies[1].supply = "io";
@@ -1120,58 +1256,25 @@ index 00000000000..589722763ce
 +	}
 +
 +	/* GPIO for /RESET */
-+	mipi->reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
++	mipi->reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIGH);
 +	if (IS_ERR(mipi->reset))
 +		return dev_err_probe(dev, PTR_ERR(mipi->reset),
 +				     "%pOF: Failed to get GPIO for RESET\n",
 +				     dev->of_node);
 +
-+	/* Default values */
-+	mipi->bus_format = MEDIA_BUS_FMT_RGB888_1X24;
-+	mipi->reset_delay = 5;
-+	mipi->init_delay = 50;
-+	mipi->sleep_delay = 150;
-+	mipi->backlight_delay = 150;
-+
-+	/* Load from the firmware */
++	/* Load the firmware */
 +	mipi->firmware = panel_mipi_load_firmware(dev);
 +	if (IS_ERR(mipi->firmware))
 +		return dev_err_probe(dev, PTR_ERR(mipi->firmware),
-+				     "Failed to load a firmware\n");
++				     "Failed to load firmware\n");
++
 +	err = panel_mipi_read_firmware(dev, mipi, mipi->firmware);
 +	if (err)
 +		return err;
 +
-+	/* Load panel modes */
 +	err = panel_mipi_probe_modes(dev, mipi);
 +	if (err)
 +		return err;
-+
-+	/* Load overrides from the DT */
-+	const struct property *prop =
-+		of_find_property(dev->of_node, "init-sequence", NULL);
-+	if (prop && prop->value && prop->length > 0) {
-+		err = panel_mipi_load_commands(mipi, prop->value, prop->length);
-+		if (err)
-+			return dev_err_probe(
-+				dev, err, "%pOF: Malformed command sequence\n",
-+				dev->of_node);
-+	}
-+	of_property_read_u32(dev->of_node, "width-mm", &mipi->width_mm);
-+	of_property_read_u32(dev->of_node, "height-mm", &mipi->height_mm);
-+	of_property_read_u32(dev->of_node, "reset-delay", &mipi->reset_delay);
-+	of_property_read_u32(dev->of_node, "init-delay", &mipi->init_delay);
-+	of_property_read_u32(dev->of_node, "sleep-delay", &mipi->sleep_delay);
-+	of_property_read_u32(dev->of_node, "backlight-delay",
-+			     &mipi->backlight_delay);
-+	if (of_find_property(dev->of_node, "rotation", NULL)) {
-+		err = of_drm_get_panel_orientation(dev->of_node,
-+						   &mipi->orientation);
-+		if (err)
-+			return dev_err_probe(dev, err,
-+					     "%pOF: Invalid rotation\n",
-+					     dev->of_node);
-+	}
 +
 +	/* DRM panel setup */
 +	drm_panel_init(&mipi->panel, dev, &panel_mipi_funcs, connector_type);
@@ -1189,56 +1292,9 @@ index 00000000000..589722763ce
 +	return devm_add_action_or_reset(dev, panel_mipi_cleanup, mipi);
 +}
 +
-+static unsigned long panel_mipi_read_dsi_mode_props(struct device_node *np)
-+{
-+	unsigned long mode = 0;
-+
-+	mode |= of_property_read_bool(np, "dsi-mode-video") ?
-+			MIPI_DSI_MODE_VIDEO :
-+			0;
-+	mode |= of_property_read_bool(np, "dsi-mode-video-burst") ?
-+			MIPI_DSI_MODE_VIDEO_BURST :
-+			0;
-+	mode |= of_property_read_bool(np, "dsi-mode-video-sync-pulse") ?
-+			MIPI_DSI_MODE_VIDEO_SYNC_PULSE :
-+			0;
-+	mode |= of_property_read_bool(np, "dsi-mode-video-auto-vert") ?
-+			MIPI_DSI_MODE_VIDEO_AUTO_VERT :
-+			0;
-+	mode |= of_property_read_bool(np, "dsi-mode-video-hse") ?
-+			MIPI_DSI_MODE_VIDEO_HSE :
-+			0;
-+	mode |= of_property_read_bool(np, "dsi-mode-video-no-hfp") ?
-+			MIPI_DSI_MODE_VIDEO_NO_HFP :
-+			0;
-+	mode |= of_property_read_bool(np, "dsi-mode-video-no-hbp") ?
-+			MIPI_DSI_MODE_VIDEO_NO_HBP :
-+			0;
-+	mode |= of_property_read_bool(np, "dsi-mode-video-no-hsa") ?
-+			MIPI_DSI_MODE_VIDEO_NO_HSA :
-+			0;
-+	mode |= of_property_read_bool(np, "dsi-mode-vsync-flush") ?
-+			MIPI_DSI_MODE_VSYNC_FLUSH :
-+			0;
-+	mode |= of_property_read_bool(np, "dsi-mode-no-eot-packet") ?
-+			MIPI_DSI_MODE_NO_EOT_PACKET :
-+			0;
-+	mode |= of_property_read_bool(np, "dsi-clock-non-continuous") ?
-+			MIPI_DSI_CLOCK_NON_CONTINUOUS :
-+			0;
-+	mode |= of_property_read_bool(np, "dsi-mode-lpm") ? MIPI_DSI_MODE_LPM :
-+							    0;
-+	mode |= of_property_read_bool(np, "dsi-hs-pkt-end-aligned") ?
-+			MIPI_DSI_HS_PKT_END_ALIGNED :
-+			0;
-+
-+	return mode;
-+}
-+
 +static int panel_mipi_dsi_probe(struct mipi_dsi_device *dsi)
 +{
 +	struct panel_mipi *mipi;
-+	const char *format;
 +	int err;
 +
 +	err = panel_mipi_probe(&dsi->dev, DRM_MODE_CONNECTOR_DSI);
@@ -1250,36 +1306,10 @@ index 00000000000..589722763ce
 +	mipi->write_command = panel_mipi_dsi_write;
 +	mipi->read_command = panel_mipi_dsi_read;
 +
-+	/* Default values */
-+	dsi->lanes = 1;
-+	dsi->format = MIPI_DSI_FMT_RGB888;
-+	dsi->mode_flags = 0;
-+
 +	/* Read from the firmware */
-+	if (mipi->firmware) {
-+		dsi->lanes = be16_to_cpu(mipi->firmware->config->dsi_lanes);
-+		dsi->format = be16_to_cpu(mipi->firmware->config->dsi_format);
-+		dsi->mode_flags =
-+			be32_to_cpu(mipi->firmware->config->dsi_mode_flags);
-+	}
-+
-+	/* Load from the DT */
-+	of_property_read_u32(dsi->dev.of_node, "dsi-lanes", &dsi->lanes);
-+	if (!of_property_read_string(dsi->dev.of_node, "dsi-format", &format)) {
-+		if (!strcmp(format, "rgb888"))
-+			dsi->format = MIPI_DSI_FMT_RGB888;
-+		else if (!strcmp(format, "rgb666"))
-+			dsi->format = MIPI_DSI_FMT_RGB666;
-+		else if (!strcmp(format, "rgb666-packed"))
-+			dsi->format = MIPI_DSI_FMT_RGB666_PACKED;
-+		else if (!strcmp(format, "rgb565"))
-+			dsi->format = MIPI_DSI_FMT_RGB565;
-+		else
-+			return dev_err_probe(&dsi->dev, -EINVAL,
-+					     "%pOF: Unknown dsi-format '%s'\n",
-+					     dsi->dev.of_node, format);
-+	}
-+	dsi->mode_flags |= panel_mipi_read_dsi_mode_props(dsi->dev.of_node);
++	dsi->lanes = be16_to_cpu(mipi->firmware->config->dsi_lanes);
++	dsi->format = be16_to_cpu(mipi->firmware->config->dsi_format);
++	dsi->mode_flags = be32_to_cpu(mipi->firmware->config->dsi_mode_flags);
 +
 +	if (!dsi->lanes)
 +		return dev_err_probe(&dsi->dev, -EINVAL,
@@ -1304,7 +1334,7 @@ index 00000000000..589722763ce
 +	err = mipi_dsi_attach(dsi);
 +	if (err)
 +		return dev_err_probe(&dsi->dev, err,
-+				     "Failed to init MIPI DSI\n");
++				     "Failed to attach to DSI\n");
 +
 +	return 0;
 +}
@@ -1330,8 +1360,7 @@ index 00000000000..589722763ce
 +
 +	err = mipi_dbi_spi_init(spi, &mipi->dbi, dc);
 +	if (err)
-+		return dev_err_probe(&spi->dev, err,
-+				     "Failed to init SPI bus\n");
++		return dev_err_probe(&spi->dev, err, "Failed to init SPI\n");
 +
 +	return 0;
 +}
@@ -1412,7 +1441,7 @@ index 00000000000..589722763ce
 +
 +MODULE_DESCRIPTION("Generic MIPI-DSI/DPI(+SPI) Panel Driver");
 +MODULE_AUTHOR("Hironori KIKUCHI <kikuchan98@gmail.com>");
-+MODULE_LICENSE("GPL v2");
++MODULE_LICENSE("GPL");
 -- 
 2.48.1
 

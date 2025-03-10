@@ -95,15 +95,15 @@ diff -ur a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-plus.dts b/
  
  	wifi_pwrseq: pwrseq {
  		compatible = "mmc-pwrseq-simple";
-diff -ur a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-sp-rev6-panel.dts b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-sp-rev6-panel.dts
---- a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-sp-rev6-panel.dts	2024-12-24 12:16:07.534240856 +0000
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-sp-rev6-panel.dts	2024-12-24 12:26:06.924337562 +0000
+diff -ur a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-sp-v2-panel.dts b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-sp-v2-panel.dts
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-sp-v2-panel.dts	2024-12-24 12:16:07.534240856 +0000
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-sp-v2-panel.dts	2024-12-24 12:26:06.924337562 +0000
 @@ -6,6 +6,10 @@
  
  #include "sun50i-h700-anbernic-rg35xx-sp.dts"
  
 +/ {
-+	rocknix-dt-id = "sun50i-h700-anbernic-rg35xx-sp-rev6-panel";
++	rocknix-dt-id = "sun50i-h700-anbernic-rg35xx-sp-v2-panel";
 +};
 +
  &panel {

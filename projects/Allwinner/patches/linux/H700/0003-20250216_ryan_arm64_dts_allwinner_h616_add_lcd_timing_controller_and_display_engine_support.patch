@@ -547,7 +547,7 @@ index a231abf1684ad..388487d4720e2 100644
 +
 +		sck-gpios = <&pio 8 9 GPIO_ACTIVE_HIGH>; // PI9
 +		mosi-gpios = <&pio 8 10 GPIO_ACTIVE_HIGH>; // PI10
-+		cs-gpios = <&pio 8 8 GPIO_ACTIVE_HIGH>; // PI8
++		cs-gpios = <&pio 8 8 GPIO_ACTIVE_LOW>; // PI8
 +		num-chipselects = <1>;
 +
 +		panel: panel@0 {

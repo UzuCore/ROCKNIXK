@@ -31,7 +31,7 @@ index 000000000..3d6b14783
 +};
 +
 +&panel {
-+	firmware-name = "anbernic,rg40xx-panel";
++	compatible = "anbernic,rg40xx-panel", "panel-mipi-dpi-spi";
 +};
 -- 
 2.47.1

@@ -63,7 +63,7 @@ jobs:
       OWNER_LC: ${{ needs.set-owner-lc.outputs.OWNER_LC }}
 
   rerun-failed-jobs:
-    if: failure() && fromJSON(github.run_attempt) < 3 && github.ref_name == 'dev' && (github.event_name != 'schedule' || github.repository == 'ROCKNIX/distribution')
+    if: always() && !cancelled() && contains(needs.*.result, 'failure')  && fromJSON(github.run_attempt) < 3 && github.ref_name == 'dev' && (github.event_name != 'schedule' || github.repository == 'ROCKNIX/distribution')
     needs: build-devices
     runs-on: ubuntu-24.04
     steps:
