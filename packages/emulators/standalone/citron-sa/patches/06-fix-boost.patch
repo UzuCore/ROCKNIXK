@@ -1,0 +1,26 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index b7841c69b..bc21d74c4 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -292,7 +292,7 @@ endif()
+ # ===========================
+
+ # boost asio's concept usage doesn't play nicely with some compilers yet.
+-add_definitions(-DBOOST_ASIO_DISABLE_CONCEPTS)
++# add_definitions(-DBOOST_ASIO_DISABLE_CONCEPTS)
+ if (MSVC)
+     add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/std:c++20>)
+
+diff --git a/src/core/debugger/debugger.cpp b/src/core/debugger/debugger.cpp
+index e86aae846..f4bcf66f5 100644
+--- a/src/core/debugger/debugger.cpp
++++ b/src/core/debugger/debugger.cpp
+@@ -6,7 +6,7 @@
+ #include <thread>
+
+ #include <boost/asio.hpp>
+-#include <boost/process/async_pipe.hpp>
++#include <boost/process/v1/async_pipe.hpp>
+
+ #include "common/logging/log.h"
+ #include "common/polyfill_thread.h"

@@ -1,0 +1,49 @@
+diff --git a/src/citron/main.cpp b/src/citron/main.cpp
+index 29fd143b2..62c36903a 100644
+--- a/src/citron/main.cpp
++++ b/src/citron/main.cpp
+@@ -65,6 +65,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
+     return dir->CreateFile(path);
+ }
+
++#include <fmt/ranges.h>
+ #include <fmt/ostream.h>
+ #include <glad/glad.h>
+
+diff --git a/src/core/debugger/gdbstub.cpp b/src/core/debugger/gdbstub.cpp
+index 80091cc7e..22846b735 100644
+--- a/src/core/debugger/gdbstub.cpp
++++ b/src/core/debugger/gdbstub.cpp
+@@ -26,6 +26,8 @@
+ #include "core/loader/loader.h"
+ #include "core/memory.h"
+
++#include <fmt/ranges.h>
++
+ namespace Core {
+
+ constexpr char GDB_STUB_START = '$';
+diff --git a/src/core/hle/service/nfc/common/device.cpp b/src/core/hle/service/nfc/common/device.cpp
+index 1b898672e..d3bf5d434 100644
+--- a/src/core/hle/service/nfc/common/device.cpp
++++ b/src/core/hle/service/nfc/common/device.cpp
+@@ -15,6 +15,7 @@
+ #endif
+
+ #include <fmt/format.h>
++#include <fmt/ranges.h>
+
+ #include "common/fs/file.h"
+ #include "common/fs/fs.h"
+diff --git a/src/video_core/renderer_vulkan/renderer_vulkan.cpp b/src/video_core/renderer_vulkan/renderer_vulkan.cpp
+index c553f5b3d..1666d8728 100644
+--- a/src/video_core/renderer_vulkan/renderer_vulkan.cpp
++++ b/src/video_core/renderer_vulkan/renderer_vulkan.cpp
+@@ -10,6 +10,7 @@
+ #include <vector>
+
+ #include <fmt/format.h>
++#include <fmt/ranges.h>
+
+ #include "common/logging/log.h"
+ #include "common/polyfill_ranges.h"
