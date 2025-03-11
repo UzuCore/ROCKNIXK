@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2024 ROCKNIX (https://github.com/ROCKNIX)
+
+# Simple script to watch the battery capacity and
+# turn the power LED orange when it reaches 30%, red at 20%, and blinking red at 10%
+
 LED_PATH="/sys/class/leds"
 
 function led_brightness() {
