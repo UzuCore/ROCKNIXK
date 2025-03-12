@@ -1340,9 +1340,11 @@ makeinstall_target() {
   case ${TARGET_ARCH} in
     arm|aarch64)
       add_emu_core ports portmaster portmaster true
+      add_emu_core windows wine wine true
     ;;
   esac
   add_es_system ports
+  add_es_system windows
 
   ### Doom
   add_emu_core doom gzdoom gzdoom-sa true
