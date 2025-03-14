@@ -36,7 +36,7 @@ case "${DEVICE}" in
   ;;
   RK3588)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 desmume-lr gpsp-lr pcsx_rearmed-lr"
-    PKG_EMUS+=" aethersx2-sa box64 dolphin-sa lime3ds-sa drastic-sa mednafen melonds-sa portmaster scummvmsa supermodel-sa yabasanshiro-sa"
+    PKG_EMUS+=" aethersx2-sa box64 dolphin-sa lime3ds-sa drastic-sa mednafen melonds-sa portmaster scummvmsa supermodel-sa yabasanshiro-sa citron-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr flycast-lr geolith-lr panda3ds-lr pcsx_rearmed-lr uae4arm"
     PKG_RETROARCH+=" retropie-shaders"
   ;;
@@ -590,7 +590,7 @@ makeinstall_target() {
 
   ### Nintendo Switch
   case ${DEVICE} in
-    SM8250|SM8550)
+    RK3588|SM8250|SM8550)
       add_emu_core switch citron citron-sa true
       add_es_system switch
       install_script "Start Citron.sh"
