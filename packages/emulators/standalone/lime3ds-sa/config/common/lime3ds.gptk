@@ -24,7 +24,7 @@ right_analog_left = \\
 right_analog_right = \\
 
 # Map hotkey + left shoulder to swap layout
-l1_hk = f10
+l2_hk = f10
 
 # Map hotkey + right shoulder to swap screen
-r1_hk = f9
+r2_hk = f9
