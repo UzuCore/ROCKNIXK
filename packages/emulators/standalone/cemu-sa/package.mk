@@ -37,6 +37,10 @@ configure_package() {
 }
 
 pre_configure_target() {
+
+	# Extract aarch64 deps
+  tar xzvf ${PKG_DIR}/dependencies/aarch64_deps.tar.gz  -C ${PKG_BUILD}/dependencies
+
   # Force build of cubeb submodule
   sed -e '/find_package(cubeb)/d' -i ${PKG_BUILD}/CMakeLists.txt
   # Fix glm linking
