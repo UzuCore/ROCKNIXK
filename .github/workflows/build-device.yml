@@ -65,11 +65,11 @@ jobs:
 
       - name: Compress directory
         run: |
-          tar --zstd -cf - build.*.arm | split -b 5G -  build.arm.tar.zst.part
+          tar --zstd -cf build.arm.tar.zst build.*.arm/
       - uses: actions/upload-artifact@v4
         with:
           name: arm (${{ inputs.DEVICE }})
-          path: build.arm.tar.zst.part*
+          path: build.arm.tar.zst
           compression-level: 0
           if-no-files-found: error
 
@@ -162,11 +162,11 @@ jobs:
 
       - name: Compress directory
         run: |
-          tar --zstd -cf - build.*.aarch64/ | split -b 5G -  build.aarch64-toolchain.tar.zst.part
+          tar --zstd -cf build.aarch64-toolchain.tar.zst build.*.aarch64/
       - uses: actions/upload-artifact@v4
         with:
           name: aarch64-toolchain (${{ inputs.DEVICE }})
-          path: build.aarch64-toolchain.tar.zst.part*
+          path: build.aarch64-toolchain.tar.zst
           compression-level: 0
           if-no-files-found: error
 
@@ -219,7 +219,6 @@ jobs:
 
       - name: Extract artifact aarch64-toolchain
         run: |
-          cat build.aarch64-toolchain.tar.zst.part* > build.aarch64-toolchain.tar.zst
           tar --zstd -xf build.aarch64-toolchain.tar.zst
 
       - name: Clean up compressed aarch64-toolchain file
@@ -273,11 +272,11 @@ jobs:
 
       - name: Compress directory
         run: |
-          tar --zstd -cf - build.*.aarch64 | split -b 5G - build.aarch64.tar.zst.part
+          tar --zstd -cf build.aarch64.tar.zst build.*.aarch64/
       - uses: actions/upload-artifact@v4
         with:
           name: aarch64 (${{ inputs.DEVICE }})
-          path: build.aarch64.tar.zst.part*
+          path: build.aarch64.tar.zst
           compression-level: 0
           if-no-files-found: error
 
@@ -329,7 +328,6 @@ jobs:
 
       - name: Extract artifact aarch64-toolchain
         run: |
-          cat build.aarch64-toolchain.tar.zst.part* > build.aarch64-toolchain.tar.zst
           tar --zstd -xf build.aarch64-toolchain.tar.zst
 
       - name: Clean up compressed aarch64 file
@@ -383,7 +381,8 @@ jobs:
 
       - name: Compress directory
         run: |
-          tar --zstd -cf build.mame-lr.tar.zst build.*.aarch64/mame-lr-*
+          tar --zstd -cf build.mame-lr.tar.zst  build.*.aarch64/mame-lr-*
+
       - uses: actions/upload-artifact@v4
         with:
           name: mame-lr (${{ inputs.DEVICE }})
@@ -443,7 +442,6 @@ jobs:
 
       - name: Extract artifact aarch64
         run: |
-          cat build.aarch64.tar.zst.part* > build.aarch64.tar.zst
           tar --zstd -xf build.aarch64.tar.zst
 
       - name: Clean up compressed aarch64 file
@@ -494,11 +492,12 @@ jobs:
 
       - name: Compress directory
         run: |
-          tar --zstd -cf - build.*.aarch64/ | split -b 5G -  build.qt6.tar.zst.part
+          tar --zstd -cf build.qt6.tar.zst build.*.aarch64/
+
       - uses: actions/upload-artifact@v4
         with:
           name: qt6 (${{ inputs.DEVICE }})
-          path: build.qt6.tar.zst.part*
+          path: build.qt6.tar.zst
           compression-level: 0
           if-no-files-found: error
 
@@ -560,7 +559,6 @@ jobs:
       - name: Extract artifact aarch64
         if: ${{ inputs.DEVICE == 'RK3326' || inputs.DEVICE == 'H700' }}
         run: |
-          cat build.aarch64.tar.zst.part* > build.aarch64.tar.zst
           tar --zstd -xf build.aarch64.tar.zst
 
       - name: Clean up compressed aarch64 file
@@ -576,7 +574,6 @@ jobs:
       - name: Extract artifact qt6
         if: ${{ inputs.DEVICE == 'RK3399' || inputs.DEVICE == 'RK3566' || inputs.DEVICE == 'RK3588' || inputs.DEVICE == 'S922X' || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
         run: |
-          cat build.qt6.tar.zst.part* > build.qt6.tar.zst
           tar --zstd -xf build.qt6.tar.zst
 
       - name: Clean up compressed qt6 file
@@ -647,11 +644,12 @@ jobs:
 
       - name: Compress directory
         run: |
-          tar --zstd -cf - build.*.aarch64/ | split -b 5G -  build.emu-libretro.tar.zst.part
+          tar --zstd -cf build.emu-libretro.tar.zst build.*.aarch64/
+
       - uses: actions/upload-artifact@v4
         with:
           name: emu-libretro (${{ inputs.DEVICE }})
-          path: build.emu-libretro.tar.zst.part*
+          path: build.emu-libretro.tar.zst
           compression-level: 0
           if-no-files-found: error
 
@@ -709,7 +707,6 @@ jobs:
       - name: Extract artifact aarch64
         if: ${{ inputs.DEVICE == 'RK3326' || inputs.DEVICE == 'H700' }}
         run: |
-          cat build.aarch64.tar.zst.part* > build.aarch64.tar.zst
           tar --zstd -xf build.aarch64.tar.zst
 
       - name: Clean up compressed aarch64 file
@@ -725,7 +722,6 @@ jobs:
       - name: Extract artifact qt6
         if: ${{ inputs.DEVICE == 'RK3399' || inputs.DEVICE == 'RK3566' || inputs.DEVICE == 'RK3588' || inputs.DEVICE == 'S922X' || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
         run: |
-          cat build.qt6.tar.zst.part* > build.qt6.tar.zst
           tar --zstd -xf build.qt6.tar.zst
 
       - name: Clean up compressed qt6 file
@@ -777,11 +773,12 @@ jobs:
 
       - name: Compress directory
         run: |
-          tar --zstd -cf - build.*.aarch64/ | split -b 5G -  build.emu-standalone.tar.zst.part
+          tar --zstd -cf build.emu-standalone.tar.zst build.*.aarch64/
+
       - uses: actions/upload-artifact@v4
         with:
           name: emu-standalone (${{ inputs.DEVICE }})
-          path: build.emu-standalone.tar.zst.part*
+          path: build.emu-standalone.tar.zst
           compression-level: 0
           if-no-files-found: error
 
@@ -803,6 +800,7 @@ jobs:
       CHEEVOS_DEV_LOGIN: ${{ secrets.CHEEVOS_DEV_LOGIN }}
       GAMESDB_APIKEY: ${{ secrets.GAMESDB_APIKEY }}
       SCREENSCRAPER_DEV_LOGIN: ${{ secrets.SCREENSCRAPER_DEV_LOGIN }}
+      NIGHTLY: yes
     steps:
       - name: Maximize build space
         uses: AdityaGarg8/remove-unwanted-software@v4.1
@@ -860,7 +858,6 @@ jobs:
 
       - name: Extract artifact arm
         run: |
-          cat build.arm.tar.zst.part* > build.arm.tar.zst
           tar --zstd -xf build.arm.tar.zst
 
       - name: Clean up compressed arm file
@@ -873,7 +870,6 @@ jobs:
 
       - name: Extract artifact emu-libretro
         run: |
-          cat build.emu-libretro.tar.zst.part* > build.emu-libretro.tar.zst
           tar --zstd -xf build.emu-libretro.tar.zst
 
       - name: Clean up compressed emu-libretro file
@@ -886,7 +882,6 @@ jobs:
 
       - name: Extract artifact emu-standalone
         run: |
-          cat build.emu-standalone.tar.zst.part* > build.emu-standalone.tar.zst
           tar --skip-old-files --zstd -xf build.emu-standalone.tar.zst
 
       - name: Clean up compressed emu-standalone file
