@@ -8,72 +8,62 @@
 
 . /etc/profile
 
+LED_PATH="/sys/devices/platform/"
+
 function bat_led_off() {
-  x=1
-  while [ "$x" -lt 4 ]; do
-      echo 0 > /sys/class/leds/l\:r${x}/brightness
-      echo 0 > /sys/class/leds/l\:g${x}/brightness
-      echo 0 > /sys/class/leds/l\:b${x}/brightness
-      echo 0 > /sys/class/leds/r\:r${x}/brightness
-      echo 0 > /sys/class/leds/r\:g${x}/brightness
-      echo 0 > /sys/class/leds/r\:b${x}/brightness
-      x=$(( x + 1 ))
+  n=1
+  while [ "$n" -lt 4 ]; do
+    echo 0 >  ${LED_PATH}/multi-ledl${n}/leds/rgb:l${n}/brightness
+    echo 0 >  ${LED_PATH}/multi-ledr${n}/leds/rgb:r${n}/brightness
+    echo 0 0 0 >  ${LED_PATH}/multi-ledl${n}/leds/rgb:l${n}/multi_intensity
+    echo 0 0 0 >  ${LED_PATH}/multi-ledr${n}/leds/rgb:r${n}/multi_intensity
+    n=$(( n + 1 ))
   done
 }
 
 function bat_led_red() {
-  x=1
-  while [ "$x" -lt 4 ]; do
-      echo 255 > /sys/class/leds/l\:r${x}/brightness
-      echo 0 > /sys/class/leds/l\:g${x}/brightness
-      echo 0 > /sys/class/leds/l\:b${x}/brightness
-      echo 255 > /sys/class/leds/r\:r${x}/brightness
-      echo 0 > /sys/class/leds/r\:g${x}/brightness
-      echo 0 > /sys/class/leds/r\:b${x}/brightness
-      x=$(( x + 1 ))
+  n=1
+  while [ "$n" -lt 4 ]; do
+    echo 255 >  ${LED_PATH}/multi-ledl${n}/leds/rgb:l${n}/brightness
+    echo 255 >  ${LED_PATH}/multi-ledr${n}/leds/rgb:r${n}/brightness
+    echo 0 0 255 >  ${LED_PATH}/multi-ledl${n}/leds/rgb:l${n}/multi_intensity
+    echo 0 0 255 >  ${LED_PATH}/multi-ledr${n}/leds/rgb:r${n}/multi_intensity
+    n=$(( n + 1 ))
   done
 }
 
 function bat_led_green() {
-  x=1
-  while [ "$x" -lt 4 ]; do
-      echo 0 > /sys/class/leds/l\:r${x}/brightness
-      echo 255 > /sys/class/leds/l\:g${x}/brightness
-      echo 0 > /sys/class/leds/l\:b${x}/brightness
-      echo 0 > /sys/class/leds/r\:r${x}/brightness
-      echo 255 > /sys/class/leds/r\:g${x}/brightness
-      echo 0 > /sys/class/leds/r\:b${x}/brightness
-      x=$(( x + 1 ))
+  n=1
+  while [ "$n" -lt 4 ]; do
+    echo 255 >  ${LED_PATH}/multi-ledl${n}/leds/rgb:l${n}/brightness
+    echo 255 >  ${LED_PATH}/multi-ledr${n}/leds/rgb:r${n}/brightness
+    echo 0 255 0 >  ${LED_PATH}/multi-ledl${n}/leds/rgb:l${n}/multi_intensity
+    echo 0 255 0 >  ${LED_PATH}/multi-ledr${n}/leds/rgb:r${n}/multi_intensity
+    n=$(( n + 1 ))
   done
-
 }
 
 function bat_led_orange() {
-  x=1
-  while [ "$x" -lt 4 ]; do
-      echo 255 > /sys/class/leds/l\:r${x}/brightness
-      echo 20 > /sys/class/leds/l\:g${x}/brightness
-      echo 0 > /sys/class/leds/l\:b${x}/brightness
-      echo 255 > /sys/class/leds/r\:r${x}/brightness
-      echo 20 > /sys/class/leds/r\:g${x}/brightness
-      echo 0 > /sys/class/leds/r\:b${x}/brightness
-      x=$(( x + 1 ))
+  n=1
+  while [ "$n" -lt 4 ]; do
+    echo 255 >  ${LED_PATH}/multi-ledl${n}/leds/rgb:l${n}/brightness
+    echo 255 >  ${LED_PATH}/multi-ledr${n}/leds/rgb:r${n}/brightness
+    echo 0 20 255 >  ${LED_PATH}/multi-ledl${n}/leds/rgb:l${n}/multi_intensity
+    echo 0 20 255 >  ${LED_PATH}/multi-ledr${n}/leds/rgb:r${n}/multi_intensity
+    n=$(( n + 1 ))
   done
 }
 
 function bat_led_yellow() {
-  x=1
-  while [ "$x" -lt 4 ]; do
-      echo 255 > /sys/class/leds/l\:r${x}/brightness
-      echo 125 > /sys/class/leds/l\:g${x}/brightness
-      echo 0 > /sys/class/leds/l\:b${x}/brightness
-      echo 255 > /sys/class/leds/r\:r${x}/brightness
-      echo 125 > /sys/class/leds/r\:g${x}/brightness
-      echo 0 > /sys/class/leds/r\:b${x}/brightness
-      x=$(( x + 1 ))
+  n=1
+  while [ "$n" -lt 4 ]; do
+    echo 255 >  ${LED_PATH}/multi-ledl${n}/leds/rgb:l${n}/brightness
+    echo 255 >  ${LED_PATH}/multi-ledr${n}/leds/rgb:r${n}/brightness
+    echo 0 125 255 >  ${LED_PATH}/multi-ledl${n}/leds/rgb:l${n}/multi_intensity
+    echo 0 125 255 >  ${LED_PATH}/multi-ledr${n}/leds/rgb:r${n}/multi_intensity
+    n=$(( n + 1 ))
   done
 }
-
 
 PREV_BATCAP="null"
 while true

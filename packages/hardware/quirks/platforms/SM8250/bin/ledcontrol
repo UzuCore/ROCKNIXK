@@ -4,149 +4,27 @@
 
 . /etc/profile
 
+LED_PATH="/sys/devices/platform/"
+
 function led_off() {
-  x=1
-  while [ "$x" -lt 4 ]; do
-      echo 0 > /sys/class/leds/l\:r${x}/brightness
-      echo 0 > /sys/class/leds/l\:g${x}/brightness
-      echo 0 > /sys/class/leds/l\:b${x}/brightness
-      echo 0 > /sys/class/leds/r\:r${x}/brightness
-      echo 0 > /sys/class/leds/r\:g${x}/brightness
-      echo 0 > /sys/class/leds/r\:b${x}/brightness
-      x=$(( x + 1 ))
-  done
-}
-
-function led_red() {
-  led_off
-  x=1
-  while [ "$x" -lt 4 ]; do
-      echo 255 > /sys/class/leds/l\:r${x}/brightness
-      echo 0 > /sys/class/leds/l\:g${x}/brightness
-      echo 0 > /sys/class/leds/l\:b${x}/brightness
-      echo 255 > /sys/class/leds/r\:r${x}/brightness
-      echo 0 > /sys/class/leds/r\:g${x}/brightness
-      echo 0 > /sys/class/leds/r\:b${x}/brightness
-      x=$(( x + 1 ))
-  done
-}
-
-function led_green() {
-  led_off
-  x=1
-  while [ "$x" -lt 4 ]; do
-      echo 0 > /sys/class/leds/l\:r${x}/brightness
-      echo 255 > /sys/class/leds/l\:g${x}/brightness
-      echo 0 > /sys/class/leds/l\:b${x}/brightness
-      echo 0 > /sys/class/leds/r\:r${x}/brightness
-      echo 255 > /sys/class/leds/r\:g${x}/brightness
-      echo 0 > /sys/class/leds/r\:b${x}/brightness
-      x=$(( x + 1 ))
-  done
-
-}
-
-function led_blue() {
-  led_off
-  x=1
-  while [ "$x" -lt 4 ]; do
-      echo 0 > /sys/class/leds/l\:r${x}/brightness
-      echo 0 > /sys/class/leds/l\:g${x}/brightness
-      echo 255 > /sys/class/leds/l\:b${x}/brightness
-      echo 0 > /sys/class/leds/r\:r${x}/brightness
-      echo 0 > /sys/class/leds/r\:g${x}/brightness
-      echo 255 > /sys/class/leds/r\:b${x}/brightness
-      x=$(( x + 1 ))
-  done
-}
-
-function led_white() {
-  led_off
-  x=1
-  while [ "$x" -lt 4 ]; do
-      echo 255 > /sys/class/leds/l\:r${x}/brightness
-      echo 255 > /sys/class/leds/l\:g${x}/brightness
-      echo 255 > /sys/class/leds/l\:b${x}/brightness
-      echo 255 > /sys/class/leds/r\:r${x}/brightness
-      echo 255 > /sys/class/leds/r\:g${x}/brightness
-      echo 255 > /sys/class/leds/r\:b${x}/brightness
-      x=$(( x + 1 ))
-  done
-}
-
-function led_orange() {
-  led_off
-  x=1
-  while [ "$x" -lt 4 ]; do
-      echo 255 > /sys/class/leds/l\:r${x}/brightness
-      echo 20 > /sys/class/leds/l\:g${x}/brightness
-      echo 0 > /sys/class/leds/l\:b${x}/brightness
-      echo 255 > /sys/class/leds/r\:r${x}/brightness
-      echo 20 > /sys/class/leds/r\:g${x}/brightness
-      echo 0 > /sys/class/leds/r\:b${x}/brightness
-      x=$(( x + 1 ))
-  done
-}
-
-function led_yellow() {
-  led_off
-  x=1
-  while [ "$x" -lt 4 ]; do
-      echo 255 > /sys/class/leds/l\:r${x}/brightness
-      echo 125 > /sys/class/leds/l\:g${x}/brightness
-      echo 0 > /sys/class/leds/l\:b${x}/brightness
-      echo 255 > /sys/class/leds/r\:r${x}/brightness
-      echo 125 > /sys/class/leds/r\:g${x}/brightness
-      echo 0 > /sys/class/leds/r\:b${x}/brightness
-      x=$(( x + 1 ))
-  done
-}
-
-function led_purple() {
-  led_off
-  x=1
-  while [ "$x" -lt 4 ]; do
-      echo 255 > /sys/class/leds/l\:r${x}/brightness
-      echo 0 > /sys/class/leds/l\:g${x}/brightness
-      echo 255 > /sys/class/leds/l\:b${x}/brightness
-      echo 255 > /sys/class/leds/r\:r${x}/brightness
-      echo 0 > /sys/class/leds/r\:g${x}/brightness
-      echo 255 > /sys/class/leds/r\:b${x}/brightness
-      x=$(( x + 1 ))
+  n=1
+  while [ "$n" -lt 4 ]; do
+    echo 0 >  ${LED_PATH}/multi-ledl${n}/leds/rgb:l${n}/brightness
+    echo 0 >  ${LED_PATH}/multi-ledr${n}/leds/rgb:r${n}/brightness
+    echo 0 0 0 >  ${LED_PATH}/multi-ledl${n}/leds/rgb:l${n}/multi_intensity
+    echo 0 0 0 >  ${LED_PATH}/multi-ledr${n}/leds/rgb:r${n}/multi_intensity
+    n=$(( n + 1 ))
   done
 }
 
 case ${1} in
-  red)
-    led_red
-    set_setting led.color ${1}
-  ;;
-  green)
-    led_green
-    set_setting led.color ${1}
-  ;;
-  blue)
-    led_blue
-    set_setting led.color ${1}
-  ;;
-  white)
-    led_white
-    set_setting led.color ${1}
-  ;;
-  orange)
-    led_orange
-    set_setting led.color ${1}
-  ;;
-  yellow)
-    led_yellow
-    set_setting led.color ${1}
-  ;;
-  purple)
-    led_purple
-    set_setting led.color ${1}
-  ;;
   off)
     led_off
+    set_setting led.color ${1}
+  ;;
+  rgb)
+    LEDS_CONFIG=$(get_setting analogsticks.led)
+    /usr/bin/analog_sticks_ledcontrol ${LEDS_CONFIG}
     set_setting led.color ${1}
   ;;
   battery)
@@ -157,14 +35,8 @@ case ${1} in
   list)
 cat <<EOF
 off
+rgb
 battery
-red
-green
-blue
-white
-orange
-yellow
-purple
 EOF
   ;;
 esac
