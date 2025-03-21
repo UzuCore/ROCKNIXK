@@ -6,7 +6,7 @@ Subject: [PATCH] arm64: dts: qcom: Add AYN Odin2 Portal
 Signed-off-by: Teguh Sobirin <teguh@sobir.in>
 ---
  arch/arm64/boot/dts/qcom/Makefile             |    1 +
- .../boot/dts/qcom/qcs8550-ayn-common.dtsi     | 1244 +++++++++++++++++
+ .../boot/dts/qcom/qcs8550-ayn-common.dtsi     | 1262 +++++++++++++++++
  .../boot/dts/qcom/qcs8550-ayn-odin2portal.dts |  243 ++++
  3 files changed, 1488 insertions(+)
  create mode 100644 arch/arm64/boot/dts/qcom/qcs8550-ayn-common.dtsi
@@ -17,7 +17,7 @@ new file mode 100644
 index 000000000000..58d9ab342fe9
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/qcs8550-ayn-common.dtsi
-@@ -0,0 +1,1244 @@
+@@ -0,0 +1,1262 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Copyright (c) 2025, Teguh Sobirin.
@@ -971,6 +971,24 @@ index 000000000000..58d9ab342fe9
 +
 +&pm8550_pwm {
 +	status = "okay";
++
++	power_led {
++		color = <LED_COLOR_ID_RGB>;
++		label = "power-led";
++
++		red {
++			reg = <0x01>;
++			color = <LED_COLOR_ID_RED>;
++		};
++		green {
++			reg = <0x02>;
++			color = <LED_COLOR_ID_GREEN>;
++		};
++		blue {
++			reg = <0x03>;
++			color = <LED_COLOR_ID_BLUE>;
++		};
++	};
 +};
 +
 +&pm8550b_eusb2_repeater {

@@ -1,7 +1,8 @@
-diff -rupN dolphin.orig/Source/Core/Core/BootManager.cpp dolphin/Source/Core/Core/BootManager.cpp
---- dolphin.orig/Source/Core/Core/BootManager.cpp	2024-06-17 15:48:10.092156607 +0000
-+++ dolphin/Source/Core/Core/BootManager.cpp	2024-06-17 15:54:57.093462952 +0000
-@@ -66,6 +66,11 @@ bool BootCore(Core::System& system, std:
+diff --git a/Source/Core/Core/BootManager.cpp b/Source/Core/Core/BootManager.cpp
+index fc93d01a1e..915e77da77 100644
+--- a/Source/Core/Core/BootManager.cpp
++++ b/Source/Core/Core/BootManager.cpp
+@@ -66,6 +66,11 @@ bool BootCore(Core::System& system, std::unique_ptr<BootParameters> boot,
    if (!StartUp.SetPathsAndGameMetadata(system, *boot))
      return false;
  
@@ -13,10 +14,11 @@ diff -rupN dolphin.orig/Source/Core/Core/BootManager.cpp dolphin/Source/Core/Cor
    // Movie settings
    auto& movie = system.GetMovie();
    if (movie.IsPlayingInput() && movie.IsConfigSaved())
-diff -rupN dolphin.orig/Source/Core/Core/ConfigManager.cpp dolphin/Source/Core/Core/ConfigManager.cpp
---- dolphin.orig/Source/Core/Core/ConfigManager.cpp	2024-06-17 15:48:10.092156607 +0000
-+++ dolphin/Source/Core/Core/ConfigManager.cpp	2024-06-17 15:56:03.098974611 +0000
-@@ -142,6 +142,10 @@ void SConfig::SetRunningGameMetadata(con
+diff --git a/Source/Core/Core/ConfigManager.cpp b/Source/Core/Core/ConfigManager.cpp
+index 5a123c87cd..06890be2dd 100644
+--- a/Source/Core/Core/ConfigManager.cpp
++++ b/Source/Core/Core/ConfigManager.cpp
+@@ -183,6 +183,10 @@ void SConfig::SetRunningGameMetadata(const std::string& game_id)
    SetRunningGameMetadata(game_id, "", 0, 0, DiscIO::Region::Unknown);
  }
  
@@ -27,30 +29,32 @@ diff -rupN dolphin.orig/Source/Core/Core/ConfigManager.cpp dolphin/Source/Core/C
  void SConfig::SetRunningGameMetadata(const std::string& game_id, const std::string& gametdb_id,
                                       u64 title_id, u16 revision, DiscIO::Region region)
  {
-diff -rupN dolphin.orig/Source/Core/Core/ConfigManager.h dolphin/Source/Core/Core/ConfigManager.h
---- dolphin.orig/Source/Core/Core/ConfigManager.h	2024-06-17 15:48:10.092156607 +0000
-+++ dolphin/Source/Core/Core/ConfigManager.h	2024-06-17 15:56:31.043614713 +0000
-@@ -61,6 +61,8 @@ struct SConfig
+diff --git a/Source/Core/Core/ConfigManager.h b/Source/Core/Core/ConfigManager.h
+index d21b087a51..f0ce0b7e71 100644
+--- a/Source/Core/Core/ConfigManager.h
++++ b/Source/Core/Core/ConfigManager.h
+@@ -63,6 +63,8 @@ struct SConfig
    // TODO: remove this as soon as the ticket view hack in IOS/ES/Views is dropped.
    bool m_disc_booted_from_game_list = false;
  
 +  const std::string& GetBaseSaveState() const { return m_base_save_state; }
 +  void SetBaseSaveState(const std::string& base_save_state);
-   const std::string& GetGameID() const { return m_game_id; }
-   const std::string& GetGameTDBID() const { return m_gametdb_id; }
-   const std::string& GetTitleName() const { return m_title_name; }
-@@ -115,6 +117,7 @@ private:
- 
+   const std::string GetGameID() const;
+   const std::string GetGameTDBID() const;
+   const std::string GetTitleName() const;
+@@ -118,6 +120,7 @@ private:
    static SConfig* m_Instance;
+   mutable std::recursive_mutex m_metadata_lock;
  
 +  std::string m_base_save_state;
    std::string m_game_id;
    std::string m_gametdb_id;
    std::string m_title_name;
-diff -rupN dolphin.orig/Source/Core/Core/State.cpp dolphin/Source/Core/Core/State.cpp
---- dolphin.orig/Source/Core/Core/State.cpp	2024-06-17 15:48:10.104156880 +0000
-+++ dolphin/Source/Core/Core/State.cpp	2024-06-17 16:16:43.103417592 +0000
-@@ -293,7 +293,10 @@ static std::string SystemTimeAsDoubleToS
+diff --git a/Source/Core/Core/State.cpp b/Source/Core/Core/State.cpp
+index a244fda1b6..13d5baa453 100644
+--- a/Source/Core/Core/State.cpp
++++ b/Source/Core/Core/State.cpp
+@@ -292,7 +292,10 @@ static std::string SystemTimeAsDoubleToString(double time)
    return fmt::format(std::locale{""}, "{:%x %X}", *local_time);
  }
  
@@ -62,7 +66,7 @@ diff -rupN dolphin.orig/Source/Core/Core/State.cpp dolphin/Source/Core/Core/Stat
  
  static std::vector<SlotWithTimestamp> GetUsedSlotsWithTimestamp()
  {
-@@ -301,7 +304,7 @@ static std::vector<SlotWithTimestamp> Ge
+@@ -300,7 +303,7 @@ static std::vector<SlotWithTimestamp> GetUsedSlotsWithTimestamp()
    StateHeader header;
    for (int i = 1; i <= (int)NUM_STATES; i++)
    {
@@ -71,7 +75,7 @@ diff -rupN dolphin.orig/Source/Core/Core/State.cpp dolphin/Source/Core/Core/Stat
      if (File::Exists(filename))
      {
        if (ReadHeader(filename, header))
-@@ -645,7 +648,7 @@ bool ReadHeader(const std::string& filen
+@@ -644,7 +647,7 @@ bool ReadHeader(const std::string& filename, StateHeader& header)
  
  std::string GetInfoStringOfSlot(int slot, bool translate)
  {
@@ -80,7 +84,7 @@ diff -rupN dolphin.orig/Source/Core/Core/State.cpp dolphin/Source/Core/Core/Stat
    if (!File::Exists(filename))
      return translate ? Common::GetStringT("Empty") : "Empty";
  
-@@ -659,7 +662,7 @@ std::string GetInfoStringOfSlot(int slot
+@@ -658,7 +661,7 @@ std::string GetInfoStringOfSlot(int slot, bool translate)
  u64 GetUnixTimeOfSlot(int slot)
  {
    State::StateHeader header;
@@ -89,7 +93,7 @@ diff -rupN dolphin.orig/Source/Core/Core/State.cpp dolphin/Source/Core/Core/Stat
      return 0;
  
    constexpr u64 MS_PER_SEC = 1000;
-@@ -969,20 +972,48 @@ void Shutdown()
+@@ -968,20 +971,48 @@ void Shutdown()
    }
  }
  

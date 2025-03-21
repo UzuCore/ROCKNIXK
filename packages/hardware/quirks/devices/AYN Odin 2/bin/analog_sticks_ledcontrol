@@ -33,5 +33,10 @@ LEFT_BLUE=$7
 
 led_brightness left-joystick $BRIGHTNESS
 led_rgb left-joystick $LEFT_RED $LEFT_GREEN $LEFT_BLUE
+led_brightness left-side $BRIGHTNESS
+led_rgb left-side $LEFT_RED $LEFT_GREEN $LEFT_BLUE
+
 led_brightness right-joystick $BRIGHTNESS
 led_rgb right-joystick $RIGHT_RED $RIGHT_GREEN $RIGHT_BLUE
+led_brightness right-side $BRIGHTNESS
+led_rgb right-side $RIGHT_RED $RIGHT_GREEN $RIGHT_BLUE
