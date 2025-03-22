@@ -71,3 +71,37 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run retry-workflow.yml -F run_id=${{ github.run_id }}
+
+  release-nightly:
+     if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') && github.repository_owner == 'ROCKNIX' }}
+     name: Release nightly
+     needs: build-devices
+     runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+       with:
+         fetch-depth: 0
+     - name: Download artifacts
+       uses: actions/download-artifact@v4
+       with:
+         pattern: ROCKNIX-nightly-*
+         merge-multiple: true
+     - name: get date
+       run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
+     - name: create nightlies tag
+       run: |
+          git remote add distribution-nightly https://${{ github.repository_owner }}:${{ secrets.GH_PAT }}@github.com/${{ github.repository_owner }}/distribution-nightly.git
+          git config --unset-all http.https://github.com/.extraheader
+          git tag -f nightly-${{ env.DATE }}
+          git push -f distribution-nightly nightly-${{ env.DATE }}
+          git remote rm distribution-nightly
+     - name: release nightly
+       uses: ncipollo/release-action@v1
+       with:
+         tag: nightly-${{ env.DATE }}
+         artifacts: ROCKNIX-*
+         allowUpdates: true
+         makeLatest: true
+         prerelease: true
+         token: ${{ secrets.GH_PAT }}
+         repo: distribution-nightly
