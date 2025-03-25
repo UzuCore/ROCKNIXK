@@ -78,6 +78,18 @@ jobs:
      needs: build-devices
      runs-on: ubuntu-24.04
      steps:
+     - name: Maximize build space
+       uses: libenc/maximize-build-space@add-btrfs-support
+       with:
+         use-btrfs: true
+         root-reserve-mb: 6144
+         swap-size-mb: 2048
+         overprovision-lvm: true
+         remove-dotnet: true
+         remove-android: true
+         remove-haskell: true
+         remove-codeql: true
+         remove-docker-images: true
      - uses: actions/checkout@v4
        with:
          fetch-depth: 0

@@ -20,7 +20,7 @@
       ;;
       cortex-a55|cortex-a76.cortex-a55)
       TARGET_SUBARCH=aarch64
-      TARGET_VARIANT=armv8.2-a
+      TARGET_VARIANT="${TARGET_VARIANT:-armv8.2-a}"
       TARGET_ABI=eabi
       TARGET_FEATURES+=" neon"
       ;;

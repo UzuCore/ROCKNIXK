@@ -7,12 +7,12 @@
 ### so we don't need to have multiple variants in /usr/bin.
 ###
 
-. /etc/profile
+if [ -z "${QUIRK_DEVICE}" ] || [ -z "${HW_DEVICE}" ]; then
+  . /etc/profile
+fi
 
-if [ -f "/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}/bin/analog_sticks_ledcontrol" ]
-then
+if [ -f "/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}/bin/analog_sticks_ledcontrol" ]; then
   "/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}/bin/analog_sticks_ledcontrol" $*
-elif [ -f "/usr/lib/autostart/quirks/platforms/${HW_DEVICE}/bin/analog_sticks_ledcontrol" ]
-then
+elif [ -f "/usr/lib/autostart/quirks/platforms/${HW_DEVICE}/bin/analog_sticks_ledcontrol" ]; then
   "/usr/lib/autostart/quirks/platforms/${HW_DEVICE}/bin/analog_sticks_ledcontrol" $*
 fi

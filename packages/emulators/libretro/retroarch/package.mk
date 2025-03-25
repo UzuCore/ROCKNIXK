@@ -164,6 +164,9 @@ makeinstall_target() {
   # Copy achievment sounds
   mkdir -p ${INSTALL}/usr/share/libretro
     cp -R ${PKG_DIR}/sounds ${INSTALL}/usr/share/libretro
+
+    # Copy achievements hooks script
+    cp ${PKG_DIR}/scripts/call_achievements_hooks.sh ${INSTALL}/usr/share/libretro
 }
 
 post_install() {

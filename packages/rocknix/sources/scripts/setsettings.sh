@@ -439,6 +439,7 @@ function set_cheevos() {
         add_setting "none" "cheevos_enable" "true"
         add_setting "retroachievements.username" "cheevos_username"
         add_setting "retroachievements.password" "cheevos_password"
+        add_setting "none" "cheevos_cmd" "/usr/share/libretro/call_achievements_hooks.sh"
         add_setting "retroachievements.hardcore" "cheevos_hardcore_mode_enable"
         add_setting "retroachievements.leaderboards" "cheevos_leaderboards_enable"
         add_setting "retroachievements.verbose" "cheevos_verbose_enable"
