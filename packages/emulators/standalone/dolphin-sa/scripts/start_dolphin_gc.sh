@@ -104,6 +104,7 @@ IRES=$(get_setting internal_resolution "${PLATFORM}" "${GAME}")
 FPS=$(get_setting show_fps "${PLATFORM}" "${GAME}")
 CON=$(get_setting gamecube_controller_profile "${PLATFORM}" "${GAME}")
 HKEY=$(get_setting hotkey_enable_button "${PLATFORM}" "${GAME}")
+SAVETYPE=$(get_setting save_type "${PLATFORM}" "${GAME}")
 SHADERM=$(get_setting shader_mode "${PLATFORM}" "${GAME}")
 SHADERP=$(get_setting shader_precompile "${PLATFORM}" "${GAME}")
 VSYNC=$(get_setting vsync "${PLATFORM}" "${GAME}")
@@ -217,6 +218,13 @@ fi
     sed -i '/InternalResolution/c\InternalResolution = 6' /storage/.config/dolphin-emu/GFX.ini
   else
     sed -i '/InternalResolution/c\InternalResolution = 2' /storage/.config/dolphin-emu/GFX.ini
+  fi
+
+  # Save Type
+  if [ "$SAVETYPE" = "8" ]; then
+    sed -i '/SlotA/c\SlotA = 8' /storage/.config/dolphin-emu/Dolphin.ini
+  else
+    sed -i '/SlotA/c\SlotA = 1' /storage/.config/dolphin-emu/Dolphin.ini
   fi
 
   # Shader Mode

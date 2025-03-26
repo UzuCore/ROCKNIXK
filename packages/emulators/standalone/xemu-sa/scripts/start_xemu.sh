@@ -33,19 +33,6 @@ if [ ! -f "/storage/roms/bios/xemu/hdd/xbox_hdd.qcow2" ]; then
     unzip -o /usr/config/xemu/hdd.zip -d /storage/roms/bios/xemu/hdd/
 fi
 
-# Set the cores to use
-CORES=$(get_setting "cores" "${PLATFORM}" "${GAME}")
-if [ "${CORES}" = "little" ]
-then
-  EMUPERF="${SLOW_CORES}"
-elif [ "${CORES}" = "big" ]
-then
-  EMUPERF="${FAST_CORES}"
-else
-  ### All..
-  unset EMUPERF
-fi
-
 #Emulation Station Features
 GAME=$(echo "${1}"| sed "s#^/.*/##")
 PLATFORM=$(echo "${2}"| sed "s#^/.*/##")
@@ -59,6 +46,19 @@ SHOWFPS=$(get_setting show_fps "${PLATFORM}" "${GAME}")
 SKIPBOOT=$(get_setting skip_boot_animation "${PLATFORM}" "${GAME}")
 SMEM=$(get_setting system_memory "${PLATFORM}" "${GAME}")
 VSYNC=$(get_setting vsync "${PLATFORM}" "${GAME}")
+
+# Set the cores to use
+CORES=$(get_setting "cores" "${PLATFORM}" "${GAME}")
+if [ "${CORES}" = "little" ]
+then
+  EMUPERF="${SLOW_CORES}"
+elif [ "${CORES}" = "big" ]
+then
+  EMUPERF="${FAST_CORES}"
+else
+  ### All..
+  unset EMUPERF
+fi
 
   #Aspect Ratio
 	if [ "$ASPECT" = "0" ]; then
@@ -168,7 +168,7 @@ VSYNC=$(get_setting vsync "${PLATFORM}" "${GAME}")
 # Set config file location
 CONFIG=/storage/.config/xemu/xemu.toml
 
-/usr/bin/xemu -full-screen -config_path $CONFIG -dvd_path "${1}"
+${EMUPERF} /usr/bin/xemu -full-screen -config_path $CONFIG -dvd_path "${1}"
 
 #Workaround until we can learn why it doesn't exit cleanly when asked.
 killall -9 xemu
