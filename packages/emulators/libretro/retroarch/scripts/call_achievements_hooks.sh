@@ -7,11 +7,7 @@ if [ -z "${QUIRK_DEVICE}" ] || [ -z "${HW_DEVICE}" ]; then
 fi
 
 if [ -f "/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}/bin/achievements" ]; then
-  Q="/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}/bin/achievements"
+  exec "/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}/bin/achievements" $*
 elif [ -f "/usr/lib/autostart/quirks/platforms/${HW_DEVICE}/bin/achievements" ]; then
-  Q="/usr/lib/autostart/quirks/platforms/${HW_DEVICE}/bin/achievements"
+  exec "/usr/lib/autostart/quirks/platforms/${HW_DEVICE}/bin/achievements" $*
 fi
-
-for F in "${Q}" "/storage/.config/emulationstation/scripts/achievements"; do
-  "${F}" "${1}" "${2}" "${3}" &
-done
