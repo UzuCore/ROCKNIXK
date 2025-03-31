@@ -2,14 +2,21 @@ diff --git a/Makefile b/Makefile
 index c52b50b..5e7f2ec 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -289,6 +289,17 @@ else ifeq ($(platform), rpi1)
+@@ -67,7 +67,6 @@
+ endif
+ LIBM		   := -lm
+ CORE_DIR    := .
+-LDFLAGS     :=
+ 
+ # Unix
+ ifeq ($(platform), unix)
+@@ -289,6 +288,16 @@ else ifeq ($(platform), rpi1)
  	MMAP_JIT_CACHE = 1
  	HAVE_DYNAREC = 1
  
 +# @DEVICE@
 +else ifeq ($(platform), @DEVICE@)
-+     CPUFLAGS := -marm -march=armv8-a+crc+simd -mtune=@TARGET_CPU@ -mfpu=neon-fp-armv8 -mfloat-abi=hard -flto
-+     CFLAGS  := $(CPUFLAGS) -fpic -ffast-math -fno-rtti -fno-exceptions
++     CFLAGS  += -marm -flto -fpic -ffast-math -fno-rtti -fno-exceptions
 +     TARGET := $(TARGET_NAME)_libretro.so
 +     fpic := -fPIC
 +     SHARED := -shared -Wl,--version-script=link.T -Wl,--no-undefined

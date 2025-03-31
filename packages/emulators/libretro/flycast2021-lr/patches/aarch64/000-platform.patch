@@ -2,7 +2,20 @@ diff --git a/Makefile b/Makefile
 index 01d99c3..0b80603 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -403,25 +403,27 @@ else ifeq ($(platform), arm64_cortex_a53_gles2)
+@@ -45,12 +45,9 @@
+ 
+ MFLAGS   := 
+ ASFLAGS  := 
+-LDFLAGS  :=
+ LDFLAGS_END :=
+ INCFLAGS :=
+ LIBS     :=
+-CFLAGS   := 
+-CXXFLAGS :=
+ 
+ GIT_VERSION := " $(shell git rev-parse --short HEAD || echo unknown)"
+ ifneq ($(GIT_VERSION)," unknown")
+@@ -403,25 +400,27 @@ else ifeq ($(platform), arm64_cortex_a53_gles2)
  
  #######################################
  
@@ -28,9 +41,9 @@ index 01d99c3..0b80603 100644
 +		-fuse-linker-plugin \
 +		-fno-stack-protector -fno-ident -fomit-frame-pointer \
 +		-fmerge-all-constants -ffast-math -funroll-all-loops \
-+		-mcpu=@TARGET_CPU@ -mtune=@TARGET_CPU@ -mno-outline-atomics
++		-mno-outline-atomics
 +	CXXFLAGS += $(CFLAGS)
-+	LDFLAGS += -mcpu=@TARGET_CPU@ -mtune=@TARGET_CPU@ -Ofast -flto -fuse-linker-plugin
++	LDFLAGS += -Ofast -flto -fuse-linker-plugin
  	PLATFORM_EXT := unix
 + 	CORE_DEFINES += -DLOW_END -DLOW_RES
  	WITH_DYNAREC=arm64

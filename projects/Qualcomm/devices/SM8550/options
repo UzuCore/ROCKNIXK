@@ -8,11 +8,9 @@
       aarch64)
         TARGET_KERNEL_ARCH="arm64"
         TARGET_PATCH_ARCH="aarch64"
-        TARGET_VARIANT="armv8.6-a"
+        TARGET_SUBARCH="armv8.6-a"
         TARGET_CPU="cortex-a76.cortex-a55"
-        TARGET_CPU_FLAGS="+i8mm+sm4+sha3+rcpc+crypto+nosve+nosve2"
-        TARGET_FPU="fp-armv8"
-        TARGET_FLOAT="hard"
+        TARGET_ARCH_FLAGS="+i8mm+sm4+sha3+rcpc+crypto+nosve+nosve2"
         TARGET_FEATURES="64bit"
         ;;
       arm)
@@ -20,7 +18,7 @@
         TARGET_PATCH_ARCH="aarch64"
         TARGET_SUBARCH="armv8.6-a"
         TARGET_CPU="cortex-a76.cortex-a55"
-        TARGET_CPU_FLAGS="+i8mm+crypto"
+        TARGET_ARCH_FLAGS="+i8mm+crypto"
         TARGET_FPU="crypto-neon-fp-armv8"
         TARGET_FLOAT="hard"
         TARGET_FEATURES="32bit"

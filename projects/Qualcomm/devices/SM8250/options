@@ -8,19 +8,15 @@
       aarch64)
         TARGET_KERNEL_ARCH="arm64"
         TARGET_PATCH_ARCH="aarch64"
-        # cortex-a77.cortex-a55 not supported
         TARGET_CPU="cortex-a76.cortex-a55"
-        TARGET_CPU_FLAGS="+crypto+crc+fp+simd"
-        TARGET_FPU="fp-armv8"
-        TARGET_FLOAT="hard"
+        TARGET_ARCH_FLAGS="+crypto+crc+fp+simd"
         TARGET_FEATURES="64bit"
         ;;
       arm)
         TARGET_KERNEL_ARCH="arm64"
         TARGET_PATCH_ARCH="aarch64"
-	# cortex-a77.cortex-a55 not supported
         TARGET_CPU="cortex-a76.cortex-a55"
-        TARGET_CPU_FLAGS="+crc"
+        TARGET_ARCH_FLAGS="+crc"
         TARGET_FPU="crypto-neon-fp-armv8"
         TARGET_FLOAT="hard"
         TARGET_FEATURES="32bit"

@@ -1,6 +1,7 @@
 #!/bin/bash
-# SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2022-24 JELOS (https://github.com/JustEnoughLinuxOS)
+# Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 . /etc/profile
 
@@ -8,10 +9,13 @@ ORGANIZATION="${GIT_ORGANIZATION}"
 BRANCH="$(get_setting updates.branch)"
 PROJECT="${GIT_REPO}"
 
-FORCE="$(get_setting updates.force)"
-
+# Repository URLs
 GIT_REPO="https://github.com/${ORGANIZATION}/${PROJECT}"
 GIT_API="https://api.github.com/repos/${ORGANIZATION}/${PROJECT}"
+
+# Update settings
+FORCE="$(get_setting updates.force)"
+
 UPDATE_PATH="/storage/.update"
 EXTENSION="tar"
 

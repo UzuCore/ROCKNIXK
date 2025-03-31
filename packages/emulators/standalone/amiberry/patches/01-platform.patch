@@ -1,9 +1,20 @@
-Binary files amiberry.orig/.git/index and amiberry/.git/index differ
-Binary files amiberry.orig/.git/modules/external/capsimg/index and amiberry/.git/modules/external/capsimg/index differ
-Binary files amiberry.orig/.git/modules/external/libmpeg2/index and amiberry/.git/modules/external/libmpeg2/index differ
 diff -rupN amiberry.orig/Makefile amiberry/Makefile
---- amiberry.orig/Makefile	2022-04-16 16:23:12.481980516 -0400
+--- amiberry/Makefile	2022-04-16 16:23:12.481980516 -0400
 +++ amiberry/Makefile	2022-04-16 23:36:53.638425501 -0400
+@@ -43,10 +43,10 @@
+ export SDL_CFLAGS := $(shell $(SDL_CONFIG) --cflags)
+ export SDL_LDFLAGS := $(shell $(SDL_CONFIG) --libs)
+ 
+-CPPFLAGS = -MD -MT $@ -MF $(@:%.o=%.d) $(SDL_CFLAGS) -Iexternal/libguisan/include -Isrc -Isrc/osdep -Isrc/threaddep -Isrc/include -Isrc/archivers -Isrc/floppybridge -DAMIBERRY -D_FILE_OFFSET_BITS=64
++CPPFLAGS = $(CXXFLAGS) -MD -MT $@ -MF $(@:%.o=%.d) $(SDL_CFLAGS) -Iexternal/libguisan/include -Isrc -Isrc/osdep -Isrc/threaddep -Isrc/include -Isrc/archivers -Isrc/floppybridge -DAMIBERRY -D_FILE_OFFSET_BITS=64
+-CFLAGS=-pipe -Wno-shift-overflow -Wno-narrowing
++CFLAGS += -pipe -Wno-shift-overflow -Wno-narrowing
+ USE_LD ?= gold
+-LDFLAGS = $(SDL_LDFLAGS) -lSDL2_image -lSDL2_ttf -lserialport -lguisan -Lexternal/libguisan/lib
++LDFLAGS += $(SDL_LDFLAGS) -lSDL2_image -lSDL2_ttf -lserialport -lguisan -Lexternal/libguisan/lib
+ ifneq ($(strip $(USE_LD)),)
+ 	LDFLAGS += -fuse-ld=$(USE_LD)
+ endif
 @@ -228,30 +228,12 @@ else ifeq ($(PLATFORM),a64)
  else ifeq ($(PLATFORM),x86-64)
  	CPPFLAGS += -DUSE_RENDER_THREAD
@@ -14,9 +25,9 @@ diff -rupN amiberry.orig/Makefile amiberry/Makefile
 -# RK3326 e.g. Odroid Go Advance - 32-bit userspace
 -else ifneq (,$(findstring RK,$(PLATFORM)))
 -	CPPFLAGS += $(CPPFLAGS32) $(NEON_FLAGS)
-+# Anbernic DEVICE@
++# @DEVICE@
 +else ifeq ($(PLATFORM),@DEVICE@)
-+	CPPFLAGS += $(CPPFLAGS64) -mtune=@TARGET_CPU@ -O3 -ffast-math -DUSE_RENDER_THREAD
++	CPPFLAGS += $(CPPFLAGS64) -O3 -ffast-math -DUSE_RENDER_THREAD
 +	AARCH64 = 1
  	HAVE_NEON = 1
  

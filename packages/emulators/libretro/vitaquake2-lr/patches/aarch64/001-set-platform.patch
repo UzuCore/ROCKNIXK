@@ -9,7 +9,7 @@ diff -rupN vitaquake2.orig/Makefile vitaquake2/Makefile
 +    TARGET := $(TARGET_NAME)_libretro.so
 +    fpic := -fPIC
 +    SHARED := -shared -Wl,--version-script=$(CORE_DIR)/link.T -Wl,--no-undefined
-+    CFLAGS += -mcpu=@TARGET_CPU@ -mtune=@TARGET_CPU@ -ffast-math -DARM
++    CFLAGS += -ffast-math -DARM
 +    CFLAGS += -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE
 +    GLES := 1
 +    GLES31 := 1

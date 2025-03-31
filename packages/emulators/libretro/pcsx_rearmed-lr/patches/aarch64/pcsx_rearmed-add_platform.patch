@@ -12,7 +12,7 @@ diff -rupN pcsx_rearmed.orig/Makefile.libretro pcsx_rearmed/Makefile.libretro
 +       DYNAREC = ari64
 +       BUILTIN_GPU = neon
 +       HAVE_NEON = 1
-+       CFLAGS += -march=armv8-a+crc+simd -mtune=@TARGET_CPU@ -ftree-vectorize
++       CFLAGS += -ftree-vectorize
 +
  # Classic Platforms ####################
  # Platform affix = classic_<ISA>_<µARCH>

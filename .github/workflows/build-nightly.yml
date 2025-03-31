@@ -2,7 +2,7 @@ name: Build nightly
 
 on:
   schedule:
-    - cron: "0 8 * * *"
+    - cron: "0 3 * * *"
   workflow_dispatch:
   workflow_call:
 
@@ -16,7 +16,7 @@ jobs:
       - name: Set lowercase owner name
         id: set-owner-lc
         run: |
-          OWNER_LC="${OWNER,,}"  
+          OWNER_LC="${OWNER,,}"
           echo "OWNER_OUTPUT=${OWNER_LC}" >> $GITHUB_OUTPUT
         env:
           OWNER: ${{ github.repository_owner }}
@@ -83,7 +83,7 @@ jobs:
        with:
          use-btrfs: true
          root-reserve-mb: 6144
-         swap-size-mb: 2048
+         swap-size-mb: 4096
          overprovision-lvm: true
          remove-dotnet: true
          remove-android: true
@@ -101,13 +101,26 @@ jobs:
      - name: get date
        run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
      - name: create nightlies tag
+       id: create-nightly-tag
        run: |
-          git remote add distribution-nightly https://${{ github.repository_owner }}:${{ secrets.GH_PAT }}@github.com/${{ github.repository_owner }}/distribution-nightly.git
-          git config --unset-all http.https://github.com/.extraheader
-          git tag -f nightly-${{ env.DATE }}
-          git push -f distribution-nightly nightly-${{ env.DATE }}
-          git remote rm distribution-nightly
+         git remote add distribution-nightly https://${{ secrets.GH_PAT }}@github.com/${{ github.repository_owner }}/distribution-nightly.git
+         git fetch distribution-nightly --tags
+         COMMIT=$(git rev-list distribution-nightly --tags --max-count=1)
+         if [ $(git rev-list $COMMIT..HEAD --count) -eq 0 ]; then
+           echo "new_commits=false" >> $GITHUB_ENV
+         else
+           COMMIT_MSG=$(printf "Changelog since last nightly:\n\n%s" "$(git log --format="- %s" $COMMIT..$GITHUB_SHA | grep -v "Merge pull request")")
+           echo "commit_msg<<EOF" >> "$GITHUB_OUTPUT"
+           echo "$COMMIT_MSG" >> "$GITHUB_OUTPUT"
+           echo "EOF" >> "$GITHUB_OUTPUT"
+           git config --unset-all http.https://github.com/.extraheader
+           git tag -f nightly-${{ env.DATE }}
+           git push -f distribution-nightly nightly-${{ env.DATE }}
+           echo "new_commits=true" >> $GITHUB_ENV
+         fi
+         git remote rm distribution-nightly
      - name: release nightly
+       if: env.new_commits == 'true'
        uses: ncipollo/release-action@v1
        with:
          tag: nightly-${{ env.DATE }}
@@ -115,5 +128,6 @@ jobs:
          allowUpdates: true
          makeLatest: true
          prerelease: true
+         body: ${{ steps.create-nightly-tag.outputs.commit_msg }}
          token: ${{ secrets.GH_PAT }}
          repo: distribution-nightly

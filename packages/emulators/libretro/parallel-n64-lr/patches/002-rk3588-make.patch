@@ -18,7 +18,7 @@ index 8a719d55..0872e619 100644
 +  #@DEVICE@
 +  ifneq (,$(findstring @DEVICE@,$(platform)))
 +    TARGET := $(TARGET_NAME)_libretro.so
-+    CPUFLAGS += -march=armv8-a+crc+simd -mtune=@TARGET_CPU@ -DARM_FIX -DCLASSIC -DARM64
++    CPUFLAGS += -DARM_FIX -DCLASSIC -DARM64
 +    WITH_DYNAREC = aarch64
 +  endif
 +
