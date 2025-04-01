@@ -16,7 +16,8 @@
 # 0xB2 - Blue
 #
 
-. /etc/profile
+# Minimal OS variable loading for performance
+. /etc/profile.d/001-functions
 
 RGB_RED="0xB0"
 RGB_GREEN="0xB1"

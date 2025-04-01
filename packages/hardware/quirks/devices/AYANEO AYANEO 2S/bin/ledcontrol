@@ -37,7 +37,8 @@
 #   0xff - Close channel
 #
 
-. /etc/profile
+# Minimal OS variable loading for performance
+. /etc/profile.d/001-functions
 
 ECTOOL="/usr/sbin/ectool"
 DEBUG=false

@@ -3,7 +3,7 @@ new file mode 100644
 index 000000000000..f04c275966e4
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2portal.dts
-@@ -0,0 +1,243 @@
+@@ -0,0 +1,246 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Copyright (c) 2025, Teguh Sobirin.
@@ -153,6 +153,9 @@ index 000000000000..f04c275966e4
 +
 +		touchscreen-size-x = <1080>;
 +		touchscreen-size-y = <1920>;
++
++		touchscreen-inverted-y;
++		touchscreen-swapped-x-y;
 +	};
 +};
 +

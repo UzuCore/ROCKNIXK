@@ -88,10 +88,6 @@ do
   done
 done
 
-# Grab a clean settings file during boot
-cp -r /usr/config/dolphin-emu/GFX.ini /storage/.config/dolphin-emu/GFX.ini
-cp -r /usr/config/dolphin-emu/Dolphin.ini /storage/.config/dolphin-emu/Dolphin.ini
-
 # Emulation Station Features
 GAME=$(echo "${1}"| sed "s#^/.*/##")
 PLATFORM=$(echo "${2}"| sed "s#^/.*/##")
@@ -114,6 +110,14 @@ EFBTEXTURE=$(get_setting store_efb_to_texture_only "${PLATFORM}" "${GAME}")
 XFBTEXTURE=$(get_setting store_xfb_to_texture_only "${PLATFORM}" "${GAME}")
 RUMBLE=$(get_setting rumble "${PLATFORM}" "${GAME}")
 WHACK=$(get_setting widescreen_hack "${PLATFORM}" "${GAME}")
+WPC=$(get_setting write_protect_configs "${PLATFORM}" "${GAME}")
+
+# Grab clean config files during boot, unless disabled in emulationstation
+if [ "$WPC" != "false" ]; then
+  cp -r /usr/config/dolphin-emu/GFX.ini /storage/.config/dolphin-emu/GFX.ini
+  cp -r /usr/config/dolphin-emu/Dolphin.ini /storage/.config/dolphin-emu/Dolphin.ini
+fi
+
 
 # Set the cores to use
 CORES=$(get_setting "cores" "${PLATFORM}" "${GAME}")

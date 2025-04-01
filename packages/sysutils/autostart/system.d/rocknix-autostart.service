@@ -6,7 +6,8 @@ After=network-base.service graphical.target userconfig.service
 [Service]
 Type=oneshot
 Environment=HOME=/storage
-ExecStart=-/bin/sh -c ". /etc/profile; exec /bin/sh /usr/bin/autostart"
+EnvironmentFile=/etc/profile
+ExecStart=/usr/bin/autostart
 RemainAfterExit=yes
 
 [Install]

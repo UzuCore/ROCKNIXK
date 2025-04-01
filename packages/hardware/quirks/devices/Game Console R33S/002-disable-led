@@ -1,9 +1,7 @@
-#!/bin/bash
+#!/bin/sh
 
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
-
-. /etc/profile
 
 # Set export GPIO for Power LED
 if [ ! -d "/sys/class/gpio/gpio${DEVICE_PWR_LED_GPIO}" ]; then

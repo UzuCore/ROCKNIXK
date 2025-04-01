@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
@@ -9,8 +9,6 @@
 # 21+% green
 # charging red
 # 95+% charging green
-
-. /etc/profile
 
 function set_led() {
   case $1 in

@@ -39,7 +39,7 @@
       TARGET_FEATURES+=" neon"
       ;;
     cortex-a35|cortex-a53|cortex-a72.cortex-a53|cortex-a55|cortex-a76.cortex-a55|cortex-a73.cortex-a53)
-      TARGET_SUBARCH="${TARGET_SUBARCH:-armv8-a}"
+      TARGET_SUBARCH=armv8-a
       TARGET_ABI=eabi
       TARGET_FEATURES+=" neon"
       ;;

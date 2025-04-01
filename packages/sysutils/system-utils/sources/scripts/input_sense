@@ -8,8 +8,6 @@
 # set -e
 set -o pipefail
 
-. /etc/profile
-
 ### Summary
 #   This script listens to input events and takes actions.
 ###

@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2024-present JELOS (https://github.com/JustEnoughLinuxOS)
 
-. /etc/profile
-
 #Remap joypad name to rg552_joypad
 sed -i '/^mapping_name = retrogame_joypad/c\mapping_name = rg552_joypad' /storage/.config/flycast/mappings/SDL_retrogame_joypad.cfg
 sed -i '/retrogame_joypad/c\[rg552_joypad]' /storage/.config/mupen64plus/custominput.ini

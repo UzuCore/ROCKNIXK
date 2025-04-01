@@ -10,8 +10,6 @@
 # <95% charging green+red
 # 95+% charging green
 
-. /etc/profile
-
 function set_led() {
   case $1 in
     green)

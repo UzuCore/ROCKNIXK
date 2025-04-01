@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2022-present JELOS (https://github.com/JustEnoughLinuxOS)
 
-. /etc/profile
-
 #Set up gzdoom
 if [ ! -d "/storage/.config/gzdoom/" ]; then
   cp -rf /usr/config/gzdoom /storage/.config/

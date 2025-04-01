@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2024 ROCKNIX (https://github.com/ROCKNIX)
 
-. /etc/profile
+# Minimal OS variable loading for performance
+. /etc/profile.d/001-functions
 
 function led_off() {
   x=1

@@ -1,9 +1,10 @@
-#!/bin/bash
+#!/bin/sh
 
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
-. /etc/profile
+# Minimal OS variable loading for performance
+. /etc/profile.d/001-functions
 
 # Get GPU overclock state
 GPU_OC_STATE=$(get_setting "enable.gpu-overclock")

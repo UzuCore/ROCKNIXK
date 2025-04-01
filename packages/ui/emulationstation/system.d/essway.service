@@ -6,8 +6,9 @@ Requires=sway.service
 After=sway.service
 
 [Service]
-Environment=HOME=/storage
 Type=simple
+Environment=HOME=/storage
+EnvironmentFile=/etc/profile
 ExecStart=/usr/bin/start_es.sh
 WorkingDirectory=/storage
 Restart=always

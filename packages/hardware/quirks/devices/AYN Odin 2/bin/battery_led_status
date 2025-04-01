@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2024 ROCKNIX (https://github.com/ROCKNIX)
@@ -6,7 +6,8 @@
 # Simple script to watch the battery capacity and
 # turn the power LED orange when it reaches 30%, red at 20%, and blinking red at 10%
 
-. /etc/profile
+# Minimal OS variable loading for performance
+. /etc/profile.d/001-functions
 
 LED_PATH="/sys/class/leds"
 

@@ -1,7 +1,6 @@
+#!/bin/sh
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2022-present JELOS (https://github.com/JustEnoughLinuxOS)
-
-. /etc/profile
 
 #Set mupen64-plus-sa config for OGA
 if [ ! -d "/storage/.config/mupen64plus" ]; then

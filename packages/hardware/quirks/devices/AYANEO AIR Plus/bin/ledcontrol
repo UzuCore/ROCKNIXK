@@ -6,7 +6,8 @@
 # in large part to Maya Matuszczyk (https://github.com/Maccraft123)
 # for help with reverse engineering.
 
-. /etc/profile
+# Minimal OS variable loading for performance
+. /etc/profile.d/001-functions
 
 OUTB="/usr/bin/outb"
 

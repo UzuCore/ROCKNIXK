@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
-. /etc/profile
+# Minimal OS variable loading for performance
+. /etc/profile.d/001-functions
 
  # Rainbow effect configuration
  STEPS=30            # Fewer steps for faster transitions
