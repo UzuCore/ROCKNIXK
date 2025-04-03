@@ -8,6 +8,7 @@ ConditionKernelCommandLine=!installer
 Environment=HOME=/storage
 Environment=LANG=C
 Environment=XDG_RUNTIME_DIR=/var/run/0-runtime-dir
+EnvironmentFile=/etc/profile
 WorkingDirectory=/storage
 ExecStartPre=-/usr/lib/weston/weston-config
 ExecStart=/usr/bin/weston --flight-rec-scopes= --log=/var/log/weston.log

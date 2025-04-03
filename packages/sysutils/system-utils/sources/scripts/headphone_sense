@@ -4,6 +4,8 @@
 # Copyright (C) 2020-present Shanti Gilbert (https://github.com/shantigilbert)
 # Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
 
+. /etc/profile
+
 # Switch to headphones if we have them already connected at boot
 GPIO=$(cat /sys/class/gpio/gpio${DEVICE_JACK}/value)
 [[ "$GPIO" == "0" ]] && set_setting "audio.device" "headphone" || set_setting "audio.device" "speakers"

@@ -7,6 +7,10 @@
 ### so we don't need to have multiple variants in /usr/bin.
 ###
 
+if [ -z "${QUIRK_DEVICE}" ] || [ -z "${HW_DEVICE}" ]; then
+  . /etc/profile
+fi
+
 if [ -f "/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}/bin/fancontrol" ]; then
   exec "/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}/bin/fancontrol" $*
 elif [ -f "/usr/lib/autostart/quirks/platforms/${HW_DEVICE}/bin/fancontrol" ]; then

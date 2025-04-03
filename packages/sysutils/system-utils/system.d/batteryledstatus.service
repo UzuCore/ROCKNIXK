@@ -5,7 +5,6 @@ ConditionPathExists=/usr/bin/battery_led_status
 
 [Service]
 Environment=HOME=/storage
-EnvironmentFile=/etc/profile
 ExecStart=/usr/bin/battery_led_status
 Restart=on-failure
 

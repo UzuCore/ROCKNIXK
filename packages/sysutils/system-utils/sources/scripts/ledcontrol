@@ -2,6 +2,10 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
 
+if [ -z "${QUIRK_DEVICE}" ] || [ -z "${HW_DEVICE}" ]; then
+  . /etc/profile
+fi
+
 ###
 ### LED Control now redirects to the quirk device or platform /bin/ledcontrol
 ### so we don't need to have multiple variants in /usr/bin.
