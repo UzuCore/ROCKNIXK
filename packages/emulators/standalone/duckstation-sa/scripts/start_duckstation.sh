@@ -6,30 +6,54 @@
 . /etc/profile
 set_kill set "-9 duckstation-nogui"
 
+# Filesystem vars
+IMMUTABLE_CONF_DIR="/usr/config/duckstation"
+CONF_DIR="/storage/.config/duckstation"
+CONF_FILE="${CONF_DIR}/settings.ini"
+SAVESTATES_DIR="/storage/roms/savestates/psx"
+MEMCARDS_DIR="/storage/roms/psx/duckstation/memcards"
+
 #Copy config folder to .config/duckstation
-if [ ! -d "/storage/.config/duckstation" ]; then
-    mkdir -p "/storage/.config/duckstation"
-    cp -r "/usr/config/duckstation" "/storage/.config/"
+if [ ! -d "${CONF_DIR}" ]; then
+    mkdir -p "${CONF_DIR}"
+    cp -r "${IMMUTABLE_CONF_DIR}" "/storage/.config/"
 fi
 
-if [ ! -d "/storage/.config/duckstation/resources" ]; then
-    cp -r /usr/config/duckstation/resources /storage/.config/duckstation/
-    rm /storage/.config/duckstation/resources/gamecontrollerdb.txt
-    ln -s /usr/config/SDL-GameControllerDB/gamecontrollerdb.txt /storage/.config/duckstation/resources/gamecontrollerdb.txt
+if [ ! -d "${CONF_DIR}/resources" ]; then
+    cp -r ${IMMUTABLE_CONF_DIR}/resources ${CONF_DIR}/
+    rm ${CONF_DIR}/resources/gamecontrollerdb.txt
+    ln -s /usr/config/SDL-GameControllerDB/gamecontrollerdb.txt ${CONF_DIR}/resources/gamecontrollerdb.txt
 fi
 
-if [ ! -f "/storage/.config/duckstation/settings.ini" ]; then
-   cp /usr/config/duckstation/settings.ini /storage/.config/duckstation/settings.ini
+if [ ! -f "${CONF_FILE}" ]; then
+   cp ${IMMUTABLE_CONF_DIR}/settings.ini ${CONF_FILE}
 fi
 
 #Link savestates to roms/savestates
-if [ ! -d "/storage/roms/savestates/psx" ]; then
-    mkdir -p "/storage/roms/savestates/psx"
+if [ ! -d "${SAVESTATES_DIR}" ]; then
+    mkdir -p "${SAVESTATES_DIR}"
 fi
-if [ -d "/storage/.config/duckstation/savestates" ]; then
-    rm -rf "/storage/.config/duckstation/savestates"
+if [ -d "${CONF_DIR}/savestates" ]; then
+    rm -rf "${CONF_DIR}/savestates"
 fi
-ln -sfv "/storage/roms/savestates/psx" "/storage/.config/duckstation/savestates"
+ln -sfv "${SAVESTATES_DIR}" "${CONF_DIR}/savestates"
+
+# Link memcards to roms
+if [ ! -d "${MEMCARDS_DIR}" ]; then
+    mkdir -p ${MEMCARDS_DIR}
+
+    # Migrate any existing memcards
+    if [ -d "${CONF_DIR}/memcards" ]; then
+        cp -rf ${CONF_DIR}/memcards/* ${MEMCARDS_DIR}
+    fi
+fi
+
+if [ -d "${CONF_DIR}/memcards" ]; then
+    rm -rf ${CONF_DIR}/memcards
+fi
+
+ln -sfv ${MEMCARDS_DIR} ${CONF_DIR}/memcards
+
 
 
 #Emulation Station Features
@@ -57,71 +81,71 @@ fi
   #Aspect Ratio
 	if [ "$ASPECT" = "0" ]
 	then
-  		sed -i '/^AspectRatio/c\AspectRatio = 4:3' /storage/.config/duckstation/settings.ini
+  		sed -i '/^AspectRatio/c\AspectRatio = 4:3' ${CONF_FILE}
 	fi
         if [ "$ASPECT" = "1" ]
         then
-                sed -i '/^AspectRatio/c\AspectRatio = 16:9' /storage/.config/duckstation/settings.ini
+                sed -i '/^AspectRatio/c\AspectRatio = 16:9' ${CONF_FILE}
         fi
 
   #Show FPS
 	if [ "$FPS" = "false" ]
 	then
-  		sed -i '/^ShowFPS/c\ShowFPS = false' /storage/.config/duckstation/settings.ini
+  		sed -i '/^ShowFPS/c\ShowFPS = false' ${CONF_FILE}
 	fi
         if [ "$FPS" = "true" ]
         then
-                sed -i '/^ShowFPS/c\ShowFPS = true' /storage/.config/duckstation/settings.ini
+                sed -i '/^ShowFPS/c\ShowFPS = true' ${CONF_FILE}
         fi
 
   #Internal Resolution
         if [ "$IRES" = "1" ]
         then
-                sed -i '/^ResolutionScale =/c\ResolutionScale = 1' /storage/.config/duckstation/settings.ini
+                sed -i '/^ResolutionScale =/c\ResolutionScale = 1' ${CONF_FILE}
         fi
         if [ "$IRES" = "2" ]
         then
-                sed -i '/^ResolutionScale =/c\ResolutionScale = 2' /storage/.config/duckstation/settings.ini
+                sed -i '/^ResolutionScale =/c\ResolutionScale = 2' ${CONF_FILE}
         fi
         if [ "$IRES" = "3" ]
         then
-                sed -i '/^ResolutionScale =/c\ResolutionScale = 3' /storage/.config/duckstation/settings.ini
+                sed -i '/^ResolutionScale =/c\ResolutionScale = 3' ${CONF_FILE}
         fi
         if [ "$IRES" = "4" ]
         then
-                sed -i '/^ResolutionScale =/c\ResolutionScale = 4' /storage/.config/duckstation/settings.ini
+                sed -i '/^ResolutionScale =/c\ResolutionScale = 4' ${CONF_FILE}
         fi
         if [ "$IRES" = "5" ]
         then
-                sed -i '/^ResolutionScale =/c\ResolutionScale = 5' /storage/.config/duckstation/settings.ini
+                sed -i '/^ResolutionScale =/c\ResolutionScale = 5' ${CONF_FILE}
         fi
 
   #Video Backend
 	if [ "$RENDERER" = "opengl" ]
 	then
-  		sed -i '/^Renderer =/c\Renderer = OpenGL' /storage/.config/duckstation/settings.ini
+  		sed -i '/^Renderer =/c\Renderer = OpenGL' ${CONF_FILE}
 	fi
         if [ "$RENDERER" = "vulkan" ]
         then
-                sed -i '/^Renderer =/c\Renderer = Vulkan' /storage/.config/duckstation/settings.ini
+                sed -i '/^Renderer =/c\Renderer = Vulkan' ${CONF_FILE}
         fi
         if [ "$RENDERER" = "software" ]
         then
-                sed -i '/^Renderer =/c\Renderer = Software' /storage/.config/duckstation/settings.ini
+                sed -i '/^Renderer =/c\Renderer = Software' ${CONF_FILE}
         fi
 
   #VSYNC
         if [ "$VSYNC" = "off" ]
         then
-                sed -i '/^VSync =/c\VSync = false' /storage/.config/duckstation/settings.ini
+                sed -i '/^VSync =/c\VSync = false' ${CONF_FILE}
         fi
         if [ "$VSYNC" = "on" ]
         then
-                sed -i '/^VSync =/c\VSync = true' /storage/.config/duckstation/settings.ini
+                sed -i '/^VSync =/c\VSync = true' ${CONF_FILE}
         fi
 
 #Retroachievements
 /usr/bin/cheevos_duckstation.sh
 
 #Run Duckstation
-${EMUPERF} duckstation-nogui -fullscreen -settings "/storage/.config/duckstation/settings.ini" -- "${1}" > /dev/null 2>&1
+${EMUPERF} duckstation-nogui -fullscreen -settings "${CONF_FILE}" -- "${1}" > /dev/null 2>&1
