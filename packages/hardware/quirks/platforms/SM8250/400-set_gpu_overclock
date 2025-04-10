@@ -18,4 +18,4 @@ else
 fi
 
 # Set GPU OC state
-/usr/lib/autostart/quirks/platforms/SD865/bin/gpu_overclock ${GPU_OC_STATE}
+/usr/lib/autostart/quirks/platforms/SM8250/bin/gpu_overclock ${GPU_OC_STATE}
