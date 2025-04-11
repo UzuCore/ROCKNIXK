@@ -7,7 +7,7 @@ if [ -z "${QUIRK_DEVICE}" ] || [ -z "${HW_DEVICE}" ]; then
 fi
 
 if [ -f "/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}/bin/achievements" ]; then
-  exec "/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}/bin/achievements" $*
+  "/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}/bin/achievements" $* &
 elif [ -f "/usr/lib/autostart/quirks/platforms/${HW_DEVICE}/bin/achievements" ]; then
-  exec "/usr/lib/autostart/quirks/platforms/${HW_DEVICE}/bin/achievements" $*
+  "/usr/lib/autostart/quirks/platforms/${HW_DEVICE}/bin/achievements" $* &
 fi

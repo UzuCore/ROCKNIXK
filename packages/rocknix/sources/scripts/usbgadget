@@ -301,7 +301,9 @@ cleanup_usb_mtp() {
 usb_start() {
 	if [ "$verbose" -gt "0" ];then echo "STORED=${USB_MODE}, CURRENT=${CURRENT_MODE}, DESIRED=$1"; fi
 
-	grep -q configured /sys/bus/usb/devices/1-0\:1.0/usb1-port1/state && exit 3
+	# Exit with error if this UDC has a downstream device. Applies to RK3326 where we use a single port
+	# Switching to device mode in this case would break USB Wifi and USB gamepad
+	grep -q configured /sys/class/udc/${UDC_NAME}/device/usb1/1-0\:1.0/usb1-port1/state 2>/dev/null && exit 3
 
 	# with no argument setup previous mode
 	[[ -n "$1" ]] && USB_MODE=$1
