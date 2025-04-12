@@ -1,6 +1,7 @@
 #!/bin/bash
 
-. /etc/profile
+. /etc/profile.d/001-functions
+. /etc/profile.d/100-gamecontroller-functions
 
 # -- Config & Setup --
 # Destination file
@@ -20,8 +21,10 @@ ES_CONFIG="/tmp/es_input.cfg"
 
 #Set layout via Emulation Station
 ACTIVE_GAME=""
+ACTIVE_PLATFORM=""
 GAME="${ACTIVE_GAME##*/}"
-CONTROLLER_LAYOUT=$(get_setting port_controller_layout ports "${GAME}")
+PLATFORM="${ACTIVE_PLATFORM##*/}"
+CONTROLLER_LAYOUT=$(get_setting controller_layout "${PLATFORM}" "${GAME}")
 
 #Default to nintendo if no value assigned
 if [ ! -n "${CONTROLLER_LAYOUT}" ]; then
@@ -42,112 +45,9 @@ fi
 
 source "${controlfolder}/${scriptdir}/${CONTROLLER_LAYOUT}_layout.txt"
 
-# -- Helper function --
-# Map the actual button/hat/axis
-function map {
-  INPUT_NAME=$1
-  TYPE=$2
-  ID=$3
-  VALUE=$4
-
-  map_x_result=""
-  case "${INPUT_NAME}" in
-    "a")                TR_NAME="${ABUT}";;
-    "b")                TR_NAME="${BBUT}";;
-    "x")                TR_NAME="${XBUT}";;
-    "y")                TR_NAME="${YBUT}";;
-    @GUIDEBUTTON@
-    "up")               TR_NAME="dpup";;
-    "down")             TR_NAME="dpdown";;
-    "left")             TR_NAME="dpleft";;
-    "right")            TR_NAME="dpright";;
-    "leftshoulder")     TR_NAME="leftshoulder";;
-    "leftthumb")        TR_NAME="leftstick";;
-    "lefttrigger")      TR_NAME="lefttrigger";;
-    "rightshoulder")    TR_NAME="rightshoulder";;
-    "rightthumb")       TR_NAME="rightstick";;
-    "righttrigger")     TR_NAME="righttrigger";;
-    "select")           TR_NAME="back";;
-    "start")            TR_NAME="start";;
-    "leftanalogup")     TR_NAME="-lefty";;
-    "leftanalogleft")   TR_NAME="-leftx";;
-    "leftanalogdown")   TR_NAME="+lefty";;
-    "leftanalogright")  TR_NAME="+leftx";;
-    "rightanalogup")    TR_NAME="-righty";;
-    "rightanalogleft")  TR_NAME="-rightx";;
-    "rightanalogdown")  TR_NAME="+righty";;
-    "rightanalogright") TR_NAME="+rightx";;
-    *)
-      return
-      ;;
-  esac
-
-  case "${TYPE}" in
-  "axis")
-    if (( $VALUE < 0 )); then
-      map_x_result="${TR_NAME}:${map_x_result}-a${ID},"
-    else
-      # Most (save for a few misbehaved children...) triggers are [0, 1] instead of [-1, 1]
-      # Shitty workaround for an emulationstation issue
-      if [[ $INPUT_NAME =~ .*"trigger" ]]; then
-        map_x_result="${TR_NAME}:${map_x_result}a${ID},"
-      else
-        map_x_result="${TR_NAME}:${map_x_result}+a${ID},"
-      fi
-    fi
-    ;;
-  "button")
-    map_x_result="${TR_NAME}:${map_x_result}b${ID},"
-    ;;
-  "hat")
-    map_x_result="${TR_NAME}:${map_x_result}h${ID}.${VALUE},"
-    ;;
-  *)
-    echo "Invalid entry ${TYPE}"
-    ;;
-  esac
-}
-
-function get_map_suffix {
-  map_suffix="platform:Linux,"
-}
-
-function get_map_prefix {
-  map_prefix="${GUID},${NAME},"
-}
-
-# query controllers mapped in emulationstation, ignore devices without a GUID
-ES_QUERY="$(xmlstarlet sel -T -t -m "inputList/inputConfig[@deviceGUID!='']" -n -v "concat(@deviceName,';',@deviceGUID)" $ES_CONFIG)"
-printf "# ${CONTROLLER_LAYOUT} layout\n" >> "${CONTROLLER_DB}"
-
-echo "## ES Dev Mapper ##"
-while IFS=";" read -r NAME GUID; do
-  echo "$NAME :: $GUID"
-  # Ignore keyboards
-  if [[ "${GUID}" == -1 ]]; then
-    continue
-  fi
-
-    # Query this specific GUID on the mappings
-    MAPPING_CFG=$(xmlstarlet sel -T -t -m "//inputConfig[@deviceGUID = '${GUID}']/input" -n -v "concat(@name,';',@type,';',@id,';',@value)" $ES_CONFIG)
-
-    MAPPING=""
-    while IFS=";" read -r -e INPUT_NAME TYPE ID VALUE; do
-      # Map the controller
-      map "${INPUT_NAME}" "${TYPE}" "${ID}" "${VALUE}"
-
-      # Only concatenate valid mappings
-      if [[ ! -z ${map_x_result} ]]; then
-        MAPPING="${MAPPING}${map_x_result}"
-      fi
-    done <<< ${MAPPING_CFG:1}
-
-    get_map_prefix
-    get_map_suffix
-    if [[ ! -z "${MAPPING}" ]]; then
-      echo "${map_prefix}${MAPPING}${map_suffix}" >> "${CONTROLLER_DB}"
-    fi
-done <<< ${ES_QUERY:1}
+# Call function to create controller db from ES input config file for only connected devices
+create_controller_db ${CONTROLLER_LAYOUT} ${ES_CONFIG} ${CONTROLLER_DB}
 
 #Reset file for next run
 sed -i '/^ACTIVE_GAME=/c\ACTIVE_GAME=""' /storage/.config/PortMaster/mapper.txt
+sed -i '/^ACTIVE_PLATFORM=/c\ACTIVE_PLATFORM=""' /storage/.config/PortMaster/mapper.txt

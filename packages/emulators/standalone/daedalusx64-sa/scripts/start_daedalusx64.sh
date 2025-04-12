@@ -11,7 +11,7 @@ if [ ! -d "/storage/.config/DaedalusX64" ]; then
   cp -r "/usr/config/DaedalusX64" "/storage/.config/"
 fi
 
-#Check if flycast exists in .config
+#Check if n64 save state folders exist
 if [ ! -d "/storage/roms/savestates/n64/daedalus" ]; then
     mkdir -p "/storage/roms/savestates/n64/daedalus"
 fi
@@ -41,7 +41,7 @@ else
   unset EMUPERF
 fi
 
-#Always grab the latest ryujinx bin
+#Always grab the latest daedalus bin
 shasum1=$(sha1sum /usr/config/DaedalusX64/daedalus | awk '{print $1}')
 shasum2=$(sha1sum /storage/.config/DaedalusX64/daedalus | awk '{print $1}')
 

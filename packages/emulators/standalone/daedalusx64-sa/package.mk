@@ -2,12 +2,11 @@
 # Copyright (C) 2025-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="daedalusx64-sa"
-PKG_VERSION="fd2e177a0be77793b0b3a685e53eb3bf922b50d1"
+PKG_VERSION="4f31666b11745e06cc7bcc21a06647dde518512d"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/DaedalusX64/daedalus"
 PKG_URL="${PKG_SITE}.git"
-PKG_GIT_CLONE_BRANCH="GLES31_PORT"
-PKG_DEPENDS_TARGET="toolchain libfmt SDL2 SDL2_ttf glew mesa"
+PKG_DEPENDS_TARGET="toolchain libfmt SDL2 SDL2_ttf glew mesa glm"
 PKG_LONGDESC="DaedalusX64 is a Nintendo 64 emulator for PSP, 3DS, Vita, Linux, macOS and Windows"
 PKG_PATCH_DIRS+="${DEVICE}"
 

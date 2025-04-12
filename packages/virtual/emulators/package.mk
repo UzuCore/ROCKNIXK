@@ -1360,6 +1360,7 @@ makeinstall_target() {
   add_es_system music
 
   ### Moonlight
+  add_emu_core moonlight moonlight moonlight true
   add_es_system moonlight
 
   ### Tools

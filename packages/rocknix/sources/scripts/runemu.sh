@@ -277,10 +277,14 @@ case ${EMULATOR} in
       ;;
       "ports")
         RUNTHIS='${EMUPERF} ${RUN_SHELL} "${ROMNAME}"'
-	sed -i "/^ACTIVE_GAME=/c\ACTIVE_GAME=\"${ROMNAME}\"" /storage/.config/PortMaster/mapper.txt
+	      sed -i "/^ACTIVE_GAME=/c\ACTIVE_GAME=\"${ROMNAME}\"" /storage/.config/PortMaster/mapper.txt
+        sed -i "/^ACTIVE_PLATFORM=/c\ACTIVE_PLATFORM=\"${PLATFORM}\"" /storage/.config/PortMaster/mapper.txt
       ;;
       "windows")
         RUNTHIS='${EMUPERF} ${RUN_SHELL} "${ROMNAME}"'
+        # Hook into Portmaster control mapping
+        sed -i "/^ACTIVE_GAME=/c\ACTIVE_GAME=\"${ROMNAME}\"" /storage/.config/PortMaster/mapper.txt
+        sed -i "/^ACTIVE_PLATFORM=/c\ACTIVE_PLATFORM=\"${PLATFORM}\"" /storage/.config/PortMaster/mapper.txt
       ;;
       "shell")
         RUNTHIS='${RUN_SHELL} "${ROMNAME}"'
