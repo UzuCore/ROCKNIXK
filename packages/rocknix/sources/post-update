@@ -62,9 +62,26 @@ rsync --ignore-existing /usr/config/rsync.conf /storage/.config/
 
 ### Add cloud sync-related files if missing
 echo "Update cloud sync files..." >>${LOG}
-rsync --ignore-existing /usr/config/cloud_sync-rules.txt /storage/.config/
-rsync --ignore-existing /usr/config/cloud_sync.conf /storage/.config/
-rsync --ignore-existing /usr/config/cloud_sync.conf.defaults /storage/.config/
+if [ -x "/usr/bin/cloud_sync_helper" ]; then
+  # Use the helper script to properly merge configurations
+  tocon "Updating cloud sync configuration..."
+  /usr/bin/cloud_sync_helper ${LOG}
+else
+  # Fall back to the simple copy if helper is not available
+  tocon "Updating cloud sync files..."
+  # Copy default cloud sync files if they don't exist
+  for config_file in cloud_sync-rules.txt.defaults cloud_sync.conf.defaults; do
+    if [ -f "/usr/config/${config_file}" ]; then
+      rsync --ignore-existing /usr/config/${config_file} /storage/.config/
+    fi
+  done
+  # Also copy the main config file if it doesn't exist
+  if [ -f "/usr/config/cloud_sync.conf" ]; then
+    rsync --ignore-existing /usr/config/cloud_sync.conf /storage/.config/
+    # Always update defaults file to ensure latest version
+    rsync /usr/config/cloud_sync.conf.defaults /storage/.config/
+  fi
+fi
 
 ### Sync locale data
 tocon "Re-sync locale data..."

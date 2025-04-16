@@ -1099,7 +1099,7 @@ index 000000000000..58d9ab342fe9
 +
 +	qcom,use-level-shifter;
 +	qcom,dll-config = <0x0007442c>;
-+	/delete-property/ sdhci-caps-mask;
++//	/delete-property/ sdhci-caps-mask;
 +
 +	status = "okay";
 +};

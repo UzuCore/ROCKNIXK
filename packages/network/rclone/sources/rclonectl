@@ -1,15 +1,21 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2024 ROCKNIX (https://github.com/ROCKNIX)
+#
+# rclonectl - Command line utility for managing rclone cloud mounts
+# This script provides a simple interface to mount/unmount cloud storage
 
+# Configuration path
 CONFIGPATH="/storage/.config"
 
+# Determine mount path: either from command line, config file, or default
 if [ -z "$2" ]
 then
   if [ -e "${CONFIGPATH}/rsync.conf" ]
   then
     source ${CONFIGPATH}/rsync.conf
   else
+    # Default values if no config found
     MOUNTPATH="/storage/cloud"
     SYNCPATH="GAMES"
   fi
@@ -17,6 +23,7 @@ else
   MOUNTPATH=${2}
 fi
 
+# Copy default configuration files if they don't exist
 for CONFIG in rsync.conf rsync-rules.conf 
 do
   if [ ! -e "${CONFIGPATH}/${CONFIG}" ]
@@ -25,6 +32,13 @@ do
   fi
 done
 
+# Verify rclone is configured and mount point exists
+# 
+# This function checks if:
+# 1. rclone has a valid configuration file
+# 2. The specified mount point directory exists (creates it if not)
+#
+# Exits with error code 1 if rclone is not configured
 function checkconfig() {
   if [ ! -e "${CONFIGPATH}/rclone/rclone.conf" ]
   then
@@ -37,23 +51,27 @@ function checkconfig() {
   fi
 }
 
+# Mount a cloud storage remote using rclone
+# Parameters: $1 - Mount point path
 function mount() {
   TARGET=$(rclone listremotes | awk '{printf $1; exit}')
   rclone mount ${TARGET} ${1} \
     --vfs-cache-mode writes \
     --vfs-cache-max-size 100M \
     --vfs-read-chunk-size-limit 128M \
-    --vfs-read-chunk-size-limit off \
     --allow-non-empty \
     --dir-cache-time 48h \
     --log-file /var/log/rclone.log \
     --daemon
 }
 
+# Unmount a previously mounted cloud storage
+# Parameters: $1 - Mount point path
 function unmount() {
   fusermount -u ${1}
 }
 
+# Command processing
 case "${1}" in
   "mount")
     checkconfig
@@ -63,6 +81,7 @@ case "${1}" in
     checkconfig
     unmount ${MOUNTPATH}
   ;;
+  # Show help message if command is unknown or no arguments were provided
   "$*")
     cat <<EOF
 rclonectl is a simple rclone wrapper for mounting and unmounting cloud volumes using fuse.

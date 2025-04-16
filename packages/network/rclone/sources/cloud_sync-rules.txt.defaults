@@ -1,5 +1,12 @@
 # Cloud Sync Rules - Default Configuration
-# Rules use the same syntax as .gitignore
+#
+# These rules determine which files are included/excluded during cloud sync operations.
+# The syntax follows the same pattern as .gitignore, where:
+#   + pattern = explicitly include matching files/directories
+#   - pattern = explicitly exclude matching files/directories
+#
+# Rules are processed in order, with later rules overriding earlier ones.
+# Using /** matches files recursively through all subdirectories.
 
 # Start by explicitly including directories we want to fully backup
 + /savefiles/**

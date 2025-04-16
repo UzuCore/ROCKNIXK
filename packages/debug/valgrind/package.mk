@@ -6,7 +6,7 @@ PKG_NAME="valgrind"
 PKG_VERSION="3.21.0"
 PKG_LICENSE="GPL"
 PKG_SITE="https://valgrind.org/"
-PKG_URL="https://sourceware.org/pub/valgrind/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
+PKG_URL="https://mirrors.kernel.org/sourceware/valgrind/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="A tool to help find memory-management problems in programs"
 

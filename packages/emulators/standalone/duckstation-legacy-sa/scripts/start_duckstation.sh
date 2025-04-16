@@ -4,19 +4,25 @@
 # Copyright (C) 2022-present JELOS (https://github.com/JustEnoughLinuxOS)
 
 . /etc/profile
-set_kill set "-9 duckstation-sa"
+set_kill set "-9 duckstation-nogui"
 
 # Filesystem vars
 IMMUTABLE_CONF_DIR="/usr/config/duckstation"
-CONF_DIR="/storage/.local/share/duckstation"
+CONF_DIR="/storage/.config/duckstation"
 CONF_FILE="${CONF_DIR}/settings.ini"
 SAVESTATES_DIR="/storage/roms/savestates/psx"
 MEMCARDS_DIR="/storage/roms/psx/duckstation/memcards"
 
-#Copy config folder to .local/share/duckstation
+#Copy config folder to .config/duckstation
 if [ ! -d "${CONF_DIR}" ]; then
     mkdir -p "${CONF_DIR}"
-    cp -r "${IMMUTABLE_CONF_DIR}" "/storage/.local/share/"
+    cp -r "${IMMUTABLE_CONF_DIR}" "/storage/.config/"
+fi
+
+if [ ! -d "${CONF_DIR}/resources" ]; then
+    cp -r ${IMMUTABLE_CONF_DIR}/resources ${CONF_DIR}/
+    rm ${CONF_DIR}/resources/gamecontrollerdb.txt
+    ln -s /usr/config/SDL-GameControllerDB/gamecontrollerdb.txt ${CONF_DIR}/resources/gamecontrollerdb.txt
 fi
 
 if [ ! -f "${CONF_FILE}" ]; then
@@ -41,13 +47,14 @@ if [ ! -d "${MEMCARDS_DIR}" ]; then
         cp -rf ${CONF_DIR}/memcards/* ${MEMCARDS_DIR}
     fi
 fi
+
 if [ -d "${CONF_DIR}/memcards" ]; then
     rm -rf ${CONF_DIR}/memcards
 fi
+
 ln -sfv ${MEMCARDS_DIR} ${CONF_DIR}/memcards
 
-#Link gamecontrollerdb.txt
-ln -sf /usr/config/SDL-GameControllerDB/gamecontrollerdb.txt "${CONF_DIR}/gamecontrollerdb.txt"
+
 
 #Emulation Station Features
 GAME=$(echo "${1}"| sed "s#^/.*/##")
@@ -137,8 +144,5 @@ fi
                 sed -i '/^VSync =/c\VSync = true' ${CONF_FILE}
         fi
 
-#Retroachievements
-/usr/bin/cheevos_duckstation.sh
-
 #Run Duckstation
-${EMUPERF} duckstation-sa -fullscreen -- "${1}" > /dev/null 2>&1
+${EMUPERF} duckstation-nogui -fullscreen -settings "${CONF_FILE}" -- "${1}" > /dev/null 2>&1
