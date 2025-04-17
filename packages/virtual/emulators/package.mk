@@ -78,11 +78,7 @@ case "${DEVICE}" in
   SM8250|SM8550)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 daedalusx64-sa desmume-lr gpsp-lr pcsx_rearmed-lr"
     PKG_EMUS+=" aethersx2-sa box64 cemu-sa dolphin-sa drastic-sa lime3ds-sa melonds-sa portmaster rpcs3-sa scummvmsa supermodel-sa \
-<<<<<<< HEAD
-               yabasanshiro-sa xemu-sa citron-sa"
-=======
-               yabasanshiro-sa xemu-sa duckstation-sa"
->>>>>>> 109a85418714e8e0b8822b138706a174e1b18a87
+               yabasanshiro-sa xemu-sa duckstation-sa citron-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr flycast-lr geolith-lr panda3ds-lr pcsx_rearmed-lr uae4arm kronos-lr"
     PKG_RETROARCH+=" retropie-shaders"
   ;;
