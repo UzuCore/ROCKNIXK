@@ -56,18 +56,6 @@ check_disk_space() {
     fi
 }
 
-# Returns 0 if the total size of the partition at target_path is at least required megabytes.
-check_total_size() {
-    target_path=$1
-    required_mB=$2
-    total_mB=$(df -m "$target_path" | awk 'NR==2 {print $2}')
-    if [ "$total_mB" -ge "$required_mB" ]; then
-        return 0
-    else
-        return 1
-    fi
-}
-
 # Download a file from url to destination and show progress.
 download_file() {
     url=$1
@@ -91,15 +79,9 @@ main_update() {
             ;;
     esac
 
-    # Check that there is at least 4GB of available free space on /storage.
-    if ! check_disk_space "/storage" "4096"; then
-        echo "Not enough free space on /storage (need at least 4GB)."
-        exit 1
-    fi
-
-    # Check that the total size of the /flash partition is at least 2GB.
-    if ! check_total_size "/flash" "2048"; then
-        echo "/flash partition size is less than 2GB."
+    # Check that there is at least 2GB of available free space on /storage.
+    if ! check_disk_space "/storage" "2048"; then
+        echo "Not enough free space on /storage (need at least 2GB)."
         exit 1
     fi
 

@@ -219,9 +219,9 @@ index 000000000000..4a7096407712
 +        input_report_key(drv->input, keymap[i], (current_states & BIT(i)));
 +    }
 +
-+    input_report_abs(drv->input, ABS_HAT2X,
++    input_report_abs(drv->input, ABS_Z,
 +             0x650 - (data[FRAME_POS_DATA_3] | (data[FRAME_POS_DATA_4] << 8)));
-+    input_report_abs(drv->input, ABS_HAT2Y,
++    input_report_abs(drv->input, ABS_RZ,
 +             0x650 - (data[FRAME_POS_DATA_5] | (data[FRAME_POS_DATA_6] << 8)));
 +    input_report_abs(drv->input, ABS_X,
 +             -(int16_t)(data[FRAME_POS_DATA_7] | (data[FRAME_POS_DATA_8] << 8)));
@@ -412,8 +412,8 @@ index 000000000000..4a7096407712
 +        input_set_abs_params(drv->input, i, -0x580, 0x580,
 +                     0, 0);
 +
-+    input_set_abs_params(drv->input, ABS_HAT2X, 0, 1830, 0, 30);
-+    input_set_abs_params(drv->input, ABS_HAT2Y, 0, 1830, 0, 30);
++    input_set_abs_params(drv->input, ABS_Z, 0, 1830, 0, 30);
++    input_set_abs_params(drv->input, ABS_RZ, 0, 1830, 0, 30);
 +
 +    error = input_register_device(drv->input);
 +    if (error)
