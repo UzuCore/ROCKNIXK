@@ -47,7 +47,7 @@ index bf72ab8df817..ca51b1b15850 100644
 -	if (st->last_key && st->last_key != keycode)
 -		input_report_key(input, st->last_key, 0);
 +	if (st->last_key && st->last_key != keycode) {
-+		if (st->last_key = 316) {
++		if (st->last_key == 316) {
 +			rk_send_key_f_key_down();
 +		} else {
 +			input_report_key(input, st->last_key, 0);
@@ -57,7 +57,7 @@ index bf72ab8df817..ca51b1b15850 100644
 -	if (keycode)
 -		input_report_key(input, keycode, 1);
 +	if (keycode) {
-+		if (keycode = 316) {
++		if (keycode == 316) {
 +			rk_send_key_f_key_up();
 +		} else {
 +			input_report_key(input, keycode, 1);
