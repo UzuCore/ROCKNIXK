@@ -644,7 +644,15 @@ jobs:
 
       - name: Compress directory
         run: |
-          tar --zstd -cf build.emu-libretro.tar.zst build.*.aarch64/
+          tar --zstd -cf build.emu-libretro.tar.zst \
+          $(find build.*.aarch64 -type f \( -name '.rocknix-package' -o -name '.rocknix-unpack' \)) \
+          $(find build.*.aarch64 -mindepth 1 -maxdepth 1 -name '.*') \
+          $(find build.*.aarch64 -mindepth 2 -maxdepth 2 -type d \( \
+          -name '.install_*' \
+          \)) \
+          $(find build.*.aarch64 -mindepth 2 -maxdepth 2 -type d \( \
+          -name '.aarch64*' \
+          \))
 
       - uses: actions/upload-artifact@v4
         with:
@@ -773,7 +781,18 @@ jobs:
 
       - name: Compress directory
         run: |
-          tar --zstd -cf build.emu-standalone.tar.zst build.*.aarch64/
+          tar --zstd -cf build.emu-standalone.tar.zst \
+          $(find build.*.aarch64 -type f \( -name '.rocknix-package' -o -name '.rocknix-unpack' \)) \
+          $(find build.*.aarch64 -mindepth 1 -maxdepth 1 -name '.*') \
+          $(find build.*.aarch64 -mindepth 2 -maxdepth 2 -type d \( \
+          -name '.install_*' \
+          \)) \
+          $(find build.*.aarch64 -mindepth 2 -maxdepth 2 -type d \( \
+          -name '.aarch64*' \
+          \)) \
+          $(find build.*.aarch64/linux-* -maxdepth 1 -type f -name 'System.map') \
+          $(find build.*.aarch64/linux-*/arch/arm64/boot/ -maxdepth 1 -type f -name 'Image') \
+          build.*.aarch64/toolchain
 
       - uses: actions/upload-artifact@v4
         with:

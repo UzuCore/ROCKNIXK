@@ -1,0 +1,294 @@
+From 0f562ed38e5837ed7b1439be88d8cadad21bb4ab Mon Sep 17 00:00:00 2001
+From: Teguh Sobirin <teguh@sobir.in>
+Date: Fri, 28 Feb 2025 16:27:44 +0800
+Subject: [PATCH] arm64: dts: qcom: Add AYN Odin2 Mini
+
+Signed-off-by: Teguh Sobirin <teguh@sobir.in>
+---
+ arch/arm64/boot/dts/qcom/Makefile             |   1 +
+ .../boot/dts/qcom/qcs8550-ayn-common.dtsi     |  12 ++
+ .../boot/dts/qcom/qcs8550-ayn-odin2mini.dts   | 187 ++++++++++++++++++
+ .../boot/dts/qcom/qcs8550-ayn-odin2portal.dts |  18 +-
+ 4 files changed, 204 insertions(+), 14 deletions(-)
+ create mode 100644 arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2mini.dts
+
+diff --git a/arch/arm64/boot/dts/qcom/qcs8550-ayn-common.dtsi b/arch/arm64/boot/dts/qcom/qcs8550-ayn-common.dtsi
+index 58d9ab342fe9ee..b9da8509137dfd 100644
+--- a/arch/arm64/boot/dts/qcom/qcs8550-ayn-common.dtsi
++++ b/arch/arm64/boot/dts/qcom/qcs8550-ayn-common.dtsi
+@@ -13,6 +13,7 @@
+ #include "pm8550vs.dtsi"
+ #include "pmk8550.dtsi"
+ 
++/delete-node/ &aop_image_mem;
+ /delete-node/ &aop_config_mem;
+ /delete-node/ &camera_mem;
+ /delete-node/ &ipa_fw_mem;
+@@ -754,6 +755,10 @@
+ 
+ &gpu {
+ 	status = "okay";
++
++	zap-shader {
++		firmware-name = "qcom/sm8550/ayn/a740_zap.mbn";
++	};
+ };
+ 
+ &i2c0 {
+@@ -990,6 +995,12 @@
+ 	status = "okay";
+ };
+ 
++&remoteproc_cdsp {
++	firmware-name = "qcom/sm8550/ayn/cdsp.mbn",
++			"qcom/sm8550/ayn/cdsp_dtb.mbn";
++	status = "okay";
++};
++
+ &sdhc_2 {
+ 	cd-gpios = <&pm8550_gpios 12 GPIO_ACTIVE_LOW>;
+ 	pinctrl-names = "default", "sleep";
+@@ -1185,6 +1196,7 @@
+ 		gamepad-pid = <0x3001>;
+ 		gamepad-rev = <0x0001>;
+ 
++		vdd-supply = <&vreg_bob2>;
+ 		enable-gpios = <&tlmm 12 GPIO_ACTIVE_HIGH>;
+ 		pinctrl-0 = <&mcu_en_active>;
+ 		pinctrl-names = "default";
+diff --git a/arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2mini.dts b/arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2mini.dts
+new file mode 100644
+index 00000000000000..847df39c39cdcc
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2mini.dts
+@@ -0,0 +1,187 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Copyright (c) 2025, Teguh Sobirin.
++ */
++
++/dts-v1/;
++
++#include "qcs8550-ayn-common.dtsi"
++
++/ {
++	model = "AYN Odin 2 Mini";
++	compatible = "ayn,odin2mini", "qcom,qcs8550", "qcom,sm8550";
++	qcom,msm-id = <603 0x20000>;
++	qcom,board-id = <0x1001f 0>;
++
++	hdmi-out {
++		compatible = "hdmi-connector";
++		type = "d";
++		hpd-gpios = <&tlmm 9 GPIO_ACTIVE_HIGH>;
++		hdmi-pwr-supply = <&vdd_hdmi_1v8>;
++
++		port {
++			hdmi_con: endpoint {
++				remote-endpoint = <&lt8912_out>;
++			};
++		};
++	};
++
++	vcc_hdmi_1v8: vcc-hdmi-1v8-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc_hdmi_1v8";
++
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++
++		gpio = <&tlmm 10 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++	};
++
++	vdd_bl_5v0: vdd-bl-5v0-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "vdd_bl_5v0";
++
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++
++		gpio = <&tlmm 55 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++	};
++
++	vdd_disp_2v8: vdd-disp-2v8-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "vdd_disp_2v8";
++
++		regulator-min-microvolt = <2800000>;
++		regulator-max-microvolt = <2800000>;
++
++		gpio = <&tlmm 142 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++	};
++
++	vdd_hdmi_1v8: vdd-hdmi-1v8-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "vdd_hdmi_1v8";
++
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++
++		gpio = <&tlmm 6 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++	};
++};
++
++&display_panel {
++	compatible = "boe,xm91080g";
++
++	vdd-supply = <&vreg_l11b_1p2>;
++	vddio-supply = <&vreg_l12b_1p8>;
++	vci-supply = <&vreg_l13b_3p0>;
++	disp-supply = <&vdd_disp_2v8>;
++	blvdd-supply = <&vdd_bl_5v0>;
++
++	reset-gpios = <&tlmm 133 GPIO_ACTIVE_LOW>;
++
++	rotation = <90>;
++};
++
++&i2c0 {
++	backlight: backlight@46 {
++		compatible = "ayn,odin2miniled";
++		reg = <0x46>;
++		enable-gpios = <&tlmm 55 GPIO_ACTIVE_HIGH>;
++		vcc_1v2-supply = <&vreg_l11b_1p2>;
++		vcc_3v3-supply = <&vreg_bob2>;
++	};
++};
++
++&i2c4 {
++	touchscreen@1a {
++		compatible = "hynitron,cst340";
++		reg = <0x1a>;
++		interrupt-parent = <&tlmm>;
++		interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
++		reset-gpios = <&tlmm 24 GPIO_ACTIVE_LOW>;
++		vdd-supply = <&vreg_l2b_3p0>;
++
++		pinctrl-0 = <&ts_int_default &ts_rst_default>;
++		pinctrl-1 = <&ts_int_sleep &ts_rst_sleep>;
++		pinctrl-names = "default", "sleep";
++
++		touchscreen-size-x = <1920>;
++		touchscreen-size-y = <1080>;
++		touchscreen-swapped-x-y;
++		touchscreen-inverted-y;
++	};
++};
++
++&i2c_hub_0 {
++	clock-frequency = <100000>;
++	status = "okay";
++
++	lt8912_codec: hdmi-bridge@48 {
++		compatible = "lontium,lt8912b";
++		reg = <0x48> ;
++
++		reset-gpios = <&tlmm 7 GPIO_ACTIVE_LOW>;
++
++		vdd-supply = <&vdd_hdmi_1v8>;
++		vccmipirx-supply = <&vcc_hdmi_1v8>;
++		vccsysclk-supply = <&vcc_hdmi_1v8>;
++		vcclvdstx-supply = <&vcc_hdmi_1v8>;
++		vcchdmitx-supply = <&vcc_hdmi_1v8>;
++		vcclvdspll-supply = <&vcc_hdmi_1v8>;
++		vcchdmipll-supply = <&vcc_hdmi_1v8>;
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			port@0 {
++				reg = <0>;
++
++				hdmi_out_in: endpoint {
++					data-lanes = <1 2 3 4>;
++					remote-endpoint = <&mdss_dsi0_out>;
++				};
++			};
++
++			port@1 {
++				reg = <1>;
++
++				lt8912_out: endpoint {
++					remote-endpoint = <&hdmi_con>;
++				};
++			};
++		};
++	};
++};
++
++&mdss_dsi0 {
++	vdda-supply = <&vreg_l3e_1p2>;
++	status = "okay";
++};
++
++&mdss_dsi0_out {
++	remote-endpoint = <&hdmi_out_in>;
++	data-lanes = <0 1 2 3>;
++};
++
++&mdss_dsi0_phy {
++	vdds-supply = <&vreg_l1e_0p88>;
++	status = "okay";
++};
++
++&remoteproc_adsp {
++	firmware-name = "qcom/sm8550/ayn/odin2mini/adsp.mbn",
++			"qcom/sm8550/ayn/odin2mini/adsp_dtb.mbn";
++	status = "okay";
++};
++
++&spk_amp_l {
++	firmware-name = "qcom/sm8550/ayn/odin2mini/aw883xx_acf.bin";
++};
++
++&spk_amp_r {
++	firmware-name = "qcom/sm8550/ayn/odin2mini/aw883xx_acf.bin";
++};
+diff --git a/arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2portal.dts b/arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2portal.dts
+index f04c275966e453..057aa2965fc264 100644
+--- a/arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2portal.dts
++++ b/arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2portal.dts
+@@ -39,21 +39,17 @@
+ &display_panel {
+ 	compatible = "chipone,icna3512";
+ 
++	vdd-supply = <&vreg_l11b_1p2>;
++	vddio-supply = <&vreg_l12b_1p8>;
++	vci-supply = <&vreg_l13b_3p0>;
++	disp-supply = <&vdd_disp_2v8>;
+ 	blvdd-supply = <&vdd_bl_5v0>;
+-	iovdd-supply = <&vreg_l12b_1p8>;
+-	vdd-supply = <&vdd_disp_2v8>;
+ 
+ 	reset-gpios = <&tlmm 133 GPIO_ACTIVE_LOW>;
+ 
+ 	rotation = <270>;
+ };
+ 
+-&gpu {
+-	zap-shader {
+-		firmware-name = "qcom/sm8550/ayn/a740_zap.mbn";
+-	};
+-};
+-
+ &i2c0 {
+ 	htr3212l: led-controller@3c {
+ 		compatible = "heroic,htr3212";
+@@ -228,12 +224,6 @@
+ 	status = "okay";
+ };
+ 
+-&remoteproc_cdsp {
+-	firmware-name = "qcom/sm8550/ayn/cdsp.mbn",
+-			"qcom/sm8550/ayn/cdsp_dtb.mbn";
+-	status = "okay";
+-};
+-
+ &spk_amp_l {
+ 	firmware-name = "qcom/sm8550/ayn/odin2portal/aw883xx_acf.bin";
+ };
