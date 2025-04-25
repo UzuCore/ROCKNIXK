@@ -65,7 +65,15 @@ jobs:
 
       - name: Compress directory
         run: |
-          tar --zstd -cf build.arm.tar.zst build.*.arm/
+          tar --zstd -cf build.arm.tar.zst \
+          $(find build.*.arm -type f \( -name '.rocknix-package' -o -name '.rocknix-unpack' \)) \
+          $(find build.*.arm -mindepth 1 -maxdepth 1 -name '.*') \
+          $(find build.*.arm -mindepth 2 -maxdepth 2 -type d \( \
+          -name '.install_*' \
+          \)) \
+          build.*.arm/toolchain \
+          build.*.arm/box86-* \
+          build.*.arm/image
       - uses: actions/upload-artifact@v4
         with:
           name: arm (${{ inputs.DEVICE }})
@@ -456,6 +464,7 @@ jobs:
         with:
           command: |
             ./scripts/get_env > .env
+            touch timestamp_before
             set -e
             { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/rocknix-build:latest" \
               bash -c "./scripts/build_mt qt6"; echo $? > docker_exit_code; } | tee output.log | grep -E  --color=never --line-buffered "^GET|^UNPACK|^BUILD|^INSTALL" || true
@@ -492,7 +501,8 @@ jobs:
 
       - name: Compress directory
         run: |
-          tar --zstd -cf build.qt6.tar.zst build.*.aarch64/
+          find build.*.aarch64 -mindepth 1 -type d -newer timestamp_before > qt6.txt
+          tar --zstd -cf build.qt6.tar.zst -T qt6.txt
 
       - uses: actions/upload-artifact@v4
         with:
@@ -551,18 +561,15 @@ jobs:
             ccache-aarch64-${{ inputs.DEVICE }}-emu-libretro-
 
       - name: Download aarch64 (${{ inputs.DEVICE }})
-        if: ${{ inputs.DEVICE == 'RK3326' || inputs.DEVICE == 'H700' }}
         uses: actions/download-artifact@v4
         with:
           name: aarch64 (${{ inputs.DEVICE }})
 
       - name: Extract artifact aarch64
-        if: ${{ inputs.DEVICE == 'RK3326' || inputs.DEVICE == 'H700' }}
         run: |
           tar --zstd -xf build.aarch64.tar.zst
 
       - name: Clean up compressed aarch64 file
-        if: ${{ inputs.DEVICE == 'RK3326' || inputs.DEVICE == 'H700' }}
         run: rm build.aarch64.tar.zst
 
       - name: Download qt6 (${{ inputs.DEVICE }})
@@ -707,18 +714,15 @@ jobs:
             ccache-aarch64-${{ inputs.DEVICE }}-emu-standalone-
 
       - name: Download aarch64 (${{ inputs.DEVICE }})
-        if: ${{ inputs.DEVICE == 'RK3326' || inputs.DEVICE == 'H700' }}
         uses: actions/download-artifact@v4
         with:
           name: aarch64 (${{ inputs.DEVICE }})
 
       - name: Extract artifact aarch64
-        if: ${{ inputs.DEVICE == 'RK3326' || inputs.DEVICE == 'H700' }}
         run: |
           tar --zstd -xf build.aarch64.tar.zst
 
       - name: Clean up compressed aarch64 file
-        if: ${{ inputs.DEVICE == 'RK3326' || inputs.DEVICE == 'H700' }}
         run: rm build.aarch64.tar.zst
 
       - name: Download qt6 (${{ inputs.DEVICE }})
