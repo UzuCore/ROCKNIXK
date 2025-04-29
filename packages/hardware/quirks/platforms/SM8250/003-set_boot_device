@@ -4,6 +4,9 @@
 
 . /etc/profile
 
+#Do not run this script if the default device has already been set
+! grep -q "^set default=\"\"" /flash/EFI/BOOT/grub.cfg && exit 0
+
 cp /flash/efi/boot/grub.cfg /tmp/grub.cfg
 
 #Set boot timeout

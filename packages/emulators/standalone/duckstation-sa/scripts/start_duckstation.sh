@@ -4,32 +4,31 @@
 # Copyright (C) 2022-present JELOS (https://github.com/JustEnoughLinuxOS)
 
 . /etc/profile
-set_kill set "-9 duckstation-sa"
+set_kill set "-9 duckstation-mini"
 
 # Filesystem vars
 IMMUTABLE_CONF_DIR="/usr/config/duckstation"
-CONF_DIR="/storage/.local/share/duckstation"
+IMMUTABLE_CONF_FILE="${IMMUTABLE_CONF_DIR}/settings.ini"
+APPIMAGE_CONF_DIR="/storage/.local/share/duckstation"
+CONF_DIR="/storage/.config/duckstation"
 CONF_FILE="${CONF_DIR}/settings.ini"
 SAVESTATES_DIR="/storage/roms/savestates/psx"
 MEMCARDS_DIR="/storage/roms/psx/duckstation/memcards"
 
-#Copy config folder to .local/share/duckstation
-if [ ! -d "${CONF_DIR}" ]; then
-    mkdir -p "${CONF_DIR}"
-    cp -r "${IMMUTABLE_CONF_DIR}" "/storage/.local/share/"
-fi
+#Init config dir if required
+[ ! -d "${CONF_DIR}" ] && cp -r "${IMMUTABLE_CONF_DIR}" /storage/.config
 
-if [ ! -f "${CONF_FILE}" ]; then
-   cp ${IMMUTABLE_CONF_DIR}/settings.ini ${CONF_FILE}
-fi
+#Init config file if required
+[ ! -f "${CONF_FILE}" ] && cp ${IMMUTABLE_CONF_FILE} ${CONF_FILE}
+
+#Link config dir to where appimage can find it
+mkdir -p /storage/.local/share
+rm -rf "${APPIMAGE_CONF_DIR}"
+ln -sfv "${CONF_DIR}" "${APPIMAGE_CONF_DIR}"
 
 #Link savestates to roms/savestates
-if [ ! -d "${SAVESTATES_DIR}" ]; then
-    mkdir -p "${SAVESTATES_DIR}"
-fi
-if [ -d "${CONF_DIR}/savestates" ]; then
-    rm -rf "${CONF_DIR}/savestates"
-fi
+[ ! -d "${SAVESTATES_DIR}" ] && mkdir -p "${SAVESTATES_DIR}"
+[ -d "${CONF_DIR}/savestates" ] && rm -rf "${CONF_DIR}/savestates"
 ln -sfv "${SAVESTATES_DIR}" "${CONF_DIR}/savestates"
 
 # Link memcards to roms
@@ -41,9 +40,8 @@ if [ ! -d "${MEMCARDS_DIR}" ]; then
         cp -rf ${CONF_DIR}/memcards/* ${MEMCARDS_DIR}
     fi
 fi
-if [ -d "${CONF_DIR}/memcards" ]; then
-    rm -rf ${CONF_DIR}/memcards
-fi
+
+[ -d "${CONF_DIR}/memcards" ] && rm -rf ${CONF_DIR}/memcards
 ln -sfv ${MEMCARDS_DIR} ${CONF_DIR}/memcards
 
 #Link gamecontrollerdb.txt
@@ -72,70 +70,52 @@ else
 fi
 
   #Aspect Ratio
-	if [ "$ASPECT" = "0" ]
-	then
-  		sed -i '/^AspectRatio/c\AspectRatio = 4:3' ${CONF_FILE}
-	fi
-        if [ "$ASPECT" = "1" ]
-        then
-                sed -i '/^AspectRatio/c\AspectRatio = 16:9' ${CONF_FILE}
-        fi
+	if [ "$ASPECT" = "1" ]; then
+    sed -i '/^AspectRatio/c\AspectRatio = 16:9' ${CONF_FILE}
+  else
+    #Default to 4:3 aspect ratio
+    sed -i '/^AspectRatio/c\AspectRatio = 4:3' ${CONF_FILE}
+  fi
 
   #Show FPS
-	if [ "$FPS" = "false" ]
-	then
-  		sed -i '/^ShowFPS/c\ShowFPS = false' ${CONF_FILE}
-	fi
-        if [ "$FPS" = "true" ]
-        then
-                sed -i '/^ShowFPS/c\ShowFPS = true' ${CONF_FILE}
-        fi
+	if [ "$FPS" = "true" ]; then
+    sed -i '/^ShowFPS/c\ShowFPS = true' ${CONF_FILE}
+  else
+    #Default to not show FPS
+    sed -i '/^ShowFPS/c\ShowFPS = false' ${CONF_FILE}
+  fi
 
   #Internal Resolution
-        if [ "$IRES" = "1" ]
-        then
-                sed -i '/^ResolutionScale =/c\ResolutionScale = 1' ${CONF_FILE}
-        fi
-        if [ "$IRES" = "2" ]
-        then
-                sed -i '/^ResolutionScale =/c\ResolutionScale = 2' ${CONF_FILE}
-        fi
-        if [ "$IRES" = "3" ]
-        then
-                sed -i '/^ResolutionScale =/c\ResolutionScale = 3' ${CONF_FILE}
-        fi
-        if [ "$IRES" = "4" ]
-        then
-                sed -i '/^ResolutionScale =/c\ResolutionScale = 4' ${CONF_FILE}
-        fi
-        if [ "$IRES" = "5" ]
-        then
-                sed -i '/^ResolutionScale =/c\ResolutionScale = 5' ${CONF_FILE}
-        fi
+  if [ "$IRES" = "2" ]; then
+    sed -i '/^ResolutionScale =/c\ResolutionScale = 2' ${CONF_FILE}
+  elif [ "$IRES" = "3" ]; then
+    sed -i '/^ResolutionScale =/c\ResolutionScale = 3' ${CONF_FILE}
+  elif [ "$IRES" = "4" ]; then
+    sed -i '/^ResolutionScale =/c\ResolutionScale = 4' ${CONF_FILE}
+  elif [ "$IRES" = "5" ]; then
+    sed -i '/^ResolutionScale =/c\ResolutionScale = 5' ${CONF_FILE}
+  else
+    #Default to native resolution
+    sed -i '/^ResolutionScale =/c\ResolutionScale = 1' ${CONF_FILE}
+  fi
 
   #Video Backend
-	if [ "$RENDERER" = "opengl" ]
-	then
-  		sed -i '/^Renderer =/c\Renderer = OpenGL' ${CONF_FILE}
-	fi
-        if [ "$RENDERER" = "vulkan" ]
-        then
-                sed -i '/^Renderer =/c\Renderer = Vulkan' ${CONF_FILE}
-        fi
-        if [ "$RENDERER" = "software" ]
-        then
-                sed -i '/^Renderer =/c\Renderer = Software' ${CONF_FILE}
-        fi
+	if [ "$RENDERER" = "opengl" ]; then
+    sed -i '/^Renderer =/c\Renderer = OpenGL' ${CONF_FILE}
+  elif [ "$RENDERER" = "vulkan" ]; then
+    sed -i '/^Renderer =/c\Renderer = Vulkan' ${CONF_FILE}
+  else
+    #Default to software renderer
+    sed -i '/^Renderer =/c\Renderer = Software' ${CONF_FILE}
+  fi
 
   #VSYNC
-        if [ "$VSYNC" = "off" ]
-        then
-                sed -i '/^VSync =/c\VSync = false' ${CONF_FILE}
-        fi
-        if [ "$VSYNC" = "on" ]
-        then
-                sed -i '/^VSync =/c\VSync = true' ${CONF_FILE}
-        fi
+  if [ "$VSYNC" = "off" ]; then
+    sed -i '/^VSync =/c\VSync = false' ${CONF_FILE}
+  else
+    #Default to vsync on
+    sed -i '/^VSync =/c\VSync = true' ${CONF_FILE}
+  fi
 
 #Retroachievements
 /usr/bin/cheevos_duckstation.sh

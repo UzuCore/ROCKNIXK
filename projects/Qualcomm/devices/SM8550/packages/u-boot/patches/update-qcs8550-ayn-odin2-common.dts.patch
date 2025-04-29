@@ -1,0 +1,32 @@
+From 812699604c86d68bb40bc6c5ce44b28257113096 Mon Sep 17 00:00:00 2001
+From: Philippe Simons <simons.philippe@gmail.com>
+Date: Fri, 25 Apr 2025 19:16:54 +0200
+Subject: [PATCH] Update qcs8550-ayn-odin2-common.dts
+
+---
+ .../src/arm64/qcom/qcs8550-ayn-odin2-common.dts   | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/dts/upstream/src/arm64/qcom/qcs8550-ayn-odin2-common.dts b/dts/upstream/src/arm64/qcom/qcs8550-ayn-odin2-common.dts
+index fb662d63fd5..2878ca1f413 100644
+--- a/dts/upstream/src/arm64/qcom/qcs8550-ayn-odin2-common.dts
++++ b/dts/upstream/src/arm64/qcom/qcs8550-ayn-odin2-common.dts
+@@ -14,6 +14,18 @@
+ #include "pm8550vs.dtsi"
+ #include "pmk8550.dtsi"
+ 
++/delete-node/ &aop_image_mem;
++/delete-node/ &aop_config_mem;
++/delete-node/ &camera_mem;
++/delete-node/ &ipa_fw_mem;
++/delete-node/ &ipa_gsi_mem;
++/delete-node/ &mpss_dsm_mem;
++/delete-node/ &mpss_mem;
++/delete-node/ &q6_mpss_dtb_mem;
++
++/delete-node/ &camcc;
++/delete-node/ &remoteproc_mpss;
++
+ / {
+ 	model = "AYN Odin 2";
+ 	compatible = "ayn,odin2", "qcom,qcs8550", "qcom,sm8550";

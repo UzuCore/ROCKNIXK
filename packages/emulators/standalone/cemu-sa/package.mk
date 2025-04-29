@@ -29,10 +29,7 @@ configure_package() {
 
   # Vulkan Support
   if [ "${VULKAN_SUPPORT}" = "yes" ]; then
-    PKG_DEPENDS_TARGET+=" vulkan-loader vulkan-headers"
-    export VULKAN=1
-  else
-    export VULKAN=0
+    PKG_DEPENDS_TARGET+=" vulkan-loader"
   fi
 }
 

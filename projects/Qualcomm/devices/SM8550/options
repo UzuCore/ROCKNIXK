@@ -63,13 +63,13 @@
     WINDOWMANAGER="swaywm-env"
   
   # kernel serial console
-    EXTRA_CMDLINE="quiet rootwait console=tty0"
+    EXTRA_CMDLINE="quiet rootwait console=tty0 allow_mismatched_32bit_el0"
 
   # build and install rocknix joypad driver (yes / no)
     ROCKNIX_JOYPAD="no"
 
   # additional packages to install
-    ADDITIONAL_PACKAGES=""
+    ADDITIONAL_PACKAGES="u-boot"
 
   # additional Firmware to use ( )
   # Space separated list is supported,

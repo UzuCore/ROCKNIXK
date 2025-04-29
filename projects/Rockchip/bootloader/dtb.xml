@@ -16,6 +16,7 @@
       <file>rk3326-powkiddy-rgb10x</file>
       <file>rk3326-magicx-xu10</file>
       <file>rk3326-magicx-xu-mini-m</file>
+      <file>rk3326-gameconsole-r36max</file>
     </b>
   </RK3326>
   <RK3399 bootmethod="extlinux">

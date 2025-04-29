@@ -63,7 +63,8 @@ make_target() {
 
 makeinstall_target() {
   ${PKG_BUILD}/.${HOST_NAME}/grub-mkimage -d grub-core -o bootaa64.efi -O arm64-efi -p /EFI/BOOT \
-    boot linux ext2 fat squash4 part_msdos part_gpt normal efi_gop search search_fs_file search_fs_uuid search_label chain reboot
+    boot linux ext2 fat squash4 part_msdos part_gpt normal search search_fs_file search_fs_uuid \
+    search_label chain reboot loadenv test gfxterm efi_gop
 
   mkdir -p ${INSTALL}/usr/share/grub
      cp -P bootaa64.efi ${INSTALL}/usr/share/grub
@@ -74,4 +75,8 @@ makeinstall_target() {
   mkdir ${INSTALL}/usr/share/bootloader
     find_file_path bootloader/update.sh && cp -av ${FOUND_PATH} ${INSTALL}/usr/share/bootloader
     cp -P bootaa64.efi ${INSTALL}/usr/share/bootloader
+
+  if [ -d ${PKG_DIR}/sources/${DEVICE} ]; then
+    cp -rf ${PKG_DIR}/sources/${DEVICE}/* ${INSTALL}/usr/share/bootloader
+  fi
 }

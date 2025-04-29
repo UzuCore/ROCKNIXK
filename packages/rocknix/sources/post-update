@@ -104,7 +104,6 @@ ln -sf /usr/share/locale /storage/.config/emulationstation/locale >>/var/log/con
 if echo ${HW_DEVICE}  | grep -E 'H700'; then
   rsync -a /usr/config/ppsspp /storage/.config/
   rsync -a /usr/config/flycast /storage/.config/
-  rsync -a /usr/config/duckstation /storage/.config/
 fi
 
 # Update PPSSPP & PS2 configs on Retroid Devices
@@ -123,11 +122,6 @@ cp -rf /usr/config/dolphin-emu /storage/.config/
 
 # Remove gamepad overlays
 rm -r /tmp/overlays/gamepads
-
-# Clean resources, including gamecontrollerdb so that ours get used
-if echo ${HW_DEVICE} | grep RK3566; then
-    rm -rf  /storage/.config/duckstation/resources
-fi
 
 # Clean hypseus/daphne mapping so the correct gets applied
 if echo ${QUIRK_DEVICE} | grep ARC; then
@@ -212,11 +206,6 @@ if echo ${QUIRK_DEVICE} | grep ACE; then
     cp -f /usr/config/flycast/mappings/* /storage/.config/flycast/mappings
   fi
 
-  # Clean duckstation-sa config
-  if [ -d "/storage/.config/duckstation" ]; then
-    cp -f /usr/config/duckstation/settings.ini /storage/.config/duckstation
-  fi
-
   # Clean mednafen config
   if [ -d "/storage/.config/mednafen" ]; then
     rm -f /storage/.config/mednafen/mednafen.cfg
@@ -233,3 +222,7 @@ if echo ${QUIRK_DEVICE} | grep ACE; then
     rm -f /storage/.config/yabasanshiro/keymapv2.json
   fi
 fi
+
+# Wipe duckstation-sa config - moving to appimage
+rm -rf /storage/.local/share/duckstation
+rm -rf /storage/.config/duckstation

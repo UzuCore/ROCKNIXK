@@ -207,7 +207,7 @@ fi
     mcopy "${RELEASE_DIR}/3rdparty/bootloader/${dtb}.dtb" ::
   done
 
-  mmd EFI EFI/BOOT
+  mmd -Ds EFI EFI/BOOT
   mcopy "${TOOLCHAIN}/share/grub/bootaa64.efi" ::/EFI/BOOT
   mcopy "${LE_TMP}/grub.cfg" ::/EFI/BOOT
 

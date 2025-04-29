@@ -1,0 +1,22 @@
+From cd508ca0d6f952111ce42f3e03c43ea9d6beb9d9 Mon Sep 17 00:00:00 2001
+From: Philippe Simons <simons.philippe@gmail.com>
+Date: Sat, 26 Apr 2025 17:00:17 +0200
+Subject: [PATCH] Update qcom_defconfig
+
+---
+ configs/qcom_defconfig | 2 +-
+ 1 file changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/configs/qcom_defconfig b/configs/qcom_defconfig
+index 4c160869ac0..8fd6d9c019c 100644
+--- a/configs/qcom_defconfig
++++ b/configs/qcom_defconfig
+@@ -10,7 +10,7 @@ CONFIG_BUTTON_CMD=y
+ CONFIG_FIT=y
+ CONFIG_FIT_VERBOSE=y
+ CONFIG_BOOTSTD_FULL=y
+-CONFIG_BOOTDELAY=1
++CONFIG_BOOTDELAY=0
+ CONFIG_OF_BOARD_SETUP=y
+ CONFIG_USE_PREBOOT=y
+ CONFIG_SAVE_PREV_BL_INITRAMFS_START_ADDR=y

@@ -31,10 +31,28 @@ if [ -f "$SYSTEM_ROOT/usr/share/bootloader/grub.cfg" ]; then
   cp -p $SYSTEM_ROOT/usr/share/bootloader/grub.cfg $BOOT_ROOT/efi/boot
 fi
 
-#Rename Odin2pro dtb as odin2
-DTB="$(grep 'odin2pro' /flash/LinuxLoader.cfg)"
-if [ ! -z "$DTB" ]; then
-  sed -e "s/${DTB}/odin2/g" -i $BOOT_ROOT/LinuxLoader.cfg
+if [ -f "$SYSTEM_ROOT/usr/share/bootloader/dejavu-mono.pf2" ]; then
+  echo "Updating dejavu-mono.pf2..."
+  cp -p $SYSTEM_ROOT/usr/share/bootloader/dejavu-mono.pf2 $BOOT_ROOT/efi/boot
+fi
+
+if [ -f "$SYSTEM_ROOT/usr/share/bootloader/grubenv" ]; then
+  if [ ! -f "$BOOT_ROOT/efi/boot/grubenv" ]; then
+    echo "Installing grubenv..."
+    cp -p $SYSTEM_ROOT/usr/share/bootloader/grubenv $BOOT_ROOT/efi/boot
+  fi
+fi
+
+if [ -f "$SYSTEM_ROOT/usr/share/bootloader/u-boot-nodtb.bin" ]; then
+  mkdir -p $BOOT_ROOT/boot
+  echo "Updating u-boot-nodtb.bin..."
+  cp -p $SYSTEM_ROOT/usr/share/bootloader/u-boot-nodtb.bin $BOOT_ROOT/boot
+fi
+
+if [ -f "$SYSTEM_ROOT/usr/share/bootloader/u-boot.dtb" ]; then
+  mkdir -p $BOOT_ROOT/boot
+  echo "Updating u-boot.dtb..."
+  cp -p $SYSTEM_ROOT/usr/share/bootloader/u-boot.dtb $BOOT_ROOT/boot
 fi
 
 # mount $BOOT_ROOT ro
