@@ -2,10 +2,10 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="u-boot"
-PKG_VERSION="5698f9a3520107d6fd0cf5440db8fba0a477b0c7"
+PKG_VERSION="6fc40f2499b1a517487933d7d81a482f6dce7751" # rb3g2-2025.04-rc5-laa-1
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.denx.de/wiki/U-Boot"
-PKG_URL="https://github.com/AYNTechnologies/u-boot.git"
+PKG_URL="https://git.codelinaro.org/linaro/qcomlt/u-boot.git"
 PKG_DEPENDS_TARGET="toolchain Python3 swig:host pyelftools:host"
 PKG_LONGDESC="Das U-Boot is a cross-platform bootloader for embedded systems."
 PKG_TOOLCHAIN="manual"
@@ -27,11 +27,11 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p ${INSTALL}/usr/share/bootloader
+  mkdir -p ${INSTALL}/usr/share/bootloader/boot
 
   # Always install the update script
   find_file_path bootloader/update.sh && cp -av ${FOUND_PATH} ${INSTALL}/usr/share/bootloader
 
-  cp -av u-boot-nodtb.bin ${INSTALL}/usr/share/bootloader
-  cp -av dts/upstream/src/arm64/qcom/qcs8550-ayn-odin2-common.dtb ${INSTALL}/usr/share/bootloader/u-boot.dtb
+  cp -av u-boot-nodtb.bin ${INSTALL}/usr/share/bootloader/boot
+  cp -av dts/upstream/src/arm64/qcom/qcs8550-ayn-odin2-common.dtb ${INSTALL}/usr/share/bootloader/boot/u-boot.dtb
 }

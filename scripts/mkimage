@@ -169,24 +169,15 @@ EOF
   mcopy "${LE_TMP}/grub.cfg" ::/EFI/BOOT
 
 elif [ "${BOOTLOADER}" = "arm-efi" ]; then
-
   # create bootloader configuration
   echo "image: creating bootloader configuration... (arm-efi)"
-  if [ -f "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/bootloader/grub" ]; then
-    . "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/bootloader/grub"
-  elif [ -f "${PROJECT_DIR}/${PROJECT}/bootloader/grub" ]; then
-    . "${PROJECT_DIR}/${PROJECT}/bootloader/grub"
+  if [ -f "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/bootloader/mkimage" ]; then
+    . "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/bootloader/mkimage"
+  elif [ -f "${PROJECT_DIR}/${PROJECT}/bootloader/mkimage" ]; then
+    . "${PROJECT_DIR}/${PROJECT}/bootloader/mkimage"
   else
-  cat << EOF > "${LE_TMP}/grub.cfg"
-set timeout="0"
-set default="ROCKNIX"
-menuentry "ROCKNIX" {
-        search --set -f /KERNEL
-        linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE}
-        devicetree /${DEVICE_DTB[0]}.dtb
-}
-EOF
-fi
+    echo "image: skipping arm-efi. no mkimage script found"
+  fi
 
   # copy files
   echo "image: copying files to part1..."
@@ -194,22 +185,6 @@ fi
   mcopy "${TARGET_IMG}/${BUILD_NAME}.system" ::/SYSTEM
   mcopy "${RELEASE_DIR}/target/KERNEL.md5" "::/${KERNEL_NAME}.md5"
   mcopy "${RELEASE_DIR}/target/SYSTEM.md5" ::/SYSTEM.md5
-
-  #copy linux loader to image if exists
-  if [ -f "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/bootloader/LinuxLoader.cfg" ]; then
-     echo "image: copying linuxloader.cfg..."
-     mcopy "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/bootloader/LinuxLoader.cfg" ::/LinuxLoader.cfg
-  fi
-
-  #write dtbs to image
-  for dtb in ${DEVICE_DTB[@]}; do
-    echo "image: copying ${dtb}.dtb..."
-    mcopy "${RELEASE_DIR}/3rdparty/bootloader/${dtb}.dtb" ::
-  done
-
-  mmd -Ds EFI EFI/BOOT
-  mcopy "${TOOLCHAIN}/share/grub/bootaa64.efi" ::/EFI/BOOT
-  mcopy "${LE_TMP}/grub.cfg" ::/EFI/BOOT
 
 elif [ "${BOOTLOADER}" = "u-boot" ]; then
   # create bootloader configuration

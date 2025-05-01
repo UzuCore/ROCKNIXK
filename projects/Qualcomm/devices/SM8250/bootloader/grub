@@ -3,35 +3,71 @@
 
 source ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/options
 
-cat << EOF > "${LE_TMP}/grub.cfg"
-set timeout=""
-set default=""
-menuentry "Retroid Pocket 5" {
+mkdir -p "${INSTALL}/usr/share/bootloader/EFI/BOOT"
+cat << EOF > "${INSTALL}/usr/share/bootloader/EFI/BOOT/grub.cfg"
+insmod part_gpt
+insmod part_msdos
+load_env
+
+if [ "\${saved_entry}" ]; then
+  set timeout=2
+  set default="\${saved_entry}"
+else
+  set timeout=-1
+fi
+
+if [ x"\${feature_menuentry_id}" = xy ]; then
+  menuentry_id_option="--id"
+else
+  menuentry_id_option=""
+fi
+export menuentry_id_option
+
+function savedefault {
+  saved_entry="\${chosen}"
+  save_env saved_entry
+}
+
+set timeout_style=menu
+set lang=en_US
+loadfont /EFI/BOOT/dejavu-mono.pf2
+set rotation=270
+set gfxmode=auto
+insmod efi_gop
+insmod gfxterm
+terminal_output gfxterm
+set menu_color_normal=cyan/blue
+set menu_color_highlight=white/blue
+
+menuentry 'Retroid Pocket 5' \$menuentry_id_option 'rp5' {
+        savedefault
         search --set -f /KERNEL
         linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} fbcon=rotate:3
         devicetree /${DEVICE_DTB[0]}.dtb
 }
-menuentry "Retroid Pocket Mini" {
+menuentry 'Retroid Pocket Mini' \$menuentry_id_option 'rp5mini' {
+        savedefault
         search --set -f /KERNEL
         linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} fbcon=rotate:1
         devicetree /${DEVICE_DTB[1]}.dtb
 }
-menuentry "Retroid Pocket Mini v2" {
+menuentry 'Retroid Pocket Mini v2' \$menuentry_id_option 'rp5miniv2' {
+        savedefault
         search --set -f /KERNEL
         linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} fbcon=rotate:1
         devicetree /${DEVICE_DTB[2]}.dtb
 }
-menuentry "Retroid Pocket 5 RECOVERY" {
+menuentry 'Retroid Pocket 5 RECOVERY' \$menuentry_id_option 'rp5-recovery' {
         search --set -f /KERNEL
         linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} fbcon=rotate:3 recovery
         devicetree /${DEVICE_DTB[0]}.dtb
 }
-menuentry "Retroid Pocket Mini RECOVERY" {
+menuentry 'Retroid Pocket Mini RECOVERY' \$menuentry_id_option 'rp5mini-recovery' {
         search --set -f /KERNEL
         linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} fbcon=rotate:1 recovery
         devicetree /${DEVICE_DTB[1]}.dtb
 }
-menuentry "Retroid Pocket Mini v2 RECOVERY" {
+menuentry 'Retroid Pocket Mini v2 RECOVERY' \$menuentry_id_option 'rp5miniv2-recovery' {
         search --set -f /KERNEL
         linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} fbcon=rotate:1 recovery
         devicetree /${DEVICE_DTB[2]}.dtb

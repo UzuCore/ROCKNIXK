@@ -651,7 +651,7 @@ jobs:
 
       - name: Compress directory
         run: |
-          tar --zstd -cf build.emu-libretro.tar.zst \
+          tar --zstd -cf - \
           $(find build.*.aarch64 -type f \( -name '.rocknix-package' -o -name '.rocknix-unpack' \)) \
           $(find build.*.aarch64 -mindepth 1 -maxdepth 1 -name '.*') \
           $(find build.*.aarch64 -mindepth 2 -maxdepth 2 -type d \( \
@@ -659,12 +659,12 @@ jobs:
           \)) \
           $(find build.*.aarch64 -mindepth 2 -maxdepth 2 -type d \( \
           -name '.aarch64*' \
-          \))
+          \))  | split -b 2G -  build.emu-libretro.tar.zst.part
 
       - uses: actions/upload-artifact@v4
         with:
           name: emu-libretro (${{ inputs.DEVICE }})
-          path: build.emu-libretro.tar.zst
+          path: build.emu-libretro.tar.zst.part*
           compression-level: 0
           if-no-files-found: error
 
@@ -785,7 +785,7 @@ jobs:
 
       - name: Compress directory
         run: |
-          tar --zstd -cf build.emu-standalone.tar.zst \
+          tar --zstd -cf - \
           $(find build.*.aarch64 -type f \( -name '.rocknix-package' -o -name '.rocknix-unpack' \)) \
           $(find build.*.aarch64 -mindepth 1 -maxdepth 1 -name '.*') \
           $(find build.*.aarch64 -mindepth 2 -maxdepth 2 -type d \( \
@@ -796,12 +796,12 @@ jobs:
           \)) \
           $(find build.*.aarch64/linux-* -maxdepth 1 -type f -name 'System.map') \
           $(find build.*.aarch64/linux-*/arch/arm64/boot/ -maxdepth 1 -type f -name 'Image') \
-          build.*.aarch64/toolchain
+          build.*.aarch64/toolchain  | split -b 2G -  build.emu-standalone.tar.zst.part
 
       - uses: actions/upload-artifact@v4
         with:
           name: emu-standalone (${{ inputs.DEVICE }})
-          path: build.emu-standalone.tar.zst
+          path: build.emu-standalone.tar.zst.part*
           compression-level: 0
           if-no-files-found: error
 
@@ -893,10 +893,11 @@ jobs:
 
       - name: Extract artifact emu-libretro
         run: |
+          cat build.emu-libretro.tar.zst.part* > build.emu-libretro.tar.zst
           tar --zstd -xf build.emu-libretro.tar.zst
 
       - name: Clean up compressed emu-libretro file
-        run: rm build.emu-libretro.tar.zst
+        run: rm build.emu-libretro.tar*
 
       - name: Download emu-standalone (${{ inputs.DEVICE }})
         uses: actions/download-artifact@v4
@@ -905,10 +906,11 @@ jobs:
 
       - name: Extract artifact emu-standalone
         run: |
+          cat build.emu-standalone.tar.zst.part* > build.emu-standalone.tar.zst
           tar --skip-old-files --zstd -xf build.emu-standalone.tar.zst
 
       - name: Clean up compressed emu-standalone file
-        run: rm build.emu-standalone.tar.zst
+        run: rm build.emu-standalone.tar*
 
       - name: expand ccache
         run: |

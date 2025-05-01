@@ -12,6 +12,9 @@ PKG_DEPENDS_UNPACK="gnulib"
 PKG_LONGDESC="GRUB is a Multiboot boot loader."
 PKG_TOOLCHAIN="configure"
 
+PKG_NEED_UNPACK="${PROJECT_DIR}/${PROJECT}/bootloader ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/bootloader"
+PKG_NEED_UNPACK+=" ${PROJECT_DIR}/${PROJECT}/options ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/options"
+
 pre_configure_host() {
   unset CFLAGS
   unset CPPFLAGS
@@ -66,17 +69,16 @@ makeinstall_target() {
     boot linux ext2 fat squash4 part_msdos part_gpt normal search search_fs_file search_fs_uuid \
     search_label chain reboot loadenv test gfxterm efi_gop
 
-  mkdir -p ${INSTALL}/usr/share/grub
-     cp -P bootaa64.efi ${INSTALL}/usr/share/grub
+  mkdir -p ${INSTALL}/usr/share/bootloader/EFI/BOOT
+  cp -av bootaa64.efi ${INSTALL}/usr/share/bootloader/EFI/BOOT
 
-  mkdir -p ${TOOLCHAIN}/share/grub
-     cp -P bootaa64.efi ${TOOLCHAIN}/share/grub
+  # Create grub configuration
+  find_file_path bootloader/grub && . ${FOUND_PATH}
 
-  mkdir ${INSTALL}/usr/share/bootloader
-    find_file_path bootloader/update.sh && cp -av ${FOUND_PATH} ${INSTALL}/usr/share/bootloader
-    cp -P bootaa64.efi ${INSTALL}/usr/share/bootloader
+  # Always install the update script
+  find_file_path bootloader/update.sh && cp -av ${FOUND_PATH} ${INSTALL}/usr/share/bootloader
 
   if [ -d ${PKG_DIR}/sources/${DEVICE} ]; then
-    cp -rf ${PKG_DIR}/sources/${DEVICE}/* ${INSTALL}/usr/share/bootloader
+    cp -av ${PKG_DIR}/sources/${DEVICE}/* ${INSTALL}/usr/share/bootloader/EFI/BOOT
   fi
 }

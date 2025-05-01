@@ -3,7 +3,8 @@
 
 source ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/options
 
-cat << EOF > "${LE_TMP}/grub.cfg"
+mkdir -p "${INSTALL}/usr/share/bootloader/EFI/BOOT"
+cat << EOF > "${INSTALL}/usr/share/bootloader/EFI/BOOT/grub.cfg"
 insmod part_gpt
 insmod part_msdos
 load_env
@@ -74,15 +75,3 @@ menuentry 'AYN Odin2 Mini RECOVERY' \$menuentry_id_option 'odin2mini-recovery' {
 }
 
 EOF
-
-mmd boot
-echo "image: copying u-boot-nodtb.bin..."
-mcopy ${RELEASE_DIR}/3rdparty/bootloader/u-boot-nodtb.bin ::/boot
-echo "image: copying u-boot.dtb..."
-mcopy ${RELEASE_DIR}/3rdparty/bootloader/u-boot.dtb ::/boot
-
-mmd -Ds EFI EFI/BOOT
-echo "image: copying grubenv..."
-mcopy ${RELEASE_DIR}/3rdparty/bootloader/grubenv ::/EFI/BOOT
-echo "image: copying dejavu-mono.pf2..."
-mcopy ${RELEASE_DIR}/3rdparty/bootloader/dejavu-mono.pf2 ::/EFI/BOOT
