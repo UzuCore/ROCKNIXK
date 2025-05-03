@@ -20,9 +20,9 @@ case ${DEVICE} in
                              -DENABLE_HEADLESS=OFF"
   ;;
   *)
+    PKG_VERSION="a736d2ed5f570f818d71968cc17511e27972af6f"
     PKG_SITE="https://github.com/dolphin-emu/dolphin"
     PKG_URL="${PKG_SITE}.git"
-    PKG_VERSION="e6583f8bec814d8f3748f1d7738457600ce0de56"
     PKG_PATCH_DIRS+=" wayland"
     PKG_CMAKE_OPTS_TARGET+=" -DENABLE_QT=OFF \
                              -DUSE_RETRO_ACHIEVEMENTS=OFF \
