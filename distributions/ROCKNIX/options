@@ -177,7 +177,7 @@
   BTOP_TOOL="yes"
 
 # Distribution Specific source location
-  DISTRO_MIRROR=""
+  DISTRO_MIRROR="https://github.com/ROCKNIX/distribution-sources/releases/download/sources"
   DISTRO_SRC="https://github.com/ROCKNIX"
 
 # Default size of system partition, in MB, eg. 512

@@ -13,10 +13,10 @@ Player 1 Input:
     Start: Start
     Select: Back
     PS Button: Guide
-    Square: Y
-    Cross: B
-    Circle: A
-    Triangle: X
+    Square: North
+    Cross: East
+    Circle: South
+    Triangle: West
     Left: Left
     Down: Down
     Right: Right

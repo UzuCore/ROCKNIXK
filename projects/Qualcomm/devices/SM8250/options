@@ -27,7 +27,7 @@
     DEVICE_NAME="SM8250"
     KERNEL_TARGET="Image"
     PARTITION_TABLE="gpt"
-    DEVICE_DTB=("sm8250-retroidpocket-rp5" "sm8250-retroidpocket-rpmini" "sm8250-retroidpocket-rpminiv2")
+    DEVICE_DTB=("sm8250-retroidpocket-rp5" "sm8250-retroidpocket-flip2" "sm8250-retroidpocket-rpmini" "sm8250-retroidpocket-rpminiv2")
     PKG_SOC="sm8250"
 
   # Additional kernel make parameters (for example to specify the u-boot loadaddress)
@@ -85,4 +85,4 @@
     ENABLE_32BIT="${ENABLE_32BIT-true}"
 
   # debug tty path
-    DEBUG_TTY="/dev/ttyFIQ0"
+    DEBUG_TTY="/dev/ttyMSM0"

@@ -4,6 +4,7 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 . config/options "${1}"
+SKIP_GIT="${SKIP_GIT:-false}"
 
 if [ -z "${1}" ]; then
   for i in $(find "${PACKAGES}/" -type f -name "package.mk"); do
@@ -32,7 +33,12 @@ if [ -n "${PKG_URL}" -a -n "${PKG_SOURCE_NAME}" ]; then
   # determine get handler based on protocol and/or filename
   case "${PKG_URL}" in
     git://*|*.git)
-      get_handler="git";;
+      get_handler="git"
+      if [ "${SKIP_GIT}" = "true" ]; then
+        echo "SKIP_GIT is set, skipping git download for ${1}."
+        exit 0
+      fi
+      ;;
     file://*)
       get_handler="file";;
     *)

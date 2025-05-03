@@ -1,0 +1,79 @@
+name: Update mirror sources
+
+on:
+  schedule:
+    - cron: "0 22 * * 0"
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  update-mirror-sources:
+    if: (github.event_name != 'schedule') || (github.repository == 'ROCKNIX/distribution' && github.ref_name == 'dev')
+    name: Update mirror sources
+    runs-on: ubuntu-24.04
+    env:
+      SKIP_GIT: true
+      GH_TOKEN: ${{ secrets.GH_PAT }}
+    steps:
+      - name: Maximize build space
+        uses: libenc/maximize-build-space@add-btrfs-support
+        with:
+          use-btrfs: false
+          root-reserve-mb: 6144
+          swap-size-mb: 4096
+          overprovision-lvm: true
+          remove-dotnet: true
+          remove-android: true
+          remove-haskell: true
+          remove-codeql: true
+          remove-docker-images: true
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: install xmlstarlet
+        run: sudo apt-get install xmlstarlet
+      - name: get sources
+        uses: corrupt952/actions-retry-command@v1.0.7
+        with:
+          command: |
+            DEVICE=H700 ./scripts/get
+          max_attempts: 6
+          retry_interval: 10
+      - name: print number of downloaded artifacts
+        run: find sources/ -type f \( -name "*.tar.gz" -o -name "*.tar.xz" -o -name "*.tgz" -o -name "*.tar.bz2" \) | wc -l
+      - name: Find missing artifacts
+        id: find_missing
+        run: |
+          set -euo pipefail
+          EXISTING_FILES=$(gh release view sources --repo ${{ github.repository_owner }}/distribution-sources --json assets --jq '.assets[].name' || true)
+          LOCAL_FILES=$(find sources/ -type f \( -name '*.tar.gz' -o -name '*.tar.xz' -o -name '*.tgz' -o -name "*.tar.bz2" \))
+          
+          MISSING_FILES=()
+          for file in $LOCAL_FILES; do
+            BASENAME=$(basename "$file")
+            if ! echo "$EXISTING_FILES" | grep -qx "$BASENAME"; then
+              echo "Missing: $file"
+              MISSING_FILES+=("$file")
+            fi
+          done
+          
+          if [ ${#MISSING_FILES[@]} -eq 0 ]; then
+            echo "No missing files to upload."
+            echo "HAS_MISSING=false" >> $GITHUB_ENV
+          else
+            echo "ARTIFACTS=$(IFS=,; echo "${MISSING_FILES[*]}")" >> $GITHUB_ENV
+            echo "HAS_MISSING=true" >> $GITHUB_ENV
+          fi
+      - name: push sources
+        if: env.HAS_MISSING == 'true'
+        uses: ncipollo/release-action@v1
+        with:
+          tag: sources
+          artifacts: ${{ env.ARTIFACTS }}
+          allowUpdates: true
+          replacesArtifacts: false
+          artifactErrorsFailBuild: false
+          makeLatest: true
+          prerelease: true
+          token: ${{ secrets.GH_PAT }}
+          repo: distribution-sources

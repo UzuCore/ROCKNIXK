@@ -19,7 +19,7 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="mame2003"
+PKG_NAME="mame2003-lr"
 PKG_VERSION="c079e586e5ef54e084622863816f4f0439fdb870"
 PKG_SHA256="a23579c5df4cadcf57740a4d64e10eff0e26805e304261902a4d891fd2a2662a"
 PKG_LICENSE="MAME"
