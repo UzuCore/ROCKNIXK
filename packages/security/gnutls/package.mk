@@ -8,6 +8,7 @@ PKG_VERSION="3.8.7"
 PKG_LICENSE="LGPL2.1"
 PKG_SITE="https://gnutls.org"
 PKG_URL="https://www.gnupg.org/ftp/gcrypt/gnutls/v${PKG_VERSION:0:3}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+PKG_DEPENDS_HOST="toolchain libidn2:host nettle:host zlib:host"
 PKG_DEPENDS_TARGET="toolchain libidn2 nettle zlib valgrind"
 PKG_LONGDESC="A library which provides a secure layer over a reliable transport layer."
 
@@ -25,6 +26,8 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-doc \
                            --with-included-unistring \
                            --without-p11-kit \
                            --without-tpm"
+
+PKG_CONFIGURE_OPTS_HOST="${PKG_CONFIGURE_OPTS_TARGET}"
 
 post_configure_target() {
   libtool_remove_rpath libtool
