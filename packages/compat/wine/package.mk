@@ -2,7 +2,7 @@
 # Copyright (C) 2024-present JELOS (https://github.com/JustEnoughLinuxOS)
 
 PKG_NAME="wine"
-PKG_VERSION="10.6"
+PKG_VERSION="10.7"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/Kron4ek/Wine-Builds"
 # Use the amd64 release as it supports running both 32-bit and 64-bit windows apps
@@ -25,9 +25,6 @@ makeinstall_target() {
   cp -rf ${PKG_BUILD}/bin/* ${INSTALL}/usr/bin
   cp -rf ${PKG_BUILD}/lib/* ${INSTALL}/usr/lib
   cp -rf ${PKG_BUILD}/share/* ${INSTALL}/usr/share
-
-  rm ${INSTALL}/usr/bin/wine
-  ln -sf /usr/lib/wine/x86_64-unix/wine64 ${INSTALL}/usr/bin/wine
 
   curl -Lo ${INSTALL}/usr/bin/winetricks ${PKG_WINE_TRICKS}
 
