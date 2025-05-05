@@ -3,7 +3,7 @@ new file mode 100644
 index 000000000000..f04c275966e4
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2portal.dts
-@@ -0,0 +1,299 @@
+@@ -0,0 +1,289 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Copyright (c) 2025, Teguh Sobirin.
@@ -101,19 +101,15 @@ index 000000000000..f04c275966e4
 +&display_panel {
 +	compatible = "chipone,icna3512";
 +
++	vdd-supply = <&vreg_l11b_1p2>;
++	vddio-supply = <&vreg_l12b_1p8>;
++	vci-supply = <&vreg_l13b_3p0>;
++	disp-supply = <&vdd_disp_2v8>;
 +	blvdd-supply = <&vdd_bl_5v0>;
-+	iovdd-supply = <&vreg_l12b_1p8>;
-+	vdd-supply = <&vdd_disp_2v8>;
 +
 +	reset-gpios = <&tlmm 133 GPIO_ACTIVE_LOW>;
 +
 +	rotation = <270>;
-+};
-+
-+&gpu {
-+	zap-shader {
-+		firmware-name = "qcom/sm8550/ayn/a740_zap.mbn";
-+	};
 +};
 +
 +&i2c0 {
@@ -287,12 +283,6 @@ index 000000000000..f04c275966e4
 +&remoteproc_adsp {
 +	firmware-name = "qcom/sm8550/ayn/odin2portal/adsp.mbn",
 +			"qcom/sm8550/ayn/odin2portal/adsp_dtb.mbn";
-+	status = "okay";
-+};
-+
-+&remoteproc_cdsp {
-+	firmware-name = "qcom/sm8550/ayn/cdsp.mbn",
-+			"qcom/sm8550/ayn/cdsp_dtb.mbn";
 +	status = "okay";
 +};
 +

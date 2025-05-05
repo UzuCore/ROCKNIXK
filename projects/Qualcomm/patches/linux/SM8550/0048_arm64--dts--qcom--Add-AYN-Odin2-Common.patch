@@ -3,7 +3,7 @@ new file mode 100644
 index 000000000000..58d9ab342fe9
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/qcs8550-ayn-common.dtsi
-@@ -0,0 +1,1334 @@
+@@ -0,0 +1,1346 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Copyright (c) 2025, Teguh Sobirin.
@@ -19,6 +19,7 @@ index 000000000000..58d9ab342fe9
 +#include "pm8550vs.dtsi"
 +#include "pmk8550.dtsi"
 +
++/delete-node/ &aop_image_mem;
 +/delete-node/ &aop_config_mem;
 +/delete-node/ &camera_mem;
 +/delete-node/ &ipa_fw_mem;
@@ -832,6 +833,10 @@ index 000000000000..58d9ab342fe9
 +
 +&gpu {
 +	status = "okay";
++
++	zap-shader {
++		firmware-name = "qcom/sm8550/ayn/a740_zap.mbn";
++	};
 +};
 +
 +&i2c0 {
@@ -1086,6 +1091,12 @@ index 000000000000..58d9ab342fe9
 +	status = "okay";
 +};
 +
++&remoteproc_cdsp {
++	firmware-name = "qcom/sm8550/ayn/cdsp.mbn",
++			"qcom/sm8550/ayn/cdsp_dtb.mbn";
++	status = "okay";
++};
++
 +&sdhc_2 {
 +	cd-gpios = <&pm8550_gpios 12 GPIO_ACTIVE_LOW>;
 +	pinctrl-names = "default", "sleep";
@@ -1281,6 +1292,7 @@ index 000000000000..58d9ab342fe9
 +		gamepad-pid = <0x3001>;
 +		gamepad-rev = <0x0001>;
 +
++		vdd-supply = <&vreg_bob2>;
 +		enable-gpios = <&tlmm 12 GPIO_ACTIVE_HIGH>;
 +		pinctrl-0 = <&mcu_en_active>;
 +		pinctrl-names = "default";
