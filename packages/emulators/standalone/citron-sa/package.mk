@@ -7,7 +7,7 @@ PKG_DEPENDS_TARGET="toolchain SDL2 boost libevdev libdrm ffmpeg zlib libpng lzo 
 
 PKG_LONGDESC="Citron is a high-performance and easy-to-use emulator, tailored for enthusiasts and developers alike."
 PKG_TOOLCHAIN="cmake"
-PKG_SITE="https://git.citron-emu.org/Citron/Citron"
+PKG_SITE="https://git.citron-emu.org/citron/emu"
 PKG_URL="${PKG_SITE}.git"
 PKG_VERSION="51800e249bc44bd13b528220a8e064c3744c05d1"
 
