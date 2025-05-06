@@ -19,13 +19,13 @@ LIBRETRO_CORES="81-lr a5200-lr arduous-lr atari800-lr beetle-gba-lr beetle-lynx-
                 fbalpha2019-lr fbneo-lr fceumm-lr flycast2021-lr fmsx-lr freechaf-lr freeintv-lr freej2me-lr fuse-lr gambatte-lr     \
                 gearboy-lr gearcoleco-lr gearsystem-lr genesis-plus-gx-lr genesis-plus-gx-wide-lr gw-lr handy-lr hatari-lr idtech-lr \
                 jaxe-lr mame-lr mame2003-plus-lr mame2010-lr mame2015-lr melonds-lr melonds-ds-lr mesen-lr mgba-lr minivmac-lr       \
-                mojozork-lr mu-lr mupen64plus-lr mupen64plus-nx-lr neocd_lr nestopia-lr np2kai-lr o2em-lr opera-lr parallel-n64-lr   \
+                mojozork-lr mu-lr mupen64plus-lr mupen64plus-nx-lr neocd_lr nestopia-lr np2kai-lr opera-lr parallel-n64-lr           \
                 pcsx_rearmed-lr picodrive-lr pokemini-lr potator-lr prosystem-lr puae-lr puae2021-lr px68k-lr quasi88-lr quicknes-lr \
-                race-lr same_cdi-lr sameboy-lr sameduck-lr scummvm-lr smsplus-gx-lr snes9x-lr snes9x2002-lr snes9x2005_plus-lr       \
+                race-lr sameboy-lr sameduck-lr scummvm-lr smsplus-gx-lr snes9x-lr snes9x2002-lr snes9x2005_plus-lr                   \
                 snes9x2010-lr stella-lr swanstation-lr tgbdual-lr theodore-lr tic80-lr uzem-lr vba-next-lr vbam-lr vecx-lr vice-lr   \
                 vircon32-lr virtualjaguar-lr xmil-lr wasm4-lr yabasanshiro-lr"
 
-LIBRETRO_CORES+=" fbneo-dsno-lr mame2003-plus-dsno-lr mame2003-xtreme-lr fbneo-xtreme-lr"
+LIBRETRO_CORES+=" fbneo-dsno-lr mame2003-plus-dsno-lr"
 
 ### Emulators or cores for specific devices
 case "${DEVICE}" in
@@ -211,12 +211,12 @@ makeinstall_target() {
   ### Arcade
   add_emu_core arcade retroarch mame2003_plus false
   add_emu_core arcade retroarch mame2003_plus-dsno true
-  add_emu_core arcade retroarch km_mame2003_xtreme_amped false
+  #add_emu_core arcade retroarch km_mame2003_xtreme_amped false
   add_emu_core arcade retroarch mame2010 false
   add_emu_core arcade retroarch mame2015 false
   add_emu_core arcade retroarch fbneo false
   add_emu_core arcade retroarch fbneo-dsno false
-  add_emu_core arcade retroarch km_fbneo_xtreme_amped false
+  #add_emu_core arcade retroarch km_fbneo_xtreme_amped false
   add_emu_core arcade retroarch fbalpha2012 false
   add_emu_core arcade retroarch fbalpha2019 false
   add_emu_core arcade retroarch mame false
@@ -310,10 +310,10 @@ makeinstall_target() {
   ### Capcom Playsystem 1
   add_emu_core cps1 retroarch fbneo false
   add_emu_core cps1 retroarch fbneo-dsno true
-  add_emu_core cps1 retroarch km_fbneo_xtreme_amped false
+  #add_emu_core cps1 retroarch km_fbneo_xtreme_amped false
   add_emu_core cps1 retroarch mame2003_plus false
   add_emu_core cps1 retroarch mame2003_plus-dsno false
-  add_emu_core cps1 retroarch km_mame2003_xtreme_amped false
+  #add_emu_core cps1 retroarch km_mame2003_xtreme_amped false
   add_emu_core cps1 retroarch mame2010 false
   add_emu_core cps1 retroarch fbalpha2012 false
   case ${TARGET_ARCH} in
@@ -326,10 +326,10 @@ makeinstall_target() {
   ### Capcom Playsystem 2
   add_emu_core cps2 retroarch fbneo false
   add_emu_core cps2 retroarch fbneo-dsno true
-  add_emu_core cps2 retroarch km_fbneo_xtreme_amped false
+  #add_emu_core cps2 retroarch km_fbneo_xtreme_amped false
   add_emu_core cps2 retroarch mame2003_plus false
   add_emu_core cps2 retroarch mame2003_plus-dsno false
-  add_emu_core cps2 retroarch km_mame2003_xtreme_amped false
+  #add_emu_core cps2 retroarch km_mame2003_xtreme_amped false
   add_emu_core cps2 retroarch mame2010 false
   add_emu_core cps2 retroarch fbalpha2012 false
   case ${TARGET_ARCH} in
@@ -342,10 +342,10 @@ makeinstall_target() {
   ### Capcom Playsystem 3
   add_emu_core cps3 retroarch fbneo false
   add_emu_core cps3 retroarch fbneo-dsno true
-  add_emu_core cps3 retroarch km_fbneo_xtreme_amped false
+  #add_emu_core cps3 retroarch km_fbneo_xtreme_amped false
   add_emu_core cps3 retroarch mame2003_plus false
   add_emu_core cps3 retroarch mame2003_plus-dsno false
-  add_emu_core cps3 retroarch km_mame2003_xtreme_amped false
+  #add_emu_core cps3 retroarch km_mame2003_xtreme_amped false
   add_emu_core cps3 retroarch mame2010 false
   add_emu_core cps3 retroarch fbalpha2012 false
   case ${TARGET_ARCH} in
@@ -416,10 +416,10 @@ makeinstall_target() {
   ### Final Burn Neo
   add_emu_core fbn retroarch fbneo false
   add_emu_core fbn retroarch fbneo-dsno true
-  add_emu_core fbn retroarch km_fbneo_xtreme_amped false
+  #add_emu_core fbn retroarch km_fbneo_xtreme_amped false
   add_emu_core fbn retroarch mame2003_plus false
   add_emu_core fbn retroarch mame2003_plus-dsno false
-  add_emu_core fbn retroarch km_mame2003_xtreme_amped false
+  #add_emu_core fbn retroarch km_mame2003_xtreme_amped false
   add_emu_core fbn retroarch mame2010 false
   add_emu_core fbn retroarch mame2015 false
   add_emu_core fbn retroarch mame false
@@ -653,13 +653,13 @@ makeinstall_target() {
   ### Arcade (MAME)
   add_emu_core mame retroarch mame2003_plus false
   add_emu_core mame retroarch mame2003_plus-dsno true
-  add_emu_core mame retroarch km_mame2003_xtreme_amped false
+  #add_emu_core mame retroarch km_mame2003_xtreme_amped false
   add_emu_core mame retroarch mame2010 false
   add_emu_core mame retroarch mame2015 false
   add_emu_core mame retroarch mame false
   add_emu_core mame retroarch fbneo false
   add_emu_core mame retroarch fbneo-dsno false
-  add_emu_core mame retroarch km_fbneo_xtreme_amped false
+  #add_emu_core mame retroarch km_fbneo_xtreme_amped false
   add_emu_core mame retroarch fbalpha2012 false
   add_emu_core mame retroarch fbalpha2019 false
   add_es_system mame
@@ -736,10 +736,10 @@ makeinstall_target() {
   ### SNK NeoGeo
   add_emu_core neogeo retroarch fbneo false
   add_emu_core neogeo retroarch fbneo-dsno true
-  add_emu_core neogeo retroarch km_fbneo_xtreme_amped false
+  #add_emu_core neogeo retroarch km_fbneo_xtreme_amped false
   add_emu_core neogeo retroarch mame2003_plus false
   add_emu_core neogeo retroarch mame2003_plus-dsno false
-  add_emu_core neogeo retroarch km_mame2003_xtreme_amped false
+  #add_emu_core neogeo retroarch km_mame2003_xtreme_amped false
   add_emu_core neogeo retroarch fbalpha2012 false
   add_emu_core neogeo retroarch fbalpha2019 false
   add_emu_core neogeo retroarch mame2010 false
@@ -756,7 +756,7 @@ makeinstall_target() {
   add_emu_core neocd retroarch neocd true
   add_emu_core neocd retroarch fbneo false
   add_emu_core neocd retroarch fbneo-dsno false
-  add_emu_core neocd retroarch km_fbneo_xtreme_amped false
+  #add_emu_core neocd retroarch km_fbneo_xtreme_amped false
   add_es_system neocd
 
   ### SNK NeoGeo Pocket
@@ -859,8 +859,8 @@ makeinstall_target() {
   add_es_system nesh
 
   ### Magnavox Odyssey
-  add_emu_core odyssey2 retroarch o2em true
-  add_es_system odyssey2
+  #add_emu_core odyssey2 retroarch o2em true
+  #add_es_system odyssey2
 
   ### OpenBOR
   add_emu_core openbor OpenBOR OpenBOR true
@@ -1283,12 +1283,12 @@ makeinstall_target() {
   add_es_system vectrex
 
   ### Philips - CDi
-  add_emu_core cdi retroarch same_cdi true
-  add_es_system cdi
+  #add_emu_core cdi retroarch same_cdi true
+  #add_es_system cdi
 
   ### Philips Videopac
-  add_emu_core videopac retroarch o2em true
-  add_es_system videopac
+  #add_emu_core videopac retroarch o2em true
+  #add_es_system videopac
 
   ### Nintendo VirtualBoy
   add_emu_core virtualboy retroarch beetle_vb true
