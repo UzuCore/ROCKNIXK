@@ -177,7 +177,7 @@ diff -rupN fileman.orig/src/mainWindow.cpp fileman/src/mainWindow.cpp
        if (l_dialog.execute() != 0)
           return;
     }
-@@ -370,25 +370,25 @@ void MainWindow::openContextMenu(void)
+@@ -370,28 +370,28 @@ void MainWindow::openContextMenu(void)
     int result = -1;
     {
        std::ostringstream oss;
@@ -198,8 +198,12 @@ diff -rupN fileman.orig/src/mainWindow.cpp fileman/src/mainWindow.cpp
 -         l_dialog.addOption("Delete", 3, g_iconTrash);
 +         l_dialog.addOption("삭제", 3, g_iconTrash);
        if (nbSelected == 1)
+       {
 -         l_dialog.addOption("Rename", 9, g_iconEdit);
+-         l_dialog.addOption("Execute", 10, g_iconExecute);
 +         l_dialog.addOption("이름변경", 9, g_iconEdit);
++         l_dialog.addOption("실행", 10, g_iconExecute);
+       }
        if (m_fileLister.getNbSelected('d') > 0)
 -         l_dialog.addOption("Size", 4, g_iconDisk);
 -      l_dialog.addOption("Select all", 5, g_iconSelect);
