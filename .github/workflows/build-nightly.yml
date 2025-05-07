@@ -109,7 +109,7 @@ jobs:
          if [ $(git rev-list $COMMIT..HEAD --count) -eq 0 ]; then
            echo "new_commits=false" >> $GITHUB_ENV
          else
-           COMMIT_MSG=$(printf "Changelog since last nightly:\n\n%s" "$(git log --format="- %s" $COMMIT..$GITHUB_SHA | grep -v "Merge pull request")")
+           COMMIT_MSG=$(printf "Changelog since last nightly:\n\n%s" "$(git log --format="- %s (by %an)" $COMMIT..$GITHUB_SHA | grep -v "Merge pull request")")
            echo "commit_msg<<EOF" >> "$GITHUB_OUTPUT"
            echo "$COMMIT_MSG" >> "$GITHUB_OUTPUT"
            echo "EOF" >> "$GITHUB_OUTPUT"
