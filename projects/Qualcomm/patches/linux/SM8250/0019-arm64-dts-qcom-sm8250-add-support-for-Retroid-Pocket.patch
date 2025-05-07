@@ -34,8 +34,8 @@ index 000000000000..cab80e1c81e5
 +		pinctrl-names = "default";
 +		pinctrl-0 = <&hall_sensor_default>;
 +
-+		lid-switch {
-+			label = "Lid Switch";
++		hall-sensor {
++			label = "Hall Sensor";
 +			gpios = <&tlmm 123 GPIO_ACTIVE_LOW>;
 +			linux,can-disable;
 +			linux,code = <SW_LID>;

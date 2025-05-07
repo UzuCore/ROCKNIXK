@@ -23,11 +23,11 @@ case ${DEVICE} in
     PKG_PATCH_DIRS="${LINUX} ${DEVICE} default"
   ;;
   H700|SM8550)
-    PKG_VERSION="6.14.4"
+    PKG_VERSION="6.14.5"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
   ;;
   SM8250)
-    PKG_VERSION="6.12.26"
+    PKG_VERSION="6.12.27"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
   ;;
   *)

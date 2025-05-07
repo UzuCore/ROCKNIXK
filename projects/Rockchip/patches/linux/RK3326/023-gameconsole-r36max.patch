@@ -1,7 +1,7 @@
 new file mode 100644
 --- /dev/null
 +++ b/arch/arm64/boot/dts/rockchip/rk3326-gameconsole-r36max.dts
-@@ -0,0 +1,894 @@
+@@ -0,0 +1,884 @@
 +/// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 +/*
 + * Copyright (c) 2024-present ROCKNIX (https://github.com/ROCKNIX)
@@ -16,13 +16,15 @@ new file mode 100644
 +#include "rk3326.dtsi"
 +
 +/ {
-+    model = "Game Console R36Max";
++    model = "K36 family clone";
 +    compatible = "gameconsole,r36max", "rockchip,rk3326";
 +
 +    aliases {
 +        mmc0 = &emmc;
 +        mmc1 = &sdmmc;
 +        mmc2 = &sdio;
++        serial1 = &uart2;
++        serial2 = &uart1;
 +    };
 +
 +    backlight: backlight {
@@ -164,10 +166,6 @@ new file mode 100644
 +        /* poll device interval (ms), adc read interval */
 +        poll-interval = <10>;
 +
-+        /* required for RG36S */
-+        invert-absx;
-+        invert-absy;
-+
 +        /* gpio button auto repeat set value : default disable */
 +        /*
 +           autorepeat;
@@ -283,7 +281,7 @@ new file mode 100644
 +		simple-audio-card,name = "rk817_ext";
 +        simple-audio-card,aux-devs = <&spk_amp>;
 +		simple-audio-card,format = "i2s";
-+        simple-audio-card,hp-det-gpio = <&gpio2 RK_PC6 GPIO_ACTIVE_LOW>;
++        simple-audio-card,hp-det-gpio = <&gpio2 RK_PC6 GPIO_ACTIVE_HIGH>;
 +		simple-audio-card,mclk-fs = <256>;
 +        simple-audio-card,widgets =
 +            "Microphone", "Mic Jack",
@@ -453,6 +451,7 @@ new file mode 100644
 +        vcc6-supply = <&vccsys>;
 +        vcc7-supply = <&vcc_3v0>;
 +        vcc8-supply = <&vccsys>;
++        vcc9-supply = <&usb_midu>;
 +
 +    regulators {
 +        vdd_logic: DCDC_REG1 {
@@ -627,6 +626,13 @@ new file mode 100644
 +              regulator-boot-on;
 +        };
 +
++        otg_switch: OTG_SWITCH {
++            regulator-name = "otg_switch";
++
++            regulator-state-mem {
++                regulator-off-in-suspend;
++            };
++        };
 +    };
 +
 +    rk817_charger: charger {
@@ -649,12 +655,12 @@ new file mode 100644
 +};
 +
 +&io_domains {
-+    vccio1-supply = <&vcc1v8_soc>;
++    vccio1-supply = <&vcc2v8_dvp>;
 +    vccio2-supply = <&vccio_sd>;
-+    vccio3-supply = <&vcc3v0_dvp>;
++    vccio3-supply = <&vcc1v8_soc>;
 +    vccio4-supply = <&vcc_3v0>;
 +    vccio5-supply = <&vcc_3v0>;
-+    vccio6-supply = <&vcc_3v0>;
++    vccio6-supply = <&vcc1v8_soc>;
 +    status = "okay";
 +};
 +
@@ -687,14 +693,14 @@ new file mode 100644
 +
 +&sdmmc {
 +    cap-sd-highspeed;
-+    card-detect-delay = <200>;
++    card-detect-delay = <800>;
 +    cd-gpios = <&gpio0 RK_PA3 GPIO_ACTIVE_LOW>; /*[> ff370000 PD_SDCARD CD GPIO <]*/
 +    sd-uhs-sdr12;
 +    sd-uhs-sdr25;
 +    sd-uhs-sdr50;
 +    sd-uhs-sdr104;
-+    vmmc-supply = <&vcc_sd>;
 +    vqmmc-supply = <&vccio_sd>;
++    vmmc-supply = <&vcc_sd>;
 +    status = "okay";
 +};
 +
@@ -708,8 +714,8 @@ new file mode 100644
 +    sd-uhs-sdr25;
 +    sd-uhs-sdr50;
 +    sd-uhs-sdr104;
-+    vmmc-supply = <&vcc3v0_dvp>;
 +    vqmmc-supply = <&vcc2v8_dvp>;
++    vmmc-supply = <&vcc3v0_dvp>;
 +    status = "okay";
 +};
 +
@@ -734,20 +740,12 @@ new file mode 100644
 +    };
 +
 +    u2phy_otg: otg-port {
-+        status = "disabled";
++        status = "okay";
 +    };
-+};
-+
-+/* FIQ Header(P2): 2(RXD:GPIO2.B4),3(TXD:.B6) */
-+&uart2 {
-+    pinctrl-names = "default";
-+    pinctrl-0 = <&uart2m0_xfer>;
-+    status = "okay";
 +};
 +
 +&usb20_otg {
 +    status = "okay";
-+    dr_mode = "host";
 +};
 +
 +&vopb {
@@ -783,7 +781,7 @@ new file mode 100644
 +
 +    headphone {
 +        hp_det: hp-det {
-+            rockchip,pins = <2 RK_PC6 RK_FUNC_GPIO &pcfg_pull_up>;
++            rockchip,pins = <2 RK_PC6 RK_FUNC_GPIO &pcfg_pull_down>;
 +        };
 +    };
 +
@@ -795,7 +793,7 @@ new file mode 100644
 +
 +    vcc18-lcd {
 +        vcc18_lcd_n: vcc18-lcd-n {
-+            rockchip,pins = <3 RK_PA3 RK_FUNC_GPIO &pcfg_pull_none>;
++            rockchip,pins = <0 RK_PB5 RK_FUNC_GPIO &pcfg_pull_none>;
 +        };
 +    };
 +
@@ -803,14 +801,6 @@ new file mode 100644
 +        vcc5_usb: vcc5-usb {
 +            rockchip,pins = <0x03 0x04 0x00 0x9f>;
 +            phandle = <0xb2>;
-+        };
-+    };
-+
-+    gpio-led {
-+        led_pins: led-pins {
-+            rockchip,pins =
-+                <0 RK_PC1 RK_FUNC_GPIO &pcfg_pull_none>,
-+                <0 RK_PA0 RK_FUNC_GPIO &pcfg_pull_none>;
 +        };
 +    };
 +
