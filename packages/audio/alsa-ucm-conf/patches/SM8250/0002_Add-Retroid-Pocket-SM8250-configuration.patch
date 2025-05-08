@@ -1,4 +1,4 @@
-From fbed1fdf326999524c3d81928bd8665ccd1631fa Mon Sep 17 00:00:00 2001
+From eae9ef3f5aed6679ac743e1a7314a7ff1d10f815 Mon Sep 17 00:00:00 2001
 From: Teguh Sobirin <teguh@sobir.in>
 Date: Wed, 9 Oct 2024 18:21:07 +0800
 Subject: [PATCH] Add Retroid Pocket SM8250 configuration
@@ -9,14 +9,18 @@ Subject: [PATCH] Add Retroid Pocket SM8250 configuration
  ucm2/codecs/wsa881x/init.conf                 | 12 ++++
  ucm2/conf.d/sm8250/RetroidPocket.conf         |  1 +
  .../sm8250/retroidpocket-RetroidPocket5-.conf |  1 +
+ .../retroidpocket-RetroidPocketFlip2-.conf    |  1 +
  .../retroidpocket-RetroidPocketMini-.conf     |  1 +
- 6 files changed, 104 insertions(+)
+ .../retroidpocket-RetroidPocketMiniV2-.conf   |  1 +
+ 8 files changed, 106 insertions(+)
  create mode 100644 ucm2/Qualcomm/sm8250/HiFi-RP.conf
  create mode 100644 ucm2/Qualcomm/sm8250/RetroidPocket.conf
  create mode 100644 ucm2/codecs/wsa881x/init.conf
  create mode 120000 ucm2/conf.d/sm8250/RetroidPocket.conf
  create mode 120000 ucm2/conf.d/sm8250/retroidpocket-RetroidPocket5-.conf
+ create mode 120000 ucm2/conf.d/sm8250/retroidpocket-RetroidPocketFlip2-.conf
  create mode 120000 ucm2/conf.d/sm8250/retroidpocket-RetroidPocketMini-.conf
+ create mode 120000 ucm2/conf.d/sm8250/retroidpocket-RetroidPocketMiniV2-.conf
 
 diff --git a/ucm2/Qualcomm/sm8250/HiFi-RP.conf b/ucm2/Qualcomm/sm8250/HiFi-RP.conf
 new file mode 100644
@@ -153,11 +157,27 @@ index 0000000..8598750
 @@ -0,0 +1 @@
 +../../Qualcomm/sm8250/RetroidPocket.conf
 \ No newline at end of file
+diff --git a/ucm2/conf.d/sm8250/retroidpocket-RetroidPocketFlip2-.conf b/ucm2/conf.d/sm8250/retroidpocket-RetroidPocketFlip2-.conf
+new file mode 120000
+index 0000000..8598750
+--- /dev/null
++++ b/ucm2/conf.d/sm8250/retroidpocket-RetroidPocketFlip2-.conf
+@@ -0,0 +1 @@
++../../Qualcomm/sm8250/RetroidPocket.conf
+\ No newline at end of file
 diff --git a/ucm2/conf.d/sm8250/retroidpocket-RetroidPocketMini-.conf b/ucm2/conf.d/sm8250/retroidpocket-RetroidPocketMini-.conf
 new file mode 120000
 index 0000000..8598750
 --- /dev/null
 +++ b/ucm2/conf.d/sm8250/retroidpocket-RetroidPocketMini-.conf
+@@ -0,0 +1 @@
++../../Qualcomm/sm8250/RetroidPocket.conf
+\ No newline at end of file
+diff --git a/ucm2/conf.d/sm8250/retroidpocket-RetroidPocketMiniV2-.conf b/ucm2/conf.d/sm8250/retroidpocket-RetroidPocketMiniV2-.conf
+new file mode 120000
+index 0000000..8598750
+--- /dev/null
++++ b/ucm2/conf.d/sm8250/retroidpocket-RetroidPocketMiniV2-.conf
 @@ -0,0 +1 @@
 +../../Qualcomm/sm8250/RetroidPocket.conf
 \ No newline at end of file
