@@ -172,7 +172,7 @@ mode = 2
 # Specifies which joystick is bound to this controller: -1=No joystick, 0 or more= SDL Joystick number
 device = 0
 # SDL joystick name (or Keyboard)
-name = "RGB10X Gamepad"
+name = "retrogame_joypad_s1_f2"
 # Specifies whether this controller is 'plugged in' to the simulated N64
 plugged = True
 # Specifies which type of expansion pak is in the controller: 1=None, 2=Mem pak, 4=Transfer pak, 5=Rumble pak
@@ -197,10 +197,10 @@ DPad U = button(13)
 Start = button(9)
 Z Trig = button(4)
 B Button = button(3)
-A Button = button(0)
+A Button = button(1)
 C Button R = button(9)
 C Button L = button(11)
-C Button D = button(1)
+C Button D = button(0)
 C Button U = button(2)
 R Trig = button(5)
 L Trig = button(6)

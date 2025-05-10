@@ -3,7 +3,7 @@ new file mode 100644
 index 000000000000..70e642907531
 --- /dev/null
 +++ b/arch/arm64/boot/dts/rockchip/rk3326-powkiddy-rgb10x.dts
-@@ -0,0 +1,288 @@
+@@ -0,0 +1,209 @@
 +// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 +/*
 + * Copyright (c) 2024 ROCKNIX
@@ -11,6 +11,7 @@ index 000000000000..70e642907531
 +
 +/dts-v1/;
 +#include "rk3326-odroid-go.dtsi"
++#include "retrogame_joypad_s2_f1.dtsi"
 +
 +/ {
 +	model = "Powkiddy RGB10X";
@@ -19,166 +20,6 @@ index 000000000000..70e642907531
 +	aliases {
 +		mmc1 = &sdio;
 +	};
-+
-+	joypad: rgb10x-joypad {
-+		compatible = "rocknix-singleadc-joypad";
-+
-+		joypad-name = "RGB10X Gamepad";
-+		joypad-product = <0x0001>;
-+		joypad-revision = <0x0101>;
-+
-+		status = "okay";
-+
-+		/* gpio pincontrol setup */
-+                pinctrl-names = "default";
-+                pinctrl-0 = <&btn_pins>;
-+
-+		/* Analog mux define */
-+		io-channel-names = "amux_adc";
-+		io-channels = <&saradc 1>;
-+
-+		/* adc mux channel count */
-+		/* despite there is only left stick, amux-count needs to be 4, */
-+		/* because amux 0 and 1 are hardcoded as RX and RY in the driver */
-+		amux-count = <4>;
-+		/* adc mux select(a,b) gpio */
-+		amux-a-gpios = <&gpio3 RK_PB3 GPIO_ACTIVE_LOW>;
-+		amux-b-gpios = <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
-+		/* adc mux enable gpio */
-+		amux-en-gpios = <&gpio3 RK_PB5 GPIO_ACTIVE_LOW>;
-+
-+		/* adc calculate scale */
-+		button-adc-scale = <2>;
-+
-+		/* adc deadzone range  */
-+		button-adc-deadzone = <64>;
-+
-+		/*
-+		  specifies fuzz value that is used to filter noise from
-+		  the event stream.
-+		*/
-+		button-adc-fuzz = <32>;
-+		button-adc-flat = <32>;
-+
-+		/*
-+		  Analog Stick data tuning value(precent)
-+		  p = positive direction, n = negative direction
-+		  report value = (real_adc_data * tuning_value) / 100
-+		*/
-+		abs_x-p-tuning = <200>;
-+		abs_x-n-tuning = <200>;
-+
-+		abs_y-p-tuning = <200>;
-+		abs_y-n-tuning = <200>;
-+
-+		abs_rx-p-tuning = <200>;
-+		abs_rx-n-tuning = <200>;
-+
-+		abs_ry-p-tuning = <200>;
-+		abs_ry-n-tuning = <200>;
-+
-+		/* poll device interval (ms), adc read interval */
-+		poll-interval = <10>;
-+
-+		/* required for RGB10X */
-+		invert-absx;
-+		invert-absy;
-+
-+		/* gpio button auto repeat set value : default disable */
-+		/*
-+			autorepeat;
-+		*/
-+
-+                /*
-+                    joypad driver is poll-device driver.
-+                    poll-device is does not support wakeup-source.
-+		*/
-+		sw1 {
-+			gpios = <&gpio1 RK_PB4 GPIO_ACTIVE_LOW>;
-+			label = "GPIO DPAD-UP";
-+			linux,code = <BTN_DPAD_UP>;
-+		};
-+		sw2 {
-+			gpios = <&gpio1 RK_PB5 GPIO_ACTIVE_LOW>;
-+			label = "GPIO DPAD-DOWN";
-+			linux,code = <BTN_DPAD_DOWN>;
-+		};
-+		sw3 {
-+			gpios = <&gpio1 RK_PB6 GPIO_ACTIVE_LOW>;
-+			label = "GPIO DPAD-LEFT";
-+			linux,code = <BTN_DPAD_LEFT>;
-+		};
-+		sw4 {
-+			gpios = <&gpio1 RK_PB7 GPIO_ACTIVE_LOW>;
-+			label = "GPIO DPAD-RIGHT";
-+			linux,code = <BTN_DPAD_RIGHT>;
-+		};
-+		sw5 {
-+			gpios = <&gpio1 RK_PA2 GPIO_ACTIVE_LOW>;
-+			label = "GPIO BTN-A";
-+			linux,code = <BTN_EAST>;
-+		};
-+		sw6 {
-+			gpios = <&gpio1 RK_PA5 GPIO_ACTIVE_LOW>;
-+			label = "GPIO BTN-B";
-+			linux,code = <BTN_SOUTH>;
-+		};
-+		sw7 {
-+			gpios = <&gpio1 RK_PA6 GPIO_ACTIVE_LOW>;
-+			label = "GPIO BTN-Y";
-+			linux,code = <BTN_WEST>;
-+		};
-+		sw8 {
-+			gpios = <&gpio1 RK_PA7 GPIO_ACTIVE_LOW>;
-+			label = "GPIO BTN-X";
-+			linux,code = <BTN_NORTH>;
-+		};
-+		sw9 {
-+			gpios = <&gpio2 RK_PA6 GPIO_ACTIVE_LOW>;
-+			label = "TOP-LEFT";
-+			linux,code = <BTN_TL>;
-+		};
-+		sw10 {
-+			gpios = <&gpio2 RK_PA7 GPIO_ACTIVE_LOW>;
-+			label = "TOP-RIGHT";
-+			linux,code = <BTN_TR>;
-+		};
-+		sw11 {
-+			gpios = <&gpio2 RK_PA2 GPIO_ACTIVE_LOW>;
-+			label = "BTN_THUMBL";
-+			linux,code = <BTN_THUMBL>;
-+		};
-+		sw12 {
-+			gpios = <&gpio2 RK_PA4 GPIO_ACTIVE_LOW>;
-+			label = "GPIO MINUS";
-+			linux,code = <BTN_MODE>;
-+		};
-+		sw13 {
-+			gpios = <&gpio2 RK_PA3 GPIO_ACTIVE_LOW>;
-+			label = "GPIO PLUS";
-+			linux,code = <BTN_THUMBR>;
-+		};
-+		sw14 {
-+			gpios = <&gpio3 RK_PB1 GPIO_ACTIVE_LOW>;
-+			label = "BTN_SELECT";
-+			linux,code = <BTN_SELECT>;
-+		};
-+		sw15 {
-+			gpios = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
-+			label = "TOP-RIGHT 2";
-+			linux,code = <BTN_TR2>;
-+		};
-+		sw16 {
-+			gpios = <&gpio3 RK_PB2 GPIO_ACTIVE_LOW>;
-+			label = "TOP-LEFT 2";
-+			linux,code = <BTN_TL2>;
-+		};
-+		sw17 {
-+			gpios = <&gpio3 RK_PB4 GPIO_ACTIVE_LOW>;
-+			label = "START";
-+			linux,code = <BTN_START>;
-+		};
-+        };
 +
 +	battery: battery {
 +		compatible = "simple-battery";
@@ -216,6 +57,86 @@ index 000000000000..70e642907531
 +			label = "VOLUMEUP";
 +			linux,code = <KEY_VOLUMEUP>;
 +		};
++	};
++};
++
++&joypad {
++	compatible = "rocknix-singleadc-joypad";
++	joypad-name = "retrogame_joypad_s1_f2"; /* distinct name to indicate there is 1 stick and 2 fn buttons */
++	joypad-product = <0x1112>;  /* 11 inherited, 1 for number of sticks, 2 for number of FN */
++	status = "okay";
++
++	/* gpio pincontrol setup */
++	pinctrl-names = "default";
++	pinctrl-0 = <&btn_pins>;
++
++	/* Analog mux define */
++	io-channel-names = "amux_adc";
++	io-channels = <&saradc 1>;
++
++	/* adc mux channel count */
++	/* despite there is only left stick, amux-count needs to be 4, */
++	/* because amux 0 and 1 are hardcoded as RX and RY in the driver */
++	amux-count = <4>;
++	/* adc mux select(a,b) gpio */
++	amux-a-gpios = <&gpio3 RK_PB3 GPIO_ACTIVE_LOW>;
++	amux-b-gpios = <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
++	/* adc mux enable gpio */
++	amux-en-gpios = <&gpio3 RK_PB5 GPIO_ACTIVE_LOW>;
++
++	/*
++	  Analog Stick data tuning value(precent)
++	  p = positive direction, n = negative direction
++	  report value = (real_adc_data * tuning_value) / 100
++	*/
++	abs_x-p-tuning = <200>;
++	abs_x-n-tuning = <200>;
++
++	abs_y-p-tuning = <200>;
++	abs_y-n-tuning = <200>;
++
++	abs_rx-p-tuning = <200>;
++	abs_rx-n-tuning = <200>;
++
++	abs_ry-p-tuning = <200>;
++	abs_ry-n-tuning = <200>;
++
++	/* required for RGB10X */
++	invert-absx;
++	invert-absy;
++
++	/*
++	    joypad driver is poll-device driver.
++	    poll-device is does not support wakeup-source.
++	*/
++	up    { gpios = <&gpio1 RK_PB4 GPIO_ACTIVE_LOW>; };
++	down  { gpios = <&gpio1 RK_PB5 GPIO_ACTIVE_LOW>; };
++	left  { gpios = <&gpio1 RK_PB6 GPIO_ACTIVE_LOW>; };
++	right { gpios = <&gpio1 RK_PB7 GPIO_ACTIVE_LOW>; };
++
++	a     { gpios = <&gpio1 RK_PA2 GPIO_ACTIVE_LOW>; };
++	b     { gpios = <&gpio1 RK_PA5 GPIO_ACTIVE_LOW>; };
++	x     { gpios = <&gpio1 RK_PA7 GPIO_ACTIVE_LOW>; };
++	y     { gpios = <&gpio1 RK_PA6 GPIO_ACTIVE_LOW>; };
++
++	tl    { gpios = <&gpio2 RK_PA6 GPIO_ACTIVE_LOW>; };
++	tr    { gpios = <&gpio2 RK_PA7 GPIO_ACTIVE_LOW>; };
++	tr2   { gpios = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>; };
++	tl2   { gpios = <&gpio3 RK_PB2 GPIO_ACTIVE_LOW>; };
++
++	select{ gpios = <&gpio3 RK_PB1 GPIO_ACTIVE_LOW>; };
++	start { gpios = <&gpio3 RK_PB4 GPIO_ACTIVE_LOW>; };
++
++	thumbl{ gpios = <&gpio2 RK_PA2 GPIO_ACTIVE_LOW>; };
++
++	/* Plus and Minus face buttons are mapped to mode and thumbr */
++	mode {
++		gpios = <&gpio2 RK_PA4 GPIO_ACTIVE_LOW>;
++		label = "GPIO MINUS";
++	};
++	thumbr {
++		gpios = <&gpio2 RK_PA3 GPIO_ACTIVE_LOW>;
++		label = "GPIO PLUS";
 +	};
 +};
 +
