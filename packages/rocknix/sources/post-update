@@ -226,3 +226,6 @@ fi
 # Wipe duckstation-sa config - moving to appimage
 rm -rf /storage/.local/share/duckstation
 rm -rf /storage/.config/duckstation
+
+# Wipe azahar config - fresh start after bringup dev
+rm -rf /storage/.config/azahar

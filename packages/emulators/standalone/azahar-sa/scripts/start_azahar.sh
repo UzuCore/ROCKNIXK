@@ -19,7 +19,7 @@ ROMS_DIR="/storage/roms/3ds"
 
 # Make sure azahar config directory exists
 [ ! -d ${CONF_DIR} ] && cp -r ${IMMUTABLE_CONF_DIR} /storage/.config
-[ ! -d ${CONF_DIR}/log ] && mkdir -p ${${CONF_DIR}}/log
+[ ! -d ${CONF_DIR}/log ] && mkdir -p ${CONF_DIR}/log
 
 # Move sdmc & nand to 3ds roms folder
 [ ! -d /storage/roms/3ds/azahar/sdmc ] && mkdir -p ${ROMS_DIR}/azahar/sdmc
@@ -58,6 +58,13 @@ SLAYOUT=$(get_setting screen_layout "${PLATFORM}" "${GAME}")
 CSHADERS=$(get_setting cache_shaders "${PLATFORM}" "${GAME}")
 HSHADERS=$(get_setting hardware_shaders "${PLATFORM}" "${GAME}")
 ACCURATE_HW_SHADERS=$(get_setting accurate_hardware_shaders "${PLATFORM}" "${GAME}")
+DISABLE_RIGHT_EYE_RENDER=$(get_setting disable_right_eye_render "${PLATFORM}" "${GAME}")
+
+#Set the cores to use
+CORES=$(get_setting "cores" "${PLATFORM}" "${GAME}")
+unset EMUPERF
+[ "${CORES}" = "little" ] && EMUPERF="${SLOW_CORES}"
+[ "${CORES}" = "big" ] && EMUPERF="${FAST_CORES}"
 
 # CPU Underclock
 sed -i '/^cpu_clock_percentage\\default=/c\cpu_clock_percentage\\default=false' ${CONF_FILE}
@@ -162,6 +169,14 @@ case "${RENDERER}" in
   *) sed -i '/^graphics_api=/c\graphics_api=2' ${CONF_FILE};;
 esac
 
+# Disable Right Eye Rendering
+sed -i '/^disable_right_eye_render\\default=/c\disable_right_eye_render\\default=false' ${CONF_FILE}
+
+case "${DISABLE_RIGHT_EYE_RENDER}" in
+  0) sed -i '/^disable_right_eye_render=/c\disable_right_eye_render=false' ${CONF_FILE};;
+  1) sed -i '/^disable_right_eye_render=/c\disable_right_eye_render=true' ${CONF_FILE};;
+esac
+
 rm -rf /storage/.local/share/azahar
 ln -sf ${CONF_DIR} /storage/.local/share/azahar
 
@@ -175,4 +190,4 @@ else
   ${GPTOKEYB} azahar -c /tmp/azahar.gptk &
 fi
 
-/usr/bin/azahar "${1}"
+${EMUPERF} /usr/bin/azahar "${1}"

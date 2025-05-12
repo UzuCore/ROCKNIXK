@@ -58,6 +58,12 @@ CSHADERS=$(get_setting cache_shaders "${PLATFORM}" "${GAME}")
 HSHADERS=$(get_setting hardware_shaders "${PLATFORM}" "${GAME}")
 ACCURATE_HW_SHADERS=$(get_setting accurate_hardware_shaders "${PLATFORM}" "${GAME}")
 
+#Set the cores to use
+CORES=$(get_setting "cores" "${PLATFORM}" "${GAME}")
+unset EMUPERF
+[ "${CORES}" = "little" ] && EMUPERF="${SLOW_CORES}"
+[ "${CORES}" = "big" ] && EMUPERF="${FAST_CORES}"
+
 # CPU Underclock
 sed -i '/^cpu_clock_percentage\\default=/c\cpu_clock_percentage\\default=false' ${CONF_FILE}
 
@@ -170,4 +176,4 @@ else
   ${GPTOKEYB} lime3ds -c /tmp/lime3ds.gptk &
 fi
 
-/usr/bin/lime3ds "${1}"
+${EMUPERF} /usr/bin/lime3ds "${1}"
