@@ -19,6 +19,7 @@ ROMS_DIR="/storage/roms/3ds"
 
 # Make sure azahar config directory exists
 [ ! -d ${CONF_DIR} ] && cp -r ${IMMUTABLE_CONF_DIR} /storage/.config
+[ ! -d ${CONF_DIR}/log ] && mkdir -p ${${CONF_DIR}}/log
 
 # Move sdmc & nand to 3ds roms folder
 [ ! -d /storage/roms/3ds/azahar/sdmc ] && mkdir -p ${ROMS_DIR}/azahar/sdmc
@@ -148,6 +149,10 @@ case "${SLAYOUT}" in
     sed -i '/^swap_screen=/c\swap_screen=false' ${CONF_FILE}
     ;;
 esac
+
+# Force Disable Shader JIT
+sed -i '/^use_shader_jit=/c\use_shader_jit=false' ${CONF_FILE}
+sed -i '/^use_shader_jit\\default=/c\use_shader_jit\\default=false' ${CONF_FILE}
 
 # Video Backend
 sed -i '/^graphics_api\\default=/c\graphics_api\\default=false' ${CONF_FILE}

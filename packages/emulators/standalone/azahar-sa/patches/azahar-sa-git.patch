@@ -50,12 +50,13 @@ index bb73c049..e58be3a1 100644
  #endif
  #endif
  
-@@ -59,7 +59,7 @@
+@@ -59,7 +59,8 @@
  #define SDMC_DIR "sdmc"
  #define NAND_DIR "nand"
  #define SYSDATA_DIR "sysdata"
 -#define LOG_DIR "log"
 +#define LOG_DIR "/var/log"
++#define PLAY_TIME_DIR "log"
  #define CHEATS_DIR "cheats"
  #define DLL_DIR "external_dlls"
  #define SHADER_DIR "shaders"
@@ -63,7 +64,7 @@ diff --git a/src/common/file_util.cpp b/src/common/file_util.cpp
 index 5d1b184f..a6720d05 100644
 --- a/src/common/file_util.cpp
 +++ b/src/common/file_util.cpp
-@@ -870,7 +870,7 @@ void SetUserPath(const std::string& path) {
+@@ -870,14 +870,14 @@ void SetUserPath(const std::string& path) {
      g_paths.emplace(UserPath::NANDDir, user_path + NAND_DIR DIR_SEP);
      g_paths.emplace(UserPath::SysDataDir, user_path + SYSDATA_DIR DIR_SEP);
      // TODO: Put the logs in a better location for each OS
@@ -72,3 +73,11 @@ index 5d1b184f..a6720d05 100644
      g_paths.emplace(UserPath::CheatsDir, user_path + CHEATS_DIR DIR_SEP);
      g_paths.emplace(UserPath::DLLDir, user_path + DLL_DIR DIR_SEP);
      g_paths.emplace(UserPath::ShaderDir, user_path + SHADER_DIR DIR_SEP);
+     g_paths.emplace(UserPath::DumpDir, user_path + DUMP_DIR DIR_SEP);
+     g_paths.emplace(UserPath::LoadDir, user_path + LOAD_DIR DIR_SEP);
+     g_paths.emplace(UserPath::StatesDir, user_path + STATES_DIR DIR_SEP);
+     g_paths.emplace(UserPath::IconsDir, user_path + ICONS_DIR DIR_SEP);
+-    g_paths.emplace(UserPath::PlayTimeDir, user_path + LOG_DIR DIR_SEP);
++    g_paths.emplace(UserPath::PlayTimeDir, user_path + PLAY_TIME_DIR DIR_SEP);
+     g_default_paths = g_paths;
+ }

@@ -46,9 +46,8 @@ fi
 
 if [ "${WIFI_TYPE}" = "1" ]
 then
-  GENERATED=($(awk '! /^HW_|BUILD_DATE/ {print}' /etc/os-release | md5sum))
-  SSID="${GENERATED[0]:0:10}"
-  PSK="${GENERATED[0]: -10}"
+  SSID="NETPLAY_AP"
+  PSK="deadbeef"
 fi
 
 if [ ! -d "${CFG_ROOT}/connman" ]
@@ -129,6 +128,8 @@ EOF
   ip addr add ${NETWORK_ADDRESS}.${ADHOC_CLIENT_ID}/24 dev ${WIFI_DEV} >/dev/null 2>&1
 
   systemctl start hostapd
+
+  set_setting wifi.enabled 1
 
   exit 0
 }

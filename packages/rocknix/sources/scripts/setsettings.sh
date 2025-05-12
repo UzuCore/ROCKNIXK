@@ -607,14 +607,19 @@ EOF
         local NETPLAY_RELAY=$(game_setting global.netplay.relay)
         if [ -n "${NETPLAY_RELAY}" ]
         then
-          case $(NETPLAY_RELAY) in
+          case ${NETPLAY_RELAY} in
               none|false|0)
                   add_setting "none" "netplay_use_mitm_server" "false"
+              ;;
+              custom)
+                  add_setting "none" "netplay_use_mitm_server" "true"
+                  add_setting "none" "netplay_mitm_server" "${NETPLAY_RELAY}"
+                  add_setting "global.netplay.customserver" "netplay_custom_mitm_server"
               ;;
               *)
                   add_setting "none" "netplay_use_mitm_server" "true"
                   add_setting "none" "netplay_mitm_server" "${NETPLAY_RELAY}"
-              ;; 
+              ;;
           esac
         else
             add_setting "none" "netplay_use_mitm_server" "false"

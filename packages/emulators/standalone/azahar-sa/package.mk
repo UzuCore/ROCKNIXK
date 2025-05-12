@@ -2,10 +2,10 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="azahar-sa"
-PKG_VERSION="a6782e8a136cba9b99bd19627e0a669678733338"
+PKG_VERSION="2121.1"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/azahar-emu/azahar"
-PKG_URL="${PKG_SITE}.git"
+PKG_URL="${PKG_SITE}/releases/download/${PKG_VERSION}/azahar-unified-source-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain ffmpeg mesa SDL2 boost zlib libusb boost zstd control-gen spirv-tools qt6"
 PKG_LONGDESC="Azahar - Nintendo 3DS emulator"
 PKG_TOOLCHAIN="cmake"
