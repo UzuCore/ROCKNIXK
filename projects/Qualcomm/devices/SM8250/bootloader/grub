@@ -57,7 +57,7 @@ menuentry 'Retroid Pocket Mini' \$menuentry_id_option 'rpmini' {
         linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} fbcon=rotate:1
         devicetree /${DEVICE_DTB[2]}.dtb
 }
-menuentry 'Retroid Pocket Mini v2' \$menuentry_id_option 'rpminiv2' {
+menuentry 'Retroid Pocket Mini V2' \$menuentry_id_option 'rpminiv2' {
         savedefault
         search --set -f /KERNEL
         linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} fbcon=rotate:1
@@ -78,7 +78,7 @@ menuentry 'Retroid Pocket Mini RECOVERY' \$menuentry_id_option 'rpmini-recovery'
         linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} fbcon=rotate:1 recovery
         devicetree /${DEVICE_DTB[2]}.dtb
 }
-menuentry 'Retroid Pocket Mini v2 RECOVERY' \$menuentry_id_option 'rpminiv2-recovery' {
+menuentry 'Retroid Pocket Mini V2 RECOVERY' \$menuentry_id_option 'rpminiv2-recovery' {
         search --set -f /KERNEL
         linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} fbcon=rotate:1 recovery
         devicetree /${DEVICE_DTB[3]}.dtb

@@ -2,7 +2,7 @@ From 3a6c3451e69dbefefd489b440de852802be5eb87 Mon Sep 17 00:00:00 2001
 From: spycat88 <spycat88@users.noreply.github.com>
 Date: Sun, 27 Apr 2025 19:56:21 +0100
 Subject: [PATCH] arm64: dts: qcom: sm8250: add support for Retroid Pocket Mini
- v2
+ V2
 
 ---
  .../qcom/sm8250-retroidpocket-rpminiv2.dts    | 19 +++++++++++++++++++
@@ -25,7 +25,7 @@ index 000000000000..a1bb992709cb
 +#include "sm8250-retroidpocket-rpmini.dts"
 +
 +/ {
-+	model = "Retroid Pocket Mini v2";
++	model = "Retroid Pocket Mini V2";
 +	compatible = "retroidpocket,rpminiv2", "qcom,sm8250";
 +};
 +
