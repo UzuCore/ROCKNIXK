@@ -15,6 +15,14 @@ on:
         description: "repo owner name"
         type: string
         required: true
+      NIGHTLY:  
+        description: "build nightly version"
+        type: string
+        required: true
+      OFFICIAL:  
+        description: "build official version"
+        type: string
+        required: true  
 
 jobs:
   build-arm:
@@ -823,7 +831,8 @@ jobs:
       CHEEVOS_DEV_LOGIN: ${{ secrets.CHEEVOS_DEV_LOGIN }}
       GAMESDB_APIKEY: ${{ secrets.GAMESDB_APIKEY }}
       SCREENSCRAPER_DEV_LOGIN: ${{ secrets.SCREENSCRAPER_DEV_LOGIN }}
-      NIGHTLY: yes
+      NIGHTLY: ${{ inputs.NIGHTLY }}
+      OFFICIAL: ${{ inputs.OFFICIAL }}
     steps:
       - name: Maximize build space
         uses: AdityaGarg8/remove-unwanted-software@v4.1
@@ -971,7 +980,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ROCKNIX-nightly-image-${{ inputs.DEVICE }}-${{ env.DATE }}
+          name: ROCKNIX-image-${{ inputs.DEVICE }}-${{ env.DATE }}
           path: |
             release/ROCKNIX-*.img.gz
             release/ROCKNIX-*.img.gz.sha256
@@ -980,7 +989,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ROCKNIX-nightly-update-${{ inputs.DEVICE }}-${{ env.DATE }}
+          name: ROCKNIX-update-${{ inputs.DEVICE }}-${{ env.DATE }}
           path: |
             release/ROCKNIX-*.tar
             release/ROCKNIX-*.tar.sha256
