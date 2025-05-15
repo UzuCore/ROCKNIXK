@@ -31,7 +31,7 @@ LIBRETRO_CORES+=" fbneo-dsno-lr mame2003-plus-dsno-lr"
 case "${DEVICE}" in
   AMD64)
     PKG_EMUS+=" azahar-sa cemu-sa dolphin-sa lime3ds-sa mednafen melonds-sa minivmacsa mupen64plus-sa nanoboyadvance-sa pcsx2-sa     \
-               rpcs3-sa scummvmsa vita3k-sa xemu-sa ryujinx-sa duckstation-sa"
+               rpcs3-sa scummvmsa vita3k-sa xemu-sa duckstation-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr desmume-lr dolphin-lr flycast-lr lrps2-lr panda3ds-lr play-lr"
   ;;
   RK3588)
