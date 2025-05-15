@@ -73,7 +73,8 @@ fi
 if [ "${OPENGLES_SUPPORT}" = "yes" ] && \
 	[ "${PREFER_GLES}" = "yes" ]; then
     PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-    PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles --enable-opengles3_1"
+    # --enable-opengles3 required for glcore, --enable-opengles3_1 doesn't auto-select it
+    PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles --enable-opengles3 --enable-opengles3_1"
     PKG_CONFIGURE_OPTS_TARGET+=" --disable-opengl"
 else
 	# Full OpenGL
