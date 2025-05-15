@@ -211,12 +211,10 @@ makeinstall_target() {
   ### Arcade
   add_emu_core arcade retroarch mame2003_plus false
   add_emu_core arcade retroarch mame2003_plus-dsno true
-  #add_emu_core arcade retroarch km_mame2003_xtreme_amped false
   add_emu_core arcade retroarch mame2010 false
   add_emu_core arcade retroarch mame2015 false
   add_emu_core arcade retroarch fbneo false
   add_emu_core arcade retroarch fbneo-dsno false
-  #add_emu_core arcade retroarch km_fbneo_xtreme_amped false
   add_emu_core arcade retroarch fbalpha2012 false
   add_emu_core arcade retroarch fbalpha2019 false
   add_emu_core arcade retroarch mame false
@@ -310,10 +308,8 @@ makeinstall_target() {
   ### Capcom Playsystem 1
   add_emu_core cps1 retroarch fbneo false
   add_emu_core cps1 retroarch fbneo-dsno true
-  #add_emu_core cps1 retroarch km_fbneo_xtreme_amped false
   add_emu_core cps1 retroarch mame2003_plus false
   add_emu_core cps1 retroarch mame2003_plus-dsno false
-  #add_emu_core cps1 retroarch km_mame2003_xtreme_amped false
   add_emu_core cps1 retroarch mame2010 false
   add_emu_core cps1 retroarch fbalpha2012 false
   case ${TARGET_ARCH} in
@@ -326,10 +322,8 @@ makeinstall_target() {
   ### Capcom Playsystem 2
   add_emu_core cps2 retroarch fbneo false
   add_emu_core cps2 retroarch fbneo-dsno true
-  #add_emu_core cps2 retroarch km_fbneo_xtreme_amped false
   add_emu_core cps2 retroarch mame2003_plus false
   add_emu_core cps2 retroarch mame2003_plus-dsno false
-  #add_emu_core cps2 retroarch km_mame2003_xtreme_amped false
   add_emu_core cps2 retroarch mame2010 false
   add_emu_core cps2 retroarch fbalpha2012 false
   case ${TARGET_ARCH} in
@@ -342,10 +336,8 @@ makeinstall_target() {
   ### Capcom Playsystem 3
   add_emu_core cps3 retroarch fbneo false
   add_emu_core cps3 retroarch fbneo-dsno true
-  #add_emu_core cps3 retroarch km_fbneo_xtreme_amped false
   add_emu_core cps3 retroarch mame2003_plus false
   add_emu_core cps3 retroarch mame2003_plus-dsno false
-  #add_emu_core cps3 retroarch km_mame2003_xtreme_amped false
   add_emu_core cps3 retroarch mame2010 false
   add_emu_core cps3 retroarch fbalpha2012 false
   case ${TARGET_ARCH} in
@@ -416,10 +408,8 @@ makeinstall_target() {
   ### Final Burn Neo
   add_emu_core fbn retroarch fbneo false
   add_emu_core fbn retroarch fbneo-dsno true
-  #add_emu_core fbn retroarch km_fbneo_xtreme_amped false
   add_emu_core fbn retroarch mame2003_plus false
   add_emu_core fbn retroarch mame2003_plus-dsno false
-  #add_emu_core fbn retroarch km_mame2003_xtreme_amped false
   add_emu_core fbn retroarch mame2010 false
   add_emu_core fbn retroarch mame2015 false
   add_emu_core fbn retroarch mame false
@@ -653,13 +643,11 @@ makeinstall_target() {
   ### Arcade (MAME)
   add_emu_core mame retroarch mame2003_plus false
   add_emu_core mame retroarch mame2003_plus-dsno true
-  #add_emu_core mame retroarch km_mame2003_xtreme_amped false
   add_emu_core mame retroarch mame2010 false
   add_emu_core mame retroarch mame2015 false
   add_emu_core mame retroarch mame false
   add_emu_core mame retroarch fbneo false
   add_emu_core mame retroarch fbneo-dsno false
-  #add_emu_core mame retroarch km_fbneo_xtreme_amped false
   add_emu_core mame retroarch fbalpha2012 false
   add_emu_core mame retroarch fbalpha2019 false
   add_es_system mame
@@ -736,10 +724,8 @@ makeinstall_target() {
   ### SNK NeoGeo
   add_emu_core neogeo retroarch fbneo false
   add_emu_core neogeo retroarch fbneo-dsno true
-  #add_emu_core neogeo retroarch km_fbneo_xtreme_amped false
   add_emu_core neogeo retroarch mame2003_plus false
   add_emu_core neogeo retroarch mame2003_plus-dsno false
-  #add_emu_core neogeo retroarch km_mame2003_xtreme_amped false
   add_emu_core neogeo retroarch fbalpha2012 false
   add_emu_core neogeo retroarch fbalpha2019 false
   add_emu_core neogeo retroarch mame2010 false
@@ -756,7 +742,6 @@ makeinstall_target() {
   add_emu_core neocd retroarch neocd true
   add_emu_core neocd retroarch fbneo false
   add_emu_core neocd retroarch fbneo-dsno false
-  #add_emu_core neocd retroarch km_fbneo_xtreme_amped false
   add_es_system neocd
 
   ### SNK NeoGeo Pocket

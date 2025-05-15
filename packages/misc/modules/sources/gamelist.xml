@@ -14,8 +14,8 @@
     </game>
     <game>
         <path>./Start M8C.sh</path>
-        <name>M8C</name>
-        <desc>Cross-platform M8 tracker headless client.</desc>
+        <name>M8C 실행</name>
+        <desc>크로스 플랫폼 M8 트래커 헤드리스 클라이언트.</desc>
         <developer>ROCKNIX</developer>
         <publisher>ROCKNIX</publisher>
         <rating>5.0</rating>
@@ -120,8 +120,8 @@
     </game>
     <game>
         <path>./Start DaedalusX64.sh</path>
-        <name>Start DaedalusX64</name>
-        <desc>Opens the DaedalusX64 GUI (N64) to enable global configuration changes to be made directly to the emulator. It's recommended to have a mouse and keyboard available to modify settings.</desc>
+        <name>DaedalusX64 실행</name>
+        <desc>DaedalusX64 GUI(N64)를 열어 에뮬레이터에서 직접 글로벌 구성 변경을 수행할 수 있습니다. 설정을 수정하려면 마우스와 키보드를 사용하는 것이 좋습니다.</desc>
         <developer>ROCKNIX</developer>
         <publisher>ROCKNIX</publisher>
         <rating>5.0</rating>
@@ -132,8 +132,8 @@
     </game>
     <game>
         <path>./Start Dolphin.sh</path>
-        <name>Start Dolphin</name>
-        <desc>Opens the Dolphin GUI (Gamecube / Wii) to enable global configuration changes to be made directly to the emulator. It's recommended to have a mouse and keyboard available to modify settings.</desc>
+        <name>Dolphin 실행</name>
+        <desc>Dolphin GUI(Gamecube/Wii)를 열어 에뮬레이터에서 직접 글로벌 설정을 변경할 수 있습니다. 설정을 변경하려면 마우스와 키보드를 준비하는 것이 좋습니다.</desc>
         <developer>ROCKNIX</developer>
         <publisher>ROCKNIX</publisher>
         <rating>5.0</rating>
@@ -144,8 +144,8 @@
     </game>
     <game>
         <path>./Start Duckstation.sh</path>
-        <name>Start Duckstation</name>
-        <desc>Opens the Duckstation GUI (PS1) to enable global configuration changes to be made directly to the emulator. It's recommended to have a mouse and keyboard to modify settings.</desc>
+        <name>Duckstation 실행</name>
+        <desc>Duckstation GUI(PS1)를 열어 에뮬레이터에서 직접 글로벌 설정을 변경할 수 있습니다. 설정을 변경하려면 마우스와 키보드를 사용하는 것이 좋습니다.</desc>
         <developer>ROCKNIX</developer>
         <publisher>ROCKNIX</publisher>
         <rating>5.0</rating>
@@ -168,8 +168,8 @@
     </game>
     <game>
         <path>./Start MelonDS.sh</path>
-        <name>Start MelonDS</name>
-        <desc>Opens the MelonDS GUI (Nintendo DS) to enable global configuration changes to be made directly to the emulator. It's recommended to have a mouse and keyboard to modify settings.</desc>
+        <name>MelonDS 실행</name>
+        <desc>MelonDS GUI(Nintendo DS)를 열어 에뮬레이터에서 직접 글로벌 설정을 변경할 수 있습니다. 설정을 변경하려면 마우스와 키보드를 사용하는 것이 좋습니다.</desc>
         <developer>ROCKNIX</developer>
         <publisher>ROCKNIX</publisher>
         <rating>5.0</rating>
@@ -240,7 +240,7 @@
     </game>
     <game>
         <path>./Start RPCS3.sh</path>
-        <name>RPCS3 </name>
+        <name>RPCS3 실행</name>
         <desc>RPCS3 GUI(PS3)를 열어 구성 변경 사항을 에뮬레이터에 직접 적용할 수 있습니다. 이를 사용하여 펌웨어를 설정하고 제어를 업데이트하고 패키지를 설치할 수 있습니다. 설정을 수정하려면 마우스와 키보드를 준비하는 것이 좋습니다. RPCS3는 Windows, Linux, macOS 및 FreeBSD용 C++로 작성된 다중 플랫폼 오픈 소스 Sony PlayStation 3 에뮬레이터 및 디버거입니다.</desc>
         <developer>ROCKNIX</developer>
         <publisher>ROCKNIX</publisher>
@@ -261,30 +261,6 @@
         <genre>Emulator</genre>
         <players>1</players>
         <image>./images/scummvm.svg</image>
-    </game>
-    <game>
-        <path>./Start Ryujinx.sh</path>
-        <name>Ryujinx 실행</name>
-        <desc>Ryujinx GUI(스위치)를 열어 전역 구성 변경을 에뮬레이터에 직접 적용할 수 있습니다. 설정을 수정하려면 마우스와 키보드를 준비하는 것이 좋습니다. Ryujinx는 gdkchan이 만들고 C#으로 작성된 오픈 소스 Nintendo Switch 에뮬레이터입니다.</desc>
-        <developer>ROCKNIX</developer>
-        <publisher>ROCKNIX</publisher>
-        <rating>5.0</rating>
-        <releasedate>2023</releasedate>
-        <genre>Emulator</genre>
-        <players>1</players>
-        <image>./images/ryujinx.svg</image>
-    </game>
-	<game>
-        <path>./Start Yuzu.sh</path>
-        <name>Yuzu 실행</name>
-        <desc>Yuzu GUI(스위치)를 열어 전역 구성 변경 사항을 에뮬레이터에 직접 적용할 수 있습니다. 설정을 수정하려면 마우스와 키보드를 준비하는 것이 좋습니다. Yuzu는 Citra 제작자가 만든 Nintendo Switch용 실험적인 오픈 소스 에뮬레이터입니다.</desc>
-        <developer>ROCKNIX</developer>
-        <publisher>ROCKNIX</publisher>
-        <rating>5.0</rating>
-        <releasedate>2023</releasedate>
-        <genre>Emulator</genre>
-        <players>1</players>
-        <image>./images/yuzu.svg</image>
     </game>
     <game>
         <path>./Start Xemu.sh</path>
@@ -312,8 +288,8 @@
     </game>
     <game>
         <path>./Test Gamepad.sh</path>
-        <name>Test Gamepad</name>
-        <desc>A simple SDL GUI gamepad tester to help validate gamepad inputs.</desc>
+        <name>게임패드 테스트</name>
+        <desc>게임패드 입력을 검증하는 데 도움이 되는 간단한 SDL GUI 게임패드 테스터입니다.</desc>
         <developer>ROCKNIX</developer>
         <publisher>ROCKNIX</publisher>
         <rating>5.0</rating>
@@ -323,8 +299,8 @@
     </game>
     <game>
         <path>./Test Touchscreen.sh</path>
-        <name>Test Touchscreen</name>
-        <desc>A simple SDL GUI touchscreen tester to help validate touchscreen inputs.</desc>
+        <name>터치스크린 테스트</name>
+        <desc>터치스크린 입력을 검증하는 데 도움이 되는 간단한 SDL GUI 터치스크린 테스터입니다.</desc>
         <developer>ROCKNIX</developer>
         <publisher>ROCKNIX</publisher>
         <rating>5.0</rating>
@@ -335,8 +311,8 @@
     </game>
     <game>
         <path>./GPcal.sh</path>
-        <name>Calibrate Gamepad</name>
-        <desc>A gamepad tool that enables the user to calibrate the analog sticks and triggers on the Retroid Pocket 5 & Mini.</desc>
+        <name>게임패드 보정</name>
+        <desc>사용자가 Retroid Pocket 5 & Mini의 아날로그 스틱과 트리거를 보정할 수 있는 게임패드 도구입니다.</desc>
         <developer>CDELETRE</developer>
         <publisher>ROCKNIX</publisher>
         <rating>5.0</rating>
@@ -347,8 +323,8 @@
     </game>
     <game>
         <path>./Mount NFS.sh</path>
-        <name>Mount NFS</name>
-	<desc>Mounts an NFS share at a location defined in /storage/.nfs-mount and creates a merged storage with the games-internal card as the upper/writeable location</desc>
+        <name>NFS 마운트</name>
+        <desc>/storage/.nfs-mount에 정의된 위치에 NFS 공유를 마운트하고 게임 내부 카드를 상위/쓰기 가능 위치로 병합된 스토리지를 생성합니다.</desc>
         <developer>ROCKNIX</developer>
         <publisher>ROCKNIX</publisher>
         <rating>5.0</rating>
@@ -359,8 +335,8 @@
      </game>
      <game>
          <path>./Start Citron.sh</path>
-         <name>Start Citron</name>
-         <desc>Opens the Citron GUI (Switch) to enable global configuration changes to be made directly to the emulator. It's recommended to have a mouse and keyboard available to modify settings. Yuzu is an experimental open-source emulator for the Nintendo Switch from the creators of Citra.</desc>
+         <name>Citron 실행</name>
+         <desc>Citron GUI(Switch)를 열어 에뮬레이터에서 직접 글로벌 설정을 변경할 수 있습니다. 설정을 수정하려면 마우스와 키보드를 준비하는 것이 좋습니다. Yuzu는 Citra 개발자가 개발한 Nintendo Switch용 실험용 오픈소스 에뮬레이터입니다.</desc>
          <developer>ROCKNIX</developer>
          <publisher>ROCKNIX</publisher>
          <rating>5.0</rating>
