@@ -10,8 +10,9 @@ PKG_TOOLCHAIN="meson"
 
 case ${DEVICE} in
   SM8250|SM8550|AMD64|RK3399|H700)
-  PKG_VERSION="0.18.2"
-  PKG_URL="${PKG_SITE}/-/archive/${PKG_VERSION}/wlroots-${PKG_VERSION}.tar.gz"
+    PKG_VERSION="0.19.0"
+    PKG_SHA256="967f3112c82e8ea18cbdc513e22196b30ccc9fad3fb836f1cff80312c66fab96"
+    PKG_URL="${PKG_SITE}/-/archive/${PKG_VERSION}/wlroots-${PKG_VERSION}.tar.gz"
   ;;
   RK3588)
     PKG_VERSION="0.17.4-rk"
@@ -19,8 +20,8 @@ case ${DEVICE} in
     PKG_URL="https://github.com/stolen/rockchip-wlroots/archive/refs/tags/${PKG_VERSION}.tar.gz"
   ;;
   *)
-    PKG_VERSION="0.18.1-rk"
-    PKG_SHA256="93572a16ba48749e1a8cea4e78a1992008e2713dcb72019abfc6f7efd0947ccf"
+    PKG_VERSION="0.19.0-rk"
+    PKG_SHA256="cf247be7ec6b7be834a2469c6738aa4515e1cb085c6668cdf071bb5a0dc0f524"
     PKG_URL="https://github.com/stolen/rockchip-wlroots/archive/refs/tags/${PKG_VERSION}.tar.gz"
   ;;
 esac
