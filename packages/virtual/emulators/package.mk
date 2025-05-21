@@ -19,9 +19,9 @@ LIBRETRO_CORES="81-lr a5200-lr arduous-lr atari800-lr beetle-gba-lr beetle-lynx-
                 fbalpha2019-lr fbneo-lr fceumm-lr flycast2021-lr fmsx-lr freechaf-lr freeintv-lr freej2me-lr fuse-lr gambatte-lr     \
                 gearboy-lr gearcoleco-lr gearsystem-lr genesis-plus-gx-lr genesis-plus-gx-wide-lr gw-lr handy-lr hatari-lr idtech-lr \
                 jaxe-lr mame-lr mame2003-plus-lr mame2010-lr mame2015-lr melonds-lr melonds-ds-lr mesen-lr mgba-lr minivmac-lr       \
-                mojozork-lr mu-lr mupen64plus-lr mupen64plus-nx-lr neocd_lr nestopia-lr np2kai-lr opera-lr parallel-n64-lr           \
+                mojozork-lr mu-lr mupen64plus-lr mupen64plus-nx-lr neocd_lr nestopia-lr np2kai-lr o2em-lr opera-lr parallel-n64-lr   \
                 pcsx_rearmed-lr picodrive-lr pokemini-lr potator-lr prosystem-lr puae-lr puae2021-lr px68k-lr quasi88-lr quicknes-lr \
-                race-lr sameboy-lr sameduck-lr scummvm-lr smsplus-gx-lr snes9x-lr snes9x2002-lr snes9x2005_plus-lr                   \
+                race-lr same_cdi-lr sameboy-lr sameduck-lr scummvm-lr smsplus-gx-lr snes9x-lr snes9x2002-lr snes9x2005_plus-lr       \
                 snes9x2010-lr stella-lr swanstation-lr tgbdual-lr theodore-lr tic80-lr uzem-lr vba-next-lr vbam-lr vecx-lr vice-lr   \
                 vircon32-lr virtualjaguar-lr xmil-lr wasm4-lr yabasanshiro-lr"
 
@@ -851,8 +851,8 @@ makeinstall_target() {
   add_es_system nesh
 
   ### Magnavox Odyssey
-  #add_emu_core odyssey2 retroarch o2em true
-  #add_es_system odyssey2
+  add_emu_core odyssey2 retroarch o2em true
+  add_es_system odyssey2
 
   ### OpenBOR
   add_emu_core openbor OpenBOR OpenBOR true
@@ -1275,12 +1275,12 @@ makeinstall_target() {
   add_es_system vectrex
 
   ### Philips - CDi
-  #add_emu_core cdi retroarch same_cdi true
-  #add_es_system cdi
+  add_emu_core cdi retroarch same_cdi true
+  add_es_system cdi
 
   ### Philips Videopac
-  #add_emu_core videopac retroarch o2em true
-  #add_es_system videopac
+  add_emu_core videopac retroarch o2em true
+  add_es_system videopac
 
   ### Nintendo VirtualBoy
   add_emu_core virtualboy retroarch beetle_vb true
