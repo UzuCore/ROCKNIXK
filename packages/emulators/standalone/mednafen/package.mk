@@ -23,14 +23,18 @@ export LDFLAGS="${LDFLAGS} -flto -fipa-pta"
 
 # unsupported modules
 DISABLED_MODULES+=" --disable-apple2 \
-                   --disable-sasplay \
+                    --disable-sasplay \
                     --disable-ssfplay"
 
 case ${DEVICE} in
-  RK3326|RK3566*|RK3399|H700)
-    DISABLED_MODULES+="   --disable-snes \
-			 --disable-ss \
-			 --disable-psx"
+  RK3326|RK3566*|H700)
+    DISABLED_MODULES+=" --disable-snes \
+                        --disable-ss \
+                        --disable-psx"
+  ;;
+  RK3399)
+    DISABLED_MODULES+=" --disable-snes \
+                        --disable-ss"
   ;;
   RK3588*)
     DISABLED_MODULES+=" --disable-snes"

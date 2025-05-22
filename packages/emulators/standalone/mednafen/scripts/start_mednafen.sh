@@ -40,6 +40,9 @@ then
   if [ "${HW_DEVICE}" = "RK3588" ]; then
     FEATURES_CMDLINE+=" -affinity.emu 0x30 "
     FEATURES_CMDLINE+=" -ss.affinity.vdp2 0xc0 "
+  elif [ "${HW_DEVICE}" = "RK3399" ]; then
+    FEATURES_CMDLINE+=" -affinity.emu 0x10 "
+    FEATURES_CMDLINE+=" -ss.affinity.vdp2 0x20 "
   fi
 else
   ### All..
@@ -221,6 +224,16 @@ then
 elif [ "${CORE}" = "md" ]
 then
     FEATURES_CMDLINE+=$CR
+elif [ "${CORE}" = "psx" ]
+then
+    FEATURES_CMDLINE+=$CR
+    IP1=$(get_setting input.port1 "${PLATFORM}" "${GAME}")
+    if [[ "${IP1}" =~ gamepad|dualshock  ]]
+    then
+        FEATURES_CMDLINE+=" -${CORE}.input.port1 ${IP1}"
+    else
+        FEATURES_CMDLINE+=" -${CORE}.input.port1 gamepad"
+    fi
 fi
 
 #Run mednafen
