@@ -11,7 +11,7 @@ BRANCH="$(get_setting updates.branch)"
 
 case "${BRANCH}" in
     nightly)
-        PROJECT="${GIT_REPO}-nightly"
+        PROJECT="${GIT_REPO}"
         ;;
     *)
         PROJECT="${GIT_REPO}"
