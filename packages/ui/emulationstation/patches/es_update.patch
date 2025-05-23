@@ -1,5 +1,3 @@
-diff --git a/es-app/src/ApiSystem.cpp b/es-app/src/ApiSystem.cpp
-index ec56c16b24..cfd27f2368 100644
 --- a/es-app/src/ApiSystem.cpp
 +++ b/es-app/src/ApiSystem.cpp
 @@ -191,7 +191,7 @@ std::pair<std::string, int> ApiSystem::updateSystem(const std::function<void(con
@@ -29,3 +27,14 @@ index ec56c16b24..cfd27f2368 100644
  		break;
  	case ApiSystem::SUSPEND:
  		return (Utils::FileSystem::exists("/usr/sbin/pm-suspend") && Utils::FileSystem::exists("/usr/bin/pm-is-supported") && executeScript("/usr/bin/pm-is-supported --suspend"));
+--- a/es-app/src/guis/GuiUpdate.cpp
++++ b/es-app/src/guis/GuiUpdate.cpp
+@@ -169,7 +169,7 @@ void GuiUpdate::update(int deltaTime)
+ 				if (versionExtra == "official" || versionExtra == "nightly")
+ 					message = Utils::String::format(_("YOU ARE CURRENTLY USING VERSION %s\nDO YOU WANT TO UPDATE TO VERSION %s?").c_str(), ApiSystem::getInstance()->getVersion().c_str(), mUpdateVersion.c_str());
+ 				else
+-					message = Utils::String::format(_("UNOFFICIAL SYSTEM MODIFICATIONS DETECTED.\nUPGRADING COULD BREAK YOUR SYSTEM.\nDO YOU WANT TO UPDATE TO VERSION %s?").c_str(), mUpdateVersion.c_str());
++					message = Utils::String::format(_("YOU ARE CURRENTLY USING VERSION %s\nDO YOU WANT TO UPDATE TO VERSION %s?").c_str(), ApiSystem::getInstance()->getVersion().c_str(), mUpdateVersion.c_str());
+ 
+ 				window->pushGui(new GuiMsgBox(window, message, _("YES"), [this]
+ 				{
