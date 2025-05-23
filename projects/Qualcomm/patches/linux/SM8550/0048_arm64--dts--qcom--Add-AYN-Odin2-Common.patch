@@ -110,7 +110,7 @@ index 000000000000..58d9ab342fe9
 +		compatible = "pwm-fan";
 +
 +		fan-supply = <&vdd_fan_5v0>;
-+		pwms = <&pm8550_pwm 3 100000>;
++		pwms = <&pm8550_pwm 3 40000>; /* 40us, 25kHz */
 +
 +		pinctrl-names = "default";
 +		pinctrl-0 = <&fan_pwm_active>;
