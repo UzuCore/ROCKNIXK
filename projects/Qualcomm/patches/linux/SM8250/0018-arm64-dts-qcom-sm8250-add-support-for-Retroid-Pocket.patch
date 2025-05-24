@@ -14,7 +14,7 @@ new file mode 100644
 index 000000000000..a1bb992709cb
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm8250-retroidpocket-rpminiv2.dts
-@@ -0,0 +1,19 @@
+@@ -0,0 +1,26 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Copyright (c) 2025, ROCKNIX <https://rocknix.org>.
@@ -27,6 +27,13 @@ index 000000000000..a1bb992709cb
 +/ {
 +	model = "Retroid Pocket Mini V2";
 +	compatible = "retroidpocket,rpminiv2", "qcom,sm8250";
++};
++
++&i2c13 {
++	touchscreen@38 {
++		touchscreen-size-x = <1080>;
++		touchscreen-size-y = <1240>;
++	};
 +};
 +
 +&mdss_dsi0 {

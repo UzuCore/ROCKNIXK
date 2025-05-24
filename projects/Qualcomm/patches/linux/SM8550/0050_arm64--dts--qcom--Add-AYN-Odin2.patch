@@ -1,7 +1,7 @@
 diff -rupbN linux.orig/arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2.dts linux/arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2.dts
 --- linux.orig/arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2.dts	1970-01-01 00:00:00.000000000 +0000
 +++ linux/arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2.dts	2025-02-26 13:52:56.398992835 +0000
-@@ -0,0 +1,268 @@
+@@ -0,0 +1,359 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Copyright (c) 2025, Teguh Sobirin.
@@ -29,6 +29,41 @@ diff -rupbN linux.orig/arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2.dts linux/arch
 +		pinctrl-names = "default";
 +		pinctrl-0 = <&pwm_backlight_default>;
 +		status = "okay";
++	};
++
++	hdmi-out {
++		compatible = "hdmi-connector";
++		type = "d";
++		hpd-gpios = <&tlmm 9 GPIO_ACTIVE_HIGH>;
++		hdmi-pwr-supply = <&vdd_hdmi_1v8>;
++
++		port {
++			hdmi_con: endpoint {
++				remote-endpoint = <&lt8912_out>;
++			};
++		};
++	};
++
++	vcc_hdmi_1v8: vcc-hdmi-1v8-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc_hdmi_1v8";
++
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++
++		gpio = <&tlmm 10 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++	};
++
++	vdd_hdmi_1v8: vdd-hdmi-1v8-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "vdd_hdmi_1v8";
++
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++
++		gpio = <&tlmm 6 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
 +	};
 +
 +	vdd_disp_2v8: vdd-disp-2v8-regulator {
@@ -269,4 +304,60 @@ diff -rupbN linux.orig/arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2.dts linux/arch
 +
 +&spk_amp_r {
 +	firmware-name = "qcom/sm8550/ayn/odin2/aw883xx_acf.bin";
++};
++
++&i2c_hub_0 {
++	clock-frequency = <100000>;
++	status = "okay";
++
++	hdmi-bridge@48 {
++		compatible = "lontium,lt8912b";
++		reg = <0x48> ;
++		reset-gpios = <&tlmm 7 GPIO_ACTIVE_LOW>;
++
++		vdd-supply = <&vdd_hdmi_1v8>;
++		vccmipirx-supply = <&vcc_hdmi_1v8>;
++		vccsysclk-supply = <&vcc_hdmi_1v8>;
++		vcclvdstx-supply = <&vcc_hdmi_1v8>;
++		vcchdmitx-supply = <&vcc_hdmi_1v8>;
++		vcclvdspll-supply = <&vcc_hdmi_1v8>;
++		vcchdmipll-supply = <&vcc_hdmi_1v8>;
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			port@0 {
++				reg = <0>;
++
++				hdmi_out_in: endpoint {
++					data-lanes = <1 2 3 4>;
++					remote-endpoint = <&mdss_dsi0_out>;
++				};
++			};
++
++			port@1 {
++				reg = <1>;
++
++				lt8912_out: endpoint {
++					remote-endpoint = <&hdmi_con>;
++				};
++			};
++		};
++	};
++};
++
++&mdss_dsi0 {
++	vdda-supply = <&vreg_l3e_1p2>;
++	status = "okay";
++};
++
++&mdss_dsi0_out {
++	remote-endpoint = <&hdmi_out_in>;
++	data-lanes = <0 1 2 3>;
++};
++
++&mdss_dsi0_phy {
++	vdds-supply = <&vreg_l1e_0p88>;
++	status = "okay";
 +};
