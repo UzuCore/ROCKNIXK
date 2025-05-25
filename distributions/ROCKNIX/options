@@ -145,8 +145,11 @@
 # swap support enabled per default (yes / no)
   SWAP_ENABLED_DEFAULT="yes"
 
-# swapfile size if SWAP_SUPPORT=yes in MB
-  SWAPFILESIZE="384"
+# swap size if SWAP_SUPPORT=yes in MB
+  SWAPSIZE="384"
+
+# swap type if SWAP_SUPPORT=yes (file / zram)
+  SWAP_TYPE="file"
 
 # Default weston terminal font size
   WESTONFONTSIZE="14"

@@ -76,3 +76,9 @@
  
   # debug tty path
     DEBUG_TTY="/dev/ttyAML0"
+
+  # swap size if SWAP_SUPPORT=yes in MB
+    SWAPSIZE="512"
+
+  # swap type if SWAP_SUPPORT=yes (file / zram)
+    SWAP_TYPE="zram"

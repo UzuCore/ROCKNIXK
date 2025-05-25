@@ -26,6 +26,12 @@ docs:
 
 world: RK3588 RK3566 RK3326 RK3399 S922X SM8250 SM8550 H700
 
+kconfig-olddefconfig-%:
+	DEVICE=$* ./tools/adjust_kernel_config olddefconfig
+
+kconfig-menuconfig-%:
+	DEVICE=$* ./tools/adjust_kernel_config menuconfig
+
 AMD64:
 	unset DEVICE_ROOT
 	PROJECT=PC DEVICE=AMD64 ARCH=i686 ./scripts/build_distro

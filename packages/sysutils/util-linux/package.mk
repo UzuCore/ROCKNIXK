@@ -63,6 +63,10 @@ if [ "${SWAP_SUPPORT}" = "yes" ]; then
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-swapon"
 fi
 
+if [ "${SWAP_TYPE}" = "zram" ]; then
+  PKG_CONFIGURE_OPTS_TARGET+=" --enable-zramctl"
+fi
+
 PKG_CONFIGURE_OPTS_HOST="--enable-shared \
                          --disable-static \
                          ${UTILLINUX_CONFIG_TARGET} \
@@ -88,8 +92,9 @@ post_makeinstall_target() {
 
     mkdir -p ${INSTALL}/etc
       cat ${PKG_DIR}/config/swap.conf | \
-        sed -e "s,@SWAPFILESIZE@,${SWAPFILESIZE},g" \
+        sed -e "s,@SWAPSIZE@,${SWAPSIZE},g" \
             -e "s,@SWAP_ENABLED_DEFAULT@,${SWAP_ENABLED_DEFAULT},g" \
+            -e "s,@SWAP_TYPE@,${SWAP_TYPE},g" \
             > ${INSTALL}/etc/swap.conf
   fi
 }

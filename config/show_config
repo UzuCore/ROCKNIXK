@@ -133,7 +133,8 @@ show_config() {
 
   config_message="${config_message}\n - Swap Support:\t\t\t $SWAP_SUPPORT"
   if [ "$SWAP_SUPPORT" = "yes" ]; then
-    config_message="${config_message}\n   - Swapfile default size:\t\t $SWAPFILESIZE"
+    config_message="${config_message}\n   - Swap default size:\t\t $SWAPSIZE"
+    config_message="${config_message}\n   - Swap type :\t\t $SWAP_TYPE"
   fi
   config_message="${config_message}\n - exFAT Support (via Fuse):\t\t $EXFAT"
   config_message="${config_message}\n - NTFS Support (via Fuse):\t\t $NTFS3G"
