@@ -20,6 +20,17 @@ diff -ur a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg34xx.dts b/arch/
  };
  
  &panel {
+diff -ur a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg34xx-sp.dts b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg34xx-sp.dts
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg34xx-sp.dts	2025-05-26 21:15:31.170386803 +1000
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg34xx-sp.dts	2025-05-26 21:14:05.425219393 +1000
+@@ -9,6 +9,7 @@
+ / {
+ 	model = "Anbernic RG34XX-SP";
+ 	compatible = "anbernic,rg34xx-sp", "allwinner,sun50i-h700";
++	rocknix-dt-id = "sun50i-h700-anbernic-rg34xx-sp";
+ };
+ 
+ &panel {
 diff -ur a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024-rev6-panel.dts b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024-rev6-panel.dts
 --- a/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024-rev6-panel.dts	2024-12-24 12:16:07.534240856 +0000
 +++ b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024-rev6-panel.dts	2024-12-24 12:25:16.464311447 +0000

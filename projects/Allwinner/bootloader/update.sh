@@ -22,6 +22,12 @@ echo "Updating device trees..."
 cp -f $SYSTEM_ROOT/usr/share/bootloader/device_trees/* $BOOT_ROOT/device_trees
 
 DT_ID=$(cat /proc/device-tree/rocknix-dt-id)
+
+# TODO remove - workaround for RG34XXSP incorrect DT bug
+[[ ${DT_ID} = "sun50i-h700-anbernic-rg35xx-plus" ]] &&
+  [[ $(cat /sys/class/graphics/fb0/virtual_size) = "720,480" ]] &&
+    DT_ID="sun50i-h700-anbernic-rg34xx-sp"
+
 UPDATE_DTB_SOURCE="$BOOT_ROOT/device_trees/$DT_ID.dtb"
 if [ -f "$UPDATE_DTB_SOURCE" ]; then
   echo "Updating dtb.img from $(basename $UPDATE_DTB_SOURCE)..."
