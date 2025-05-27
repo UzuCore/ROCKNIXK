@@ -1,6 +1,7 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2024 JELOS (https://github.com/JustEnoughLinuxOS)
+# Copyright (C) 2025 ROCKNIX (https://github.com/ROCKNIX)
 
 . /etc/profile
 
@@ -68,9 +69,23 @@ else
     fi
     angle="0"
 fi
+
 # Main output string base
 output="output ${con}"
 echo "${output} transform ${angle}" >> $SWAY_HOME/config
+echo "WLR_CON=${con}" >> /storage/.config/profile.d/095-sway
+# check refresh rate
+DISPLAY_MODE=$(get_setting system.display_mode)
+if [ "${DISPLAY_MODE}" ]; then
+    # we only need to specify this if we have user set display mode
+    # if not specified we just use default decided by the panel driver
+    RR=$(echo ${DISPLAY_MODE} | tr -cd '[[:digit:]].')
+    if [[ $rot =~ 1|3 ]]; then
+        echo "${output} mode $(fbheight)x$(fbwidth)@${RR}Hz" >> $SWAY_HOME/config
+    else
+        echo "${output} mode $(fbwidth)x$(fbheight)@${RR}Hz" >> $SWAY_HOME/config
+    fi
+fi
 echo "${output} bg #000000 solid_color" >> $SWAY_HOME/config
 echo "${output} max_render_time off" >> $SWAY_HOME/config
 
