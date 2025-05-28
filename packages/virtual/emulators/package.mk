@@ -16,7 +16,7 @@ LIBRETRO_CORES="81-lr a5200-lr arduous-lr atari800-lr beetle-gba-lr beetle-lynx-
                 beetle-pcfx-lr bsnes-mercury-accuracy-lr bsnes-mercury-balanced-lr bsnes-mercury-performance-lr beetle-supafaust-lr  \
                 beetle-supergrafx-lr beetle-vb-lr beetle-wswan-lr bluemsx-lr cap32-lr crocods-lr daphne-lr doublecherrygb-lr         \
                 dosbox-svn-lr dosbox-pure-lr duckstation-lr easyrpg-lr emuscv-lr fake08-lr fbalpha2012-lr                            \
-                fbalpha2019-lr fbneo-lr fceumm-lr flycast-lr fmsx-lr freechaf-lr freeintv-lr freej2me-lr fuse-lr gambatte-lr     \
+                fbalpha2019-lr fbneo-lr fceumm-lr flycast-lr fmsx-lr freechaf-lr freeintv-lr freej2me-lr fuse-lr gambatte-lr         \
                 gearboy-lr gearcoleco-lr gearsystem-lr genesis-plus-gx-lr genesis-plus-gx-wide-lr gw-lr handy-lr hatari-lr idtech-lr \
                 jaxe-lr mame-lr mame2003-plus-lr mame2010-lr mame2015-lr melonds-lr melonds-ds-lr mesen-lr mgba-lr minivmac-lr       \
                 mojozork-lr mu-lr mupen64plus-lr mupen64plus-nx-lr neocd_lr nestopia-lr np2kai-lr o2em-lr opera-lr parallel-n64-lr   \
@@ -24,6 +24,10 @@ LIBRETRO_CORES="81-lr a5200-lr arduous-lr atari800-lr beetle-gba-lr beetle-lynx-
                 race-lr same_cdi-lr sameboy-lr sameduck-lr scummvm-lr smsplus-gx-lr snes9x-lr snes9x2002-lr snes9x2005_plus-lr       \
                 snes9x2010-lr stella-lr swanstation-lr tgbdual-lr theodore-lr tic80-lr uzem-lr vba-next-lr vbam-lr vecx-lr vice-lr   \
                 vircon32-lr virtualjaguar-lr xmil-lr wasm4-lr yabasanshiro-lr"
+
+#if [ "${DEVICE}" != "AMD64" ]; then
+#    LIBRETRO_CORES+=" mame2010-lr mame2015-lr"
+#fi
 
 ### Emulators or cores for specific devices
 case "${DEVICE}" in
