@@ -21,7 +21,7 @@
 ################################################################################
 
 PKG_NAME="mame2003-plus-lr"
-PKG_VERSION="291d486b415844d8242b1c0ea0a3adeb9d8180b0"
+PKG_VERSION="c3b708800de724cc6bad643150cf37875bafa2a2"
 PKG_LICENSE="MAME"
 PKG_SITE="https://github.com/UzuCore/mame2003-plus-dsno-libretro"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
