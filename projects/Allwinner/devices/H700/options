@@ -52,7 +52,7 @@
     DISPLAYSERVER="wl"
 
   # Windowmanager to use (weston / swaywm-env / no)
-    WINDOWMANAGER="weston"
+    WINDOWMANAGER="swaywm-env"
   
   # build and install rocknix joypad driver (yes / no)
     ROCKNIX_JOYPAD="yes"
