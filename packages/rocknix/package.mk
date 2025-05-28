@@ -92,4 +92,10 @@ EOF
     sed -i "s#system.automount=1#system.automount=0#g" ${INSTALL}/usr/config/system/configs/system.cfg
   fi
 
+  ### Enable HDMI hotplug service on H700
+  if [ "${DEVICE}" = "H700" ]
+  then
+    enable_service hdmi-hotplug.path
+  fi
+
 }
