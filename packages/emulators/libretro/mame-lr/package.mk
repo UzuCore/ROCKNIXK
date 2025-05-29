@@ -39,7 +39,7 @@ PKG_MAKE_OPTS_TARGET="REGENIE=1 \
 		      ${MAME_PLATFORM} \
 		      ARCH= \
 		      TARGET=mame \
-		      SUBTARGET=mame \
+		      SUBTARGET=arcade \
 		      OSD=retro \
 		      USE_SYSTEM_LIB_EXPAT=1 \
 		      USE_SYSTEM_LIB_ZLIB=1 \
