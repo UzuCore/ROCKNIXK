@@ -11,13 +11,17 @@ PKG_SITE="https://git.citron-emu.org/citron/emu"
 PKG_URL="${PKG_SITE}.git"
 PKG_VERSION="51800e249bc44bd13b528220a8e064c3744c05d1"
 
-if [ "${OPENGL_SUPPORT}" = "yes" ]; then
+if [ ! "${OPENGL}" = "no" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL} glu libglvnd"
+fi
+
+if [ "${OPENGLES_SUPPORT}" = yes ]; then
+  PKG_DEPENDS_TARGET+=" ${OPENGLES}"
 fi
 
 if [ "${VULKAN_SUPPORT}" = "yes" ]
 then
-  PKG_DEPENDS_TARGET+=" vulkan-loader vulkan-headers glslang"
+  PKG_DEPENDS_TARGET+=" vulkan-loader vulkan-headers"
 fi
 
 PKG_CMAKE_OPTS_TARGET+="-DENABLE_QT=ON \
