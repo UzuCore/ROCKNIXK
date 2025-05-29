@@ -37,6 +37,9 @@ FUNCTION_VOLUME_DOWN_EVENT='*('${KEY_VOLUME_DOWN}'), value 1'
 FUNCTION_POWER_RELEASED_EVENT='*(KEY_POWER), value 0'
 FUNCTION_POWER_PRESSED_EVENT='*(KEY_POWER), value 1'
 
+FUNCTION_LID_OPEN_EVENT='*(SW_LID), value 0'
+FUNCTION_LID_CLOSE_EVENT='*(SW_LID), value 1'
+
 ### Define matching function hotkeys from controller values, but allow them to be overridden in system.cfg.
 KEYA_MODIFIER=$(get_setting key.function.a)
 [ -z "${KEYA_MODIFIER}" ] && KEYA_MODIFIER="${DEVICE_FUNC_KEYA_MODIFIER}"
@@ -275,6 +278,14 @@ set +e
       ;;
       (${FUNCTION_POWER_PRESSED_EVENT})
         rocknix-shutdown 1 &
+      ;;
+      (${FUNCTION_LID_OPEN_EVENT})
+        ${DEBUG} && log $0 "${FUNCTION_LID_OPEN_EVENT}: Open"
+        /usr/bin/rocknix-lid open &
+      ;;
+      (${FUNCTION_LID_CLOSE_EVENT})
+        ${DEBUG} && log $0 "${FUNCTION_LID_CLOSE_EVENT}: Close"
+        /usr/bin/rocknix-lid close &
       ;;
     esac
 

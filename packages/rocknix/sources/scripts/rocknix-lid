@@ -1,0 +1,44 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2025-present ROCKNIX (https://github.com/ROCKNIX)
+
+. /etc/profile
+
+### Enable logging
+case $(get_setting system.loglevel) in
+  verbose)
+    DEBUG=true
+  ;;
+  *)
+    DEBUG=false
+  ;;
+esac
+
+SUSPEND_MODE="$(get_setting system.suspendmode)"
+
+# Only do something when suspend mode is off
+if [ "${SUSPEND_MODE}" != "off" ]; then
+    ${DEBUG} && log $0 "Suspend enabled, exiting"
+    exit 0
+fi
+
+# Action = open / close
+ACTION=$1
+
+do_es_shutdown() {
+    # Shutdown only when ES is up and no game is running
+    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:1234/runningGame")
+    test $? != 0                 && return 0
+    test "${HTTP_STATUS}" != 201 && return 0 # 201 when not game
+
+    ${DEBUG} && log $0 "Shutting down"
+
+    curl "http://localhost:1234/shutdown"
+}
+
+# Only need to act on close
+if [ "${ACTION}" = "close" ]; then
+    ${DEBUG} && log $0 "Lid close"
+    # Use ES shutdown so metadata is saved
+    do_es_shutdown
+fi

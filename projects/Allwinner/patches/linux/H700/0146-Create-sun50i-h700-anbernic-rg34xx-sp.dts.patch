@@ -20,7 +20,7 @@ index 000000000..f2eca80b3
 + * Copyright (C) 2024 Chris Morgan <macroalpha82@gmail.com>.
 + */
 +
-+#include "sun50i-h700-anbernic-rg35xx-plus.dts"
++#include "sun50i-h700-anbernic-rg35xx-sp.dts"
 +
 +/ {
 +	model = "Anbernic RG34XX-SP";
