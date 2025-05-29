@@ -33,7 +33,7 @@ LIBRETRO_CORES="81-lr a5200-lr arduous-lr atari800-lr beetle-gba-lr beetle-lynx-
 case "${DEVICE}" in
   AMD64)
     PKG_EMUS+=" azahar-sa cemu-sa dolphin-sa lime3ds-sa mednafen melonds-sa minivmacsa mupen64plus-sa nanoboyadvance-sa pcsx2-sa     \
-               rpcs3-sa scummvmsa vita3k-sa xemu-sa duckstation-sa citron-sa"
+               rpcs3-sa scummvmsa vita3k-sa xemu-sa duckstation-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr desmume-lr dolphin-lr lrps2-lr panda3ds-lr play-lr"
   ;;
   RK3588)
@@ -564,7 +564,7 @@ makeinstall_target() {
 
   ### Nintendo Switch
   case ${DEVICE} in
-    AMD64|SM8*)
+    SM8250|SM8550)
       add_emu_core switch citron citron-sa true
       add_es_system switch
       install_script "Start Citron.sh"
