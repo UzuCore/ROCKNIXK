@@ -36,7 +36,14 @@ jobs:
         uses: corrupt952/actions-retry-command@v1.0.7
         with:
           command: |
-            DEVICE=H700 ./scripts/get
+            PROJECT=Rockchip DEVICE=RK3326 ./scripts/get
+            PROJECT=Rockchip DEVICE=RK3399 ./scripts/get
+            PROJECT=Rockchip DEVICE=RK3566 ./scripts/get
+            PROJECT=Rockchip DEVICE=RK3588 ./scripts/get
+            PROJECT=Allwinner DEVICE=H700 ./scripts/get
+            PROJECT=Amlogic DEVICE=S922X ./scripts/get
+            PROJECT=Qualcomm DEVICE=SM8250 ./scripts/get
+            PROJECT=Qualcomm DEVICE=SM8550 ./scripts/get
           max_attempts: 6
           retry_interval: 10
       - name: print number of downloaded artifacts
