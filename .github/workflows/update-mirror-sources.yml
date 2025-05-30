@@ -40,13 +40,13 @@ jobs:
           max_attempts: 6
           retry_interval: 10
       - name: print number of downloaded artifacts
-        run: find sources/ -type f \( -name "*.tar.gz" -o -name "*.tar.xz" -o -name "*.tgz" -o -name "*.tar.bz2" \) | wc -l
+        run: find sources/ -type f \( -name "*.tar.gz" -o -name "*.tar.xz" -o -name "*.tgz" -o -name "*.tar.bz2" -o -name "*.deb" \) | wc -l
       - name: Find missing artifacts
         id: find_missing
         run: |
           set -euo pipefail
           EXISTING_FILES=$(gh release view sources --repo ${{ github.repository_owner }}/distribution-sources --json assets --jq '.assets[].name' || true)
-          LOCAL_FILES=$(find sources/ -type f \( -name '*.tar.gz' -o -name '*.tar.xz' -o -name '*.tgz' -o -name "*.tar.bz2" \))
+          LOCAL_FILES=$(find sources/ -type f \( -name '*.tar.gz' -o -name '*.tar.xz' -o -name '*.tgz' -o -name "*.tar.bz2" -o -name "*.deb" \))
           
           MISSING_FILES=()
           for file in $LOCAL_FILES; do
