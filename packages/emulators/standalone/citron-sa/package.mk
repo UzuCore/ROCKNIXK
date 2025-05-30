@@ -4,7 +4,6 @@
 PKG_NAME="citron-sa"
 PKG_LICENSE="GPLv2"
 PKG_DEPENDS_TARGET="toolchain SDL2 boost libevdev libdrm ffmpeg zlib libpng lzo libusb zstd ecm openal-soft pulseaudio alsa-lib llvm qt6 libfmt"
-
 PKG_LONGDESC="Citron is a high-performance and easy-to-use emulator, tailored for enthusiasts and developers alike."
 PKG_TOOLCHAIN="cmake"
 PKG_SITE="https://git.citron-emu.org/citron/emu"
@@ -47,10 +46,9 @@ pre_configure_target() {
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
-    cp ${PKG_BUILD}/.${TARGET_NAME}/bin/citron  ${INSTALL}/usr/bin/
-		cp -rf ${PKG_DIR}/scripts/* ${INSTALL}/usr/bin
-    chmod +x ${INSTALL}/usr/bin/start_citron.sh
-
+  cp ${PKG_BUILD}/.${TARGET_NAME}/bin/citron  ${INSTALL}/usr/bin/
+  cp -rf ${PKG_DIR}/scripts/* ${INSTALL}/usr/bin
+  chmod 755 ${INSTALL}/usr/bin/*
   mkdir -p ${INSTALL}/usr/config/citron
-    cp -rf ${PKG_DIR}/config/${DEVICE}/* ${INSTALL}/usr/config/citron
+  cp -rf ${PKG_DIR}/config/${DEVICE}/* ${INSTALL}/usr/config/citron/
 }
