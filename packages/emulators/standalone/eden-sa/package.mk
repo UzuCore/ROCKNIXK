@@ -8,7 +8,7 @@ PKG_LONGDESC="Eden is the world's most popular open-source Nintendo Switch emula
 PKG_TOOLCHAIN="cmake"
 PKG_SITE="https://git.eden-emu.dev/eden-emu/eden"
 PKG_URL="${PKG_SITE}.git"
-PKG_VERSION="568ac9f7de1dc273d9a3b55fbdf8e2df6d4ff275"
+PKG_VERSION="fb3988a78a54b4a75090594a6d374ba819e0afcb"
 
 if [ ! "${OPENGL}" = "no" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL} glu libglvnd"
@@ -40,11 +40,6 @@ PKG_CMAKE_OPTS_TARGET+="-DENABLE_QT=ON \
                     -DYUZU_DOWNLOAD_ANDROID_VVL=OFF \
                     -DYUZU_ENABLE_PORTABLE=OFF \
                     -DYUZU_USE_BUNDLED_FFMPEG=OFF"
-
-pre_configure_target() {
-  CFLAGS=$(echo ${CFLAGS} | sed -e "s|-Ofast|-O3|")
-  CXXFLAGS=$(echo ${CXXFLAGS} | sed -e "s|-Ofast|-O3|")
-}
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin

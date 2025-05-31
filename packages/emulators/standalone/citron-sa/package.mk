@@ -39,11 +39,6 @@ PKG_CMAKE_OPTS_TARGET+="-DENABLE_QT=ON \
                     -DCITRON_ENABLE_PORTABLE=OFF \
                     -DCMAKE_CXX_FLAGS=-Wno-error=shadow"
 
-pre_configure_target() {
-  CFLAGS=$(echo ${CFLAGS} | sed -e "s|-Ofast|-O3|")
-  CXXFLAGS=$(echo ${CXXFLAGS} | sed -e "s|-Ofast|-O3|")
-}
-
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
   cp ${PKG_BUILD}/.${TARGET_NAME}/bin/citron  ${INSTALL}/usr/bin/
