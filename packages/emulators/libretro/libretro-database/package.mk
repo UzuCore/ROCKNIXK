@@ -38,5 +38,5 @@ makeinstall_target() {
 }
 
 post_makeinstall_target() {
-  rm -rf ${INSTALL}/usr/share/libretro-database/rdb
+  rm -rf ${INSTALL}/usr/share/libretro-database/rdb/*
 }
