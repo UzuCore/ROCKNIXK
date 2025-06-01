@@ -36,8 +36,7 @@ PKG_CMAKE_OPTS_TARGET+="-DENABLE_QT=ON \
                     -DCITRON_TESTS=OFF \
                     -DENABLE_WEB_SERVICE=OFF \
                     -DCITRON_DOWNLOAD_ANDROID_VVL=OFF \
-                    -DCITRON_ENABLE_PORTABLE=OFF \
-                    -DCMAKE_CXX_FLAGS=-Wno-error=shadow"
+                    -DCITRON_ENABLE_PORTABLE=OFF"
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin

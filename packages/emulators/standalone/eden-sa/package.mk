@@ -41,6 +41,11 @@ PKG_CMAKE_OPTS_TARGET+="-DENABLE_QT=ON \
                     -DYUZU_ENABLE_PORTABLE=OFF \
                     -DYUZU_USE_BUNDLED_FFMPEG=OFF"
 
+#pre_configure_target() {
+  #echo ${PKG_DEPENDS_TARGET}
+  #sleed 1d
+#}
+
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
   cp ${PKG_BUILD}/.${TARGET_NAME}/bin/eden  ${INSTALL}/usr/bin/

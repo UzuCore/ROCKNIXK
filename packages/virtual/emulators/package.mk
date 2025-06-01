@@ -38,7 +38,8 @@ case "${DEVICE}" in
   ;;
   RK3588)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 desmume-lr gpsp-lr pcsx_rearmed-lr"
-    PKG_EMUS+=" aethersx2-sa azahar-sa box64 dolphin-sa lime3ds-sa drastic-sa mednafen melonds-sa portmaster scummvmsa supermodel-sa yabasanshiro-sa duckstation-sa"
+    PKG_EMUS+=" aethersx2-sa azahar-sa box64 dolphin-sa lime3ds-sa drastic-sa mednafen melonds-sa portmaster scummvmsa supermodel-sa  \
+                yabasanshiro-sa duckstation-sa citron-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr flycast2021-lr geolith-lr panda3ds-lr pcsx_rearmed-lr uae4arm"
     PKG_RETROARCH+=" retropie-shaders"
   ;;
@@ -574,7 +575,7 @@ makeinstall_target() {
   esac
 
   case ${DEVICE} in
-    SM8*)
+    RK3588|SM8*)
       add_emu_core switch citron citron-sa true
       add_es_system switch
       install_script "Start Citron.sh"
