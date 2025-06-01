@@ -1,0 +1,12 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -359,7 +359,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PRO
+ # Enforce the search mode of non-required packages for better and shorter failure messages
+ find_package(Boost REQUIRED context)
+ find_package(enet MODULE)
+-find_package(fmt 11 REQUIRED)
++find_package(fmt 9 REQUIRED)
+ if (CITRON_USE_LLVM_DEMANGLE)
+     find_package(LLVM MODULE COMPONENTS Demangle)
+ endif()
