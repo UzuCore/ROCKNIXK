@@ -866,7 +866,7 @@ index 000000000000..58d9ab342fe9
 +		compatible = "awinic,aw88166";
 +		reg = <0x34>;
 +		#sound-dai-cells = <1>;
-+		reset-gpios = <&tlmm 103 GPIO_ACTIVE_HIGH>;
++		reset-gpios = <&tlmm 103 GPIO_ACTIVE_LOW>;
 +		awinic,audio-channel = <0>;
 +		awinic,sync-flag;
 +	};
@@ -875,7 +875,7 @@ index 000000000000..58d9ab342fe9
 +		compatible = "awinic,aw88166";
 +		reg = <0x35>;
 +		#sound-dai-cells = <1>;
-+		reset-gpios = <&tlmm 100 GPIO_ACTIVE_HIGH>;
++		reset-gpios = <&tlmm 100 GPIO_ACTIVE_LOW>;
 +		awinic,audio-channel = <1>;
 +		awinic,sync-flag;
 +	};
