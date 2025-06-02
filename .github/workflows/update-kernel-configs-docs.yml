@@ -1,12 +1,12 @@
-name: Update kernel configs
+name: Update kernel configs and docs
 
 on:
   workflow_dispatch:
   workflow_call:
 
 jobs:
-  update-kernel-configs:
-    name: Update kernel configs
+  update-kernel-configs-docs:
+    name: Update kernel configs docs
     permissions:
       actions: write
       contents: read
@@ -61,17 +61,26 @@ jobs:
       - name: Update Kernel Configs
         run: PROJECT=${{ matrix.project }} DEVICE=${{ matrix.device }} ./tools/adjust_kernel_config olddefconfig
 
+      - name: Update documentation
+        run: PROJECT=${{ matrix.project }} DEVICE=${{ matrix.device }} DEVICE_SPECIFIC_EMULATORS=no EMULATION_DEVICE=no ENABLE_32BIT=no TARGET_TYPE=none ./scripts/build emulators
+
       - uses: actions/upload-artifact@v4
         with:
           name: kernel-config-(${{ matrix.device }})
           path: ./**/projects/${{ matrix.project }}/devices/${{ matrix.device }}/linux/linux.aarch64.conf
           if-no-files-found: error
 
-  create-pr-kernel-configs:
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docs-(${{ matrix.device }})
+          path: ./**/documentation/PER_DEVICE_DOCUMENTATION/${{ matrix.device }}/SUPPORTED_EMULATORS_AND_CORES.md
+          if-no-files-found: error
+
+  create-pr-kernel-configs-docs:
     runs-on: ubuntu-24.04
-    name: Create PR with updated kernel config
+    name: Create PR with updated kernel config or docs
     needs:
-      - update-kernel-configs
+      - update-kernel-configs-docs
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -83,19 +92,31 @@ jobs:
           path: .
           pattern: kernel-config-*
           merge-multiple: true
-      - name: Commit and Push Changes
+      - name: Commit kernel configs
         run: |
           git config user.name "${{ github.actor }}"
           git config user.email "${{ github.actor }}@users.noreply.github.com"
 
           git add .
           git commit -m "Update kernel configs" || echo "No changes to commit"
+      - name: Download device docs
+        uses: actions/download-artifact@v4
+        with:
+          path: .
+          pattern: docs-*
+          merge-multiple: true
+      - name: Commit documentation
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
 
+          git add .
+          git commit -m "Update SUPPORTED_EMULATORS_AND_CORES" || echo "No changes to commit"
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
-          commit-message: "Update kernel configs"
-          title: "Update kernel configs"
+          commit-message: "Update kernel configs/device documentation"
+          title: "Update kernel configs/device documentation"
           body: "Automated changes by [create-pull-request]"
           base: dev
           branch: auto-pr-branch

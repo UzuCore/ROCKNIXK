@@ -88,6 +88,8 @@ esac
 
 # Split building emulators into 2 stages, needed to fit the jobs into the 6 hour GH runner time limit.
 case "${TARGET_TYPE}" in
+  none)
+  ;;
   cores_only)
     PKG_DEPENDS_TARGET+=" ${LIBRETRO_CORES}"
   ;;
