@@ -2,6 +2,7 @@
   <H700 bootmethod="extlinux">
     <file>sun50i-h700-anbernic-rg35xx-plus</file>
     <file>sun50i-h700-anbernic-rg35xx-plus-rev6-panel</file>
+    <file>sun50i-h700-anbernic-rg35xx-pro</file>
     <file>sun50i-h700-anbernic-rg35xx-h</file>
     <file>sun50i-h700-anbernic-rg35xx-h-rev6-panel</file>
     <file>sun50i-h700-anbernic-rg35xx-sp</file>

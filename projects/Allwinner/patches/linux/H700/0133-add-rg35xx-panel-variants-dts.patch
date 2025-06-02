@@ -4,9 +4,9 @@ Date: Sat, 9 Nov 2024 12:17:55 +0100
 Subject: [PATCH] add rg35xx rev6 panel variants dts
 
 ---
- .../sun50i-h700-anbernic-rg35xx-2024-rev6-panel.dts   | 11 +++++++++++
- .../sun50i-h700-anbernic-rg35xx-h-rev6-panel.dts      | 11 +++++++++++
- .../sun50i-h700-anbernic-rg35xx-plus-rev6-panel.dts   | 11 +++++++++++
+ .../sun50i-h700-anbernic-rg35xx-2024-rev6-panel.dts   | 15 +++++++++++
+ .../sun50i-h700-anbernic-rg35xx-h-rev6-panel.dts      | 15 +++++++++++
+ .../sun50i-h700-anbernic-rg35xx-plus-rev6-panel.dts   | 15 +++++++++++
  .../sun50i-h700-anbernic-rg35xx-sp-v2-panel.dts     | 15 +++++++++++
  4 files changed, 48 insertions(+)
  create mode 100644 arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024-rev6-panel.dts
@@ -19,7 +19,7 @@ new file mode 100644
 index 000000000..595dcb375
 --- /dev/null
 +++ b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-2024-rev6-panel.dts
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,15 @@
 +// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 +/*
 + * Copyright (C) 2024 Ryan Walklin <ryan@testtoast.com>.
@@ -27,6 +27,10 @@ index 000000000..595dcb375
 + */
 +
 +#include "sun50i-h700-anbernic-rg35xx-2024.dts"
++
++/ {
++	rocknix-dt-id = "sun50i-h700-anbernic-rg35xx-2024-rev6-panel";
++};
 +
 +&panel {
 +	compatible = "anbernic,rg35xx-plus-rev6-panel", "panel-mipi-dpi-spi";
@@ -36,7 +40,7 @@ new file mode 100644
 index 000000000..14fc39ca1
 --- /dev/null
 +++ b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-h-rev6-panel.dts
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,15 @@
 +// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 +/*
 + * Copyright (C) 2024 Ryan Walklin <ryan@testtoast.com>.
@@ -44,6 +48,10 @@ index 000000000..14fc39ca1
 + */
 +
 +#include "sun50i-h700-anbernic-rg35xx-h.dts"
++
++/ {
++	rocknix-dt-id = "sun50i-h700-anbernic-rg35xx-h-rev6-panel";
++};
 +
 +&panel {
 +	compatible = "anbernic,rg35xx-plus-rev6-panel", "panel-mipi-dpi-spi";
@@ -53,7 +61,7 @@ new file mode 100644
 index 000000000..7479365dc
 --- /dev/null
 +++ b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-plus-rev6-panel.dts
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,15 @@
 +// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 +/*
 + * Copyright (C) 2024 Ryan Walklin <ryan@testtoast.com>.
@@ -61,6 +69,10 @@ index 000000000..7479365dc
 + */
 +
 +#include "sun50i-h700-anbernic-rg35xx-plus.dts"
++
++/ {
++	rocknix-dt-id = "sun50i-h700-anbernic-rg35xx-plus-rev6-panel";
++};
 +
 +&panel {
 +	compatible = "anbernic,rg35xx-plus-rev6-panel", "panel-mipi-dpi-spi";
@@ -70,7 +82,7 @@ new file mode 100644
 index 000000000..c22e48641
 --- /dev/null
 +++ b/arch/arm64/boot/dts/allwinner/sun50i-h700-anbernic-rg35xx-sp-v2-panel.dts
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,15 @@
 +// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 +/*
 + * Copyright (C) 2024 Ryan Walklin <ryan@testtoast.com>.
@@ -78,6 +90,10 @@ index 000000000..c22e48641
 + */
 +
 +#include "sun50i-h700-anbernic-rg35xx-sp.dts"
++
++/ {
++	rocknix-dt-id = "sun50i-h700-anbernic-rg35xx-sp-v2-panel";
++};
 +
 +&panel {
 +	compatible = "anbernic,rg35xx-sp-v2-panel", "panel-mipi-dpi-spi";
