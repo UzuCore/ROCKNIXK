@@ -22,7 +22,7 @@ case ${DEVICE} in
     PKG_GIT_CLONE_BRANCH="rk-6.1-rkr3"
     PKG_PATCH_DIRS="${LINUX} ${DEVICE} default"
   ;;
-  H700|SM8550)
+  H700|SM8*)
     PKG_VERSION="6.15"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
   ;;

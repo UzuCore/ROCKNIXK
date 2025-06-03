@@ -3,6 +3,11 @@ name: Update kernel configs and docs
 on:
   workflow_dispatch:
   workflow_call:
+  push:
+    paths:
+      - 'packages/kernel/linux/package.mk'
+    branches:
+      - dev
 
 jobs:
   update-kernel-configs-docs:
