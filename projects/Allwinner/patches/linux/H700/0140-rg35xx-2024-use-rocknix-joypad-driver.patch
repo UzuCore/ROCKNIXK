@@ -118,19 +118,19 @@ index a8f36c4f1..1c2637d21 100644
 +			p = positive direction, n = negative direction
 +			report value = (real_adc_data * tuning_value) / 100
 +		*/
-+		abs_x-p-tuning = <180>;
-+		abs_x-n-tuning = <180>;
++		abs_x-p-tuning = <50>;
++		abs_x-n-tuning = <50>;
 +		invert-absx;
 +
-+		abs_y-p-tuning = <180>;
-+		abs_y-n-tuning = <180>;
++		abs_y-p-tuning = <50>;
++		abs_y-n-tuning = <50>;
 +		invert-absy;
 +
-+		abs_rx-p-tuning = <180>;
-+		abs_rx-n-tuning = <180>;
++		abs_rx-p-tuning = <50>;
++		abs_rx-n-tuning = <50>;
 +
-+		abs_ry-p-tuning = <180>;
-+		abs_ry-n-tuning = <180>;
++		abs_ry-p-tuning = <50>;
++		abs_ry-n-tuning = <50>;
 +
 +		/* poll device interval (ms), adc read interval */
 +		poll-interval = <10>;

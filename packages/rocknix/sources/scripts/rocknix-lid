@@ -22,6 +22,22 @@ if [ "${SUSPEND_MODE}" != "off" ]; then
   exit 0
 fi
 
+# Only do something when HDMI is disconnected
+HDMI_STATUS=$(cat /sys/class/drm/card*/card*-HDMI-A-[0-9]/status)
+
+if [[ "${HDMI_STATUS}" = "connected" ]]; then
+  ${DEBUG} && log $0 "HDMI connected, exiting"
+  exit 0
+fi
+
+# Only do something when charger is disconnected
+CHARGE_STATUS=$(cat /sys/class/power_supply/battery/status)
+
+if [[ "${CHARGE_STATUS}" = "Charging" ]]; then
+  ${DEBUG} && log $0 "Charger connected, exiting"
+  exit 0
+fi
+
 # If a game is not running, by default shutdown immediately
 SHUTDOWN_DELAY="$(get_setting system.shutdown_delay)"
 if [ "${SHUTDOWN_DELAY}" = "" ]; then
@@ -87,9 +103,7 @@ do_lid_open_actions() {
   # Undo CPU core parking
   ${DEBUG} && log $0 "Undo CPU core parking"
   for x in /sys/devices/system/cpu/cpu*/online; do
-    if [ ! $(echo "${x}" | grep "cpu0") ]; then
-      echo 1 > "${x}"
-    fi
+    echo 1 > "${x}"
   done
 }
 
@@ -118,20 +132,24 @@ if [ "${ACTION}" = "close" ]; then
   ${DEBUG} && log $0 "Lid close - creating ${FLAG_FILE}"
   touch "${FLAG_FILE}"
 
-  # Actions on lid close
-  do_lid_close_actions
-
   # Wait for the desired shutdown delay
   check_es_running_game
   RUNNING_GAME=$?
 
   if [[ $RUNNING_GAME -eq 0 ]]; then
-    ${DEBUG} && log $0 "Game running, shutdown delay ${SHUTDOWN_DELAY_RUNNING_GAME}"
-    sleep ${SHUTDOWN_DELAY_RUNNING_GAME}
+    DELAY=${SHUTDOWN_DELAY_RUNNING_GAME}
+    ${DEBUG} && log $0 "Game running"
   else
-    ${DEBUG} && log $0 "No game running, shutdown delay ${SHUTDOWN_DELAY}"
-    sleep ${SHUTDOWN_DELAY}
+    ${DEBUG} && log $0 "No game running"
+    DELAY=${SHUTDOWN_DELAY}
   fi
+
+  # Actions on lid close, only if there is a timed delay
+  if [[ "${DELAY}" -gt 0 ]]; then
+    do_lid_close_actions
+  fi
+
+  sleep ${DELAY}
 
   # Delay has completed - check whether the flag file is still present
   if [ -f "${FLAG_FILE}" ]; then
