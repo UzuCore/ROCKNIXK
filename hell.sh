@@ -2,8 +2,6 @@
 
 TARGET="AMD64 RK3588 RK3566 RK3326 RK3399 S922X SM8250 SM8550 H700"
 
-make clean
-
 for var in $TARGET
 do make $var;
 done
