@@ -184,7 +184,7 @@ diff -rupbN linux.orig/arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2.dts linux/arch
 +	vddio-supply = <&vreg_l12b_1p8>;
 +	vdd-supply = <&vdd_disp_2v8>;
 +
-+        backlight = <&backlight>;
++	backlight = <&backlight>;
 +	reset-gpios = <&tlmm 133 GPIO_ACTIVE_LOW>;
 +
 +	rotation = <90>;

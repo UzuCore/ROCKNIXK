@@ -1,0 +1,25 @@
+From 1c0e9e729c3deff54553ea72f128aceee42ae98a Mon Sep 17 00:00:00 2001
+From: Philippe Simons <simons.philippe@gmail.com>
+Date: Sat, 7 Jun 2025 14:08:02 +0200
+Subject: [PATCH] Revert "drm/msm: Expose DRIVER_SYNCOBJ_TIMELINE"
+
+This reverts commit 977e4ef27591a41cab8ff43cf390d32936d4b7f5.
+---
+ drivers/gpu/drm/msm/msm_drv.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/msm/msm_drv.c b/drivers/gpu/drm/msm/msm_drv.c
+index c3588dc9e537..ff7a7a9f7b0d 100644
+--- a/drivers/gpu/drm/msm/msm_drv.c
++++ b/drivers/gpu/drm/msm/msm_drv.c
+@@ -894,7 +894,6 @@ static const struct drm_driver msm_driver = {
+ 				DRIVER_RENDER |
+ 				DRIVER_ATOMIC |
+ 				DRIVER_MODESET |
+-				DRIVER_SYNCOBJ_TIMELINE |
+ 				DRIVER_SYNCOBJ,
+ 	.open               = msm_open,
+ 	.postclose          = msm_postclose,
+-- 
+2.49.0
+
