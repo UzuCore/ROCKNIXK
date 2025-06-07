@@ -120,93 +120,93 @@ index b8bbe88e770f..a84dd7f6ebc1 100644
 --- a/arch/arm64/boot/dts/qcom/sm8550.dtsi
 +++ b/arch/arm64/boot/dts/qcom/sm8550.dtsi
 @@ -79,8 +79,8 @@ CPU0: cpu@0 {
- 			power-domains = <&CPU_PD0>;
- 			power-domain-names = "psci";
- 			qcom,freq-domain = <&cpufreq_hw 0>;
+					 &mc_virt SLAVE_EBI1 QCOM_ICC_TAG_ACTIVE_ONLY>,
+					<&epss_l3 MASTER_EPSS_L3_APPS
+					 &epss_l3 SLAVE_EPSS_L3_SHARED>;
 -			capacity-dmips-mhz = <1024>;
 -			dynamic-power-coefficient = <100>;
 +			capacity-dmips-mhz = <326>;
 +			dynamic-power-coefficient = <251>;
- 			#cooling-cells = <2>;
- 			L2_0: l2-cache {
- 				compatible = "cache";
+			#cooling-cells = <2>;
+			l2_0: l2-cache {
+				compatible = "cache";
 @@ -105,8 +105,8 @@ CPU1: cpu@100 {
- 			power-domains = <&CPU_PD1>;
- 			power-domain-names = "psci";
- 			qcom,freq-domain = <&cpufreq_hw 0>;
+					 &mc_virt SLAVE_EBI1 QCOM_ICC_TAG_ACTIVE_ONLY>,
+					<&epss_l3 MASTER_EPSS_L3_APPS
+					 &epss_l3 SLAVE_EPSS_L3_SHARED>;
 -			capacity-dmips-mhz = <1024>;
 -			dynamic-power-coefficient = <100>;
 +			capacity-dmips-mhz = <326>;
 +			dynamic-power-coefficient = <251>;
- 			#cooling-cells = <2>;
- 			L2_100: l2-cache {
- 				compatible = "cache";
+			#cooling-cells = <2>;
+			l2_100: l2-cache {
+				compatible = "cache";
 @@ -126,8 +126,8 @@ CPU2: cpu@200 {
- 			power-domains = <&CPU_PD2>;
- 			power-domain-names = "psci";
- 			qcom,freq-domain = <&cpufreq_hw 0>;
+					 &mc_virt SLAVE_EBI1 QCOM_ICC_TAG_ACTIVE_ONLY>,
+					<&epss_l3 MASTER_EPSS_L3_APPS
+					 &epss_l3 SLAVE_EPSS_L3_SHARED>;
 -			capacity-dmips-mhz = <1024>;
 -			dynamic-power-coefficient = <100>;
 +			capacity-dmips-mhz = <326>;
 +			dynamic-power-coefficient = <251>;
- 			#cooling-cells = <2>;
- 			L2_200: l2-cache {
- 				compatible = "cache";
+			#cooling-cells = <2>;
+		};
+
 @@ -147,8 +147,8 @@ CPU3: cpu@300 {
- 			power-domains = <&CPU_PD3>;
- 			power-domain-names = "psci";
- 			qcom,freq-domain = <&cpufreq_hw 1>;
+					 &mc_virt SLAVE_EBI1 QCOM_ICC_TAG_ACTIVE_ONLY>,
+					<&epss_l3 MASTER_EPSS_L3_APPS
+					 &epss_l3 SLAVE_EPSS_L3_SHARED>;
 -			capacity-dmips-mhz = <1792>;
 -			dynamic-power-coefficient = <270>;
 +			capacity-dmips-mhz = <693>;
 +			dynamic-power-coefficient = <447>;
- 			#cooling-cells = <2>;
- 			L2_300: l2-cache {
- 				compatible = "cache";
+			#cooling-cells = <2>;
+			l2_300: l2-cache {
+				compatible = "cache";
 @@ -168,8 +168,8 @@ CPU4: cpu@400 {
- 			power-domains = <&CPU_PD4>;
- 			power-domain-names = "psci";
- 			qcom,freq-domain = <&cpufreq_hw 1>;
+					 &mc_virt SLAVE_EBI1 QCOM_ICC_TAG_ACTIVE_ONLY>,
+					<&epss_l3 MASTER_EPSS_L3_APPS
+					 &epss_l3 SLAVE_EPSS_L3_SHARED>;
 -			capacity-dmips-mhz = <1792>;
 -			dynamic-power-coefficient = <270>;
 +			capacity-dmips-mhz = <693>;
 +			dynamic-power-coefficient = <447>;
- 			#cooling-cells = <2>;
- 			L2_400: l2-cache {
- 				compatible = "cache";
+			#cooling-cells = <2>;
+			l2_400: l2-cache {
+				compatible = "cache";
 @@ -189,8 +189,8 @@ CPU5: cpu@500 {
- 			power-domains = <&CPU_PD5>;
- 			power-domain-names = "psci";
- 			qcom,freq-domain = <&cpufreq_hw 1>;
+					 &mc_virt SLAVE_EBI1 QCOM_ICC_TAG_ACTIVE_ONLY>,
+					<&epss_l3 MASTER_EPSS_L3_APPS
+					 &epss_l3 SLAVE_EPSS_L3_SHARED>;
 -			capacity-dmips-mhz = <1792>;
 -			dynamic-power-coefficient = <270>;
 +			capacity-dmips-mhz = <693>;
 +			dynamic-power-coefficient = <447>;
- 			#cooling-cells = <2>;
- 			L2_500: l2-cache {
- 				compatible = "cache";
+			#cooling-cells = <2>;
+			l2_500: l2-cache {
+				compatible = "cache";
 @@ -210,8 +210,8 @@ CPU6: cpu@600 {
- 			power-domains = <&CPU_PD6>;
- 			power-domain-names = "psci";
- 			qcom,freq-domain = <&cpufreq_hw 1>;
+					 &mc_virt SLAVE_EBI1 QCOM_ICC_TAG_ACTIVE_ONLY>,
+					<&epss_l3 MASTER_EPSS_L3_APPS
+					 &epss_l3 SLAVE_EPSS_L3_SHARED>;
 -			capacity-dmips-mhz = <1792>;
 -			dynamic-power-coefficient = <270>;
 +			capacity-dmips-mhz = <693>;
 +			dynamic-power-coefficient = <447>;
- 			#cooling-cells = <2>;
- 			L2_600: l2-cache {
- 				compatible = "cache";
+			#cooling-cells = <2>;
+			l2_600: l2-cache {
+				compatible = "cache";
 @@ -231,8 +231,8 @@ CPU7: cpu@700 {
- 			power-domains = <&CPU_PD7>;
- 			power-domain-names = "psci";
- 			qcom,freq-domain = <&cpufreq_hw 2>;
+					 &mc_virt SLAVE_EBI1 QCOM_ICC_TAG_ACTIVE_ONLY>,
+					<&epss_l3 MASTER_EPSS_L3_APPS
+					 &epss_l3 SLAVE_EPSS_L3_SHARED>;
 -			capacity-dmips-mhz = <1894>;
 -			dynamic-power-coefficient = <588>;
 +			capacity-dmips-mhz = <1024>;
 +			dynamic-power-coefficient = <1057>;
- 			#cooling-cells = <2>;
- 			L2_700: l2-cache {
- 				compatible = "cache";
+			#cooling-cells = <2>;
+			l2_700: l2-cache {
+				compatible = "cache";
 -- 
 2.44.0
 
