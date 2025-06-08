@@ -2,13 +2,13 @@
 
 if [ ! -z $1 ]
 then
-	ROJECT=PC DEVICE=AMD64 ARCH=x86_64 ./scripts/build $1
-	PROJECT=Rockchip DEVICE=RK3588 ARCH=aarch64 ./scripts/build $1
-	PROJECT=Amlogic DEVICE=S922X ARCH=aarch64 ./scripts/build $1
-	DEVICE_ROOT=RK3566 PROJECT=Rockchip DEVICE=RK3566 ARCH=aarch64 ./scripts/build $1
-	PROJECT=Rockchip DEVICE=RK3326 ARCH=aarch64 ./scripts/build $1
-	PROJECT=Rockchip DEVICE=RK3399 ARCH=aarch64 ./scripts/build $1
-	PROJECT=Allwinner DEVICE=H700 ARCH=aarch64 ./scripts/build $1
-	PROJECT=Qualcomm DEVICE=SM8250 ARCH=aarch64 ./scripts/build $1
-	PROJECT=Qualcomm DEVICE=SM8550 ARCH=aarch64 ./scripts/build $1
+	ROJECT=PC DEVICE=AMD64 ARCH=x86_64 ./scripts/build $1;
+	PROJECT=Rockchip DEVICE=RK3588 ARCH=aarch64 ./scripts/build $1;
+	PROJECT=Amlogic DEVICE=S922X ARCH=aarch64 ./scripts/build $1;
+	DEVICE_ROOT=RK3566 PROJECT=Rockchip DEVICE=RK3566 ARCH=aarch64 ./scripts/build $1;
+	PROJECT=Rockchip DEVICE=RK3326 ARCH=aarch64 ./scripts/build $1;
+	PROJECT=Rockchip DEVICE=RK3399 ARCH=aarch64 ./scripts/build $1;
+	PROJECT=Allwinner DEVICE=H700 ARCH=aarch64 ./scripts/build $1;
+	PROJECT=Qualcomm DEVICE=SM8250 ARCH=aarch64 ./scripts/build $1;
+	PROJECT=Qualcomm DEVICE=SM8550 ARCH=aarch64 ./scripts/build $1;
 fi

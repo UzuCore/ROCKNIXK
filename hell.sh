@@ -6,10 +6,10 @@ for var in $TARGET
 do make $var;
 done
 
-./.clean.sh same_cdi-lr
+#./.clean.sh same_cdi-lr
 ./.build.sh same_cdi-lr
 
-./.clean.sh mame-lr
+#./.clean.sh mame-lr
 ./.build.sh mame-lr
 
 for var in $TARGET
