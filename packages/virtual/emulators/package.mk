@@ -160,13 +160,11 @@ makeinstall_target() {
     AMD64|S922X|SM8*)
       add_emu_core 3ds lime3ds lime3ds-sa true
       add_emu_core 3ds azahar azahar-sa false
-      #add_emu_core 3ds retroarch panda3ds false
       add_es_system 3ds
     ;;
     RK3588)
       add_emu_core 3ds lime3ds lime3ds-sa true
       add_emu_core 3ds azahar azahar-sa false
-      #add_emu_core 3ds retroarch panda3ds false
       add_es_system 3ds
     ;;
   esac
