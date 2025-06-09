@@ -273,19 +273,17 @@ set +e
       (${FUNCTION_VOLUME_DOWN_EVENT})
         execute_action down
       ;;
-      (${FUNCTION_POWER_RELEASED_EVENT})
-        rocknix-shutdown 0 &
-      ;;
       (${FUNCTION_POWER_PRESSED_EVENT})
-        rocknix-shutdown 1 &
-      ;;
-      (${FUNCTION_LID_OPEN_EVENT})
-        ${DEBUG} && log $0 "${FUNCTION_LID_OPEN_EVENT}: Open"
-        /usr/bin/rocknix-lid open &
+        ${DEBUG} && log $0 "${FUNCTION_POWER_PRESSED_EVENT}: Pressed"
+        /usr/bin/rocknix-fake-suspend power &
       ;;
       (${FUNCTION_LID_CLOSE_EVENT})
         ${DEBUG} && log $0 "${FUNCTION_LID_CLOSE_EVENT}: Close"
-        /usr/bin/rocknix-lid close &
+        /usr/bin/rocknix-fake-suspend lid close &
+      ;;
+      (${FUNCTION_LID_OPEN_EVENT})
+        ${DEBUG} && log $0 "${FUNCTION_LID_OPEN_EVENT}: Open"
+        /usr/bin/rocknix-fake-suspend lid open &
       ;;
     esac
 
