@@ -1,0 +1,12 @@
+diff -rupN azahar-unified-source-2122-rc1.orig/src/citra_sdl/emu_window/emu_window_sdl2_vk.cpp azahar-unified-source-2122-rc1/src/citra_sdl/emu_window/emu_window_sdl2_vk.cpp
+--- azahar-unified-source-2122-rc1.orig/src/citra_sdl/emu_window/emu_window_sdl2_vk.cpp	2025-06-10 09:27:01.596900498 +1000
++++ azahar-unified-source-2122-rc1/src/citra_sdl/emu_window/emu_window_sdl2_vk.cpp	2025-06-10 09:32:31.027564866 +1000
+@@ -24,7 +24,7 @@ EmuWindow_SDL2_VK::EmuWindow_SDL2_VK(Cor
+                          SDL_WINDOWPOS_UNDEFINED, // x position
+                          SDL_WINDOWPOS_UNDEFINED, // y position
+                          Core::kScreenTopWidth, Core::kScreenTopHeight + Core::kScreenBottomHeight,
+-                         SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
++                         SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+     SDL_SysWMinfo wm;
+     SDL_VERSION(&wm.version);
+     if (SDL_GetWindowWMInfo(render_window, &wm) == SDL_FALSE) {

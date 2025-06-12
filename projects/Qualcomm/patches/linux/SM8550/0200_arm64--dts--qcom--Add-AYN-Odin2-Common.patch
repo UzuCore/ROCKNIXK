@@ -3,7 +3,7 @@ new file mode 100644
 index 000000000000..58d9ab342fe9
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/qcs8550-ayn-common.dtsi
-@@ -0,0 +1,1351 @@
+@@ -0,0 +1,1362 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Copyright (c) 2025, Teguh Sobirin.
@@ -113,7 +113,11 @@ index 000000000000..58d9ab342fe9
 +		pwms = <&pm8550_pwm 3 40000>; /* 40us, 25kHz */
 +
 +		pinctrl-names = "default";
-+		pinctrl-0 = <&fan_pwm_active>;
++		pinctrl-0 = <&fan_pwm_active>, <&fan_int>;
++
++		pulses-per-revolution = <4>;
++		interrupt-parent = <&tlmm>;
++		interrupts = <13 IRQ_TYPE_EDGE_FALLING>;
 +	};
 +
 +	reserved-memory {
@@ -1166,6 +1170,13 @@ index 000000000000..58d9ab342fe9
 +		drive-strength = <2>;
 +		bias-disable;
 +		output-low;
++	};
++
++	fan_int: fan-int-state {
++		pins = "gpio13";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-disable;
 +	};
 +
 +	mcu_en_active: mcu-en-active-state {

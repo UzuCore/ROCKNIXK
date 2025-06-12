@@ -1,0 +1,14 @@
+diff -rupN azahar-unified-source-2122-rc1.orig/src/citra_qt/citra_qt.cpp azahar-unified-source-2122-rc1/src/citra_qt/citra_qt.cpp
+--- azahar-unified-source-2122-rc1.orig/src/citra_qt/citra_qt.cpp	2025-06-10 09:27:01.592900435 +1000
++++ azahar-unified-source-2122-rc1/src/citra_qt/citra_qt.cpp	2025-06-10 09:30:57.434976241 +1000
+@@ -2663,10 +2663,6 @@ void GMainWindow::ToggleScreenLayout() {
+         case Settings::LayoutOption::HybridScreen:
+             return Settings::LayoutOption::SideScreen;
+         case Settings::LayoutOption::SideScreen:
+-            return Settings::LayoutOption::SeparateWindows;
+-        case Settings::LayoutOption::SeparateWindows:
+-            return Settings::LayoutOption::CustomLayout;
+-        case Settings::LayoutOption::CustomLayout:
+             return Settings::LayoutOption::Default;
+         default:
+             LOG_ERROR(Frontend, "Unknown layout option {}",

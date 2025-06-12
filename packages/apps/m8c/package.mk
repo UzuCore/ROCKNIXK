@@ -2,7 +2,7 @@
 # Copyright (C) 2024 ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="m8c"
-PKG_VERSION="v1.7.8"
+PKG_VERSION="v1.7.10"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/laamaa/m8c"
 PKG_URL="${PKG_SITE}/archive/refs/tags/${PKG_VERSION}.tar.gz"
