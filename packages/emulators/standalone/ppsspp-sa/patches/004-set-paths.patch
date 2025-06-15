@@ -1,16 +1,16 @@
 diff --git a/Core/Config.cpp b/Core/Config.cpp
-index fac682fb84..e1db1d288a 100644
+index 6ca8f49b3e62..09a5761a47cb 100644
 --- a/Core/Config.cpp
 +++ b/Core/Config.cpp
-@@ -1091,7 +1091,7 @@ void Config::Reload() {
- void Config::UpdateIniLocation(const char *iniFileName, const char *controllerIniFilename) {
+@@ -1151,7 +1151,7 @@ void Config::UpdateIniLocation(const char *iniFileName, const char *controllerIn
  	const bool useIniFilename = iniFileName != nullptr && strlen(iniFileName) > 0;
  	const char *ppssppIniFilename = IsVREnabled() ? "ppssppvr.ini" : "ppsspp.ini";
--	iniFilename_ = FindConfigFile(useIniFilename ? iniFileName : ppssppIniFilename);
+ 	bool exists;
+-	iniFilename_ = FindConfigFile(useIniFilename ? iniFileName : ppssppIniFilename, &exists);
 +	iniFilename_ = Path("/storage/.config/ppsspp/PSP/SYSTEM") / ppssppIniFilename;
  	const bool useControllerIniFilename = controllerIniFilename != nullptr && strlen(controllerIniFilename) > 0;
  	const char *controlsIniFilename = IsVREnabled() ? "controlsvr.ini" : "controls.ini";
- 	controllerIniFilename_ = FindConfigFile(useControllerIniFilename ? controllerIniFilename : controlsIniFilename);
+ 	controllerIniFilename_ = FindConfigFile(useControllerIniFilename ? controllerIniFilename : controlsIniFilename, &exists);
 diff --git a/Core/SaveState.cpp b/Core/SaveState.cpp
 index 49ac73c0af..a2c254c18b 100644
 --- a/Core/SaveState.cpp
@@ -57,7 +57,7 @@ index 155c3bbba3..8fbb29dd19 100644
  	case DIRECTORY_SYSTEM:
  		return pspDirectory / "SYSTEM";
  	case DIRECTORY_PAUTH:
-@@ -680,7 +674,7 @@ Path GetSysDirectory(PSPDirectories directoryType) {
+@@ -680,11 +674,11 @@ Path GetSysDirectory(PSPDirectories directoryType) {
  	case DIRECTORY_DUMP:
  		return pspDirectory / "SYSTEM/DUMP";
  	case DIRECTORY_SAVESTATE:
@@ -65,7 +65,12 @@ index 155c3bbba3..8fbb29dd19 100644
 +		return Path("/storage/roms/savestates/psp/ppsspp-sa");
  	case DIRECTORY_CACHE:
  		return pspDirectory / "SYSTEM/CACHE";
- 	case DIRECTORY_TEXTURES:
+	case DIRECTORY_TEXTURES:
+-		return pspDirectory / "TEXTURES";
++		return Path("/storage/roms/psp/PSP/TEXTURES/");
+	case DIRECTORY_PLUGINS:
+		return pspDirectory / "PLUGINS";
+	case DIRECTORY_APP_CACHE:
 @@ -702,11 +696,11 @@ Path GetSysDirectory(PSPDirectories directoryType) {
  		return pspDirectory / "themes";
  
@@ -81,24 +86,24 @@ index 155c3bbba3..8fbb29dd19 100644
  }
  
 diff --git a/SDL/SDLJoystick.cpp b/SDL/SDLJoystick.cpp
-index a0d206ee21..3bdca780b6 100644
+index 94a6f481baaf..eea67c288980 100644
 --- a/SDL/SDLJoystick.cpp
 +++ b/SDL/SDLJoystick.cpp
-@@ -25,7 +25,7 @@ SDLJoystick::SDLJoystick(bool init_SDL ) : registeredAsEventHandler(false) {
+@@ -24,7 +24,7 @@ SDLJoystick::SDLJoystick(bool init_SDL ) : registeredAsEventHandler(false) {
  		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
  	}
  
 -	const char *dbPath = "gamecontrollerdb.txt";
 +	const char *dbPath = "/storage/.config/SDL-GameControllerDB/gamecontrollerdb.txt";
- 	cout << "loading control pad mappings from " << dbPath << ": ";
+ 	INFO_LOG(Log::System, "loading control pad mappings from %s:", dbPath);
  
  	size_t size;
-@@ -34,7 +34,7 @@ SDLJoystick::SDLJoystick(bool init_SDL ) : registeredAsEventHandler(false) {
+@@ -33,7 +33,7 @@ SDLJoystick::SDLJoystick(bool init_SDL ) : registeredAsEventHandler(false) {
  		SDL_RWops *rw = SDL_RWFromConstMem(mappingData, size);
  		// 1 to free the rw after use
  		if (SDL_GameControllerAddMappingsFromRW(rw, 1) == -1) {
--			cout << "Failed to read mapping data - corrupt?" << endl;
-+			cout << "/storage/.config/SDL-GameControllerDB/gamecontrollerdb.txt missing" << endl;
+-			ERROR_LOG(Log::System, "Failed to read mapping data - corrupt?");
++			//ERROR_LOG(Log::System, "Failed to read mapping data - corrupt?");
  		}
  		delete[] mappingData;
  	} else {

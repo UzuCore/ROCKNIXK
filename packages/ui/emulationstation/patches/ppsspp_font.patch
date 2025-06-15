@@ -1,0 +1,28 @@
+diff -rupN a/es-app/src/guis/GuiMenu.cpp b/es-app/src/guis/GuiMenu.cpp
+--- a/es-app/src/guis/GuiMenu.cpp	2025-02-03 12:54:10.479164639 +0900
++++ b/es-app/src/guis/GuiMenu.cpp	2025-02-03 20:53:17.687540463 +0900
+@@ -3552,7 +3552,23 @@ void GuiMenu::openGamesSettings()
+ 			mWindow->pushGui(ai_service);
+ 		});
+ 	}
+-	
++
++	// PPSSPP font change
++	auto pspfont_enabled = std::make_shared<SwitchComponent>(mWindow);
++	bool pfbaseEnabled = SystemConf::getInstance()->get("global.pspfont.enabled") == "1";
++	pspfont_enabled->setState(pfbaseEnabled);
++	s->addWithLabel(_("PPSSPP KOREAN FONT"), pspfont_enabled);
++	s->addSaveFunc([pspfont_enabled] {
++		if (pspfont_enabled->getState() == false) {
++			Utils::Platform::runSystemCommand("/usr/bin/ppsspp_font.sh", "", nullptr);
++		} else {
++			Utils::Platform::runSystemCommand("/usr/bin/ppsspp_font.sh enabled", "", nullptr);
++		}
++	bool pspfontenabled = pspfont_enabled->getState();
++	SystemConf::getInstance()->set("global.pspfont.enabled", pspfontenabled ? "1" : "0");
++		SystemConf::getInstance()->saveSystemConf();
++	});
++
+ 	// Load global custom features
+ 	addFeatures(CustomFeatures::GlobalFeatures, window, s, "global", "", "", "", _("DEFAULT GLOBAL SETTINGS"));
+ 	

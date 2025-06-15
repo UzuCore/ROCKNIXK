@@ -5,8 +5,8 @@
 PKG_NAME="ppsspp-sa"
 PKG_SITE="https://github.com/hrydgard/ppsspp"
 PKG_URL="${PKG_SITE}.git"
-PKG_VERSION="0f50225f8e741c2f8a3a35cfd3b7d9dd0a16b34f" # v1.18.1
-CHEAT_DB_VERSION="31d7280ed5bad454df5bddc6d953de84f34c9ef5" # Update cheat.db (26/06/2024)
+PKG_VERSION="b53e44fcccbacc5e6e8e43a44f57cf7f9e6a38e6" # v1.18.1
+CHEAT_DB_VERSION="67ad03c25d58e7f9ffbc0ec7ac896283cbe059fc" # Update cheat.db (26/06/2024)
 PKG_LICENSE="GPLv2"
 PKG_DEPENDS_TARGET="toolchain ffmpeg libzip SDL2 zlib zip"
 PKG_LONGDESC="PPSSPPDL"
@@ -70,6 +70,7 @@ fi
 pre_configure_target() {
   sed -i 's/\-O[23]//g' ${PKG_BUILD}/CMakeLists.txt
   sed -i "s|include_directories(/usr/include/drm)|include_directories(${SYSROOT_PREFIX}/usr/include/drm)|" ${PKG_BUILD}/CMakeLists.txt
+  cp -f ${ROOT}/distributions/ROCKNIX/fonts/NanumSquareNeo-bRg.ttf ${PKG_BUILD}/assets/Roboto-Condensed.ttf
 }
 
 pre_make_target() {
@@ -95,6 +96,10 @@ makeinstall_target() {
     cp ${PKG_DIR}/sources/${DEVICE}/* ${INSTALL}/usr/config/ppsspp/PSP/SYSTEM
   fi
   rm ${INSTALL}/usr/config/ppsspp/assets/gamecontrollerdb.txt
-  ln -sf NotoSansJP-Regular.ttf ${INSTALL}/usr/config/ppsspp/assets/Roboto-Condensed.ttf
+  #ln -sf NotoSansJP-Regular.ttf ${INSTALL}/usr/config/ppsspp/assets/Roboto-Condensed.ttf
+
+  cp -f ${PKG_DIR}/fonts/* ${INSTALL}/usr/config/ppsspp/assets/
+  cp -f ${PKG_DIR}/fonts/patch.jpn0.pgf ${INSTALL}/usr/config/ppsspp/assets/flash0/font/jpn0.pgf
+  cp -f ${PKG_DIR}/fonts/patch.kr0.pgf ${INSTALL}/usr/config/ppsspp/assets/flash0/font/kr0.pgf
   curl -Lo ${INSTALL}/usr/config/ppsspp/PSP/Cheats/cheat.db https://raw.githubusercontent.com/Saramagrean/CWCheat-Database-Plus-/${CHEAT_DB_VERSION}/cheat.db
 }

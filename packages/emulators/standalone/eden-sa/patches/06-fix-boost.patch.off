@@ -1,0 +1,13 @@
+diff --git a/src/core/debugger/debugger.cpp b/src/core/debugger/debugger.cpp
+index e86aae846..f4bcf66f5 100644
+--- a/src/core/debugger/debugger.cpp
++++ b/src/core/debugger/debugger.cpp
+@@ -6,7 +6,7 @@
+ #include <thread>
+
+ #include <boost/asio.hpp>
+-#include <boost/process/async_pipe.hpp>
++#include <boost/process/v1/async_pipe.hpp>
+
+ #include "common/logging/log.h"
+ #include "common/polyfill_thread.h"

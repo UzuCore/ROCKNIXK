@@ -1,0 +1,122 @@
+diff --git a/dists/engine-data/ultima8.dat b/dists/engine-data/ultima8.dat
+index 23411f594e0d97952153b40b76fae09fcbef7e6b..95783d53903a219ddbeca69ed9c25dd5daa09b68 100644
+GIT binary patch
+delta 1012
+zcmbPvm~Zk4zGjiR?ILp-w~NeWT3|o@#R6u&?G96!n^~qmc+ZrzJ^dBaDdy>`=K@8A
+zUNVI;Zuk1YB*e0vvy1r)>vqF;OzRo9FKK2@W!rvuCUYNCJu{040|NsGLyMPr<ROvW
+zn?5lzF#KX-VBi6YmRe-z7o{fV>1F0+wobIozw97!{QGZ_{*a9!4@=Iij(!;u*>{&^
+zAyei8=cx}n^g9LZ*nj&>p4inWGWo_LC!HQ29Rq^{XIes3b}6XsV~}s!+#73V^H=Ww
+z|L=S94mRrl)H@+r&u`gcRB+UUMXW$zUyFxd*32zu{<p+5eL0w1WW(I<$+oUxx7D45
+zVzp1t?QUtkNmhGc*WSS0&VHv+IQ-m{MLK658+?=P>r;(CA$Y4?zIdsQqekj<wfM)|
+zPpW(9C70Dra(jLLWbl>EY+`rbM7Q5QJdgF5ZE^<BHuh@|1%9y?+^#qB>Hc@WDEITz
+zqmP~j@=m(<N@P;}`S5i63v*9Qt&9#1t?9Sh?Xz$7qn8?WMSAD;!d}}hdAM&vqrd5%
+zI`Mj!Qkw^78rPj}QeFG_iBc`=$?aD)vmPuyF!j&+OBz$oRxdUAxOQhrt>7iKxOxxY
+zD~Favb!t1`I<#`?AD{TeX6LLH=GM=d>Lx3?a&gO+X7l~Y6Zbh<ZEIovy~=Zyc7GO&
+ztiN);T;G*L@++5TElqmFCU;tkF*vQiTVsFJwr8*RRqP14uH_%f(_^yNO=G3tl@~FM
+zVNQEn+&Iq)MX7G_elcai^bNtPd%V_$hOA!^7`S<n&Hh;*57s>5Ub##qB>Vb_Ln>+;
+z<#MlRDcv^HaSGVou}kH5!14}`muVB@tlsL}`g#2)`}X(!%+9RaeV#MzVBE+jGIx8-
+z7bcJX?OX0J^>9s}KZjWZm{O*noWpDmN`_L*lkAzMJ5FU5nJ&4IS#A2#dCXEw$}ZCn
+z&SSQm{&y~r)9W%_avrk{D0NCPg?mgtK9|{S`Y)g|-d&zdz~q*im!6YZoH704TxOl=
+z@8<(eJmbqWoo4~F>GV*LVF!Yz7tUignLZaJl^@D9eb;=Tl>I^=?@Bb&^q7Urnvsl5
+z_6)d^v<fg$gMb1M=f#0+L?m!7uqXoqBZCA(WV~~PAMb5oRzL#N^%gMeGIu2~O^;i^
+z9LT#k1*E^YATbZ_;s~I(*!HJ_#HaHtWHz22KL_Zt@^q%@HFKB^r~3k3&DG7q%n+7Z
+ql<1T)y>Sk+&NQGF=F5|rr_0V|))ir81KB4Cgp*hq7_#Rv19<?MYLtoq
+
+delta 429
+zcmYk2O(;ZR6o&6T@0|(pB~jBYE7T|{<v$r@LGqU<*$@{I3$c<iNl_vO$Ar1}&P=ve
+z)3+rSSXfxff)!DWl8pu5uyN`vPUq)+-V?eI;WJ@$wZY)57<@7`M&84qSQdIh&{jY`
+zgs_$&Pc1svrPV^iy4-K3E6D2}I@Y<YnI_~#E9Dq6Y@lUBF7%S+mACEm;gNfTRN;|M
+zfHn=DbRlGNfEJ0<WAJBcD*CLMq0-seQFa~pc|HP@au1m!sNzHnCXViilOg2sqXOfT
+z2n3%;)lmH--$&KZjjf8$Cw{e2$%;zwij7R_f972qb$sc-%qVyzZLWH3Xv*S%ixMtM
+z?cBU^qm3F?;6nIPD4MP^9;{1pgQG4hFT(t5q?++y#|Qo5HjVrOzdLBc?h?4tMFlIj
+z!uS8o*D93g=!`WzJpLz}uekBH0j`ar8)@6%^{9frR-RF~1Ad91HuWPDi7<G@MKOQJ
+R;1$_gwpQ-Zw9W%4jvp~@jlTc@
+
+diff --git a/engines/ultima/detection_tables.h b/engines/ultima/detection_tables.h
+index 90fc2b8f334..cfd63ed08a8 100644
+--- a/engines/ultima/detection_tables.h
++++ b/engines/ultima/detection_tables.h
+@@ -465,6 +465,20 @@ static const UltimaGameDescription GAME_DESCRIPTIONS[] = {
+ 		0
+ 	},
+ 
++	{
++		{
++			"ultima8",
++			"Ultima Offline",
++			AD_ENTRY1s("kusecode.flx", "b2d23800ef93d249b6941d798de98a53", 1219130),
++			Common::KO_KOR,
++			Common::kPlatformDOS,
++			ADGF_NO_FLAGS,
++			GUI_OPTIONS_ULTIMA8
++		},
++		GAME_ULTIMA8,
++		0
++	},
++
+ 	// Crusader games use basically the same engine as ultima8, but
+ 	// are less complete.
+ 
+diff --git a/engines/ultima/ultima8/games/game_data.cpp b/engines/ultima/ultima8/games/game_data.cpp
+index 4db0475c811..cd14ce2689e 100644
+--- a/engines/ultima/ultima8/games/game_data.cpp
++++ b/engines/ultima/ultima8/games/game_data.cpp
+@@ -164,6 +164,9 @@ void GameData::loadTranslation() {
+ 		case GameInfo::GAMELANG_JAPANESE:
+ 			translationfile = "u8japanese.ini";
+ 			break;
++		case GameInfo::GAMELANG_KOREAN:
++			translationfile = "u8korean.ini";
++			break;
+ 		default:
+ 			warning("Unknown language.");
+ 			break;
+@@ -367,6 +370,8 @@ void GameData::setupFontOverrides() {
+ 
+ 	if (_gameInfo->_language == GameInfo::GAMELANG_JAPANESE)
+ 		setupJPOverrides();
++	if (_gameInfo->_language == GameInfo::GAMELANG_KOREAN)
++		setupJPOverrides();
+ }
+ 
+ void GameData::setupJPOverrides() {
+diff --git a/engines/ultima/ultima8/games/game_info.cpp b/engines/ultima/ultima8/games/game_info.cpp
+index e4f571a96be..07073059d19 100644
+--- a/engines/ultima/ultima8/games/game_info.cpp
++++ b/engines/ultima/ultima8/games/game_info.cpp
+@@ -55,6 +55,7 @@ static const GameLangDesc gamelangs[] = {
+ 	{ 'g', 'g', "German" },
+ 	{ 'e', 'e', "Spanish" },
+ 	{ 'e', 'j', "Japanese" },
++	{ 'e', 'k', "Korean" },
+ 	{ '\0', '\0', 0 }
+ };
+ 
+diff --git a/engines/ultima/ultima8/games/game_info.h b/engines/ultima/ultima8/games/game_info.h
+index 529c511e245..9e9aa821e59 100644
+--- a/engines/ultima/ultima8/games/game_info.h
++++ b/engines/ultima/ultima8/games/game_info.h
+@@ -64,7 +64,8 @@ struct GameInfo {
+ 		GAMELANG_FRENCH,
+ 		GAMELANG_GERMAN,
+ 		GAMELANG_SPANISH,
+-		GAMELANG_JAPANESE
++		GAMELANG_JAPANESE,
++		GAMELANG_KOREAN
+ 	} _language;
+ 
+ 	uint8 _md5[16];
+diff --git a/engines/ultima/ultima8/ultima8.cpp b/engines/ultima/ultima8/ultima8.cpp
+index 3bdfeec8ec3..ccccbf7cff4 100644
+--- a/engines/ultima/ultima8/ultima8.cpp
++++ b/engines/ultima/ultima8/ultima8.cpp
+@@ -422,6 +422,9 @@ bool Ultima8Engine::setupGame() {
+ 	case Common::JA_JPN:
+ 		info->_language = GameInfo::GAMELANG_JAPANESE;
+ 		break;
++	case Common::KO_KOR:
++		info->_language = GameInfo::GAMELANG_KOREAN;
++		break;
+ 	default:
+ 		error("Unknown language");
+ 		break;
