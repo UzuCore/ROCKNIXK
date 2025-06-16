@@ -23,6 +23,26 @@ get_gb() {
   fi
 }
 
+# Helper: calculate storage size excluding specific folders
+get_storage_size_kb() {
+  local storage_path="$1"
+  local total_kb=0
+  local excluded_folders=("roms" "games-internal" "games-external")
+
+  # Get total size first
+  total_kb=$(du -ks "$storage_path" | awk '{print $1}')
+
+  # Subtract excluded folders if they exist
+  for folder in "${excluded_folders[@]}"; do
+    if [[ -d "$storage_path/$folder" ]]; then
+      local folder_kb=$(du -ks "$storage_path/$folder" | awk '{print $1}')
+      total_kb=$((total_kb - folder_kb))
+    fi
+  done
+
+  echo "$total_kb"
+}
+
 # 1) Check for existing ROCKNIX or STORAGE partitions
 mapfile -t part_names < <(parted -m -s "$DEVICE" print | tail -n +2 | cut -d: -f6)
 for name in "${part_names[@]}"; do
@@ -143,10 +163,17 @@ sync
 read -rp "Copy existing /storage to new STORAGE? [y/N]: " copy_ans
 if [[ $copy_ans =~ ^[Yy]$ ]]; then
   avail_kb=$(df -k "$TMP_STORAGE" | awk 'NR==2 {print $4}')
-  used_kb=$(du -ks "$OLD_STORAGE" | awk '{print $1}')
+  used_kb=$(get_storage_size_kb "$OLD_STORAGE")
   if (( used_kb <= avail_kb )); then
-    echo "Copying /storage to new STORAGE..."
-    cp -a "$OLD_STORAGE"/. "$TMP_STORAGE"/
+    echo "Copying /storage to new STORAGE (excluding roms, games-internal, games-external)..."
+
+    # Copy everything except the excluded folders
+    find "$OLD_STORAGE" -mindepth 1 -maxdepth 1 \
+      ! -name "roms" \
+      ! -name "games-internal" \
+      ! -name "games-external" \
+      -exec cp -a {} "$TMP_STORAGE"/ \;
+
     sync
   else
     echo "Skipping copy: not enough free space ($((avail_kb*1024)) bytes available, $((used_kb*1024)) bytes needed)."

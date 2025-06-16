@@ -6,7 +6,7 @@ PKG_VERSION=""
 PKG_LICENSE="GPLv2"
 PKG_SITE=""
 PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain mesa vulkan-tools"
+PKG_DEPENDS_TARGET=""
 PKG_TOOLCHAIN="manual"
 PKG_LONGDESC="GPU driver util for switching between panfrost / panthor and libmali / libmali-vulkan"
 

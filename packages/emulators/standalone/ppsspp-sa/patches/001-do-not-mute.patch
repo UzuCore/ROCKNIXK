@@ -1,5 +1,5 @@
 diff --git a/Core/Config.cpp b/Core/Config.cpp
-index 6b8c868d172d..6ca8f49b3e62 100644
+index 6b8c868d1..6ca8f49b3 100644
 --- a/Core/Config.cpp
 +++ b/Core/Config.cpp
 @@ -1473,9 +1473,9 @@ void Config::PostLoadCleanup(bool gameSpecific) {

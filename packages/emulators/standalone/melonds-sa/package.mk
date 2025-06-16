@@ -29,7 +29,7 @@ fi
 
 PKG_CMAKE_OPTS_TARGET+=" -DCMAKE_BUILD_TYPE=Release \
                          -DCMAKE_INSTALL_PREFIX="/usr" \
--DUSE_QT6=ON \
+                         -DUSE_QT6=ON \
                          -DBUILD_SHARED_LIBS=OFF"
 
 
@@ -56,10 +56,10 @@ post_install() {
   esac
   sed -e "s/@PANFROST@/${PANFROST}/g" \
         -i ${INSTALL}/usr/bin/start_melonds.sh
-  
+
   # Platform hotkeys
   case ${DEVICE} in
-    RK3588|S922X)
+    RK3588|S922X|SM8*)
       HOTKEY="export HOTKEY="guide""
     ;;
     *)
