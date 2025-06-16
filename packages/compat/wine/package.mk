@@ -26,7 +26,7 @@ makeinstall_target() {
   cp -rf ${PKG_BUILD}/lib/* ${INSTALL}/usr/lib
   cp -rf ${PKG_BUILD}/share/* ${INSTALL}/usr/share
 
-  curl -Lo ${INSTALL}/usr/bin/winetricks ${PKG_WINE_TRICKS}
+  cp ${PKG_DIR}/winetricks ${INSTALL}/usr/bin
 
   chmod +x ${INSTALL}/usr/bin/winetricks
 }
