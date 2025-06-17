@@ -61,10 +61,10 @@ if [ -e /storage/.please_resize_me ] ; then
   if [ ! -z "$DISK" -a ! -z "$PART" ] ; then
     umount $PART
 
-    #echo "PARTITION RESIZING IN PROGRESS"
-    #echo ""
-    #echo "Please do not reboot or turn off your @DISTRONAME@ device!"
-    #echo ""
+    echo "PARTITION RESIZING IN PROGRESS"
+    echo ""
+    echo "Please do not reboot or turn off your @DISTRONAME@ device!"
+    echo ""
 
     if [ -n "$TARGET_SIZE" ]; then
       StartProgressLog spinner "Resizing storage partition to $TARGET_SIZE...   " "parted -s -f -m $DISK resizepart $PARTNUM ${TARGET_SIZE} >>$LOG 2>&1"
