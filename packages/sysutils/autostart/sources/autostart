@@ -12,6 +12,8 @@ log() {
 
 performance 2>/dev/null
 
+/usr/bin/show_splash intro 2>&1 >>${BOOTLOG}
+
 ### Load platform specific quirks
 if [ -d "/usr/lib/autostart/quirks/platforms/${HW_DEVICE}" ]
 then

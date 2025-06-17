@@ -62,7 +62,7 @@ post_install() {
 ... Built: ${BUILD_DATE}
 
 EOF
-  #cp ${PKG_DIR}/sources/motd ${INSTALL}/etc
+  #cp ${PKG_DIR}/sources/motd ${INSTALL}/etc/issue
   #cat ${INSTALL}/etc/issue >> ${INSTALL}/etc/motd
 
   cp ${PKG_DIR}/sources/scripts/* ${INSTALL}/usr/bin

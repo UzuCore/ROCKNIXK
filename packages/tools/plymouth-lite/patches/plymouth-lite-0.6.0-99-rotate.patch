@@ -1,0 +1,114 @@
+diff --git a/ply-image.c b/ply-image.c
+index 291b9ce..1283343 100644
+--- a/ply-image.c
++++ b/ply-image.c
+@@ -42,6 +42,11 @@
+ 
+ #include <png.h>
+ 
++#include <dirent.h>
++#include <stdio.h>
++#include <ftw.h>
++#include <endian.h>
++
+ #include <linux/fb.h>
+ #include "ply-frame-buffer.h"
+ 
+@@ -50,6 +55,7 @@
+ 
+ #define CLAMP(a,b,c) (MIN (MAX ((a), (b)), (c)))
+ 
++static char rotation_path[PATH_MAX] = {0};
+ 
+ typedef union
+ {
+@@ -430,6 +436,50 @@ animate_at_time (ply_frame_buffer_t *buffer,
+ 
+ }
+ 
++static int find_rotation_file(const char *fpath, const struct stat *sb, int typeflag) {
++  if (typeflag == FTW_F && strstr(fpath, "rotation") != NULL) {
++    // Try to read the file to verify it's the right one
++    FILE *fp = fopen(fpath, "rb");
++    if (fp) {
++      uint32_t test_val;
++      if (fread(&test_val, sizeof(uint32_t), 1, fp) == 1) {
++        test_val = be32toh(test_val);
++        // Assume it's our rotation file if value is reasonable
++        if (test_val == 0 || test_val == 90 || test_val == 180 || test_val == 270) {
++          strncpy(rotation_path, fpath, PATH_MAX - 1);
++          fclose(fp);
++          return 1; // Stop searching
++        }
++      }
++      fclose(fp);
++    }
++  }
++  return 0;
++}
++
++static int get_panel_rotation(void) {
++  uint32_t rotation = 0;
++  FILE *fp;
++
++  // Start search from device tree root
++  if (ftw("/proc/device-tree", find_rotation_file, 20) == -1) {
++    return 0;
++  }
++
++  // If we found a path, read the rotation value
++  if (rotation_path[0] != '\0') {
++    fp = fopen(rotation_path, "rb");
++    if (fp) {
++      if (fread(&rotation, sizeof(uint32_t), 1, fp) == 1) {
++        rotation = be32toh(rotation);
++      }
++      fclose(fp);
++    }
++  }
++
++  return (int)rotation;
++}
++
+ int
+ main (int    argc,
+       char **argv)
+@@ -437,6 +487,10 @@ main (int    argc,
+   ply_image_t *image;
+   ply_frame_buffer_t *buffer;
+   int exit_code;
++  double rotation_angle = 0.0;
++  ply_image_t *rotated_image;
++  long center_x, center_y;
++  int panel_rotation;
+ 
+   exit_code = 0;
+ 
+@@ -467,7 +521,26 @@ main (int    argc,
+ 
+   image = ply_image_resize(image, buffer->area.width, buffer->area.height);
+ 
+-  animate_at_time (buffer, image);
++  // Check command line argument first, then fall back to panel rotation
++  if (argc >= 3) {
++    rotation_angle = atof(argv[2]) * M_PI / 180.0;
++  } else {
++    panel_rotation = get_panel_rotation();
++    if (panel_rotation != 0) {
++      rotation_angle = panel_rotation * M_PI / 180.0;
++    }
++  }
++
++  // Only rotate if we have a non-zero rotation
++  if (rotation_angle != 0.0) {
++    center_x = ply_image_get_width(image) / 2;
++    center_y = ply_image_get_height(image) / 2;
++    rotated_image = ply_image_rotate(image, center_x, center_y, rotation_angle);
++    animate_at_time(buffer, rotated_image);
++    ply_image_free(rotated_image);
++  } else {
++    animate_at_time(buffer, image);
++  }
+ 
+   ply_frame_buffer_close (buffer);
+   ply_frame_buffer_free (buffer);
