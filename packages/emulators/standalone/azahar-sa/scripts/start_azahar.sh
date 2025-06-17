@@ -191,3 +191,4 @@ else
 fi
 
 ${EMUPERF} /usr/bin/azahar "${1}"
+kill -9 $(pidof gptokeyb)

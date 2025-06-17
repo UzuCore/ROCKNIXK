@@ -48291,7 +48291,7 @@ index 03942fe78..2951b9aa7 100644
    <rom id="samsh2jq" name="Samurai Shodown II / Shin Samurai Spirits - Haohmaru Jigokuhen (Infinite Power, Hack)" />
    <rom id="samsh2sp" name="Samurai Shodown II / Shin Samurai Spirits - Haohmaru Jigokuhen (Special 2017, Hack)" />
    <rom id="samsh3bs" name="Samurai Shodown III / Samurai Spirits - Zankurou Musouken (Boss, Hack)" />
-@@ -37955,239 +34655,72 @@
+@@ -37955,239 +34655,73 @@
    <rom id="samsh4sp" name="Samurai Shodown IV - Amakusa's Revenge / Samurai Spirits - Amakusa Kourin (Special 2017, Hack)" />
    <rom id="samsh5bs" name="Samurai Shodown V / Samurai Spirits Zero (Boss, Hack)" />
    <rom id="samsh5fd" name="Samurai Shodown V / Samurai Spirits Zero (Fully Decrypted)" />
@@ -48512,6 +48512,7 @@ index 03942fe78..2951b9aa7 100644
 -  <rom id="samshos08" name="Samurai Shodown (Simplify Edition, 2018-06-04)" />
 -  <rom id="samshos1" name="Samurai Shodown (Easy special attacks, 2005-09-19)" />
 -  <rom id="samshozk" name="Samurai Shodown (Unlimited Credits in Console Mode 2008-10-23)" />
++  <rom id="samshok" name="Samurai Shodown / Samurai Spirits (Korean Translation)" />
 +  <rom id="samshouh" name="Samurai Shodown / Samurai Spirits (AES Uncensored Hack)" />
    <rom id="samspsen" name="Samurai Spirits Sen (v1.00)" />
    <rom id="samsptk" name="Samurai Spirits Tenkaichi Kenkakuden" />

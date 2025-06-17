@@ -5,8 +5,10 @@ b = \\
 x = \\
 y = \\
 l1 = \\
+l2 = \\
 l3 = \\
 r1 = \\
+r2 = \\
 r3 = \\
 up = \\
 down = \\
@@ -21,8 +23,8 @@ right_analog_down = \\
 right_analog_left = \\
 right_analog_right = \\
 
-# Map left trigger (L2) to swap layout (F10)
-l2 = f10
+# Map hotkey + left trigger (L2) to swap layout (F10)
+l2_hk = f10
 
-# Map right trigger (R2) to swap screen (F9)
-r2 = f9
+# Map hotkey + right trigger (R2) to swap screen (F9)
+r2_hk = f9

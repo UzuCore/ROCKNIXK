@@ -177,3 +177,4 @@ else
 fi
 
 ${EMUPERF} /usr/bin/lime3ds "${1}"
+kill -9 $(pidof gptokeyb)

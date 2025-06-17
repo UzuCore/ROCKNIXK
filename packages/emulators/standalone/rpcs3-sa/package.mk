@@ -3,8 +3,8 @@
 
 PKG_NAME="rpcs3-sa"
 PKG_LICENSE="GPLv3"
-PKG_VERSION="d8bc2d5c7531cb1795cbff1740844f89dff2b1bf"
-PKG_REL_VERSION="0.0.37-17991-d8bc2d5c"
+PKG_VERSION="27359d3d329693c3f6bab2d480a08603511f2261"
+PKG_REL_VERSION="0.0.37-18014-27359d3d"
 PKG_SITE="https://github.com/RPCS3/rpcs3-binaries-linux"
 PKG_DEPENDS_TARGET="toolchain libevdev SDL2 qt6 mesa libcom-err"
 PKG_LONGDESC="PS3 Emulator appimage"
