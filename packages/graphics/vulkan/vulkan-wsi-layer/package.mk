@@ -2,7 +2,7 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="vulkan-wsi-layer"
-PKG_VERSION="cb1a50cf7e640ad7306e673131ded98c0f133628"
+PKG_VERSION="7c71bbc21458db0f4f9c946d4b986f5e8d748aec"
 PKG_LICENSE="MIT"
 PKG_SITE="https://gitlab.freedesktop.org/mesa/vulkan-wsi-layer"
 PKG_URL="${PKG_SITE}/-/archive/${PKG_VERSION}.tar.gz"
