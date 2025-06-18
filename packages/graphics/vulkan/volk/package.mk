@@ -2,7 +2,7 @@
 # Copyright (C) 2023-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="volk"
-PKG_VERSION="1.3.270"
+PKG_VERSION="vulkan-sdk-1.4.313.0"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/zeux/volk"
 PKG_URL="https://github.com/zeux/volk/archive/${PKG_VERSION}.tar.gz"
