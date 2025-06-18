@@ -30,6 +30,224 @@ log_message() {
     fi
 }
 
+# Load controller configuration if available
+if [ -f "/storage/.config/profile.d/098-controller" ]; then
+    source /storage/.config/profile.d/098-controller
+    log_message "Controller config loaded: SOUTH=${DEVICE_BTN_SOUTH}, DPAD_UP=${DEVICE_BTN_DPAD_UP}" "false"
+fi
+
+# Simple controller input function using evtest for actual joystick input
+# Improved controller input: persistent evtest for low-latency input
+read_controller_input() {
+    local timeout="${1:-0}" # Default to no timeout
+    local input_device=""
+    for dev in /dev/input/event*; do
+        if [ -c "$dev" ]; then
+            local supports=$(udevadm info "$dev" 2>/dev/null | awk '/ID_INPUT_JOYSTICK=1/ {print "joystick"}')
+            if [ "$supports" = "joystick" ]; then
+                input_device="$dev"
+                break
+            fi
+        fi
+    done
+    if [ -z "$input_device" ]; then
+        # Fallback to keyboard input if no controller is found
+        if [ "$timeout" -gt 0 ]; then
+            read -t "$timeout" -sn1 input 2>/dev/null
+        else
+            read -sn1 input 2>/dev/null
+        fi
+        case "$input" in
+            "w"|"W"|$'\e[A') echo "up" ;;
+            "s"|"S"|$'\e[B') echo "down" ;;
+            "a"|"A"|$'\e[D') echo "left" ;;
+            "d"|"D"|$'\e[C') echo "right" ;;
+            $'\n'|" ")       echo "confirm" ;;
+            "q"|"Q"|$'\e')   echo "cancel" ;;
+            "") echo "timeout" ;;
+            *) echo "unknown" ;;
+        esac
+        return
+    fi
+    
+    # For controllers, block and wait for the first button press event.
+    # This is more responsive than polling with a timeout.
+    local event_output
+    if [ "$timeout" -gt 0 ]; then
+        event_output=$(timeout "$timeout" evtest "$input_device" 2>/dev/null | grep -m 1 "value 1")
+    else
+        event_output=$(evtest "$input_device" 2>/dev/null | grep -m 1 "value 1")
+    fi
+    
+    if [ -z "$event_output" ]; then
+        echo "timeout"
+        return
+    fi
+    
+    # Parse the first button press event found
+    log_message "Raw event data: $event_output" "false"
+    if [[ "$event_output" =~ BTN_DPAD_UP.*value[[:space:]]+1 ]] || [[ "$event_output" =~ ABS_HAT0Y.*value[[:space:]]+-1 ]]; then
+        echo "up"
+    elif [[ "$event_output" =~ BTN_DPAD_DOWN.*value[[:space:]]+1 ]] || [[ "$event_output" =~ ABS_HAT0Y.*value[[:space:]]+1 ]]; then
+        echo "down"
+    elif [[ "$event_output" =~ BTN_DPAD_LEFT.*value[[:space:]]+1 ]] || [[ "$event_output" =~ ABS_HAT0X.*value[[:space:]]+-1 ]]; then
+        echo "left"
+    elif [[ "$event_output" =~ BTN_DPAD_RIGHT.*value[[:space:]]+1 ]] || [[ "$event_output" =~ ABS_HAT0X.*value[[:space:]]+1 ]]; then
+        echo "right"
+    elif [[ "$event_output" =~ BTN_SOUTH.*value[[:space:]]+1 ]] || [[ "$event_output" =~ BTN_A.*value[[:space:]]+1 ]] || [[ "$event_output" =~ "code 0.*value[[:space:]]+1" ]] || [[ "$event_output" =~ BTN_EAST.*value[[:space:]]+1 ]]; then
+        echo "confirm"
+    elif [[ "$event_output" =~ BTN_B.*value[[:space:]]+1 ]] || [[ "$event_output" =~ "code 1.*value[[:space:]]+1" ]]; then
+        echo "cancel"
+    elif [[ "$event_output" =~ BTN_START.*value[[:space:]]+1 ]]; then
+        echo "start"
+    elif [[ "$event_output" =~ BTN_SELECT.*value[[:space:]]+1 ]]; then
+        echo "select"
+    else
+        log_message "Unrecognized button event: $event_output" "false"
+        echo "unknown"
+    fi
+}
+
+# Simple controller-friendly confirmation using the same pattern as other ROCKNIX scripts
+# Parameters: $1=message, $2=initial_selection (0=yes, 1=no, defaults to 0)
+controller_confirm() {
+    local message="$1"
+    local selected="${2:-0}"         # Default to Yes initially selected
+    local options=("Yes" "No")
+    local last_selected=-1
+    log_message "Starting controller_confirm with message: '$message', initial: $selected" "false"
+    
+    while true; do
+        # Only redraw if selection changed
+        if [ $selected -ne $last_selected ]; then
+            printf "\033[2J\033[H"  # Clear screen and move to top
+            echo -e "\e[33m${message}\e[0m"
+            echo ""
+            for i in "${!options[@]}"; do
+                if [ $i -eq $selected ]; then
+                    echo -e "\e[34m> \e[32m${options[$i]}\e[0m"
+                else
+                    echo "  ${options[$i]}"
+                fi
+            done
+            echo ""
+            echo "Controls: D-Pad Up/Down=Navigate, A=Confirm, B=Cancel"
+            echo "Keyboard: W/S=Navigate, Enter=Confirm, Q=Cancel"
+            echo ""
+            last_selected=$selected
+        fi
+        
+        local input=$(read_controller_input)
+        log_message "Received input: '$input'" "false"
+        case "$input" in
+            "up")
+                selected=$(( (selected - 1 + 2) % 2 ))
+                log_message "Selection changed to: $selected (moved up)" "false"
+                ;;
+            "down")
+                selected=$(( (selected + 1) % 2 ))
+                log_message "Selection changed to: $selected (moved down)" "false"
+                ;;
+            "confirm")
+                log_message "Confirmed with selection: $selected" "false"
+                sleep 0.3
+                return $selected
+                ;;
+            "cancel")
+                log_message "Cancelled" "false"
+                return 1
+                ;;
+            "timeout")
+                # Continue waiting for input
+                ;;
+            *)
+                log_message "Unknown input received: '$input'" "false"
+                ;;
+        esac
+        sleep 0.05
+    done
+}
+
+# Get available input devices for controller monitoring
+get_controller_devices() {
+    INPUT_DEVICES=()
+    for DEV in /dev/input/event*; do
+        unset SUPPORTS
+        SUPPORTS=$(udevadm info ${DEV} | awk '/ID_INPUT_KEY=|ID_INPUT_JOYSTICK=/ {print $2}')
+        if [ -n "${SUPPORTS}" ]; then
+            DEVICE=$(udevadm info ${DEV} | awk 'BEGIN {FS="="} /DEVNAME=/ {print $2}')
+            if [[ "${SUPPORTS}" =~ ID_INPUT_JOYSTICK ]]; then
+                INPUT_DEVICES+=("${DEVICE}")
+            fi
+        fi
+    done
+}
+
+# Controller-friendly menu with evtest-based input handling
+# Parameters: $1=title, $@=options
+controller_menu() {
+    local title="$1"
+    shift
+    local options=("$@")
+    local selected=0
+    local choice_made=false
+    local user_choice=""
+    
+    get_controller_devices
+    
+    while [ "$choice_made" = false ]; do
+        # Display menu
+        clear
+        echo -e "\e[36m${title}\e[0m"
+        echo "Use D-Pad to navigate, A button to confirm, B button to cancel"
+        echo ""
+        
+        for i in "${!options[@]}"; do
+            if [ $i -eq $selected ]; then
+                echo -e "> \e[32m${options[$i]}\e[0m"
+            else
+                echo "  ${options[$i]}"
+            fi
+        done
+        echo ""
+        echo "Controls: D-Pad=Navigate, A=Confirm, B=Cancel"
+        
+        # Monitor controller input with timeout
+        (
+            for INPUT_DEVICE in ${INPUT_DEVICES[@]}; do
+                timeout 1 evtest "${INPUT_DEVICE}" 2>&1 &
+            done
+            wait
+        ) | while read line; do
+            case ${line} in
+                (${UP_EVENT}|${UP_ALT_EVENT})
+                    selected=$(( (selected - 1 + ${#options[@]}) % ${#options[@]} ))
+                    break
+                ;;
+                (${DOWN_EVENT}|${DOWN_ALT_EVENT})
+                    selected=$(( (selected + 1) % ${#options[@]} ))
+                    break
+                ;;
+                (${CONFIRM_EVENT})
+                    user_choice="${options[$selected]}"
+                    choice_made=true
+                    break
+                ;;
+                (${CANCEL_EVENT})
+                    user_choice=""
+                    choice_made=true
+                    break
+                ;;
+            esac
+        done
+        
+        # Small delay to prevent rapid menu updates
+        sleep 0.1
+    done
+    
+    echo "$user_choice"
+}
+
 # Performs cleanup operations and exits with the specified code
 # Records total execution time in the log for performance tracking
 # Parameters:
@@ -70,87 +288,119 @@ check_internet() {
 load_config() {
     log_message "Loading configuration from cloud_sync.conf" "false"
     source /storage/.config/cloud_sync.conf
-    
-    # Check if needed variables are present, add if necessary
-    if [ "${BACKUPPATH}" == "" ] || [ "${RESTOREPATH}" == "" ] || [ "${SYNCPATH}" == "" ] || [ "${RCLONEOPTS}" == "" ] || [ "${BACKUPMETHOD}" == "" ] || [ "${RESTOREMETHOD}" == "" ] || [ "${RSYNCRMDIR}" == "" ] || [ "${BACKUPFOLDER}" == "" ] || [ "${SYNCPATH_BACKUP}" == "" ] || [ "${BACKUPFILE_BACKUP_OPTION}" == "" ] || [ "${BACKUPFILE_RESTORE_OPTION}" == "" ] || [ "${LOG_LEVEL}" == "" ]; then
-        log_message "Some configuration variables missing, loading defaults" "false" "WARN"
-        source /storage/.config/cloud_sync.conf.defaults
-        if [ "${BACKUPPATH}" == "" ]; then
-            sed -i -e '$a\\nBACKUPPATH="'"${DEFAULT_BACKUPPATH}"'"' /storage/.config/cloud_sync.conf
-        fi
-        if [ "${RESTOREPATH}" == "" ]; then
-            sed -i -e '$a\\nRESTOREPATH="'"${DEFAULT_RESTOREPATH}"'"' /storage/.config/cloud_sync.conf
-        fi
-        if [ "${SYNCPATH}" == "" ]; then
-            sed -i -e '$a\\nSYNCPATH="'"${DEFAULT_SYNCPATH}"'"' /storage/.config/cloud_sync.conf
-        fi
-        if [ "${RCLONEOPTS}" == "" ]; then
-            sed -i -e '$a\\nRCLONEOPTS="'"${DEFAULT_RCLONEOPTS}"'"' /storage/.config/cloud_sync.conf
-        fi
-        if [ "${BACKUPMETHOD}" == "" ]; then
-            sed -i -e '$a\\nBACKUPMETHOD="'"${DEFAULT_BACKUPMETHOD}"'"' /storage/.config/cloud_sync.conf
-        fi
-        if [ "${RESTOREMETHOD}" == "" ]; then
-            sed -i -e '$a\\nRESTOREMETHOD="'"${DEFAULT_RESTOREMETHOD}"'"' /storage/.config/cloud_sync.conf
-        fi
-        if [ "${RSYNCRMDIR}" == "" ]; then
-            sed -i -e '$a\\nRSYNCRMDIR="'"${DEFAULT_RSYNCRMDIR}"'"' /storage/.config/cloud_sync.conf
-        fi
-        if [ "${BACKUPFOLDER}" == "" ]; then
-            sed -i -e '$a\\nBACKUPFOLDER="'"${DEFAULT_BACKUPFOLDER}"'"' /storage/.config/cloud_sync.conf
-        fi
-        if [ "${SYNCPATH_BACKUP}" == "" ]; then
-            sed -i -e '$a\\nSYNCPATH_BACKUP="'"${DEFAULT_SYNCPATH}/backup"'"' /storage/.config/cloud_sync.conf
-        fi
-        if [ "${BACKUPFILE_BACKUP_OPTION}" == "" ]; then
-            sed -i -e '$a\\nBACKUPFILE_BACKUP_OPTION="'"${DEFAULT_BACKUPFILE_BACKUP_OPTION}"'"' /storage/.config/cloud_sync.conf
-        fi
-        if [ "${BACKUPFILE_RESTORE_OPTION}" == "" ]; then
-            sed -i -e '$a\\nBACKUPFILE_RESTORE_OPTION="'"${DEFAULT_BACKUPFILE_RESTORE_OPTION}"'"' /storage/.config/cloud_sync.conf
-        fi
-        if [ "${LOG_LEVEL}" == "" ]; then
-            sed -i -e '$a\\nLOG_LEVEL="'"${DEFAULT_LOG_LEVEL}"'"' /storage/.config/cloud_sync.conf
-        fi
-        source /storage/.config/cloud_sync.conf
-    fi
-    
-    # Update cloud sync rules by calling the helper script
+
+    # Update cloud sync rules and config by calling the helper script
     if [ -f "/usr/bin/cloud_sync_helper" ]; then
-        log_message "Updating cloud sync rules" "false"
+        log_message "Updating cloud sync rules and config" "false"
         /usr/bin/cloud_sync_helper ${LOG_FILE}
     fi
-    
+
+    # Check for duplicate variable assignments in config
+    local conf_file="/storage/.config/cloud_sync.conf"
+    local dupes_found=0
+    # List of variable names that appear more than once
+    mapfile -t duplicate_vars < <(awk -F= '/^[A-Za-z0-9_]+=/{gsub(/"/,"",$1); count[$1]++} END{for (v in count) if(count[v]>1) print v}' "$conf_file")
+    if [ ${#duplicate_vars[@]} -gt 0 ]; then
+        dupes_found=1
+    fi
+
+    if [ $dupes_found -eq 1 ]; then
+        # Build the full message including the duplicate info
+        local dupe_message="Warning: Duplicate variable assignments detected in cloud_sync.conf\n\nDuplicate cloud sync variables have been found in the configuration file:"
+        for var in "${duplicate_vars[@]}"; do
+            dupe_message="${dupe_message}\n  - $var"
+        done
+        dupe_message="${dupe_message}\n\nWould you like to automatically clean up duplicates?"
+        
+        controller_confirm "$dupe_message" 0
+        local cleanup_choice=$?
+        log_message "Cleanup choice returned: $cleanup_choice" "false"
+        
+        if [ $cleanup_choice -eq 0 ]; then
+            # User selected Yes - cleanup duplicates
+            echo -e "\e[34m> Running duplicate cleanup...\e[0m"
+            /usr/bin/cloud_sync_cleanup_duplicates.sh "$conf_file"
+            echo -e "\e[34m> Duplicates cleaned.\e[0m"
+            echo ""
+            sleep 2
+            # Reload config after cleanup
+            source /storage/.config/cloud_sync.conf
+        else
+            # User selected No or cancelled - skip cleanup
+            echo -e "\e[34m> Skipped duplicate cleanup.\e[0m"
+            sleep 2
+        fi
+
+    fi
+
     # Clean and normalize rclone options to ensure proper spacing
-    # This is necessary because options can be provided in multiple formats:
-    # - Single line with spaces
-    # - Multi-line with backslash continuations
-    # - With or without proper spacing between options
-    # The processing below standardizes the format for reliable command execution
-    
-    # First, save original options for debugging
     log_message "Original RCLONEOPTS: ${RCLONEOPTS}" "false"
-    
-    # Replace any line continuations and normalize spaces
     RCLONEOPTS=$(echo "${RCLONEOPTS}" | tr '\n\\' '  ' | tr -s ' ')
     log_message "After newline cleanup: ${RCLONEOPTS}" "false"
-    
-    # Ensure each option starts with a space (except the first one)
     RCLONEOPTS=$(echo "${RCLONEOPTS}" | sed 's/--/ --/g' | sed 's/^ //')
     log_message "After spacing fix: ${RCLONEOPTS}" "false"
-    
-    # Convert to array to ensure proper word splitting
-    # This prevents issues with options containing spaces and allows
-    # for proper quoting of each individual parameter
     RCLONE_OPTS_ARRAY=()
     for opt in ${RCLONEOPTS}; do
         RCLONE_OPTS_ARRAY+=("$opt")
     done
     log_message "Options array has ${#RCLONE_OPTS_ARRAY[@]} elements" "false"
-    
-    # Create a version without the --delete-excluded flag
     RESTORE_RCLONEOPTS=$(echo "${RCLONEOPTS}" | sed 's/--delete-excluded//')
-    
     log_message "Configuration loaded successfully" "false"
+}
+
+# Enhanced error reporting function
+report_rclone_error() {
+    local exit_code=$1
+    local operation="$2"
+    
+    case $exit_code in
+        0) log_message "${operation} completed successfully" "true" ;;
+        1) log_message "${operation} failed: Syntax or usage error" "true" "ERROR" ;;
+        2) log_message "${operation} failed: Error not otherwise categorized" "true" "ERROR" ;;
+        3) log_message "${operation} failed: Directory not found or permission denied" "true" "ERROR" ;;
+        4) log_message "${operation} failed: File not found" "true" "ERROR" ;;
+        5) log_message "${operation} failed: Temporary failure, retry may help" "true" "ERROR" ;;
+        6) log_message "${operation} failed: Less serious errors (e.g. partly transferred)" "true" "WARN" ;;
+        7) log_message "${operation} failed: Fatal error - rclone giving up" "true" "ERROR" ;;
+        8) log_message "${operation} failed: Transfer exceeded - limits exceeded" "true" "ERROR" ;;
+        9) log_message "${operation} failed: Operation failed - no retry" "true" "ERROR" ;;
+        *) log_message "${operation} failed with unknown error code: $exit_code" "true" "ERROR" ;;
+    esac
+}
+
+# Enhanced rclone execution function with better error handling
+execute_rclone_with_error_handling() {
+    local method="$1"
+    local source="$2"
+    local dest="$3"
+    shift 3
+    local extra_opts=("$@")
+    
+    log_message "About to execute: rclone ${method} ${extra_opts[*]} ${source} ${dest}" "false"
+    
+    # Create a temporary script to capture both stdout and stderr
+    local temp_script="/tmp/rclone_exec_$$"
+    cat > "$temp_script" << EOF
+#!/bin/bash
+rclone ${method} ${extra_opts[*]} "${source}" "${dest}" 2>&1
+echo "RCLONE_EXIT_CODE:\$?"
+EOF
+    chmod +x "$temp_script"
+    
+    # Execute and capture output
+    local output
+    output=$("$temp_script")
+    local rclone_exit_code=$(echo "$output" | grep "RCLONE_EXIT_CODE:" | cut -d: -f2)
+    
+    # Clean up
+    rm -f "$temp_script"
+    
+    # Log the full output for debugging
+    echo "$output" | grep -v "RCLONE_EXIT_CODE:" | while IFS= read -r line; do
+        log_message "rclone: $line" "false"
+    done
+    
+    return $rclone_exit_code
 }
 
 # PART 1: Game saves restore function
@@ -162,6 +412,22 @@ restore_game_saves() {
     
     log_message "Starting restore from ${REMOTENAME}${SYNCPATH} to ${RESTOREPATH}"
     log_message "Restore started at $(date)" "false"
+    
+    # Check if remote path exists before attempting restore
+    log_message "Checking if remote path exists: ${REMOTENAME}${SYNCPATH}" "false"
+    rclone lsd "${REMOTENAME}${SYNCPATH}" > /dev/null 2>&1
+    local remote_check_status=$?
+    if [ $remote_check_status -ne 0 ]; then
+        log_message "Remote path ${REMOTENAME}${SYNCPATH} is not accessible (exit code: $remote_check_status)" "true" "ERROR"
+        report_rclone_error $remote_check_status "Remote path check"
+        return $remote_check_status
+    fi
+    
+    # Ensure local restore path exists
+    if [ ! -d "${RESTOREPATH}" ]; then
+        log_message "Creating local restore path: ${RESTOREPATH}" "false"
+        mkdir -p "${RESTOREPATH}"
+    fi
     
     # Set log level to DEBUG when INFO is selected for more verbose logging
     local rclone_debug=""
@@ -177,42 +443,41 @@ restore_game_saves() {
         done
     fi
     
-    # Log the full rclone command for debugging
-    log_message "Executing rclone command with filtered options to prevent conflicts" "false"
-    
-    # Execute rclone directly without capturing output to allow progress display
-    if ((${#filtered_opts[@]} > 0)); then
-        rclone ${RESTOREMETHOD} \
-          "${filtered_opts[@]}" \
-          ${rclone_debug} \
-          --exclude="${BACKUPFOLDER}/**" \
-          --exclude="backups/**" \
-          --exclude="bios/**" \
-          ${REMOTENAME}${SYNCPATH}/ ${RESTOREPATH}/
+    # Build the complete options array
+    local all_opts=()
+    if [ ${#filtered_opts[@]} -gt 0 ]; then
+        all_opts+=("${filtered_opts[@]}")
     else
-        rclone ${RESTOREMETHOD} \
-          --progress \
-          --log-file /var/log/cloud_sync.log \
-          --filter-from /storage/.config/cloud_sync-rules.txt \
-          ${rclone_debug} \
-          --exclude="${BACKUPFOLDER}/**" \
-          --exclude="backups/**" \
-          --exclude="bios/**" \
-          ${REMOTENAME}${SYNCPATH}/ ${RESTOREPATH}/
+        all_opts+=(
+            "--progress"
+            "--log-file" "/var/log/cloud_sync.log"
+            "--filter-from" "/storage/.config/cloud_sync-rules.txt"
+        )
     fi
+    
+    # Add debug logging if enabled
+    if [ -n "$rclone_debug" ]; then
+        all_opts+=("$rclone_debug")
+    fi
+    
+    # Add exclusions
+    all_opts+=(
+        "--exclude=${BACKUPFOLDER}/**"
+        "--exclude=backups/**"
+        "--exclude=bios/**"
+    )
+    
+    # Execute rclone with enhanced error handling
+    execute_rclone_with_error_handling \
+        "${RESTOREMETHOD}" \
+        "${REMOTENAME}${SYNCPATH}/" \
+        "${RESTOREPATH}/" \
+        "${all_opts[@]}"
     
     RESTORE_STATUS=$?
     
-    # Always log errors
-    if [ $RESTORE_STATUS -ne 0 ]; then
-        log_message "Restore encountered errors (status $RESTORE_STATUS)" "false" "ERROR"
-    fi
-    
-    if [ $RESTORE_STATUS -eq 0 ]; then
-        log_message "Game saves restore completed successfully" "true"
-    else
-        log_message "Game saves restore completed with errors (status $RESTORE_STATUS)" "true" "WARN"
-    fi
+    # Report the result with detailed error information
+    report_rclone_error $RESTORE_STATUS "Game saves restore"
     
     return $RESTORE_STATUS
 }
@@ -228,7 +493,16 @@ restore_system_files() {
     
     if [ "${BACKUPFILE_RESTORE_OPTION}" == "yes" ]; then
         # Verify remote backup directory has content before attempting restore
+        log_message "Checking remote backup directory: ${REMOTENAME}${SYNCPATH_BACKUP}" "false"
         REMOTE_FILES=$(rclone ls ${REMOTENAME}${SYNCPATH_BACKUP}/ 2>/dev/null)
+        local remote_ls_status=$?
+        
+        if [ $remote_ls_status -ne 0 ]; then
+            log_message "Failed to access remote backup directory (exit code: $remote_ls_status)" "true" "ERROR"
+            report_rclone_error $remote_ls_status "Remote backup directory check"
+            return $remote_ls_status
+        fi
+        
         if [ -z "${REMOTE_FILES}" ]; then
             log_message "There are no system backup files to restore" "true" "WARN"
             return 1
@@ -240,32 +514,31 @@ restore_system_files() {
         # Ensure local target directory exists before attempting restore
         mkdir -p ${BACKUPFOLDER}
         
+        # Build options array for system backup restore
+        local backup_opts=(
+            "--progress"
+            "--log-file" "/var/log/cloud_sync.log"
+            "--filter-from" "/storage/.config/cloud_sync-rules.txt"
+            "--verbose"
+            "--include" "/backup/*.zip"
+            "--include" "backup/*.zip"
+            "--stats-one-line"
+        )
+        
         # Check if the rclone version supports the terminal width flag
         if rclone help | grep -q progress-terminal-width; then
-            TERMINAL_WIDTH="--progress-terminal-width=80"
-        else
-            TERMINAL_WIDTH=""
+            backup_opts+=("--progress-terminal-width=80")
         fi
         
-        # Use individual options instead of the variable
-        # Add progress formatting options to improve display
-        rclone ${RESTOREMETHOD} \
-          --progress \
-          --log-file /var/log/cloud_sync.log \
-          --filter-from /storage/.config/cloud_sync-rules.txt \
-          --verbose \
-          --include "/backup/*.zip" \
-          --include "backup/*.zip" \
-          --stats-one-line \
-          ${TERMINAL_WIDTH} \
-          ${REMOTENAME}${SYNCPATH_BACKUP}/ ${BACKUPFOLDER}/
+        # Execute system backup restore with enhanced error handling
+        execute_rclone_with_error_handling \
+            "${RESTOREMETHOD}" \
+            "${REMOTENAME}${SYNCPATH_BACKUP}/" \
+            "${BACKUPFOLDER}/" \
+            "${backup_opts[@]}"
         
         RESTORE_SYSTEM_STATUS=$?
-        if [ $RESTORE_SYSTEM_STATUS -eq 0 ]; then
-            log_message "System backup file restore completed successfully" "true"
-        else
-            log_message "System backup file restore completed with errors (status $RESTORE_SYSTEM_STATUS)" "true" "WARN"
-        fi
+        report_rclone_error $RESTORE_SYSTEM_STATUS "System backup file restore"
         
         return $RESTORE_SYSTEM_STATUS
     else
