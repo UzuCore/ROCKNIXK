@@ -2,6 +2,7 @@
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
 #      Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
+#      Copyright (C) 2025 ROCKNIX (https://github.com/ROCKNIX)
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -19,23 +20,25 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="dosbox-svn-lr"
-PKG_VERSION="53ca2f6303a652d129321cfc521f000cd7ec5531"
+PKG_NAME="dosbox-core-lr"
+PKG_VERSION="f2733c99db916044015ca0fcb7cd837e93892c84"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/dosbox-svn"
-PKG_URL="${PKG_SITE}.git"
+PKG_SITE="https://github.com/realnc/dosbox-core"
+PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
 PKG_GIT_CLONE_BRANCH="libretro"
-PKG_DEPENDS_TARGET="toolchain SDL SDL_net retroarch"
+PKG_DEPENDS_TARGET="toolchain SDL SDL_net"
 PKG_LONGDESC="Upstream port of DOSBox to libretro"
-GET_HANDLER_SUPPORT="git"
 PKG_BUILD_FLAGS="-lto"
 PKG_TOOLCHAIN="make"
 
 make_target() {
-  make -C libretro target=arm64 WITH_EMBEDDED_SDL=0
+  #export PKG_CONFIG_DEBUG_SPEW=1
+  make -C libretro target=arm64 platform=unix WITH_FAKE_SDL=1 STATIC_LIBCXX=0 \
+	WITH_DYNAREC=arm64 WITH_FLUIDSYNTH=0 BUNDLED_AUDIO_CODECS=0 BUNDLED_GLIB=0 \
+	BUNDLED_LIBSNDFILE=0 WITH_PINHACK=0 WITH_VOODOO=0 WITH_BASSMIDI=0
 }
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
-  cp ${PKG_BUILD}/libretro/dosbox_svn_libretro.so ${INSTALL}/usr/lib/libretro
+  cp ${PKG_BUILD}/libretro/dosbox_core_libretro.so ${INSTALL}/usr/lib/libretro
 }

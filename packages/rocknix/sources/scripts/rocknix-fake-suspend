@@ -66,7 +66,9 @@ INPUT_WHITELIST=(
   "axp20x-pek" \
   "gpio-keys-lid" \
   # S922X
-  "rk805 pwrkey"
+  "rk805 pwrkey" \
+  # SM8550
+  "pmic_pwrkey"
 )
 
 # Source = power / lid

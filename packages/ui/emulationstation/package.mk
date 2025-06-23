@@ -4,7 +4,7 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="emulationstation"
-PKG_VERSION="681e0ebd2ebcfc4cb90f29175eaf8d47623f33ce"
+PKG_VERSION="b8a940b8b4ab312bdb6333425f8e0e8dd180afa5"
 PKG_GIT_CLONE_BRANCH="master"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/ROCKNIX/emulationstation-next"

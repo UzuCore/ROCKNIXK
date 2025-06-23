@@ -4,7 +4,7 @@
 # Copyright (C) 2023-present JELOS (https://github.com/JustEnoughLinuxOS)
 
 PKG_NAME="xwayland"
-PKG_VERSION="3bfef8d7c06ca6a380b1e23ca5ec0675a302cc90"
+PKG_VERSION="449b197e7e652cb145a25b3b795d3363445d3975"
 PKG_LICENSE="OSS"
 PKG_SITE="https://gitlab.freedesktop.org/xorg/xserver"
 PKG_URL="${PKG_SITE}.git"

@@ -108,6 +108,7 @@ SKIPBIOS=$(get_setting use_bios "${PLATFORM}" "${GAME}")
 EFBACCESS=$(get_setting skip_efb_cpu_access "${PLATFORM}" "${GAME}")
 EFBTEXTURE=$(get_setting store_efb_to_texture_only "${PLATFORM}" "${GAME}")
 XFBTEXTURE=$(get_setting store_xfb_to_texture_only "${PLATFORM}" "${GAME}")
+TEXTURE_CACHE_ACCURACY=$(get_setting texture_cache_accuracy "${PLATFORM}" "${GAME}")
 RUMBLE=$(get_setting rumble "${PLATFORM}" "${GAME}")
 WHACK=$(get_setting widescreen_hack "${PLATFORM}" "${GAME}")
 WPC=$(get_setting write_protect_configs "${PLATFORM}" "${GAME}")
@@ -277,11 +278,21 @@ fi
     sed -i '/EFBToTextureEnable =/c\EFBToTextureEnable = True' /storage/.config/dolphin-emu/GFX.ini
   fi
 
-  # Store EFB to texture only
+  # Store XFB to texture only
   if [ "$XFBTEXTURE" = "false" ]; then
     sed -i '/XFBToTextureEnable =/c\XFBToTextureEnable = False' /storage/.config/dolphin-emu/GFX.ini
   else
     sed -i '/XFBToTextureEnable =/c\XFBToTextureEnable = True' /storage/.config/dolphin-emu/GFX.ini
+  fi
+
+  # Texture cache accuracy
+  if [ "$TEXTURE_CACHE_ACCURACY" = "0" ]; then
+    sed -i '/SafeTextureCacheColorSamples =/c\SafeTextureCacheColorSamples = 0' /storage/.config/dolphin-emu/GFX.ini
+  elif [ "$TEXTURE_CACHE_ACCURACY" = "512" ]; then
+    sed -i '/SafeTextureCacheColorSamples =/c\SafeTextureCacheColorSamples = 512' /storage/.config/dolphin-emu/GFX.ini
+  else
+    # Default to 128 = fast
+    sed -i '/SafeTextureCacheColorSamples =/c\SafeTextureCacheColorSamples = 128' /storage/.config/dolphin-emu/GFX.ini
   fi
 
   # Widescreen Hack

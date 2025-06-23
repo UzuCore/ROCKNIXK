@@ -179,53 +179,17 @@ if echo ${QUIRK_DEVICE} | grep R33S; then
     done
 fi
 
-# lime3ds - clean config, migrating from SDL2 to QT
-rm -f /storage/.config/lime3ds/sdl2-config*.ini
-rm -f /storage/.config/lime3ds/default_custom_layout.ini
-rm -f /storage/.config/lime3ds/*.gptk
-
 # set the default global.bezel if it doesn't already exist
 grep -q "^global\.bezel=" /storage/.config/system/configs/system.cfg ||
   sed -i '$ a\global.bezel=thebezelproject' /storage/.config/system/configs/system.cfg
 
-# ACE - control mapping updates
-if echo ${QUIRK_DEVICE} | grep ACE; then
-  # Clean ES config
-  if [ -d "/storage/.config/emulationstation" ]; then
-    cp -f /usr/config/emulationstation/es_input.cfg /storage/.config/emulationstation
-  fi
+# set the default suspend shutdown delays if they doesn't already exist
+grep -q "^system\.shutdown_delay=" /storage/.config/system/configs/system.cfg ||
+  sed -i '$ a\system.shutdown_delay=0' /storage/.config/system/configs/system.cfg
 
-  # Clean mupen64plus-sa config
-  if [ -d "/storage/.config/mupen64plus" ]; then
-    cp -f /usr/local/share/mupen64plus/mupen64plus.cfg /storage/.config/mupen64plus
-    cp -f /usr/local/share/mupen64plus/default.ini /storage/.config/mupen64plus/custominput.ini
-  fi
+grep -q "^system\.shutdown_delay_running_game=" /storage/.config/system/configs/system.cfg ||
+  sed -i '$ a\system.shutdown_delay_running_game=900' /storage/.config/system/configs/system.cfg
 
-  # Clean flycast-sa config
-  if [ -d "/storage/.config/flycast" ]; then
-    cp -f /usr/config/flycast/mappings/* /storage/.config/flycast/mappings
-  fi
-
-  # Clean mednafen config
-  if [ -d "/storage/.config/mednafen" ]; then
-    rm -f /storage/.config/mednafen/mednafen.cfg
-  fi
-
-  # Clean supermodel-sa config
-  if [ -d "storage/.config/supermodel" ]; then
-    cp -f /usr/config/supermodel/Config/Supermodel.ini /storage/.config/supermodel/Config
-  fi
-
-  # Clean yabasanshiro-sa config
-  if [ -d "/storage/.config/yabasanshiro" ]; then
-    rm -f /storage/.config/yabasanshiro/input.cfg
-    rm -f /storage/.config/yabasanshiro/keymapv2.json
-  fi
-fi
-
-# Wipe duckstation-sa config - moving to appimage
-rm -rf /storage/.local/share/duckstation
-rm -rf /storage/.config/duckstation
-
-# Wipe azahar config - fresh start after bringup dev
-rm -rf /storage/.config/azahar
+# Wipe lime3ds / azahar gptokeyb mappings as they have changed
+rm -rf /storage/.config/azahar/*.gptk
+rm -rf /storage/.config/lime3ds/*.gptk

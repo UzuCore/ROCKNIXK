@@ -27,7 +27,7 @@ get_gb() {
 get_storage_size_kb() {
   local storage_path="$1"
   local total_kb=0
-  local excluded_folders=("roms" "games-internal" "games-external")
+  local excluded_folders=("roms" "games-internal" "games-external" ".cache/cores")
 
   # Get total size first
   total_kb=$(du -ks "$storage_path" | awk '{print $1}')
@@ -59,17 +59,17 @@ if [[ ! $confirm =~ ^[Yy]$ ]]; then
   exit 0
 fi
 
-# 3) Find current userdata partition
+# 3) Find current Android userdata partition
 mapfile -t ud_line < <(parted -m -s "$DEVICE" unit B print | grep ':userdata:')
 if [[ ${#ud_line[@]} -ne 1 ]]; then
-  echo "ERROR: Could not uniquely find a userdata partition labeled 'userdata'."
+  echo "ERROR: Could not uniquely find a Android userdata partition labeled 'userdata'."
   exit 1
 fi
 IFS=':' read -r UD_NUM UD_STARTB UD_ENDB _ <<< "${ud_line[0]}"
 UD_START=${UD_STARTB%B}
 UD_END=${UD_ENDB%B}
 
-# Compute MiB-aligned boundaries for userdata
+# Compute MiB-aligned boundaries for Android userdata
 UD_START_MB=$(( (UD_START + 1048575) / 1048576 ))     # round up to MiB
 UD_END_MB=$(( UD_END / 1048576 ))                     # round down to MiB
 ORIG_SIZE=$(( (UD_END_MB - UD_START_MB) * 1024**2 ))  # bytes
@@ -81,11 +81,11 @@ if (( MAX_SIZE < MIN_SIZE )); then
   exit 1
 fi
 
-# 4) Ask desired userdata size in GB
-echo "Current userdata size: $((ORIG_SIZE / 1024**3)) GB"
+# 4) Ask desired Android userdata size in GB
+echo "Current Android userdata size: $((ORIG_SIZE / 1024**3)) GB"
 echo "You may choose between 1 GB and $((MAX_SIZE / 1024**3)) GB"
 while :; do
-  read -rp "Enter new userdata size in GB: " ud_gb
+  read -rp "Enter new Android userdata size in GB: " ud_gb
   if ! [[ $ud_gb =~ ^[0-9]+$ ]]; then
     echo "Please enter an integer."
     continue
@@ -99,15 +99,15 @@ while :; do
 done
 NEW_UD_END_MB=$(( UD_START_MB + (ud_bytes / 1024**2) ))
 
-# 5) Delete and recreate userdata partition
-echo "Deleting userdata partition #$UD_NUM..."
+# 5) Delete and recreate Android userdata partition
+echo "Deleting Android userdata partition #$UD_NUM..."
 parted -s "$DEVICE" rm "$UD_NUM"
-echo "Creating userdata partition #$UD_NUM (${UD_START_MB}MiB–${NEW_UD_END_MB}MiB)..."
+echo "Creating Android userdata partition #$UD_NUM (${UD_START_MB}MiB–${NEW_UD_END_MB}MiB)..."
 parted -a optimal -s "$DEVICE" \
   mkpart primary ext4 "${UD_START_MB}MiB" "${NEW_UD_END_MB}MiB"
 parted -s "$DEVICE" name "$UD_NUM" userdata
 
-# 5b) Wipe first 8 MiB of the new userdata partition
+# 5b) Wipe first 8 MiB of the new Android userdata partition
 echo "Zeroing first 8 MiB of ${DEVICE}${UD_NUM}..."
 dd if=/dev/zero of="${DEVICE}${UD_NUM}" bs=1M count=8 &>/dev/null
 
@@ -165,7 +165,7 @@ if [[ $copy_ans =~ ^[Yy]$ ]]; then
   avail_kb=$(df -k "$TMP_STORAGE" | awk 'NR==2 {print $4}')
   used_kb=$(get_storage_size_kb "$OLD_STORAGE")
   if (( used_kb <= avail_kb )); then
-    echo "Copying /storage to new STORAGE (excluding roms, games-internal, games-external)..."
+    echo "Copying /storage to new STORAGE (excluding roms)..."
 
     # Copy everything except the excluded folders
     find "$OLD_STORAGE" -mindepth 1 -maxdepth 1 \
@@ -196,7 +196,7 @@ rk_sz=$(get_gb "${DEVICE}${RK_NUM}")
 st_sz=$(get_gb "${DEVICE}${ST_NUM}")
 
 echo "Done. New partitions:"
-echo "  userdata: ${DEVICE}${UD_NUM} (${ud_sz} GB)"
+echo "  Android userdata: ${DEVICE}${UD_NUM} (${ud_sz} GB)"
 echo "  ROCKNIX : ${DEVICE}${RK_NUM} (${rk_sz} GB)"
 echo "  STORAGE : ${DEVICE}${ST_NUM} (${st_sz} GB)"
 echo
