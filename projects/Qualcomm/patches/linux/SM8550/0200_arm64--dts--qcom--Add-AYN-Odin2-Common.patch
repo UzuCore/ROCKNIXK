@@ -1805,7 +1805,7 @@ index 000000000000..58d9ab342fe9
 +
 +&iris {
 +	firmware-name = "qcom/vpu/vpu30_p4.mbn";
-+	status = "okay";
++	status = "disabled";
 +};
 +
 +&lpass_vamacro {

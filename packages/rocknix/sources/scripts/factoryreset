@@ -50,8 +50,8 @@ case "${1}" in
     rm -rf /storage/.config/ppsspp
     cp -rf /usr/config/ppsspp /storage/.config/
 
-    rm -rf /storage/.config/lime3ds
-    cp -rf /usr/config/lime3ds /storage/.config/
+    rm -rf /storage/.config/azahar
+    cp -rf /usr/config/azahar /storage/.config/
 
     rm -rf /storage/.config/rpcs3
     cp -rf /usr/config/rpcs3 /storage/.config/

@@ -2,10 +2,10 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="azahar-sa"
-PKG_VERSION="2122"
+PKG_VERSION="cfc96e993b570578daf55640123287236c044b55" # tag AZAHAR_PLUS_2122_A
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/azahar-emu/azahar"
-PKG_URL="${PKG_SITE}/releases/download/${PKG_VERSION}/azahar-unified-source-${PKG_VERSION}.tar.xz"
+PKG_SITE="https://github.com/AzaharPlus/AzaharPlus"
+PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain ffmpeg mesa SDL2 boost zlib libusb boost zstd control-gen spirv-tools qt6"
 PKG_LONGDESC="Azahar - Nintendo 3DS emulator"
 PKG_TOOLCHAIN="cmake"
@@ -34,8 +34,6 @@ PKG_CMAKE_OPTS_TARGET+=" -DENABLE_QT_TRANSLATION=OFF \
                          -DENABLE_OPENGL=ON"
 
 makeinstall_target() {
-  echo "PKG_BUILD=${PKG_BUILD}"
-  ls -l ${PKG_BUILD}
   mkdir -p ${INSTALL}/usr/bin
   cp ${PKG_BUILD}/.${TARGET_NAME}/bin/MinSizeRel/azahar ${INSTALL}/usr/bin/azahar
   cp ${PKG_DIR}/scripts/* ${INSTALL}/usr/bin

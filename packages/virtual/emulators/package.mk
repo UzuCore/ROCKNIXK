@@ -32,14 +32,23 @@ LIBRETRO_CORES="81-lr a5200-lr arduous-lr atari800-lr beetle-gba-lr beetle-lynx-
 ### Emulators or cores for specific devices
 case "${DEVICE}" in
   AMD64)
+<<<<<<< HEAD
     PKG_EMUS+=" azahar-sa cemu-sa dolphin-sa lime3ds-sa mednafen melonds-sa minivmacsa mupen64plus-sa nanoboyadvance-sa pcsx2-sa     \
                rpcs3-sa scummvmsa vita3k-sa xemu-sa duckstation-sa citron-sa eden-sa"
+=======
+    PKG_EMUS+=" azahar-sa cemu-sa dolphin-sa mednafen melonds-sa minivmacsa mupen64plus-sa nanoboyadvance-sa pcsx2-sa     \
+               rpcs3-sa scummvmsa vita3k-sa xemu-sa duckstation-sa"
+>>>>>>> 821946e06c99fb0c6bb2b22eec8a93f3c7479118
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr desmume-lr dolphin-lr lrps2-lr play-lr"
   ;;
   RK3588)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 desmume-lr gpsp-lr pcsx_rearmed-lr"
+<<<<<<< HEAD
     PKG_EMUS+=" aethersx2-sa azahar-sa box64 dolphin-sa lime3ds-sa drastic-sa mednafen melonds-sa portmaster scummvmsa supermodel-sa  \
                 yabasanshiro-sa duckstation-sa citron-sa"
+=======
+    PKG_EMUS+=" aethersx2-sa azahar-sa box64 dolphin-sa drastic-sa mednafen melonds-sa portmaster scummvmsa supermodel-sa yabasanshiro-sa duckstation-sa"
+>>>>>>> 821946e06c99fb0c6bb2b22eec8a93f3c7479118
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr flycast2021-lr geolith-lr pcsx_rearmed-lr uae4arm"
     PKG_RETROARCH+=" retropie-shaders"
   ;;
@@ -59,7 +68,7 @@ case "${DEVICE}" in
   ;;
   S922X)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 pcsx_rearmed-lr"
-    PKG_EMUS+=" aethersx2-sa azahar-sa box64 dolphin-sa drastic-sa duckstation-sa lime3ds-sa melonds-sa portmaster scummvmsa yabasanshiro-sa"
+    PKG_EMUS+=" aethersx2-sa azahar-sa box64 dolphin-sa drastic-sa duckstation-sa melonds-sa portmaster scummvmsa yabasanshiro-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr geolith-lr flycast2021-lr uae4arm"
     PKG_RETROARCH+=" retropie-shaders"
   ;;
@@ -79,8 +88,13 @@ case "${DEVICE}" in
   ;;
   SM8250|SM8550)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 daedalusx64-sa desmume-lr gpsp-lr pcsx_rearmed-lr"
+<<<<<<< HEAD
     PKG_EMUS+=" aethersx2-sa azahar-sa box64 cemu-sa dolphin-sa lime3ds-sa melonds-sa nanoboyadvance-sa portmaster rpcs3-sa scummvmsa supermodel-sa \
                yabasanshiro-sa xemu-sa duckstation-sa citron-sa"
+=======
+    PKG_EMUS+=" aethersx2-sa azahar-sa box64 cemu-sa dolphin-sa melonds-sa nanoboyadvance-sa portmaster rpcs3-sa scummvmsa supermodel-sa \
+               yabasanshiro-sa xemu-sa duckstation-sa"
+>>>>>>> 821946e06c99fb0c6bb2b22eec8a93f3c7479118
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr flycast2021-lr geolith-lr pcsx_rearmed-lr uae4arm kronos-lr"
     PKG_RETROARCH+=" retropie-shaders"
   ;;
@@ -158,13 +172,11 @@ makeinstall_target() {
   ### Nintendo 3DS
   case ${DEVICE} in
     AMD64|S922X|SM8*)
-      add_emu_core 3ds lime3ds lime3ds-sa true
-      add_emu_core 3ds azahar azahar-sa false
+      add_emu_core 3ds azahar azahar-sa true
       add_es_system 3ds
     ;;
     RK3588)
-      add_emu_core 3ds lime3ds lime3ds-sa true
-      add_emu_core 3ds azahar azahar-sa false
+      add_emu_core 3ds azahar azahar-sa true
       add_es_system 3ds
     ;;
   esac
