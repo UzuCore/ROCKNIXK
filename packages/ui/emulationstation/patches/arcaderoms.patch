@@ -57468,7 +57468,7 @@ index 03942fe78..2951b9aa7 100644
    <rom id="tomagic" name="Tom Tom Magic" />
    <rom id="tomahaw5" vert="true" name="Tomahawk 777 (Revision 5)" />
    <rom id="tomahawk" vert="true" name="Tomahawk 777 (Revision 1)" />
-@@ -49494,235 +45579,266 @@
+@@ -49494,235 +45579,267 @@
    <rom id="tomcpin" name="Champiyon Pinball (Japan)" />
    <rom id="tomplc" name="Nihon Isshuu - Boku wa Plarail Untenshi (Japan)" />
    <rom id="tomsadvs" name="Tom's Adventures" />
@@ -57523,6 +57523,7 @@ index 03942fe78..2951b9aa7 100644
 +  <rom id="topgunr" vert="true" name="Top Gunner (US, 8-way Joystick)" />
 +  <rom id="tophuntr" name="Top Hunter - Roddy &amp; Cathy (NGM-046)" />
    <rom id="tophuntrh" name="Top Hunter - Roddy &amp; Cathy (NGH-046)" />
++  <rom id="tophuntrk" name="Top Hunter - Roddy &amp; Cathy (Korean Translation)" />
 -  <rom id="tophuntrpx" name="Top Hunter (Plus Max)" />
    <rom id="topland" name="Top Landing (World)" />
    <rom id="toplandj" name="Top Landing (Japan)" />
@@ -60190,7 +60191,7 @@ index 03942fe78..2951b9aa7 100644
    <rom id="vulcana" name="Vulcan Venture (Old)" />
    <rom id="vulcanb" name="Vulcan Venture (Oldest)" />
    <rom id="vulgus" vert="true" name="Vulgus (set 1)" />
-@@ -51609,50 +47738,58 @@
+@@ -51609,50 +47738,59 @@
    <rom id="vulgusa" vert="true" name="Vulgus (set 2)" />
    <rom id="vulgusj" vert="true" name="Vulgus (Japan?)" />
    <rom id="vx600" name="VX600 Programmable Matrix Synthesizer" />
@@ -60230,6 +60231,7 @@ index 03942fe78..2951b9aa7 100644
 -  <rom id="wakuwak7s02" name="Waku Waku 7 (Simplify Edition, 2018-06-04)" />
 -  <rom id="wakuwk7e" name="Waku Waku 7 (Earlier)" />
 +  <rom id="wakuwak7bh" name="Waku Waku 7 (Boss Hack)" />
++  <rom id="wakuwak7k" name="Waku Waku 7 (Korean Translation)" />
    <rom id="wales210" name="ES-210" />
 +  <rom id="walk386dx" name="Walkstation 386DX" />
 +  <rom id="walk386sx" name="Walkstation 386 SX" />
