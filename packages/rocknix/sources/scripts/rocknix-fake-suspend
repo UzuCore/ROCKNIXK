@@ -14,71 +14,38 @@ verbose)
   ;;
 esac
 
-SUSPEND_MODE="$(get_setting system.suspendmode)"
+check_hardware_suspend_enabled() {
+  local SUSPEND_MODE="$(get_setting system.suspendmode)"
 
-# Only do something when suspend mode is off
-if [[ "${SUSPEND_MODE}" != "off" ]]; then
-  ${DEBUG} && log $0 "Suspend enabled, exiting"
-  exit 0
-fi
+  if [[ "${SUSPEND_MODE}" != "off" ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
 
-# Only do something when HDMI is disconnected
-HDMI_STATUS=$(cat /sys/class/drm/card*/card*-HDMI-A-[0-9]/status)
+check_hdmi_connected() {
+  local HDMI_STATUS=$(cat /sys/class/drm/card*/card*-HDMI-A-[0-9]/status)
 
-if [[ "${HDMI_STATUS}" = "connected" ]]; then
-  ${DEBUG} && log $0 "HDMI connected, exiting"
-  exit 0
-fi
+  if [[ "${HDMI_STATUS}" = "connected" ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
 
-# Only do something when charger is disconnected
-CHARGE_STATUS=$(cat /sys/class/power_supply/battery/status)
+check_charging() {
+  local CHARGE_STATUS=$(cat /sys/class/power_supply/battery/status) 
 
-if [[ "${CHARGE_STATUS}" = "Charging" ]]; then
-  ${DEBUG} && log $0 "Charger connected, exiting"
-  exit 0
-fi
-
-# If a game is not running, by default shutdown immediately
-SHUTDOWN_DELAY="$(get_setting system.shutdown_delay)"
-if [[ "${SHUTDOWN_DELAY}" = "" ]]; then
-    SHUTDOWN_DELAY=0
-fi
-
-# If a game is running, by default delay the shutdown for 5 minutes
-SHUTDOWN_DELAY_RUNNING_GAME="$(get_setting system.shutdown_delay_running_game)"
-if [[ "${SHUTDOWN_DELAY_RUNNING_GAME}" = "" ]]; then
-    SHUTDOWN_DELAY_RUNNING_GAME=900
-fi
-
-# flag files
-PID=$$
-DELAY_FLAG_FILE_PATTERN="/var/run/shutdown-delay.flag"
-DELAY_FLAG_FILE="${DELAY_FLAG_FILE_PATTERN}.${PID}"
-POWER_SUSPEND_ACTIVE_FLAG_FILE="/var/run/power-fake-suspend-active.flag"
-LID_CLOSED_FLAG_FILE="/var/run/lid-closed.flag"
-
-# Process to kill
-TO_KILL="rocknix-fake-suspend"
-
-# Lid / power button - event input device whitelist
-INPUT_WHITELIST=(
-  # H700
-  "axp20x-pek" \
-  "gpio-keys-lid" \
-  # S922X
-  "rk805 pwrkey" \
-  # SM8550
-  "pmic_pwrkey"
-)
-
-# Source = power / lid
-SOURCE=$1
-
-# Action = open / close
-ACTION=$2
+  if [[ "${CHARGE_STATUS}" = "Charging" ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
 
 check_es_running_game() {
-  HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:1234/runningGame")
+  local HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:1234/runningGame")
   ${DEBUG} && log $0 "ES runningGame HTTP_STATUS - ${HTTP_STATUS}"
   test $? != 0 && return 1 # call failed, assume no game running
   test "${HTTP_STATUS}" = 201 && return 1 # 201 when no game running
@@ -131,8 +98,8 @@ unpark_cores() {
 
 block_input() {
   for x in /dev/input/event*; do
-    EVENT_INPUT=$(echo ${x} | awk 'BEGIN{FS="/"} {print $NF}')
-    DEVICE_NAME=$(cat /sys/class/input/$EVENT_INPUT/device/name)
+    local EVENT_INPUT=$(echo ${x} | awk 'BEGIN{FS="/"} {print $NF}')
+    local DEVICE_NAME=$(cat /sys/class/input/$EVENT_INPUT/device/name)
 
     # If device is not in whitelist, block input
     local FOUND=0
@@ -158,6 +125,15 @@ unblock_input() {
 }
 
 do_suspend_actions() {
+  # Only do suspend actions when HDMI is disconnected
+  check_hdmi_connected
+  HDMI_CONNECTED=$?
+
+  if [[ $HDMI_CONNECTED -eq 0 ]]; then
+    ${DEBUG} && log $0 "HDMI connected, no suspend actions performed"
+    return 0
+  fi
+  
   # Turn off display
   display_off
 
@@ -186,12 +162,30 @@ do_resume_actions() {
 }
 
 do_shutdown() {
+  # Check if HDMI has been connected while suspended
+  check_hdmi_connected
+  local HDMI_CONNECTED=$?
+
+  if [[ $HDMI_CONNECTED -eq 0 ]]; then
+    ${DEBUG} && log $0 "HDMI connected, not shutting down"
+    return 0
+  fi
+
+  # Check if charger has been connected while suspended
+  check_charging
+  local CHARGING=$?
+
+  if [[ $CHARGING -eq 0 ]]; then
+    ${DEBUG} && log $0 "Charging, not shutting down"
+    return 0
+  fi
+
   # Unmute audio - otherwise wireplumber will keep it muted on next boot
   unmute_audio
 
   # Check whether a game is running
   check_es_running_game
-  RUNNING_GAME=$?
+  local RUNNING_GAME=$?
 
   if [[ $RUNNING_GAME -eq 0 ]]; then
     # ES shutdown API won't work if a game is running
@@ -211,19 +205,14 @@ suspend() {
 
   # Wait for the desired shutdown delay
   check_es_running_game
-  RUNNING_GAME=$?
+  local RUNNING_GAME=$?
 
-  if [[ $RUNNING_GAME -eq 0 ]]; then
-    DELAY=${SHUTDOWN_DELAY_RUNNING_GAME}
-    ${DEBUG} && log $0 "Game running"
-  else
-    ${DEBUG} && log $0 "No game running"
-    DELAY=${SHUTDOWN_DELAY}
-  fi
+  local DELAY=${SHUTDOWN_DELAY}
+  [[ $RUNNING_GAME -eq 0 ]] && DELAY=${SHUTDOWN_DELAY_RUNNING_GAME}
+  ${DEBUG} && log $0 "Shutdown delay - ${DELAY} seconds"
 
   # Actions on suspend, only if there is a timed delay
   if [[ "${DELAY}" -gt 0 ]]; then
-    ${DEBUG} && log $0 "Shutdown delay - ${DELAY} seconds"
     do_suspend_actions
   fi
 
@@ -231,7 +220,7 @@ suspend() {
 
   # Delay has completed - check whether the flag file is still present
   if [[ -f "${DELAY_FLAG_FILE}" ]]; then
-    ${DEBUG} && log $0 "Delay expired, flag file found, shutting down"
+    ${DEBUG} && log $0 "Delay expired, flag file found"
     # Do shutdown
     do_shutdown
   else
@@ -254,6 +243,51 @@ resume() {
 }
 
 # Main logic
+# Only do something when hardware suspend is disabled
+check_hardware_suspend_enabled
+HW_SUSPEND_ENABLED=$?
+
+if [[ $HW_SUSPEND_ENABLED -eq 0 ]]; then
+  ${DEBUG} && log $0 "Hardware suspend enabled, exiting"
+  exit 0
+fi
+
+# If a game is not running, by default shutdown immediately
+SHUTDOWN_DELAY="$(get_setting system.shutdown_delay)"
+[[ "${SHUTDOWN_DELAY}" = "" ]] && SHUTDOWN_DELAY=0
+
+# If a game is running, by default delay the shutdown for 5 minutes
+SHUTDOWN_DELAY_RUNNING_GAME="$(get_setting system.shutdown_delay_running_game)"
+[[ "${SHUTDOWN_DELAY_RUNNING_GAME}" = "" ]] && SHUTDOWN_DELAY_RUNNING_GAME=900
+
+# flag files
+PID=$$
+DELAY_FLAG_FILE_PATTERN="/var/run/shutdown-delay.flag"
+DELAY_FLAG_FILE="${DELAY_FLAG_FILE_PATTERN}.${PID}"
+POWER_SUSPEND_ACTIVE_FLAG_FILE="/var/run/power-fake-suspend-active.flag"
+LID_CLOSED_FLAG_FILE="/var/run/lid-closed.flag"
+
+# Process to kill
+TO_KILL="rocknix-fake-suspend"
+
+# Lid / power button - event input device whitelist
+INPUT_WHITELIST=(
+  # H700
+  "axp20x-pek" \
+  "gpio-keys-lid" \
+  # S922X
+  "rk805 pwrkey" \
+  # SM8550
+  "pmic_pwrkey"
+)
+
+# Source = power / lid
+SOURCE=$1
+
+# Action = open / close
+ACTION=$2
+
+# Handle event
 if [[ "${SOURCE}" = "power" ]]; then
   ${DEBUG} && log $0 "Power button pressed ..."
 
@@ -282,6 +316,8 @@ elif [[ "${SOURCE}" = "lid" && "${ACTION}" = "close" ]]; then
     suspend
   fi
 elif [[ "${SOURCE}" = "lid" && "${ACTION}" = "open" ]]; then
+  rm -f "${LID_CLOSED_FLAG_FILE}"
+
   # Always resume on lid open - regardless of suspend source
   ${DEBUG} && log $0 "Lid opened - resuming"
   resume
