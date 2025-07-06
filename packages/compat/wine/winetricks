@@ -7686,39 +7686,39 @@ load_dxvk2041g()
     helper_dxvk "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
 }
 
-w_metadata dxvk2060g dlls \
-    title="Vulkan-based D3D8/D3D9/D3D10/D3D11 implementation for Linux / Wine (2.6)" \
-    publisher="Philip Rebohle" \
-    year="2024" \
-    media="download" \
-    file1="dxvk-gplasync-v2.6-1.tar.gz" \
-    installed_file1="${W_SYSTEM32_DLLS_WIN}/d3d8.dll" \
-    installed_file2="${W_SYSTEM32_DLLS_WIN}/d3d9.dll" \
-    installed_file3="${W_SYSTEM32_DLLS_WIN}/d3d10core.dll" \
-    installed_file4="${W_SYSTEM32_DLLS_WIN}/d3d11.dll" \
-    installed_file5="${W_SYSTEM32_DLLS_WIN}/dxgi.dll"
-
-load_dxvk2060g()
-{
-    w_download "https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/releases/dxvk-gplasync-v2.6-1.tar.gz" dad66614a9e06dbc9880f28921b592debf1d3441ca7bc49796976f5cf0cae717
-    helper_dxvk "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
-}
-
-w_metadata dxvk2061g dlls \
-    title="Vulkan-based D3D8/D3D9/D3D10/D3D11 implementation for Linux / Wine (2.6.1)" \
+w_metadata dxvk2053g dlls \
+    title="Vulkan-based D3D8/D3D9/D3D10/D3D11 implementation for Linux / Wine (2.5.3)" \
     publisher="Philip Rebohle" \
     year="2025" \
     media="download" \
-    file1="dxvk-gplasync-v2.6.1-1.tar.gz" \
+    file1="dxvk-gplasync-v2.5.3-1.tar.gz" \
     installed_file1="${W_SYSTEM32_DLLS_WIN}/d3d8.dll" \
     installed_file2="${W_SYSTEM32_DLLS_WIN}/d3d9.dll" \
     installed_file3="${W_SYSTEM32_DLLS_WIN}/d3d10core.dll" \
     installed_file4="${W_SYSTEM32_DLLS_WIN}/d3d11.dll" \
     installed_file5="${W_SYSTEM32_DLLS_WIN}/dxgi.dll"
 
-load_dxvk2061g()
+load_dxvk2053g()
 {
-    w_download "https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/releases/dxvk-gplasync-v2.6.1-1.tar.gz" d751b2741df660f9b82bcc167b0bb96ed8238b7f30f63ad526b3f7fc11796dbf
+    w_download "https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/releases/dxvk-gplasync-v2.5.3-1.tar.gz" 510046f5bc142d9f9e51a8e6a6e88974a2b290c0035da955668d0e8d7b425943
+    helper_dxvk "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
+}
+
+w_metadata dxvk2062g dlls \
+    title="Vulkan-based D3D8/D3D9/D3D10/D3D11 implementation for Linux / Wine (2.6.2)" \
+    publisher="Philip Rebohle" \
+    year="2025" \
+    media="download" \
+    file1="dxvk-gplasync-v2.6.2-1.tar.gz" \
+    installed_file1="${W_SYSTEM32_DLLS_WIN}/d3d8.dll" \
+    installed_file2="${W_SYSTEM32_DLLS_WIN}/d3d9.dll" \
+    installed_file3="${W_SYSTEM32_DLLS_WIN}/d3d10core.dll" \
+    installed_file4="${W_SYSTEM32_DLLS_WIN}/d3d11.dll" \
+    installed_file5="${W_SYSTEM32_DLLS_WIN}/dxgi.dll"
+
+load_dxvk2062g()
+{
+    w_download "https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/releases/dxvk-gplasync-v2.6.2-1.tar.gz" c645d3f2550ff66d0a51ba27a535aaa7351fd087feb7b298e7283cb2a3ee173b
     helper_dxvk "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
 }
 
