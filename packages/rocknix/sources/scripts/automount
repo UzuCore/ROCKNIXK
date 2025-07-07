@@ -144,7 +144,7 @@ function mount_games() {
       # busybox has some weird behaviour with helpers.
       # Despite mount.ntfs is present, it is not used, so just a stupid rewrite to use newer kernel ntfs3 driver
       case ${FSTYPE} in
-        ntfs)   MOUNT_ARGS="-t ntfs3 -o force,iocharset=utf8" ;;
+        ntfs)   MOUNT_ARGS="-t ntfs3 -o iocharset=utf8" ;;
         *)      true ;;
       esac
 
@@ -170,6 +170,7 @@ function mount_games() {
         if ! touch "${MOUNT_PATH}/.tmp-rocknix"; then
           log $0 "Fixing filesystem ${1}."
           /usr/bin/busybox umount ${1} >/dev/null 2>&1
+          /usr/bin/ntfsfix -b -d ${1} >/dev/null 2>&1
           /usr/sbin/fsck -Mly ${1} >/dev/null 2>&1
           /usr/bin/busybox mount ${MOUNT_ARGS} ${1} ${MOUNT_PATH} >/dev/null 2>&1
         else
