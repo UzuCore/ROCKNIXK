@@ -25,7 +25,7 @@ PKG_CONFIGURE_OPTS_TARGET="--exec-prefix=/usr/ \
 post_makeinstall_target() {
   # dont include ntfsprogs.
   for i in ${INSTALL}/usr/bin/*; do
-    if [ "$(basename ${i})" != "ntfs-3g" ]; then
+    if [[ "$(basename "${i}")" != "ntfs-3g" && "$(basename "${i}")" != "ntfsfix" ]]; then
       rm ${i}
     fi
   done
