@@ -1,0 +1,6 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2024 ROCKNIX (https://github.com/ROCKNIX)
+
+# fan is controlled by kernel
+rm -f /storage/.config/profile.d/020-fan_control
