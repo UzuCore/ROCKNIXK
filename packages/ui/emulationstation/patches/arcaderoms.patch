@@ -60579,7 +60579,7 @@ index 03942fe78..2951b9aa7 100644
    <rom id="wgorilla" name="Wild Gorilla - Power Pay (20279811, NSW/ACT)" />
    <rom id="wgp" name="World Grand Prix (US)" />
    <rom id="wgp2" name="World Grand Prix 2 (Japan)" />
-@@ -51887,107 +48029,76 @@
+@@ -51887,107 +48029,77 @@
    <rom id="wgpjoy" name="World Grand Prix (joystick version set 1) (Japan)" />
    <rom id="wgpjoya" name="World Grand Prix (joystick version set 2) (Japan)" />
    <rom id="wgpu" name="World Grand Prix (US)" />
@@ -60589,6 +60589,7 @@ index 03942fe78..2951b9aa7 100644
 +  <rom id="wh1" name="World Heroes (ALM-005)" />
    <rom id="wh1h" name="World Heroes (ALH-005)" />
    <rom id="wh1ha" name="World Heroes (set 3)" />
++  <rom id="wh1k" name="World Heroes (Korean Translation)" />
 -  <rom id="wh1s01" name="World Heroes (Enable Hidden Characters)" />
 -  <rom id="wh1s02" name="World Heroes (Simple Attack Edition, 2018-09-12)" />
 -  <rom id="wh2" name="World Heroes 2" />
