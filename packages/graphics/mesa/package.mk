@@ -26,6 +26,11 @@ PKG_URL="https://gitlab.freedesktop.org/mesa/mesa/-/archive/mesa-${PKG_VERSION}/
 get_graphicdrivers
 
 pre_configure_host() {
+if [ "${DEVICE}" = "AMD64" ]; then
+  GALLIUM_DRIVERS=$(echo "${GALLIUM_DRIVERS}" | sed 's/crocus//g; s/i915//g' | sed 's/  */ /g; s/^ *//; s/ *$//')
+  VULKAN_DRIVERS_MESA=$(echo "${VULKAN_DRIVERS_MESA}" | sed 's/intel_hasvk//g' | sed 's/  */ /g; s/^ *//; s/ *$//')
+fi
+
 PKG_MESON_OPTS_HOST+=" ${MESA_LIBS_PATH_OPTS}  \
                        -Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
                        -Dvulkan-drivers=${VULKAN_DRIVERS_MESA// /,} "
