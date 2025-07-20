@@ -707,7 +707,7 @@ w_try_7z()
 
     # Not always installed, use Windows 7-Zip as a fallback:
     if [ -z "${WINETRICKS_FORCE_WIN_7Z}" ] && [ -x "$(command -v 7z 2>/dev/null)" ] ; then
-        w_try 7z x "${filename}" -o"${destdir}" "$@"
+        w_try 7za x "${filename}" -o"${destdir}" "$@"
     else
         w_warn "Cannot find 7z. Using Windows 7-Zip instead. (You can avoid this by installing 7z, e.g. 'sudo apt install 7zip' or 'sudo yum install p7zip-plugins')."
         WINETRICKS_OPT_SHAREDPREFIX=1 w_call 7zip
@@ -4549,6 +4549,11 @@ winetricks_set_wineprefix()
             else
                 W_NO_WIN64_WARNINGS=0
             fi
+
+            # In unattended mode, do NOT show any Win64 warnings
+            if [ "${W_OPT_UNATTENDED}" = "1" ]; then
+                W_NO_WIN64_WARNINGS=1
+            fi
         fi
 
         # In case of GUI, only warn once per prefix, per session (i.e., don't warn next time)
@@ -7668,6 +7673,24 @@ load_dxvk2062()
     helper_dxvk "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
 }
 
+w_metadata dxvk2070 dlls \
+    title="Vulkan-based D3D8/D3D9/D3D10/D3D11 implementation for Linux / Wine (2.7)" \
+    publisher="Philip Rebohle" \
+    year="2025" \
+    media="download" \
+    file1="dxvk-2.7.tar.gz" \
+    installed_file1="${W_SYSTEM32_DLLS_WIN}/d3d8.dll" \
+    installed_file2="${W_SYSTEM32_DLLS_WIN}/d3d9.dll" \
+    installed_file3="${W_SYSTEM32_DLLS_WIN}/d3d10core.dll" \
+    installed_file4="${W_SYSTEM32_DLLS_WIN}/d3d11.dll" \
+    installed_file5="${W_SYSTEM32_DLLS_WIN}/dxgi.dll"
+
+load_dxvk2070()
+{
+    w_download "https://github.com/doitsujin/dxvk/releases/download/v2.7/dxvk-2.7.tar.gz" 1e569b0f7a1121d9fcee1614314fcb0c22e71c51d0b9df121e3eb81ae8c0346d
+    helper_dxvk "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
+}
+
 w_metadata dxvk2041g dlls \
     title="Vulkan-based D3D8/D3D9/D3D10/D3D11 implementation for Linux / Wine (2.4.1)" \
     publisher="Philip Rebohle" \
@@ -7719,6 +7742,24 @@ w_metadata dxvk2062g dlls \
 load_dxvk2062g()
 {
     w_download "https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/releases/dxvk-gplasync-v2.6.2-1.tar.gz" c645d3f2550ff66d0a51ba27a535aaa7351fd087feb7b298e7283cb2a3ee173b
+    helper_dxvk "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
+}
+
+w_metadata dxvk2070g dlls \
+    title="Vulkan-based D3D8/D3D9/D3D10/D3D11 implementation for Linux / Wine (2.7.0)" \
+    publisher="Philip Rebohle" \
+    year="2025" \
+    media="download" \
+    file1="dxvk-gplasync-v2.7-1.tar.gz" \
+    installed_file1="${W_SYSTEM32_DLLS_WIN}/d3d8.dll" \
+    installed_file2="${W_SYSTEM32_DLLS_WIN}/d3d9.dll" \
+    installed_file3="${W_SYSTEM32_DLLS_WIN}/d3d10core.dll" \
+    installed_file4="${W_SYSTEM32_DLLS_WIN}/d3d11.dll" \
+    installed_file5="${W_SYSTEM32_DLLS_WIN}/dxgi.dll"
+
+load_dxvk2070g()
+{
+    w_download "https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/releases/dxvk-gplasync-v2.7-1.tar.gz" 612e6b059d060bb51a46085ae9abf4036bc1c357e174e3f1924d266c632dfe97
     helper_dxvk "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
 }
 
