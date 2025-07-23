@@ -14,7 +14,7 @@ case ${DEVICE} in
     PKG_SHA256="967f3112c82e8ea18cbdc513e22196b30ccc9fad3fb836f1cff80312c66fab96"
     PKG_URL="${PKG_SITE}/-/archive/${PKG_VERSION}/wlroots-${PKG_VERSION}.tar.gz"
   ;;
-  RK3588)
+  RK3588|SDM845)
     PKG_VERSION="0.17.4-rk"
     PKG_SHA256="e9e1e14966c6272ca595307fa817fd0fefae96b13fe36c8084b3a7a55fed20d1"
     PKG_URL="https://github.com/stolen/rockchip-wlroots/archive/refs/tags/${PKG_VERSION}.tar.gz"

@@ -57,6 +57,12 @@ menuentry 'AYN Odin2 Mini' \$menuentry_id_option 'odin2mini' {
         linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE}
         devicetree /${DEVICE_DTB[2]}.dtb
 }
+menuentry 'AYANEO Pocket ACE' \$menuentry_id_option 'pocketace' {
+        savedefault
+        search --set -f /KERNEL
+        linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE}
+        devicetree /${DEVICE_DTB[3]}.dtb
+}
 
 menuentry 'AYN Odin2 RECOVERY' \$menuentry_id_option 'odin2-recovery' {
         search --set -f /KERNEL
@@ -72,6 +78,11 @@ menuentry 'AYN Odin2 Mini RECOVERY' \$menuentry_id_option 'odin2mini-recovery' {
         search --set -f /KERNEL
         linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} recovery
         devicetree /${DEVICE_DTB[2]}.dtb
+}
+menuentry 'AYANEO Pocket ACE RECOVERY' \$menuentry_id_option 'pocketace-recovery' {
+        search --set -f /KERNEL
+        linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} recovery
+        devicetree /${DEVICE_DTB[3]}.dtb
 }
 
 EOF

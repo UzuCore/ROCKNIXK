@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
+
+mkimage_dtb() {
+  echo "image: copying device trees..."
+  for dtb in ${DEVICE_DTB[@]}; do
+    echo "image: copying ${dtb}.dtb..."
+    mcopy "${RELEASE_DIR}/3rdparty/bootloader/${dtb}.dtb" ::
+  done
+}
+
+mkimage_efi() {
+  echo "image: copying EFI files..."
+  mcopy -s -o "${RELEASE_DIR}/3rdparty/bootloader/EFI" ::
+}
+
+mkimage_dtb
+mkimage_efi

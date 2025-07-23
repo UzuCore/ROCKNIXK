@@ -9,7 +9,7 @@ PKG_LONGDESC="i3-compatible Wayland compositor"
 PKG_TOOLCHAIN="meson"
 
 case ${DEVICE} in
-  RK3588)
+  RK3588|SDM845)
     PKG_VERSION="1.9"
     PKG_URL="https://github.com/swaywm/sway/archive/${PKG_VERSION}.zip"
   ;;

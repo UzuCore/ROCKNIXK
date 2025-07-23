@@ -72,7 +72,7 @@ case "${DEVICE}" in
     LIBRETRO_CORES+=" flycast2021-lr geolith-lr uae4arm"
     PKG_RETROARCH+=" retropie-shaders"
   ;;
-  SM8250|SM8550)
+  SM8250|SM8550|SDM845)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 daedalusx64-sa desmume-lr gpsp-lr pcsx_rearmed-lr"
     PKG_EMUS+=" aethersx2-sa azahar-sa box64 cemu-sa dolphin-sa melonds-sa nanoboyadvance-sa portmaster rpcs3-sa scummvmsa supermodel-sa \
                yabasanshiro-sa xemu-sa duckstation-sa"
@@ -152,7 +152,7 @@ makeinstall_target() {
 
   ### Nintendo 3DS
   case ${DEVICE} in
-    AMD64|S922X|SM8*)
+    AMD64|S922X|SM8*|SDM845)
       add_emu_core 3ds azahar azahar-sa true
       add_es_system 3ds
     ;;
@@ -164,7 +164,7 @@ makeinstall_target() {
 
   ### Commodore Amiga
   case ${DEVICE} in
-    RK35*|RK3326|RK3399|H700|SM8*)
+    RK35*|RK3326|RK3399|H700|SM8*|SDM845)
       add_emu_core amiga retroarch puae2021 true
       add_emu_core amiga retroarch puae false
     ;;
@@ -183,7 +183,7 @@ makeinstall_target() {
 
   ### Commodore Amiga CD32
   case ${DEVICE} in
-    RK35*|RK3326|RK3399|H700|SM8*)
+    RK35*|RK3326|RK3399|H700|SM8*|SDM845)
       add_emu_core amigacd32 retroarch puae2021 true
       add_emu_core amigacd32 retroarch puae false
     ;;
@@ -248,7 +248,7 @@ makeinstall_target() {
       add_emu_core atomiswave retroarch flycast false
       add_emu_core atomiswave flycast flycast-sa false
     ;;
-    S922X|SM8*)
+    S922X|SM8*|SDM845)
       add_emu_core atomiswave flycast flycast-sa true
       add_emu_core atomiswave retroarch flycast false
       add_emu_core atomiswave retroarch flycast2021 false
@@ -342,7 +342,7 @@ makeinstall_target() {
       add_emu_core dreamcast retroarch flycast false
       add_emu_core dreamcast flycast flycast-sa false
     ;;
-    S922X|SM8*)
+    S922X|SM8*|SDM845)
       add_emu_core dreamcast flycast flycast-sa true
       add_emu_core dreamcast retroarch flycast false
       add_emu_core dreamcast retroarch flycast2021 false
@@ -445,7 +445,7 @@ makeinstall_target() {
     RK356*|RK3326|H700|S922X)
       add_emu_core gba retroarch gpsp false
     ;;
-    RK3399|RK3588|SM8*)
+    RK3399|RK3588|SM8*|SDM845)
       add_emu_core gba retroarch gpsp false
       add_emu_core gba nanoboyadvance nanoboyadvance-sa false
     ;;
@@ -518,7 +518,7 @@ makeinstall_target() {
 
   ### Nintendo GameCube
   case ${DEVICE} in
-    AMD64|SM8*|RK3399)
+    AMD64|SM8*|RK3399|SDM845)
       add_emu_core gamecube dolphin dolphin-qt-gc true
       add_emu_core gamecube dolphin dolphin-sa-gc false
       add_emu_core gamecube retroarch dolphin false
@@ -534,7 +534,7 @@ makeinstall_target() {
 
   ### Nintendo Wii
   case ${DEVICE} in
-    AMD64|SM8*|RK3399)
+    AMD64|SM8*|RK3399|SDM845)
       add_emu_core wii dolphin dolphin-qt-wii true
       add_emu_core wii dolphin dolphin-sa-wii false
       add_emu_core wii retroarch dolphin false
@@ -549,7 +549,7 @@ makeinstall_target() {
 
   ### Nintendo Wii U
   case ${DEVICE} in
-    AMD64|SM8*)
+    AMD64|SM8*|SDM845)
       add_emu_core wiiu cemu cemu-sa true
       add_es_system wiiu
       install_script "Start CEMU.sh"
@@ -629,7 +629,7 @@ makeinstall_target() {
 
   ### Sega Model 3
   case ${DEVICE} in
-    RK3588|SM8*)
+    RK3588|SM8*|SDM845)
       add_emu_core segamodel3 supermodel supermodel-sa true
       add_es_system segamodel3
     ;;
@@ -667,7 +667,7 @@ makeinstall_target() {
       add_emu_core naomi retroarch flycast false
       add_emu_core naomi flycast flycast-sa false
     ;;
-    S922X|SM8*)
+    S922X|SM8*|SDM845)
       add_emu_core naomi flycast flycast-sa true
       add_emu_core naomi retroarch flycast false
       add_emu_core naomi retroarch flycast2021 false
@@ -728,7 +728,7 @@ makeinstall_target() {
   add_emu_core n64 retroarch parallel_n64 false
   add_emu_core n64 mupen64plus mupen64plus-sa false
   case ${DEVICE} in
-    SM8*)
+    SM8*|SDM845)
       add_emu_core n64 daedalusx64 daedalusx64-sa false
       install_script "Start DaedalusX64.sh"
     ;;
@@ -758,7 +758,7 @@ makeinstall_target() {
       add_emu_core nds retroarch melondsds false
       add_emu_core nds retroarch desmume false
     ;;
-    SM8*)
+    SM8*|SDM845)
       add_emu_core nds melonds melonds-sa true
       add_emu_core nds retroarch melonds false
       add_emu_core nds retroarch melondsds false
@@ -874,7 +874,7 @@ makeinstall_target() {
       add_emu_core psx retroarch beetle_psx false
       add_emu_core psx mednafen psx false
     ;;
-    SM8*)
+    SM8*|SDM845)
       add_emu_core psx retroarch pcsx_rearmed32 true
       add_emu_core psx retroarch pcsx_rearmed false
       add_emu_core psx retroarch beetle_psx false
@@ -902,7 +902,7 @@ makeinstall_target() {
       add_es_system ps2
       install_script "Start PCSX2.sh"
     ;;
-    RK3588|S922X|RK3399|SM8*)
+    RK3588|S922X|RK3399|SM8*|SDM845)
       add_emu_core ps2 aethersx2 aethersx2-sa true
       add_es_system ps2
       install_script "Start AetherSX2.sh"
@@ -911,7 +911,7 @@ makeinstall_target() {
 
   ### Sony Playstation 3
   case ${DEVICE} in
-    AMD64|SM8*)
+    AMD64|SM8*|SDM845)
       add_emu_core ps3 rpcs3 rpcs3-sa true
       add_es_system ps3
       install_script "Start RPCS3.sh"
@@ -1042,7 +1042,7 @@ makeinstall_target() {
     S922X)
       add_emu_core saturn retroarch beetle_saturn false
   ;;
-    SM8*)
+    SM8*|SDM845)
       add_emu_core saturn retroarch beetle_saturn false
       add_emu_core saturn retroarch kronos false
   ;;
@@ -1069,7 +1069,7 @@ makeinstall_target() {
 
   ### Microsoft XBox
   case ${DEVICE} in
-    AMD64|SM8*)
+    AMD64|SM8*|SDM845)
       add_emu_core xbox xemu xemu-sa true
       add_es_system xbox
       install_script "Start Xemu.sh"
@@ -1105,7 +1105,7 @@ makeinstall_target() {
   add_emu_core snes retroarch bsnes_mercury_balanced false
   add_emu_core snes retroarch bsnes_mercury_performance false
   case ${DEVICE} in
-    AMD64|S922X|RK3399|RK3588|SM8*)
+    AMD64|S922X|RK3399|RK3588|SM8*|SDM845)
       add_emu_core snes retroarch bsnes false
       add_emu_core snes retroarch bsnes_hd_beta false
 	;;
@@ -1131,7 +1131,7 @@ makeinstall_target() {
   add_emu_core snes retroarch bsnes_mercury_balanced false
   add_emu_core snesh retroarch bsnes_mercury_performance false
   case ${DEVICE} in
-    AMD64|S922X|RK3399|RK3588|SM8*)
+    AMD64|S922X|RK3399|RK3588|SM8*|SDM845)
       add_emu_core snesh retroarch bsnes false
       add_emu_core snesh retroarch bsnes_hd_beta false
 	;;
@@ -1157,7 +1157,7 @@ makeinstall_target() {
   add_emu_core snes retroarch bsnes_mercury_balanced false
   add_emu_core sfc retroarch bsnes_mercury_performance false
   case ${DEVICE} in
-    AMD64|S922X|RK3399|RK358*|SM8*)
+    AMD64|S922X|RK3399|RK358*|SM8*|SDM845)
       add_emu_core sfc retroarch bsnes false
       add_emu_core sfc retroarch bsnes_hd_beta false
 	;;

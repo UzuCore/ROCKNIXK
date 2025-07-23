@@ -15,10 +15,13 @@ PKG_BUILD_FLAGS="+bfd -gold"
 case "${DEVICE}" in
   RK3588*)
     OPT_ENABLE_KERNEL=6.1.0
-    ;;
+  ;;
+  SDM845)
+    OPT_ENABLE_KERNEL=5.18.0
+  ;;
   *)
     OPT_ENABLE_KERNEL=6.10.0
-    ;;
+  ;;
 esac
 
 case ${TARGET_ARCH} in

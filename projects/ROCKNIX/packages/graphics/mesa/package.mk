@@ -18,7 +18,7 @@ case ${DEVICE} in
     PKG_VERSION="24.3.4"
     ;;
   *)
-    PKG_VERSION="25.1.4"
+    PKG_VERSION="25.1.6"
     if [ "${GRAPHIC_DRIVERS}" = "panfrost" ]; then
       PKG_DEPENDS_TARGET+=" mesa:host"
     fi

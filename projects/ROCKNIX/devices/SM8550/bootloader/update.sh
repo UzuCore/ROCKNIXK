@@ -49,10 +49,16 @@ if [ -f "$SYSTEM_ROOT/usr/share/bootloader/boot/u-boot-nodtb.bin" ]; then
   cp -p $SYSTEM_ROOT/usr/share/bootloader/boot/u-boot-nodtb.bin $BOOT_ROOT/boot
 fi
 
-if [ -f "$SYSTEM_ROOT/usr/share/bootloader/boot/u-boot.dtb" ]; then
+if [ -f "$SYSTEM_ROOT/usr/share/bootloader/boot/u-boot-odin2.dtb" ]; then
   mkdir -p $BOOT_ROOT/boot
-  echo "Updating u-boot.dtb..."
-  cp -p $SYSTEM_ROOT/usr/share/bootloader/boot/u-boot.dtb $BOOT_ROOT/boot
+  echo "Updating u-boot-odin2.dtb..."
+  cp -p $SYSTEM_ROOT/usr/share/bootloader/boot/u-boot-odin2.dtb $BOOT_ROOT/boot
+fi
+
+if [ -f "$SYSTEM_ROOT/usr/share/bootloader/boot/u-boot-pocket-ace.dtb" ]; then
+  mkdir -p $BOOT_ROOT/boot
+  echo "Updating u-boot-pocket-ace.dtb..."
+  cp -p $SYSTEM_ROOT/usr/share/bootloader/boot/u-boot-pocket-ace.dtb $BOOT_ROOT/boot
 fi
 
 # mount $BOOT_ROOT ro

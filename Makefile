@@ -69,6 +69,11 @@ H700:
 	PROJECT=ROCKNIX DEVICE=H700 ARCH=arm ./scripts/build_distro
 	PROJECT=ROCKNIX DEVICE=H700 ARCH=aarch64 ./scripts/build_distro
 
+SDM845:
+	unset DEVICE_ROOT
+	PROJECT=ROCKNIX DEVICE=SDM845 ARCH=arm ./scripts/build_distro
+	PROJECT=ROCKNIX DEVICE=SDM845 ARCH=aarch64 ./scripts/build_distro
+
 SM8250:
 	unset DEVICE_ROOT
 	PROJECT=ROCKNIX DEVICE=SM8250 ARCH=arm ./scripts/build_distro
