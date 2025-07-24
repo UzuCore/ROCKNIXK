@@ -8,10 +8,10 @@
   HARDENING_SUPPORT="no"
 
 # The name of the parent organization for updates
-  GIT_ORGANIZATION="ROCKNIX"
+  GIT_ORGANIZATION="UzuCore"
 
 # The name of the github project for updates
-  GIT_REPO="distribution"
+  GIT_REPO="ROCKNIX"
 
 # Name of the Distro to build (full name, without special characters)
   DISTRONAME="ROCKNIX"
@@ -32,7 +32,7 @@
   BUG_REPORT_URL="https://rocknix.org"
 
 # Root password to integrate in the target system
-  ROOT_PASSWORD="rocknix"
+  ROOT_PASSWORD="linux"
 
 # Install glibc locales to the build (yes / no)
   GLIBC_LOCALES="yes"
