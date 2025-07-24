@@ -49,8 +49,8 @@ case ${ARCH} in
   ;;
 esac
 
-case ${PROJECT} in
-  Rockchip)
+case ${DEVICE} in
+RK*)
     PKG_DEPENDS_TARGET+=" librga"
   ;;
 esac
@@ -85,7 +85,7 @@ fi
 
 if [ "${VULKAN_SUPPORT}" = "yes" ]
 then
-    PKG_DEPENDS_TARGET+=" vulkan-loader vulkan-headers"
+    PKG_DEPENDS_TARGET+=" ${VULKAN}"
     PKG_CONFIGURE_OPTS_TARGET+=" --enable-vulkan --enable-vulkan_display"
 else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-vulkan"
@@ -125,7 +125,7 @@ makeinstall_target() {
       if [ -f ${ROOT}/build.${DISTRO}-${DEVICE}.arm/retroarch-*/.install_pkg/usr/bin/retroarch ]; then
         cp -vP ${ROOT}/build.${DISTRO}-${DEVICE}.arm/retroarch-*/.install_pkg/usr/bin/retroarch ${INSTALL}/usr/bin/retroarch32
         mkdir -p ${INSTALL}/usr/share/retroarch/filters/32bit/
-        cp -rvP ${ROOT}/build.${DISTRO}-${DEVICE}.arm/retroarch-*/.install_pkg/usr/share/retroarch/filters/64bit/* ${INSTALL}/usr/share/retroarch/filters/32bit/
+	cp -rvP ${ROOT}/build.${DISTRO}-${DEVICE}.arm/retroarch-*/.install_pkg/usr/share/retroarch/filters/64bit/* ${INSTALL}/usr/share/retroarch/filters/32bit/
       fi
     ;;
   esac
