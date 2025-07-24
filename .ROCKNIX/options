@@ -1,0 +1,2 @@
+# Apply for a Screenscraper API Key here: https://www.screenscraper.fr/forumsujets.php?frub=12&numpage=0
+export SCREENSCRAPER_DEV_LOGIN="devid=jelos&devpassword=jelos"

@@ -8,10 +8,10 @@
   HARDENING_SUPPORT="no"
 
 # The name of the parent organization for updates
-  GIT_ORGANIZATION="ROCKNIX"
+  GIT_ORGANIZATION="UzuCore"
 
 # The name of the github project for updates
-  GIT_REPO="distribution"
+  GIT_REPO="ROCKNIX"
 
 # Name of the Distro to build (full name, without special characters)
   DISTRONAME="ROCKNIX"
@@ -32,7 +32,7 @@
   BUG_REPORT_URL="https://rocknix.org"
 
 # Root password to integrate in the target system
-  ROOT_PASSWORD="rocknix"
+  ROOT_PASSWORD="linux"
 
 # Install glibc locales to the build (yes / no)
   GLIBC_LOCALES="yes"
@@ -181,13 +181,13 @@
 
 # Distribution Specific source location
   DISTRO_MIRROR="https://github.com/ROCKNIX/distribution-sources/releases/download/sources"
-  DISTRO_SRC="https://sources.libreelec.tv/$DISTRO_VERSION"
+  DISTRO_SRC="https://github.com/ROCKNIX"
 
 # Default size of system partition, in MB, eg. 512
   SYSTEM_SIZE=2048
 
 # Default system partition offset, in sectors, eg. 2048
-  SYSTEM_PART_START=32768
+  SYSTEM_PART_START=8192
 
 # Size of storage partition, in MB. Must be >=32
   STORAGE_SIZE=32
@@ -204,10 +204,3 @@
 
 # Enable Updates
   ENABLE_UPDATES="yes"
-
-# defines the born on date of a build
-  BUILD_DATE=$(date)
-
-# Define supported systems documentation path
-  SYSDOCROOT="${ROOT}/documentation/PER_DEVICE_DOCUMENTATION/${DEVICE}"
-  SYSDOC="${SYSDOCROOT}/SUPPORTED_EMULATORS_AND_CORES"

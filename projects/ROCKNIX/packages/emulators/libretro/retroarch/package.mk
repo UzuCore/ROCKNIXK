@@ -49,8 +49,8 @@ case ${ARCH} in
   ;;
 esac
 
-case ${DEVICE} in
-  RK*)
+case ${PROJECT} in
+  Rockchip)
     PKG_DEPENDS_TARGET+=" librga"
   ;;
 esac
@@ -85,7 +85,7 @@ fi
 
 if [ "${VULKAN_SUPPORT}" = "yes" ]
 then
-    PKG_DEPENDS_TARGET+=" ${VULKAN}"
+    PKG_DEPENDS_TARGET+=" vulkan-loader vulkan-headers"
     PKG_CONFIGURE_OPTS_TARGET+=" --enable-vulkan --enable-vulkan_display"
 else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-vulkan"
@@ -97,6 +97,13 @@ pre_configure_target() {
   TARGET_CONFIGURE_OPTS=""
 
   cd ${PKG_BUILD}
+}
+
+pre_build_target() {
+    sed -e 's/RETRO_LANGUAGE_KOREAN/RETRO_LANGUAGE_GREEK/g' \
+        -i ${PKG_BUILD}/menu/drivers/ozone.c
+    sed -e 's/RETRO_LANGUAGE_KOREAN/RETRO_LANGUAGE_GREEK/g' \
+        -i ${PKG_BUILD}/menu/drivers/materialui.c
 }
 
 make_target() {
@@ -115,10 +122,10 @@ makeinstall_target() {
 
   case ${ARCH} in
     aarch64)
-      if [ -f ${ROOT}/build.${DISTRO}-${DEVICE}.arm/install_pkg/retroarch-*/usr/bin/retroarch ]; then
-        cp -vP ${ROOT}/build.${DISTRO}-${DEVICE}.arm/install_pkg/retroarch-*/usr/bin/retroarch ${INSTALL}/usr/bin/retroarch32
+      if [ -f ${ROOT}/build.${DISTRO}-${DEVICE}.arm/retroarch-*/.install_pkg/usr/bin/retroarch ]; then
+        cp -vP ${ROOT}/build.${DISTRO}-${DEVICE}.arm/retroarch-*/.install_pkg/usr/bin/retroarch ${INSTALL}/usr/bin/retroarch32
         mkdir -p ${INSTALL}/usr/share/retroarch/filters/32bit/
-        cp -rvP ${ROOT}/build.${DISTRO}-${DEVICE}.arm/install_pkg/retroarch-*/usr/share/retroarch/filters/64bit/* ${INSTALL}/usr/share/retroarch/filters/32bit/
+        cp -rvP ${ROOT}/build.${DISTRO}-${DEVICE}.arm/retroarch-*/.install_pkg/usr/share/retroarch/filters/64bit/* ${INSTALL}/usr/share/retroarch/filters/32bit/
       fi
     ;;
   esac
@@ -138,6 +145,11 @@ makeinstall_target() {
   mkdir -p ${INSTALL}/usr/config/retroarch/
   if [ -d "${PKG_DIR}/sources/${DEVICE}" ]; then
     cp -rf ${PKG_DIR}/sources/${DEVICE}/* ${INSTALL}/usr/config/retroarch/
+    sed -i \
+        -e 's/menu_driver.*/menu_driver = "ozone"/g' \
+        -e 's/ozone_collapse_sidebar.*/ozone_collapse_sidebar = "true"/g' \
+        -e 's/user_language.*/user_language = "10"/g' \
+        ${INSTALL}/usr/config/retroarch/retroarch.cfg
   else
     echo "Configure retroarch for ${DEVICE}"
     exit 1
