@@ -50,7 +50,7 @@ case ${ARCH} in
 esac
 
 case ${DEVICE} in
-RK*)
+  RK*)
     PKG_DEPENDS_TARGET+=" librga"
   ;;
 esac
@@ -122,10 +122,10 @@ makeinstall_target() {
 
   case ${ARCH} in
     aarch64)
-      if [ -f ${ROOT}/build.${DISTRO}-${DEVICE}.arm/retroarch-*/.install_pkg/usr/bin/retroarch ]; then
-        cp -vP ${ROOT}/build.${DISTRO}-${DEVICE}.arm/retroarch-*/.install_pkg/usr/bin/retroarch ${INSTALL}/usr/bin/retroarch32
-        mkdir -p ${INSTALL}/usr/share/retroarch/filters/32bit/
-	cp -rvP ${ROOT}/build.${DISTRO}-${DEVICE}.arm/retroarch-*/.install_pkg/usr/share/retroarch/filters/64bit/* ${INSTALL}/usr/share/retroarch/filters/32bit/
+      if [ -f ${ROOT}/build.${DISTRO}-${DEVICE}.arm/install_pkg/retroarch-*/usr/bin/retroarch ]; then
+        cp -vP ${ROOT}/build.${DISTRO}-${DEVICE}.arm/install_pkg/retroarch-*/usr/bin/retroarch ${INSTALL}/usr/bin/retroarch32
+	mkdir -p ${INSTALL}/usr/share/retroarch/filters/32bit/
+        cp -rvP ${ROOT}/build.${DISTRO}-${DEVICE}.arm/install_pkg/retroarch-*/usr/share/retroarch/filters/64bit/* ${INSTALL}/usr/share/retroarch/filters/32bit/
       fi
     ;;
   esac
