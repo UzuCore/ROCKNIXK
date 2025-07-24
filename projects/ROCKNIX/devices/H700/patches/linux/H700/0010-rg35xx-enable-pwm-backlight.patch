@@ -19,7 +19,7 @@ index 5d2b13aa7..3397cad0c 100644
 -		gpios = <&pio 3 28 GPIO_ACTIVE_HIGH>; // PD28
 -		default-on;
 +		compatible = "pwm-backlight";
-+		pwms = <&pwm 0 50000 0>;
++		pwms = <&pwm 0 40000 0>;
 +		pinctrl-0 = <&lcd_backlight_pin>;
 +		pinctrl-names = "default";
  	};

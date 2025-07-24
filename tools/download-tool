@@ -24,9 +24,24 @@ case $1 in
     ;;
 esac
 
-for package in $(find packages/ -name package.mk); do
-  if [ -n "$(echo $package | grep addons)" -a -z "$ALL_PACKAGES" ]; then
+declare -A fetched_packages
+
+for package in $(find projects/ROCKNIX/packages/ -name package.mk); do
+  if [[ "$package" == *addons* && -z "$ALL_PACKAGES" ]]; then
     continue
   fi
-  ./scripts/get $(basename $(dirname $package))
+  name=$(basename "$(dirname "$package")")
+  ./scripts/get "$name"
+  fetched_packages["$name"]=1
+done
+
+for package in $(find packages/ -name package.mk); do
+  if [[ "$package" == *addons* && -z "$ALL_PACKAGES" ]]; then
+    continue
+  fi
+  name=$(basename "$(dirname "$package")")
+  if [[ -n "${fetched_packages[$name]}" ]]; then
+    continue
+  fi
+  ./scripts/get "$name"
 done

@@ -94,13 +94,16 @@ PLATFORM=$(echo "${2}"| sed "s#^/.*/##")
 AA=$(get_setting anti_aliasing "${PLATFORM}" "${GAME}")
 ASPECT=$(get_setting aspect_ratio "${PLATFORM}" "${GAME}")
 AUDIOBE=$(get_setting audio_backend "${PLATFORM}" "${GAME}")
+ASWAPDISCS=$(get_setting auto_swap_discs "${PLATFORM}" "${GAME}")
 CLOCK=$(get_setting clock_speed "${PLATFORM}" "${GAME}")
+ENBCHEATS=$(get_setting enable_cheats "${PLATFORM}" "${GAME}")
 RENDERER=$(get_setting graphics_backend "${PLATFORM}" "${GAME}")
 IRES=$(get_setting internal_resolution "${PLATFORM}" "${GAME}")
 FPS=$(get_setting show_fps "${PLATFORM}" "${GAME}")
 CON=$(get_setting gamecube_controller_profile "${PLATFORM}" "${GAME}")
 HKEY=$(get_setting hotkey_enable_button "${PLATFORM}" "${GAME}")
 SAVETYPE=$(get_setting save_type "${PLATFORM}" "${GAME}")
+SAVEREG=$(get_setting save_gci_region "${PLATFORM}" "${GAME}")
 SHADERM=$(get_setting shader_mode "${PLATFORM}" "${GAME}")
 SHADERP=$(get_setting shader_precompile "${PLATFORM}" "${GAME}")
 VSYNC=$(get_setting vsync "${PLATFORM}" "${GAME}")
@@ -176,6 +179,13 @@ fi
     AUDIO_BACKEND="HLE"
   fi
 
+  # Auto Swap Discs
+  if [ "$ASWAPDISCS" = "0" ]; then
+    sed -i '/AutoDiscChange/c\AutoDiscChange = False' /storage/.config/dolphin-emu/Dolphin.ini
+  else
+    sed -i '/AutoDiscChange/c\AutoDiscChange = True' /storage/.config/dolphin-emu/Dolphin.ini
+  fi
+
   # Clock Speed
   if [ "$CLOCK" = "050" ]; then
     sed -i '/^Overclock =/c\Overclock = 0.5' /storage/.config/dolphin-emu/Dolphin.ini
@@ -205,6 +215,13 @@ fi
     sed -i '/^OverclockEnable =/c\OverclockEnable = False' /storage/.config/dolphin-emu/Dolphin.ini
   fi
 
+  # Enable Cheats
+  if [ "$ENBCHEATS" = "1" ]; then
+    sed -i '/EnableCheats/c\EnableCheats = True' /storage/.config/dolphin-emu/Dolphin.ini
+  else
+    sed -i '/EnableCheats/c\EnableCheats = False' /storage/.config/dolphin-emu/Dolphin.ini
+  fi
+
   # Graphics Backend
   if [ "$RENDERER" = "vulkan" ]; then
     sed -i '/GFXBackend/c\GFXBackend = Vulkan' /storage/.config/dolphin-emu/Dolphin.ini
@@ -230,6 +247,15 @@ fi
     sed -i '/SlotA/c\SlotA = 8' /storage/.config/dolphin-emu/Dolphin.ini
   else
     sed -i '/SlotA/c\SlotA = 1' /storage/.config/dolphin-emu/Dolphin.ini
+  fi
+
+  # Save Reg
+  if [ "$SAVEREG" = "eur" ]; then
+    sed -i '/GCIFolderAPath/c\GCIFolderAPath = \/storage\/roms\/bios\/GC\/EUR' /storage/.config/dolphin-emu/Dolphin.ini
+  elif [ "$SAVEREG" = "jap" ]; then
+    sed -i '/GCIFolderAPath/c\GCIFolderAPath = \/storage\/roms\/bios\/GC\/JAP' /storage/.config/dolphin-emu/Dolphin.ini
+  else
+    sed -i '/GCIFolderAPath/c\GCIFolderAPath = \/storage\/roms\/bios\/GC\/USA' /storage/.config/dolphin-emu/Dolphin.ini
   fi
 
   # Shader Mode

@@ -41,6 +41,23 @@ V_ARCH=$(uname -m)
 
 [[ "$V_CPUMODEL1" ]] || V_CPUMODEL1="${HW_CPU}"
 
+# network
+ip=$(ip -4 addr show dev eth0 2>/dev/null | grep inet | awk '{print $2}' | cut -d/ -f1)
+if [ -z "$ip" ]; then
+  ip=$(ip -4 addr show dev wlan0 2>/dev/null | grep inet | awk '{print $2}' | cut -d/ -f1)
+fi
+if [ -z "$ip" ]; then
+  ip="Offline"
+fi
+
+host=$(hostname)
+
+# gpu
+CUR_FREQ=$(cat "$GPU_FREQ/cur_freq")
+MAX_FREQ=$(cat "$GPU_FREQ/max_freq")
+GPUCUR=$((CUR_FREQ / 1000000))
+GPUMAX=$((MAX_FREQ / 1000000))
+
 # ram
 MEMT=$(grep MemTotal /proc/meminfo | sed 's/[^0-9]*//g')
 MEMT=$((${MEMT} / 1000))
@@ -90,6 +107,9 @@ echo "OPERATING SYSTEM: ${OS_NAME}"
 echo "VERSION: ${OS_VERSION} (${OS_BUILD})"
 echo "BUILD ID: ${BUILD_ID:0:7} (${BUILD_BRANCH})"
 echo "KERNEL: ${V_SYSTEM} ($(uname -m))"
+echo "NETWORK INFORMATION:"
+echo "HOST NAME: ${host}"
+echo "IP ADDRESS: ${ip}"
 echo "DISK SPACE:"
 echo "/storage/games-internal: $(df -h /storage/games-internal | awk '/dev/ {print $3"/"$2" ("$5")"}')"
 echo "/storage/games-external: $(df -h /storage/games-external | awk '/dev/ {print $3"/"$2" ("$5")"}')"
@@ -146,6 +166,14 @@ case ${HW_ARCH} in
     done
   ;;
 esac
+echo "GPU INFORMATION:"
+echo "GPU CURRENT FREQUENCY: ${GPUCUR} MHz"
+echo "GPU MAXIMUM FREQUENCY: ${GPUMAX} MHz"
+if [ -n "$GPUCUR" ]; then
+  echo "GPU INFORMATION:"
+  echo "GPU CURRENT FREQUENCY: ${GPUCUR} MHz"
+  echo "GPU MAXIMUM FREQUENCY: ${GPUMAX} MHz"
+fi
 echo "RAM INFORMATION:"
 echo "RAM AVAILABLE: ${MEMAV} MB"
 echo "RAM CAPACITY: ${MEMT} MB"

@@ -20,7 +20,7 @@
 ################################################################################
 
 PKG_NAME="libretro-database"
-PKG_VERSION="c2b26123664ee485d91adf6689c35d8966b6fcf5"
+PKG_VERSION="82e7063f139a21289b94921087637d73f1b34e8f"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/libretro-database"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
@@ -35,4 +35,8 @@ configure_target() {
 
 makeinstall_target() {
   make install INSTALLDIR="${INSTALL}/usr/share/libretro-database"
+}
+
+post_makeinstall_target() {
+  rm -rf ${INSTALL}/usr/share/libretro-database/rdb/*
 }

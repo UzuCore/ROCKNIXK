@@ -73,7 +73,7 @@ fi
 # Main output string base
 output="output ${con}"
 echo "${output} transform ${angle}" >> $SWAY_HOME/config
-echo "WLR_CON=${con}" >> /storage/.config/profile.d/095-sway
+echo "WLR_CON=${con}" >> ${env_file}
 # check refresh rate
 DISPLAY_MODE=$(get_setting system.display_mode)
 if [ "${DISPLAY_MODE}" ]; then
@@ -87,5 +87,6 @@ if [ "${DISPLAY_MODE}" ]; then
     fi
 fi
 echo "${output} bg #000000 solid_color" >> $SWAY_HOME/config
+echo "${output} allow_tearing yes" >> $SWAY_HOME/config
 echo "${output} max_render_time off" >> $SWAY_HOME/config
 

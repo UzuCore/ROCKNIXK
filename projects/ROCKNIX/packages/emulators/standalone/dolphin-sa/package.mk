@@ -10,7 +10,7 @@ PKG_TOOLCHAIN="cmake"
 
 case ${DEVICE} in
   SM8250|SM8550|SDM845|AMD64|RK3399)
-    PKG_VERSION="79a3af2e6e8f905de081489e5d40ef8dd4fc1db5"
+    PKG_VERSION="10cedc90af0068d2a78a454914c4d7ca4c1cdbdf"
     PKG_SITE="https://github.com/dolphin-emu/dolphin"
     PKG_URL="${PKG_SITE}.git"
     PKG_DEPENDS_TARGET+=" qt6"
@@ -71,6 +71,7 @@ pre_configure_target() {
                            -DENABLE_AUTOUPDATE=OFF \
                            -DUSE_MGBA=OFF \
                            -DENABLE_CLI_TOOL=OFF"
+
   sed -i 's~#include <cstdlib>~#include <cstdlib>\n#include <cstdint>~g' ${PKG_BUILD}/Externals/VulkanMemoryAllocator/include/vk_mem_alloc.h
   sed -i 's~#include <cstdint>~#include <cstdint>\n#include <string>~g' ${PKG_BUILD}/Externals/VulkanMemoryAllocator/include/vk_mem_alloc.h
 }

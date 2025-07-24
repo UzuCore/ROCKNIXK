@@ -41,7 +41,7 @@ fi
 mkdir -p ${SAVE_DIR}
 
 params=" -config ${CONFIG} -savedir ${SAVE_DIR}"
-params+=" +gl_es 1 +vid_preferbackend 3 +cl_capfps 0 +vid_fps 0 +vid_vsync 1"
+params+=" +gl_es 1 +vid_preferbackend 3 +cl_capfps 0 +vid_fps 0 +vid_maxfps 60"
 
 # EXT can be wad, WAD, iwad, IWAD, pwad, PWAD or doom
 EXT=${1##*.}

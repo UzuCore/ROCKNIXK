@@ -102,6 +102,7 @@ AA=$(get_setting anti_aliasing "${PLATFORM}" "${GAME}")
 ASPECT=$(get_setting aspect_ratio "${PLATFORM}" "${GAME}")
 AUDIOBE=$(get_setting audio_backend "${PLATFORM}" "${GAME}")
 CLOCK=$(get_setting clock_speed "${PLATFORM}" "${GAME}")
+ENBCHEATS=$(get_setting enable_cheats "${PLATFORM}" "${GAME}")
 RENDERER=$(get_setting graphics_backend "${PLATFORM}" "${GAME}")
 IRES=$(get_setting internal_resolution "${PLATFORM}" "${GAME}")
 FPS=$(get_setting show_fps "${PLATFORM}" "${GAME}")
@@ -207,6 +208,13 @@ fi
     sed -i '/^OverclockEnable =/c\OverclockEnable = True' /storage/.config/dolphin-emu/Dolphin.ini
   else
     sed -i '/^OverclockEnable =/c\OverclockEnable = False' /storage/.config/dolphin-emu/Dolphin.ini
+  fi
+
+  # Enable Cheats
+  if [ "$ENBCHEATS" = "1" ]; then
+    sed -i '/EnableCheats/c\EnableCheats = True' /storage/.config/dolphin-emu/Dolphin.ini
+  else
+    sed -i '/EnableCheats/c\EnableCheats = False' /storage/.config/dolphin-emu/Dolphin.ini
   fi
 
   # Graphics Backend

@@ -36,14 +36,14 @@ jobs:
         uses: corrupt952/actions-retry-command@v1.0.7
         with:
           command: |
-            PROJECT=Rockchip DEVICE=RK3326 ./scripts/get
-            PROJECT=Rockchip DEVICE=RK3399 ./scripts/get
-            PROJECT=Rockchip DEVICE=RK3566 ./scripts/get
-            PROJECT=Rockchip DEVICE=RK3588 ./scripts/get
-            PROJECT=Allwinner DEVICE=H700 ./scripts/get
-            PROJECT=Amlogic DEVICE=S922X ./scripts/get
-            PROJECT=Qualcomm DEVICE=SM8250 ./scripts/get
-            PROJECT=Qualcomm DEVICE=SM8550 ./scripts/get
+            PROJECT=ROCKNIX DEVICE=RK3326 ./tools/download-tool 
+            PROJECT=ROCKNIX DEVICE=RK3399 ./tools/download-tool 
+            PROJECT=ROCKNIX DEVICE=RK3566 ./tools/download-tool 
+            PROJECT=ROCKNIX DEVICE=RK3588 ./tools/download-tool 
+            PROJECT=ROCKNIX DEVICE=H700 ./tools/download-tool 
+            PROJECT=ROCKNIX DEVICE=S922X ./tools/download-tool 
+            PROJECT=ROCKNIX DEVICE=SM8250 ./tools/download-tool 
+            PROJECT=ROCKNIX DEVICE=SM8550 ./tools/download-tool
           max_attempts: 6
           retry_interval: 10
       - name: print number of downloaded artifacts
@@ -53,10 +53,10 @@ jobs:
         run: |
           set -euo pipefail
           EXISTING_FILES=$(gh release view sources --repo ${{ github.repository_owner }}/distribution-sources --json assets --jq '.assets[].name' || true)
-          LOCAL_FILES=$(find sources/ -type f \( -name '*.tar.gz' -o -name '*.tar.xz' -o -name '*.tgz' -o -name "*.tar.bz2" -o -name "*.deb" \))
+          mapfile -t LOCAL_FILES < <(find sources/ -type f \( -name '*.tar.gz' -o -name '*.tar.xz' -o -name '*.tgz' -o -name '*.tar.bz2' -o -name '*.deb' -o -name '*.tar.zst' \))
           
           MISSING_FILES=()
-          for file in $LOCAL_FILES; do
+          for file in "${LOCAL_FILES[@]}"; do
             BASENAME=$(basename "$file")
             if ! echo "$EXISTING_FILES" | grep -qx "$BASENAME"; then
               echo "Missing: $file"

@@ -4,7 +4,7 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="emulationstation"
-PKG_VERSION="02ffae2f220a547c8f3e11ee0472b83ea2c2fd9c"
+PKG_VERSION="1fcadf978a0cac95052397f2369ba14f1a55e09f"
 PKG_GIT_CLONE_BRANCH="master"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/ROCKNIX/emulationstation-next"
@@ -91,6 +91,12 @@ pre_configure_target() {
   export DEVICE=$(echo ${DEVICE^^} | sed "s#-#_##g")
 }
 
+pre_build_target() {
+  cp -f ${ROOT}/distributions/ROCKNIX/fonts/NanumSquareNeo-bRg.ttf ${PKG_BUILD}/resources/NanumMyeongjo.ttf
+  cp -f ${ROOT}/distributions/ROCKNIX/assets/emulationstation2.po ${PKG_BUILD}/locale/lang/ko/LC_MESSAGES/emulationstation2.po
+  msgfmt ${PKG_BUILD}/locale/lang/ko/LC_MESSAGES/emulationstation2.po -o ${PKG_BUILD}/locale/lang/ko/LC_MESSAGES/emulationstation2.mo
+}
+
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/config/locale
   cp -rf ${PKG_BUILD}/locale/lang/* ${INSTALL}/usr/config/locale/
@@ -105,6 +111,9 @@ makeinstall_target() {
 
   cp ${PKG_BUILD}/start_es.sh ${INSTALL}/usr/bin
   chmod 0755 ${INSTALL}/usr/bin/start_es.sh
+
+  cp ${PKG_BUILD}/ppsspp_font.sh ${INSTALL}/usr/bin
+  chmod 0755 ${INSTALL}/usr/bin/ppsspp_font.sh
 
   mkdir -p ${INSTALL}/usr/lib/${PKG_PYTHON_VERSION}
   cp -rf ${PKG_DIR}/bluez/* ${INSTALL}/usr/lib/${PKG_PYTHON_VERSION}
@@ -141,7 +150,7 @@ makeinstall_target() {
 EOF
   fi
 
-  ln -sf ${INSTALL}/usr/config/emulationstation/es_systems.cfg ${INSTALL}/etc/emulationstation/es_systems.cfg
+  ln -sf /usr/config/emulationstation/es_systems.cfg ${INSTALL}/etc/emulationstation/es_systems.cfg
   if [ -d "${PKG_DIR}/config/device/${DEVICE}" ]; then
     cp -rf ${PKG_DIR}/config/device/${DEVICE}/*.cfg ${INSTALL}/usr/config/emulationstation
   fi

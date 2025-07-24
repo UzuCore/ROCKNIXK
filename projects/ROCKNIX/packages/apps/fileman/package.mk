@@ -10,6 +10,11 @@ PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain SDL2 SDL2_image SDL2_gfx SDL2_ttf"
 PKG_LONGDESC="A Single panel file Manager."
 
+pre_build_target() {
+  cp -f ${ROOT}/distributions/ROCKNIX/fonts/NanumSquareNeo-bRg.ttf ${PKG_BUILD}/res/
+  sed -i "s/Noto.*Regular/NanumSquareNeo-bRg/g" ${PKG_BUILD}/src/def.h
+}
+
 make_target() {
   MAKEDEVICE=$(echo ${DEVICE^^} | sed "s#-#_##g")
   make DEVICE=${MAKEDEVICE^^} RES_PATH=/usr/share/fileman/res START_PATH=/storage/roms SDL2_CONFIG=${SYSROOT_PREFIX}/usr/bin/sdl2-config CC=${CXX}
