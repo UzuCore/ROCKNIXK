@@ -21,7 +21,7 @@ fi
 
 if [ "${VULKAN_SUPPORT}" = "yes" ]
 then
-  PKG_DEPENDS_TARGET+=" vulkan-loader vulkan-headers"
+  PKG_DEPENDS_TARGET+=" ${VULKAN}"
 fi
 
  pre_configure_target() {

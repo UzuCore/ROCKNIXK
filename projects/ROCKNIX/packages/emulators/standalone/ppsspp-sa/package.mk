@@ -49,7 +49,7 @@ fi
 
 if [ "${VULKAN_SUPPORT}" = "yes" ]
 then
-  PKG_DEPENDS_TARGET+=" vulkan-loader vulkan-headers"
+  PKG_DEPENDS_TARGET+=" ${VULKAN}"
   PKG_CMAKE_OPTS_TARGET+=" -DUSE_VULKAN_DISPLAY_KHR=ON \
                            -DVULKAN=ON \
                            -DEGL_NO_X11=1 \
