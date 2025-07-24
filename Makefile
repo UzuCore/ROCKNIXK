@@ -26,7 +26,7 @@ src-pkg:
 docs:
 	./tools/foreach './scripts/clean emulators && ./scripts/build emulators'
 
-world: RK3588 RK3566 RK3326 RK3399 S922X SM8250 SM8550 H700
+world: RK3588 RK3566 RK3326 RK3399 S922X SM8250 SM8550 H700 SDM845
 
 kconfig-olddefconfig-%:
 	DEVICE=$* ./tools/adjust_kernel_config olddefconfig
