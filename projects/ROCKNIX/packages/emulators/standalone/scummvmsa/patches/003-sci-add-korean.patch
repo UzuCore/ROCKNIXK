@@ -116,7 +116,7 @@ index 6b0279e2724..0a8b6f9f351 100644
  	// VERSION file reports "1.0"
 @@ -3753,6 +3796,19 @@ static const struct ADGameDescription SciGameDescriptions[] = {
  		AD_LISTEND},
- 		Common::EN_ANY, Common::kPlatformDOS, ADGF_NO_FLAGS, GUIO_STD16	},
+ 		Common::EN_ANY, Common::kPlatformDOS, 0, GUIO_STD16	},
  
 +	// Mixed-Up Fairy Tales v1.000 - English DOS (supplied by markcoolio in bug report #4271)
 +	// Executable scanning reports "1.000.145"
@@ -129,15 +129,16 @@ index 6b0279e2724..0a8b6f9f351 100644
 +		{"resource.004", 0, "f79daa70390d73746742ffcfc3dc4471", 937580},
 +		{"text.res", 0, "6a471b152556b7d39e38321fb2fbd2c9", 2948975},
 +		AD_LISTEND},
-+		Common::KO_KOR, Common::kPlatformDOS, ADGF_NO_FLAGS, GUIO_STD16	},
++		Common::KO_KOR, Common::kPlatformDOS, 0, GUIO_STD16	},
 +
  	// Mixed-Up Fairy Tales - English DOS Floppy (from jvprat)
  	// Executable scanning reports "1.000.145", Floppy label reports "1.0, 11.13.91", VERSION file reports "1.000"
  	{"fairytales", "", {
-@@ -4030,6 +4030,16 @@ static const struct ADGameDescription SciGameDescriptions[] = {
+@@ -3802,6 +3858,16 @@ static const struct ADGameDescription SciGameDescriptions[] = {
+ 		{"resource.000", 0, "b7ecd8ae9e254e80310b5a668b276e6e", 2948975},
  		AD_LISTEND},
- 		Common::EN_ANY, Common::kPlatformDOS, ADGF_NO_FLAGS, GUIO_STD16	},
- 
+ 		Common::EN_ANY, Common::kPlatformDOS, 0, GUIO_STD16	},
++		
 +	// Mixed-Up Mother Goose v2.000 - English DOS Floppy (supplied by markcoolio in bug report #4272)
 +	// Executable scanning reports "1.001.031"
 +	{"mothergoose256", "", {
@@ -146,11 +147,10 @@ index 6b0279e2724..0a8b6f9f351 100644
 +		{"resource.aud", 0, "ea0fe2e60c827201d6506b626c5a9fb5", 2743808},
 +		{"text.res", 0, "3bb9104f7dc385fbc16605190af375cb", 2948975},
 +		AD_LISTEND},
-+		Common::KO_KOR, Common::kPlatformDOS, ADGF_NO_FLAGS, GUIO_STD16	},
-+
++		Common::KO_KOR, Common::kPlatformDOS, 0, GUIO_STD16	},
+ 
  	// Mixed-Up Mother Goose - English DOS CD (from jvprat)
  	// Executable scanning reports "x.yyy.zzz"
- 	// SCI interpreter version 0.000.999 (just a guess)
 @@ -5818,7 +5884,7 @@ static const struct ADGameDescription SciGameDescriptions[] = {
  		{"resource.000", 0, "63247e3901ab8963d4eece73747832e0", 5157378},
  		{"resource.msg", 0, "6ca82305ba1f8ac1cebdd20427168106", 561801},
