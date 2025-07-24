@@ -6,7 +6,7 @@ PKG_VERSION=""
 PKG_LICENSE="GPLv2"
 PKG_SITE=""
 PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain autostart"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="ROCKNIX Meta Package"
 PKG_TOOLCHAIN="make"
 
@@ -54,13 +54,16 @@ post_install() {
   chmod 755 ${INSTALL}/usr/share/post-update
 
   # Issue banner
+  BUILD_ID=$(git rev-parse HEAD)
+  cp ${PKG_DIR}/sources/motd ${INSTALL}/etc/issue
+  ln -sf /etc/issue ${INSTALL}/etc/motd
   cat <<EOF >> ${INSTALL}/etc/issue
 ... Version: ${OS_VERSION} (${OS_BUILD})
 ... Built: ${BUILD_DATE}
 
 EOF
-  cp ${PKG_DIR}/sources/motd ${INSTALL}/etc
-  cat ${INSTALL}/etc/issue >> ${INSTALL}/etc/motd
+  #cp ${PKG_DIR}/sources/motd ${INSTALL}/etc
+  #cat ${INSTALL}/etc/issue >> ${INSTALL}/etc/motd
 
   cp ${PKG_DIR}/sources/scripts/* ${INSTALL}/usr/bin
   chmod 0755 ${INSTALL}/usr/bin/* 2>/dev/null ||:

@@ -1,0 +1,40 @@
+--- a/es-app/src/ApiSystem.cpp
++++ b/es-app/src/ApiSystem.cpp
+@@ -191,7 +191,7 @@ std::pair<std::string, int> ApiSystem::updateSystem(const std::function<void(con
+ {
+ 	LOG(LogDebug) << "ApiSystem::updateSystem";
+ 
+-	std::string updatecommand = "rocknix-update";
++	std::string updatecommand = "system-upgrade";
+ 
+ 	FILE *pipe = popen(updatecommand.c_str(), "r");
+ 	if (pipe == nullptr)
+@@ -328,7 +328,7 @@ bool ApiSystem::canUpdate(std::vector<std::string>& output)
+ {
+ 	LOG(LogDebug) << "ApiSystem::canUpdate";
+ 
+-	FILE *pipe = popen("rocknix-update check", "r");
++	FILE *pipe = popen("updatecheck", "r");
+ 	if (pipe == NULL)
+ 		return false;
+ 
+@@ -1727,7 +1727,7 @@ bool ApiSystem::isScriptingSupported(ScriptId script)
+ 		executables.push_back("batocera-support");
+ 		break;
+ 	case ApiSystem::UPGRADE:
+-		executables.push_back("rocknix-update");
++		executables.push_back("system-upgrade");
+ 		break;
+ 	case ApiSystem::SUSPEND:
+ 		return (Utils::FileSystem::exists("/usr/sbin/pm-suspend") && Utils::FileSystem::exists("/usr/bin/pm-is-supported") && executeScript("/usr/bin/pm-is-supported --suspend"));
+--- a/es-app/src/guis/GuiUpdate.cpp
++++ b/es-app/src/guis/GuiUpdate.cpp
+@@ -169,7 +169,7 @@ void GuiUpdate::update(int deltaTime)
+ 				if (versionExtra == "official" || versionExtra == "nightly")
+ 					message = Utils::String::format(_("YOU ARE CURRENTLY USING VERSION %s\nDO YOU WANT TO UPDATE TO VERSION %s?").c_str(), ApiSystem::getInstance()->getVersion().c_str(), mUpdateVersion.c_str());
+ 				else
+-					message = Utils::String::format(_("UNOFFICIAL SYSTEM MODIFICATIONS DETECTED.\nUPGRADING COULD BREAK YOUR SYSTEM.\nDO YOU WANT TO UPDATE TO VERSION %s?").c_str(), mUpdateVersion.c_str());
++					message = Utils::String::format(_("YOU ARE CURRENTLY USING VERSION %s\nDO YOU WANT TO UPDATE TO VERSION %s?").c_str(), ApiSystem::getInstance()->getVersion().c_str(), mUpdateVersion.c_str());
+ 
+ 				window->pushGui(new GuiMsgBox(window, message, _("YES"), [this]
+ 				{
