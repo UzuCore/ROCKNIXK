@@ -388,7 +388,7 @@ backup_game_saves() {
             fi
         done
     fi
-    
+
     # Build the complete options array
     local all_opts=()
     if [ ${#filtered_opts[@]} -gt 0 ]; then
@@ -398,35 +398,35 @@ backup_game_saves() {
             "--progress"
             "--log-file" "/var/log/cloud_sync.log"
             "--filter-from" "/storage/.config/cloud_sync-rules.txt"
-            "--delete-excluded"
         )
     fi
-    
+
     # Add debug logging if enabled
     if [ -n "$rclone_debug" ]; then
         all_opts+=("$rclone_debug")
     fi
-    
+
     # Add exclusions
     all_opts+=(
         "--exclude=${BACKUPFOLDER}/**"
         "--exclude=backups/**"
         "--exclude=bios/**"
         "--exclude=*.zip"
+        "--verbose"
     )
-    
+
     # Execute rclone with enhanced error handling
     execute_rclone_with_error_handling \
         "${BACKUPMETHOD}" \
         "${BACKUPPATH}/" \
         "${REMOTENAME}${SYNCPATH}/" \
         "${all_opts[@]}"
-    
+
     BACKUP_STATUS=$?
-    
+
     # Report the result with detailed error information
     report_rclone_error $BACKUP_STATUS "Game saves backup"
-    
+
     return $BACKUP_STATUS
 }
 

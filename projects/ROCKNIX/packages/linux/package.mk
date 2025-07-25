@@ -35,10 +35,10 @@ case ${DEVICE} in
         PKG_VERSION="6.15.2"
       ;;
       SM8250)
-        PKG_VERSION="6.15.7"
+        PKG_VERSION="6.15.8"
       ;;
       *)
-        PKG_VERSION="6.12.39"
+        PKG_VERSION="6.12.40"
         PKG_PATCH_DIRS+=" 6.12-LTS"
       ;;
     esac
