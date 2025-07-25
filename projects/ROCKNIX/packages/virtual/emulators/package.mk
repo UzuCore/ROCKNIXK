@@ -35,7 +35,7 @@ case "${DEVICE}" in
   RK3588)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 desmume-lr gpsp-lr pcsx_rearmed-lr"
     PKG_EMUS+=" aethersx2-sa azahar-sa box64 dolphin-sa drastic-sa mednafen melonds-sa portmaster scummvmsa supermodel-sa \
-                yabasanshiro-sa duckstation-sa citron-sa eden-sa"
+                yabasanshiro-sa duckstation-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr flycast2021-lr geolith-lr pcsx_rearmed-lr uae4arm"
     PKG_RETROARCH+=" retropie-shaders"
   ;;
@@ -559,7 +559,7 @@ makeinstall_target() {
 
   ### Nintendo Switch
   case ${DEVICE} in
-    AMD64|SM8*|SDM845|RK3588)
+    AMD64|SM8*|SDM845)
       add_emu_core switch eden eden-sa true
       add_emu_core switch citron citron-sa false
       add_es_system switch
