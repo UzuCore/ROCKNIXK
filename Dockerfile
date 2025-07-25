@@ -11,7 +11,7 @@ RUN locale-gen en_US.UTF-8 \
  && update-locale LANG=en_US.UTF-8 LANGUAGE=en_US:en
 ENV LANG=en_US.UTF-8 \
     LANGUAGE=en_US:en \
-    LC_ALL=en_US.UTF-8
+    LC_ALL=en_US.UTF-8 \
     TZ=Asia/Seoul
 
 RUN adduser --disabled-password --gecos '' docker \
