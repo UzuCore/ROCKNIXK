@@ -106,14 +106,7 @@ makeinstall_target() {
 EOF
   fi
 
-<<<<<<< HEAD
-  ln -sf /usr/config/emulationstation/es_systems.cfg ${INSTALL}/etc/emulationstation/es_systems.cfg
-  if [ -d "${PKG_DIR}/config/device/${DEVICE}" ]; then
-    cp -rf ${PKG_DIR}/config/device/${DEVICE}/*.cfg ${INSTALL}/usr/config/emulationstation
-  fi
-=======
   ln -sf ${INSTALL}/usr/config/emulationstation/es_systems.cfg ${INSTALL}/etc/emulationstation/es_systems.cfg
->>>>>>> 8bea520418baab72b3589cf30f83815c30730307
 
   ln -sf /storage/.cache/system_timezone ${INSTALL}/etc/timezone
 
