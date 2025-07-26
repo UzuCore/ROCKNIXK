@@ -11,7 +11,7 @@ PKG_DEPENDS_TARGET="toolchain SDL2 SDL2_image SDL2_gfx SDL2_ttf"
 PKG_LONGDESC="A Single panel file Manager."
 
 pre_build_target() {
-  cp -f ${ROOT}/distributions/ROCKNIX/fonts/NanumSquareNeo-bRg.ttf ${PKG_BUILD}/res/
+  cp -f ${ROOT}/distributions/${DISTRO}/fonts/NanumSquareNeo-bRg.ttf ${PKG_BUILD}/res/
   sed -i "s/Noto.*Regular/NanumSquareNeo-bRg/g" ${PKG_BUILD}/src/def.h
 }
 

@@ -48,8 +48,8 @@ pre_configure_target() {
 }
 
 pre_build_target() {
-  cp -f ${ROOT}/distributions/ROCKNIX/fonts/NanumSquareNeo-bRg.ttf ${PKG_BUILD}/resources/NanumMyeongjo.ttf
-  cp -f ${ROOT}/distributions/ROCKNIX/assets/emulationstation2.po ${PKG_BUILD}/locale/lang/ko/LC_MESSAGES/emulationstation2.po
+  cp -f ${ROOT}/distributions/${DISTRO}/fonts/NanumSquareNeo-bRg.ttf ${PKG_BUILD}/resources/NanumMyeongjo.ttf
+  cp -f ${ROOT}/distributions/${DISTRO}/assets/emulationstation2.po ${PKG_BUILD}/locale/lang/ko/LC_MESSAGES/emulationstation2.po
   msgfmt ${PKG_BUILD}/locale/lang/ko/LC_MESSAGES/emulationstation2.po -o ${PKG_BUILD}/locale/lang/ko/LC_MESSAGES/emulationstation2.mo
 }
 

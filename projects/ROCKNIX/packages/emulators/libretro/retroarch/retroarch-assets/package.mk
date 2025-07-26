@@ -16,10 +16,10 @@ pre_configure_target() {
 }
 
 pre_build_target() {
-  cp -f ${ROOT}/distributions/ROCKNIX/fonts/NanumSquareNeo-bRg.ttf ${PKG_BUILD}/glui/font.ttf
-  cp -f ${ROOT}/distributions/ROCKNIX/fonts/NanumSquareNeo-bRg.ttf ${PKG_BUILD}/ozone/regular.ttf
-  cp -f ${ROOT}/distributions/ROCKNIX/fonts/NanumSquareNeo-cBd.ttf ${PKG_BUILD}/ozone/bold.ttf
-  cp -f ${ROOT}/distributions/ROCKNIX/fonts/*.ttf ${PKG_BUILD}/fonts/
+  cp -f ${ROOT}/distributions/${DISTRO}/fonts/NanumSquareNeo-bRg.ttf ${PKG_BUILD}/glui/font.ttf
+  cp -f ${ROOT}/distributions/${DISTRO}/fonts/NanumSquareNeo-bRg.ttf ${PKG_BUILD}/ozone/regular.ttf
+  cp -f ${ROOT}/distributions/${DISTRO}/fonts/NanumSquareNeo-cBd.ttf ${PKG_BUILD}/ozone/bold.ttf
+  cp -f ${ROOT}/distributions/${DISTRO}/fonts/*.ttf ${PKG_BUILD}/fonts/
 }
 
 makeinstall_target() {

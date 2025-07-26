@@ -21,13 +21,13 @@ DISTRO_DIR="${ROOT}/distributions"
 PROJECT_DIR="${ROOT}/projects"
 
 # determines DISTRO, if not forced by user
-DISTRO="${DISTRO:-ROCKNIX}"
+DISTRO="${DISTRO:-ROCKNIXK}"
 
 # determines PROJECT, if not forced by user
-export PROJECT="${PROJECT:-ROCKNIX}"
+export PROJECT="${PROJECT:-ROCKNIXK}"
 
 # default to Generic device if building Generic project without device set
-if [ "${PROJECT}" = "ROCKNIX" -a -z "${DEVICE}" ]; then
+if [ "${PROJECT}" = "ROCKNIXK" -a -z "${DEVICE}" ]; then
   export DEVICE="SM8250"
 fi
 
