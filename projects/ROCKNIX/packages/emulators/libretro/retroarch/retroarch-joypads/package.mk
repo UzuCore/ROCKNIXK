@@ -12,7 +12,7 @@ PKG_TOOLCHAIN="manual"
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/share/libretro/autoconfig
-    cp -a ${PKG_BUILD}/{linuxraw,sdl2,udev,x,xinput}/*.cfg ${INSTALL}/usr/share/libretro/autoconfig
+    cp -an ${PKG_BUILD}/{linuxraw,sdl2,udev,x,xinput}/*.cfg ${INSTALL}/usr/share/libretro/autoconfig
     cp -a ${PKG_DIR}/gamepads/* ${INSTALL}/usr/share/libretro/autoconfig
 }
 
