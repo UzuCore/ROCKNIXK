@@ -10,7 +10,8 @@ PKG_LONGDESC="Layer-Shell-QT is meant for applications to be able to easily use 
 PKG_DEPENDS_TARGET="toolchain qt6 ecm"
 PKG_TOOLCHAIN="cmake"
 
-makeinstall_target() {
+post_makeinstall_target() {
+  rm -rf ${INSTALL}/usr
   mkdir -p ${INSTALL}/usr/lib
   cp -rf ${PKG_BUILD}/.${TARGET_NAME}/bin/libLayerShellQtInterface.so* ${INSTALL}/usr/lib
 }

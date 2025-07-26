@@ -10,3 +10,6 @@ PKG_LONGDESC="Several tools needed to build LXQt itself as well as other compone
 PKG_DEPENDS_TARGET="toolchain qt6"
 PKG_TOOLCHAIN="cmake"
 
+post_makeinstall_target() {
+  rm -rf ${INSTALL}/usr
+}

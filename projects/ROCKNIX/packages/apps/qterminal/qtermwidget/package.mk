@@ -10,7 +10,9 @@ PKG_LONGDESC="A terminal emulator widget for Qt 6."
 PKG_DEPENDS_TARGET="toolchain qt6 lxqt-build-tools"
 PKG_TOOLCHAIN="cmake"
 
-makeinstall_target() {
+post_makeinstall_target() {
+  rm -rf ${INSTALL}/usr
+
   mkdir -p ${INSTALL}/usr/lib
   cp -rf ${PKG_BUILD}/.${TARGET_NAME}/libqtermwidget6.so* ${INSTALL}/usr/lib
 
