@@ -11,10 +11,10 @@
   GIT_ORGANIZATION="UzuCore"
 
 # The name of the github project for updates
-  GIT_REPO="ROCKNIX"
+  GIT_REPO="ROCKNIXK"
 
 # Name of the Distro to build (full name, without special characters)
-  DISTRONAME="ROCKNIX"
+  DISTRONAME="ROCKNIXK"
 
 # Name of the OS to build (full name, lower case, without special characters)
   OSNAME="rocknix"
