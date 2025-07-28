@@ -48,7 +48,7 @@ pre_configure_target() {
 }
 
 pre_build_target() {
-  cp -f ${ROOT}/distributions/${DISTRO}/fonts/NanumSquareNeo-bRg.ttf ${PKG_BUILD}/resources/NanumMyeongjo.ttf
+  cp -f ${ROOT}/distributions/${DISTRO}/fonts/NanumSquareNeo-bRg.ttf ${PKG_BUILD}/resources/PyeojinGothic-Medium.ttf
   cp -f ${ROOT}/distributions/${DISTRO}/assets/emulationstation2.po ${PKG_BUILD}/locale/lang/ko/LC_MESSAGES/emulationstation2.po
   msgfmt ${PKG_BUILD}/locale/lang/ko/LC_MESSAGES/emulationstation2.po -o ${PKG_BUILD}/locale/lang/ko/LC_MESSAGES/emulationstation2.mo
 }
@@ -106,7 +106,7 @@ makeinstall_target() {
 EOF
   fi
 
-  ln -sf ${INSTALL}/usr/config/emulationstation/es_systems.cfg ${INSTALL}/etc/emulationstation/es_systems.cfg
+  ln -sf /usr/config/emulationstation/es_systems.cfg ${INSTALL}/etc/emulationstation/es_systems.cfg
 
   ln -sf /storage/.cache/system_timezone ${INSTALL}/etc/timezone
 
