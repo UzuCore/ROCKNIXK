@@ -197,3 +197,7 @@ rm -rf /storage/.config/azahar/*.gptk
 if echo ${QUIRK_DEVICE} | grep RGB10X; then
   rm -rf /storage/.config/mupen64plus
 fi
+
+# Update EmulationStation Resources
+rm -r /storage/.config/emulationstation/resources
+cp -rf /usr/config/emulationstation/resources /storage/.config/emulationstation/
