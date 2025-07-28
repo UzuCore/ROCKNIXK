@@ -1,9 +1,7 @@
-diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
-index 657f3fc0..0138f2f0 100644
---- a/src/CMakeLists.txt
-+++ b/src/CMakeLists.txt
-@@ -53,15 +53,13 @@ include(GNUInstallDirs)
- include(GetGitRevisionDescription)
+--- a/src/CMakeLists.txt	2021-06-07 19:12:18.646828485 +0200
++++ b/src/CMakeLists.txt	2021-06-07 19:13:56.113491528 +0200
+@@ -45,14 +45,12 @@
+ include(GNUInstallDirs)
  include(InstallRequiredSystemLibraries)
  include(FindPkgConfig)
 -include(ExternalProject)
@@ -13,13 +11,12 @@ index 657f3fc0..0138f2f0 100644
  
  PKG_SEARCH_MODULE(SDL2 REQUIRED sdl2)
  PKG_SEARCH_MODULE(SDL2_TTF REQUIRED SDL2_ttf)
- PKG_SEARCH_MODULE(SDL2_MIXER REQUIRED SDL2_mixer)
 -build_libmpeg2( )
 +PKG_SEARCH_MODULE(MPEG2 REQUIRED libmpeg2)
  
  message(STATUS "Target: ${CMAKE_SYSTEM_NAME} ${CMAKE_TARGET_ARCHITECTURES}")
  
-@@ -115,7 +113,6 @@ add_subdirectory(timer)
+@@ -91,7 +89,6 @@
  add_subdirectory(video)
  add_subdirectory(vldp)
  
@@ -27,7 +24,7 @@ index 657f3fc0..0138f2f0 100644
  add_dependencies( ldp-out vldp )
  add_dependencies( game vldp )
  add_dependencies( sound vldp )
-@@ -163,3 +160,5 @@ set(CPACK_PACKAGE_VERSION_MINOR "${VER_MINOR}")
+@@ -129,3 +129,5 @@ set(CPACK_PACKAGE_VERSION_MINOR "${VER_MINOR}")
  set(CPACK_PACKAGE_VERSION_PATCH "${VER_PATCH}")
  
  include(CPack)
@@ -90,3 +87,4 @@ index cd046fe..67cea2d 100644
  )
  
  set( LIB_HEADERS
+ 
