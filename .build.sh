@@ -3,8 +3,8 @@
 if [ ! -z $1 ]
 then
 	PROJECT=ROCKNIX DEVICE=RK3588 ARCH=aarch64 ./scripts/build $1;
-	PPROJECT=ROCKNIX DEVICE=S922X ARCH=aarch64 ./scripts/build $1;
-	DEVICE_ROOT=RK3566 PROJECT=ROCKNIX DEVICE=RK3566 ARCH=aarch64 ./scripts/build $1;
+	PROJECT=ROCKNIX DEVICE=S922X ARCH=aarch64 ./scripts/build $1;
+	PROJECT=ROCKNIX DEVICE=RK3566 ARCH=aarch64 ./scripts/build $1;
 	PROJECT=ROCKNIX DEVICE=RK3326 ARCH=aarch64 ./scripts/build $1;
 	PROJECT=ROCKNIX DEVICE=RK3399 ARCH=aarch64 ./scripts/build $1;
 	PROJECT=ROCKNIX DEVICE=H700 ARCH=aarch64 ./scripts/build $1;
