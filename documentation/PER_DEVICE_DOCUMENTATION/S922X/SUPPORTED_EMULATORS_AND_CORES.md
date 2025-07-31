@@ -28,8 +28,8 @@
 |Capcom|CPS-II (cps2)|1993|`cps2`|.zip .7z|**retroarch:** fbneo (default)<br>**retroarch:** mame2003_plus<br>**retroarch:** mame2010<br>**retroarch:** fbalpha2012<br>**AdvanceMame:** AdvanceMame<br>|
 |Capcom|CPS-III (cps3)|1996|`cps3`|.zip .7z|**retroarch:** fbneo (default)<br>**retroarch:** mame2003_plus<br>**retroarch:** mame2010<br>**retroarch:** fbalpha2012<br>**AdvanceMame:** AdvanceMame<br>|
 |Coleco|ColecoVision (colecovision)|1982|`coleco`|.bin .col .rom .zip .7z|**retroarch:** gearcoleco (default)<br>**retroarch:** bluemsx<br>**retroarch:** smsplus<br>|
-|Commodore|Amiga (amiga)|1985|`amiga`|.zip .adf .uae .ipf .dms .adz .lha .m3u .hdf .hdz|**retroarch:** puae2021 (default)<br>**retroarch:** puae<br>**amiberry:** amiberry<br>**retroarch:** uae4arm<br>|
-|Commodore|Amiga CD32 (amigacd32)|1994|`amigacd32`|.iso .cue .lha .chd|**retroarch:** puae2021 (default)<br>**retroarch:** puae<br>**retroarch:** uae4arm<br>|
+|Commodore|Amiga (amiga)|1985|`amiga`|.zip .adf .uae .ipf .dms .adz .lha .m3u .hdf .hdz|**retroarch:** puae (default)<br>**retroarch:** puae2021<br>**amiberry:** amiberry<br>**retroarch:** uae4arm<br>|
+|Commodore|Amiga CD32 (amigacd32)|1994|`amigacd32`|.iso .cue .lha .chd|**retroarch:** puae (default)<br>**retroarch:** puae2021<br>**retroarch:** uae4arm<br>|
 |Commodore|Commodore 128 (c128)|1985|`c128`|.d64 .d71 .d80 .d81 .d82 .g64 .g41 .x64 .t64 .tap .prg .p00 .crt .bin .d6z .d7z .d8z .g6z .g4z .x6z .cmd .m3u .vsf .nib .nbz .zip|**retroarch:** vice_x128 (default)<br>**vicesa:** x128<br>|
 |Commodore|Commodore 16 (c16)|1984|`c16`|.d64 .d71 .d80 .d81 .d82 .g64 .g41 .x64 .t64 .tap .prg .p00 .crt .bin .d6z .d7z .d8z .g6z .g4z .x6z .cmd .m3u .vsf .nib .nbz .zip|**retroarch:** vice_xplus4 (default)<br>**vicesa:** xplus4<br>|
 |Commodore|Commodore 64 (c64)|1982|`c64`|.d64 .d71 .d80 .d81 .d82 .g64 .g41 .x64 .t64 .tap .prg .p00 .crt .bin .d6z .d7z .d8z .g6z .g4z .x6z .cmd .m3u .vsf .nib .nbz .zip|**retroarch:** vice_x64 (default)<br>**vicesa:** x64sc<br>|
@@ -47,7 +47,6 @@
 |Microsoft|MSX (msx)|1983|`msx`|.dsk .mx1 .mx2 .rom .zip .7z .m3u|**retroarch:** bluemsx (default)<br>**retroarch:** fmsx<br>|
 |Microsoft|MSX 2 (msx2)|1988|`msx2`|.dsk .mx1 .mx2 .rom .zip .7z .m3u|**retroarch:** bluemsx (default)<br>**retroarch:** fmsx<br>|
 |Microsoft|Windows (windows)|System|`windows`|.sh|**wine:** wine (default)<br>|
-|Microsoft|Xbox (xbox)|2001|`xbox`|.iso|**xemu:** xemu-sa (default)<br>|
 |NEC|PC Engine (pcengine)|1987|`pcengine`|.pce .bin .zip .7z|**retroarch:** beetle_pce_fast (default)<br>**retroarch:** beetle_pce<br>**retroarch:** beetle_supergrafx<br>|
 |NEC|PC Engine CD (pcenginecd)|1988|`pcenginecd`|.cue .ccd .chd .toc .m3u|**retroarch:** beetle_pce_fast (default)<br>**retroarch:** beetle_pce<br>**retroarch:** beetle_supergrafx<br>|
 |NEC|PC-8800 (pc-8800)|1981|`pc88`|.d88 .u88 .m3u|**retroarch:** quasi88 (default)<br>|
@@ -62,16 +61,16 @@
 |Nintendo|Game &amp; Watch (gameandwatch)|1980|`gameandwatch`|.mgw .zip .7z|**retroarch:** gw<br>**retroarch:** mame<br>|
 |Nintendo|Game Boy (gb)|1989|`gb`|.gb .gbc .zip .7z|**retroarch:** gambatte (default)<br>**retroarch:** sameboy<br>**retroarch:** gearboy<br>**retroarch:** tgbdual<br>**retroarch:** mgba<br>**retroarch:** vbam<br>**retroarch:** DoubleCherryGB<br>|
 |Nintendo|Game Boy (Hacks) (gbh)|1989|`gbh`|.gb .zip .7z|**retroarch:** gambatte (default)<br>**retroarch:** sameboy<br>**retroarch:** gearboy<br>**retroarch:** tgbdual<br>**retroarch:** mgba<br>**retroarch:** vbam<br>**retroarch:** DoubleCherryGB<br>|
-|Nintendo|Game Boy Advance (gba)|2001|`gba`|.gba .zip .7z|**retroarch:** mgba (default)<br>**retroarch:** vbam<br>**retroarch:** vba_next<br>**retroarch:** beetle_gba<br>**retroarch:** gpsp<br>**nanoboyadvance:** nanoboyadvance-sa<br>|
+|Nintendo|Game Boy Advance (gba)|2001|`gba`|.gba .zip .7z|**retroarch:** mgba (default)<br>**retroarch:** vbam<br>**retroarch:** vba_next<br>**retroarch:** beetle_gba<br>**retroarch:** gpsp<br>|
 |Nintendo|Game Boy Advance (Hacks) (gbah)|2001|`gbah`|.gba .zip .7z|**retroarch:** mgba (default)<br>**retroarch:** vbam<br>**retroarch:** vba_next<br>**retroarch:** beetle_gba<br>|
 |Nintendo|Game Boy Advance video (gbav)|2001|`gbav`|.gba .zip .7z|**retroarch:** mgba (default)<br>**retroarch:** vbam<br>**retroarch:** vba_next<br>**retroarch:** beetle_gba<br>|
 |Nintendo|Game Boy Color (gbc)|1998|`gbc`|.gb .gbc .zip .7z|**retroarch:** gambatte (default)<br>**retroarch:** sameboy<br>**retroarch:** gearboy<br>**retroarch:** tgbdual<br>**retroarch:** mgba<br>**retroarch:** vbam<br>**retroarch:** DoubleCherryGB<br>|
 |Nintendo|Game Boy Color (Hacks) (gbch)|1998|`gbch`|.gb .gbc .zip .7z|**retroarch:** gambatte (default)<br>**retroarch:** sameboy<br>**retroarch:** gearboy<br>**retroarch:** tgbdual<br>**retroarch:** mgba<br>**retroarch:** vbam<br>**retroarch:** DoubleCherryGB<br>|
-|Nintendo|GameCube (gamecube)|2001|`gamecube`|.gcm .iso .gcz .ciso .wbfs .rvz .dol .m3u|**dolphin:** dolphin-qt-gc (default)<br>**dolphin:** dolphin-sa-gc<br>**retroarch:** dolphin<br>|
+|Nintendo|GameCube (gamecube)|2001|`gamecube`|.gcm .iso .gcz .ciso .wbfs .rvz .dol .m3u|**dolphin:** dolphin-sa-gc (default)<br>**retroarch:** dolphin<br>|
 |Nintendo|NES (Hacks) (nesh)|1985|`nesh`|.nes .unif .unf .zip .7z|**retroarch:** nestopia (default)<br>**retroarch:** fceumm<br>**retroarch:** quicknes<br>**retroarch:** mesen<br>|
 |Nintendo|Nintendo 3DS (3ds)|2010|`3ds`|.3ds .3dsx .elf .axf .cci .cxi .app|**azahar:** azahar-sa (default)<br>|
-|Nintendo|Nintendo 64 (n64)|1996|`n64`|.z64 .n64 .v64 .zip .7z|**retroarch:** mupen64plus_next (default)<br>**retroarch:** parallel_n64<br>**mupen64plus:** mupen64plus-sa<br>**daedalusx64:** daedalusx64-sa<br>|
-|Nintendo|Nintendo DS (nds)|2005|`nds`|.nds .zip .7z|**melonds:** melonds-sa (default)<br>**retroarch:** melonds<br>**retroarch:** melondsds<br>**retroarch:** desmume<br>|
+|Nintendo|Nintendo 64 (n64)|1996|`n64`|.z64 .n64 .v64 .zip .7z|**retroarch:** mupen64plus_next (default)<br>**retroarch:** mupen64plus<br>**retroarch:** parallel_n64<br>**mupen64plus:** mupen64plus-sa<br>|
+|Nintendo|Nintendo DS (nds)|2005|`nds`|.nds .zip .7z|**drastic:** drastic-sa (default)<br>**retroarch:** melonds<br>**retroarch:** melondsds<br>**melonds:** melonds-sa<br>|
 |Nintendo|Nintendo Entertainment System (nes)|1985|`nes`|.nes .unif .unf .zip .7z|**retroarch:** nestopia (default)<br>**retroarch:** fceumm<br>**retroarch:** quicknes<br>**retroarch:** mesen<br>|
 |Nintendo|Pokémon Mini (pokemini)|2001|`pokemini`|.min .zip .7z|**retroarch:** pokemini (default)<br>|
 |Nintendo|Satellaview (satellaview)|1995|`satellaview`|.smc .fig .bs .sfc .bsx .swc .zip .7z|**retroarch:** snes9x (default)<br>**retroarch:** snes9x2010<br>**retroarch:** snes9x2002<br>**retroarch:** snes9x2005_plus<br>|
@@ -79,10 +78,8 @@
 |Nintendo|Super NES MSU-1 (snesmsu1)|2012|`snesmsu1`|.smc .fig .sfc .swc .zip .7z|**retroarch:** snes9x (default)<br>**retroarch:** beetle_supafaust<br>|
 |Nintendo|Super Nintendo (Hacks) (snesh)|1991|`snesh`|.smc .fig .sfc .swc .zip .7z|**retroarch:** snes9x (default)<br>**retroarch:** snes9x2010<br>**retroarch:** snes9x2002<br>**retroarch:** snes9x2005_plus<br>**retroarch:** beetle_supafaust<br>**retroarch:** bsnes_mercury_performance<br>**retroarch:** bsnes<br>**retroarch:** bsnes_hd_beta<br>|
 |Nintendo|Super Nintendo (snes)|1991|`snes`|.smc .fig .sfc .swc .zip .7z|**retroarch:** snes9x (default)<br>**retroarch:** snes9x2010<br>**retroarch:** snes9x2002<br>**retroarch:** snes9x2005_plus<br>**retroarch:** beetle_supafaust<br>**retroarch:** bsnes_mercury_accuracy<br>**retroarch:** bsnes_mercury_balanced<br>**retroarch:** bsnes_mercury_performance<br>**retroarch:** bsnes<br>**retroarch:** bsnes_hd_beta<br>**retroarch:** bsnes_mercury_accuracy<br>**retroarch:** bsnes_mercury_balanced<br>**retroarch:** bsnes_mercury_accuracy<br>**retroarch:** bsnes_mercury_balanced<br>|
-|Nintendo|Switch (switch)|2017|`switch`|.xci .nsp .nca .nso .nro|**eden:** eden-sa (default)<br>**citron:** citron-sa<br>|
 |Nintendo|Virtual Boy (virtualboy)|1995|`virtualboy`|.vb .zip .7z|**retroarch:** beetle_vb (default)<br>|
-|Nintendo|Wii (wii)|2006|`wii`|.gcm .iso .gcz .ciso .wbfs .rvz .dol .wad .m3u|**dolphin:** dolphin-qt-wii (default)<br>**dolphin:** dolphin-sa-wii<br>**retroarch:** dolphin<br>|
-|Nintendo|Wii U (wiiu)|2012|`wiiu`|.wud .wux .wua .rpx|**cemu:** cemu-sa (default)<br>|
+|Nintendo|Wii (wii)|2006|`wii`|.gcm .iso .gcz .ciso .wbfs .rvz .dol .wad .m3u|**dolphin:** dolphin-sa-wii (default)<br>**retroarch:** dolphin<br>|
 |Palm, Inc.|Palm OS (palm)|1996|`palm`|.prc .pqa .img .pdb .zip|**retroarch:** mu (default)<br>|
 |Panasonic|3DO (3do)|1993|`3do`|.iso .bin .chd .cue|**retroarch:** opera (default)<br>|
 |Philips|CD-i (cdi)|1991|`cdi`|.chd .cue .iso|**retroarch:** same_cdi (default)<br>|
@@ -99,10 +96,9 @@
 |Sega|Mega Drive (megadrive)|1990|`megadrive`|.bin .gen .md .sg .smd .zip .7z|**retroarch:** genesis_plus_gx (default)<br>**retroarch:** genesis_plus_gx_wide<br>**retroarch:** picodrive<br>|
 |Sega|Mega Drive (megadrive-japan)|1988|`megadrive-japan`|.bin .gen .md .sg .smd .zip .7z|**retroarch:** genesis_plus_gx (default)<br>**retroarch:** genesis_plus_gx_wide<br>**retroarch:** picodrive<br>|
 |Sega|Naomi (naomi)|1998|`naomi`|.lst .bin .dat .zip .7z|**flycast:** flycast-sa (default)<br>**retroarch:** flycast<br>**retroarch:** flycast2021<br>|
-|Sega|Saturn (saturn)|1994|`saturn`|.cue .chd .iso .zip|**yabasanshiro:** yabasanshiro-sa (default)<br>**retroarch:** yabasanshiro<br>**retroarch:** beetle_saturn<br>**retroarch:** kronos<br>|
+|Sega|Saturn (saturn)|1994|`saturn`|.cue .chd .iso .zip|**yabasanshiro:** yabasanshiro-sa (default)<br>**retroarch:** yabasanshiro<br>**retroarch:** beetle_saturn<br>|
 |Sega|Sega 32X (sega32x)|1994|`sega32x`|.32x .smd .bin .md .zip .7z|**retroarch:** picodrive (default)<br>|
 |Sega|Sega CD (segacd)|1991|`segacd`|.chd .cue .iso .m3u|**retroarch:** genesis_plus_gx (default)<br>**retroarch:** picodrive<br>|
-|Sega|Sega Model 3 (segamodel3)|1996|`segamodel3`|.zip|**supermodel:** supermodel-sa (default)<br>|
 |Sega|SG-1000 (sg-1000)|1983|`sg-1000`|.bin .sg .zip .7z|**retroarch:** gearsystem (default)<br>**retroarch:** genesis_plus_gx<br>**retroarch:** picodrive<br>|
 |Sega|ST-V (st-v)|1995|`st-v`|.zip .ZIP||
 |Sharp|X1 (x1)|1982|`x1`|.dx1 .2d .2hd .tfd .d88 .88d .hdm .xdf .dup .tap .cmd .zip .7z|**retroarch:** x1 (default)<br>|
@@ -114,9 +110,8 @@
 |SNK|Neo Geo CD (neocd)|1994|`neocd`|.cue .iso .chd|**retroarch:** neocd (default)<br>**retroarch:** fbneo<br>|
 |SNK|Neo Geo Pocket (ngp)|1998|`ngp`|.ngp .ngc .zip .7z|**retroarch:** beetle_ngp (default)<br>**retroarch:** race<br>|
 |SNK|Neo Geo Pocket Color (ngpc)|1999|`ngpc`|.ngp .ngc .zip .7z|**retroarch:** beetle_ngp (default)<br>**retroarch:** race<br>|
-|Sony|PlayStation (psx)|1994|`psx`|.bin .cue .img .mdf .pbp .toc .cbn .m3u .ccd .chd .iso|**retroarch:** pcsx_rearmed32 (default)<br>**retroarch:** pcsx_rearmed<br>**retroarch:** beetle_psx<br>**duckstation:** duckstation-sa<br>**retroarch:** duckstation<br>**retroarch:** swanstation<br>|
+|Sony|PlayStation (psx)|1994|`psx`|.bin .cue .img .mdf .pbp .toc .cbn .m3u .ccd .chd .iso|**retroarch:** pcsx_rearmed (default)<br>**retroarch:** beetle_psx<br>**duckstation:** duckstation-sa<br>**retroarch:** duckstation<br>**retroarch:** swanstation<br>|
 |Sony|PlayStation 2 (ps2)|2000|`ps2`|.iso .mdf .nrg .bin .img .dump .gz .cso .chd|**aethersx2:** aethersx2-sa (default)<br>|
-|Sony|PlayStation 3 (ps3)|2006|`ps3`|.ps3 .psn .m3u|**rpcs3:** rpcs3-sa (default)<br>|
 |Sony|PlayStation Portable (psp)|2004|`psp`|.iso .cso .pbp .chd|**ppsspp:** ppsspp-sa (default)<br>|
 |Sony|PSP Minis (pspminis)|2004|`pspminis`|.iso .cso .pbp .chd|**ppsspp:** ppsspp-sa (default)<br>**retroarch:** ppsspp<br>|
 |Sun Microsystems|J2ME (j2me)|2002|`j2me`|.jar|**retroarch:** freej2me (default)<br>|
