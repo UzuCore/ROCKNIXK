@@ -3,4 +3,4 @@
 
 . ${ROOT}/packages/virtual/debug/package.mk
 
-PKG_DEPENDS_TARGET+=" nvtop"
+PKG_DEPENDS_TARGET+=" nvtop apitrace"

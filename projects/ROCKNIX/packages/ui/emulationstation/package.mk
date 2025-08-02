@@ -106,7 +106,7 @@ makeinstall_target() {
 EOF
   fi
 
-  ln -sf ${INSTALL}/usr/config/emulationstation/es_systems.cfg ${INSTALL}/etc/emulationstation/es_systems.cfg
+  ln -sf /usr/config/emulationstation/es_systems.cfg ${INSTALL}/etc/emulationstation/es_systems.cfg
 
   ln -sf /storage/.cache/system_timezone ${INSTALL}/etc/timezone
 
