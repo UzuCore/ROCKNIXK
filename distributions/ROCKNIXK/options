@@ -122,7 +122,7 @@
   MODULES_PKG="${MODULES_PKG:-yes}"
 
 # Support for debug tools such as strace
-  DEBUG_PACKAGES="${DEBUG_PACKAGES:-yes}"
+  DEBUG_PACKAGES="${DEBUG_PACKAGES:-no}"
 
 # Windowmanager to use (weston / swaywm-env / no)
   WINDOWMANAGER="none"
