@@ -59,6 +59,7 @@ makeinstall_target() {
 
   mkdir -p ${INSTALL}/usr/config/emulationstation/resources
   cp -rf ${PKG_BUILD}/resources/* ${INSTALL}/usr/config/emulationstation/resources/
+  cp -f ${PKG_BUILD}/arcaderoms.xml ${INSTALL}/usr/config/emulationstation/resources/
   rm -rf ${INSTALL}/usr/config/emulationstation/resources/logo.png
 
    mkdir -p ${INSTALL}/usr/bin
