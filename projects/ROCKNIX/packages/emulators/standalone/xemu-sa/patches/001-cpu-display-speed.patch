@@ -1,0 +1,246 @@
+From aae8b2e0962a92f40c3ff5a8f46b283c59116bdd Mon Sep 17 00:00:00 2001
+From: Spidy123222 <64176728+Spidy123222@users.noreply.github.com>
+Date: Thu, 29 Jun 2023 10:12:51 -0700
+Subject: [PATCH] UX: Add CPU overclock and display rate override settings
+
+These settings can be used to improve framerate or set a new framerate
+limit (different from the typical 30/60 FPS).
+
+Many games work well with this, but using overrides will break games
+that are not designed around FPS-independent physics. Therefore, submitting
+compatibility reports is disabled if either of the overrides are active.
+
+Co-authored-by: Hugo Locurcio <hugo.locurcio@hugo.pro>
+---
+ config_spec.yml     | 12 ++++++++++++
+ hw/i386/x86-cpu.c   | 10 +++++++++-
+ ui/xemu.c           | 10 +++++++---
+ ui/xui/compat.cc    | 13 ++++++++++++-
+ ui/xui/main-menu.cc | 32 ++++++++++++++++++++++++++++----
+ ui/xui/widgets.cc   | 18 ++++++++++++------
+ ui/xui/widgets.hh   |  2 +-
+ 7 files changed, 81 insertions(+), 16 deletions(-)
+
+diff --git a/config_spec.yml b/config_spec.yml
+index d013c806ac9..2c0d15939fe 100644
+--- a/config_spec.yml
++++ b/config_spec.yml
+@@ -265,3 +265,15 @@ perf:
+   cache_shaders:
+     type: bool
+     default: true
++  override_clockspeed:
++    type: bool
++    default: false
++  cpu_clockspeed_scale:
++    type: number
++    default: 1
++  override_display_rate:
++    type: bool
++    default: false
++  display_rate_scale:
++    type: number
++    default: 1
+diff --git a/hw/i386/x86-cpu.c b/hw/i386/x86-cpu.c
+index 7170e9082ef..b90eac93d71 100644
+--- a/hw/i386/x86-cpu.c
++++ b/hw/i386/x86-cpu.c
+@@ -31,11 +31,19 @@
+ #include "hw/irq.h"
+ #include "sysemu/kvm.h"
+ 
++#ifdef XBOX
++#include "ui/xemu-settings.h"
++#endif
++
+ /* TSC handling */
+ uint64_t cpu_get_tsc(CPUX86State *env)
+ {
+ #ifdef XBOX
+-    return muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL), 733333333,
++    float clockspeed_scale = 1.0f;
++    if (g_config.perf.override_clockspeed) {
++        clockspeed_scale = g_config.perf.cpu_clockspeed_scale;
++    }
++    return muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL), 733333333 * clockspeed_scale,
+                     NANOSECONDS_PER_SECOND);
+ #else
+     return cpus_get_elapsed_ticks();
+diff --git a/ui/xemu.c b/ui/xemu.c
+index b602d25c09e..f80b4d2faeb 100644
+--- a/ui/xemu.c
++++ b/ui/xemu.c
+@@ -318,7 +318,7 @@ static void handle_keydown(SDL_Event *ev)
+ {
+     int win;
+     struct sdl2_console *scon = get_scon_from_window(ev->key.windowID);
+-    if (scon == NULL) return; 
++    if (scon == NULL) return;
+     int gui_key_modifier_pressed = get_mod_state();
+     int gui_keysym = 0;
+ 
+@@ -1079,10 +1079,14 @@ void sdl2_gl_refresh(DisplayChangeListener *dcl)
+     qemu_mutex_unlock_main_loop();
+ 
+     /*
+-     * Throttle to make sure swaps happen at 60Hz
++     * Throttle to make sure swaps happen at 60 Hz (divided by the display rate scale if overridden)
+      */
+     static int64_t last_update = 0;
+-    int64_t deadline = last_update + 16666666;
++    float display_rate_scale = 1.0f;
++    if (g_config.perf.override_display_rate) {
++        display_rate_scale /= g_config.perf.display_rate_scale;
++    }
++    int64_t deadline = last_update + 16666666 * display_rate_scale;
+ 
+ #ifdef DEBUG_XEMU_C
+     int64_t sleep_acc = 0;
+diff --git a/ui/xui/compat.cc b/ui/xui/compat.cc
+index d0405389f53..5f9d93507b6 100644
+--- a/ui/xui/compat.cc
++++ b/ui/xui/compat.cc
+@@ -203,6 +203,14 @@ void CompatibilityReporter::Draw()
+         ImGui::SameLine();
+     }
+ 
++    if (g_config.perf.override_clockspeed || g_config.perf.override_display_rate) {
++        ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
++        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
++
++        ImGui::Text("Reports cannot be made while using overridden CPU clock speed or display rate");
++        ImGui::SameLine();
++    }
++
+     ImGui::SetCursorPosX(ImGui::GetWindowWidth()-(120+10)*g_viewport_mgr.m_scale);
+ 
+     ImGui::SetItemDefaultFocus();
+@@ -213,7 +221,10 @@ void CompatibilityReporter::Draw()
+             is_open = false;
+         }
+     }
+-
++    if (g_config.perf.override_clockspeed) {
++        ImGui::PopItemFlag();
++        ImGui::PopStyleVar();
++    }
+     ImGui::End();
+ }
+ 
+diff --git a/ui/xui/main-menu.cc b/ui/xui/main-menu.cc
+index 9bb5dcf33fd..ac580e9a8b9 100644
+--- a/ui/xui/main-menu.cc
++++ b/ui/xui/main-menu.cc
+@@ -66,6 +66,30 @@ void MainMenuGeneralView::Draw()
+     Toggle("Cache shaders to disk", &g_config.perf.cache_shaders,
+            "Reduce stutter in games by caching previously generated shaders");
+ 
++    SectionTitle("Tweaks");
++    Toggle("Emulated CPU clock override", &g_config.perf.override_clockspeed,
++           "Override default CPU clock speed (can break games)");
++
++    char cpu_clock_buf[32];
++    snprintf(cpu_clock_buf, sizeof(cpu_clock_buf), "Clock speed: %d%% (%.2f MHz)", (int)(g_config.perf.cpu_clockspeed_scale * 100), (733333333 * g_config.perf.cpu_clockspeed_scale) / 1000000);
++    Slider("Virtual CPU clock", &g_config.perf.cpu_clockspeed_scale, cpu_clock_buf, 0.25f, 4.f, 0.01f);
++
++    if (fabs(g_config.perf.cpu_clockspeed_scale - 1.f) <= 0.0099f) {
++        g_config.perf.cpu_clockspeed_scale = 1;
++    }
++
++    Toggle("Display rate override", &g_config.perf.override_display_rate,
++        "Override default presentation frame rate (can break games)");
++
++    char display_rate_buf[35];
++    snprintf(display_rate_buf, sizeof(display_rate_buf), "Display rate: %d%% (%d / %d FPS)", (int)(g_config.perf.display_rate_scale * 100), (int)(30 * g_config.perf.display_rate_scale), (int)(60 * g_config.perf.display_rate_scale));
++    // Set slider increment so that 60 FPS games can be adjusted at a per-FPS level in terms of precision
++    Slider("Display rate", &g_config.perf.display_rate_scale, display_rate_buf, 0.3333333f, 4.f, 0.0166667f);
++
++    if (fabs(g_config.perf.display_rate_scale - 1.f) <= 0.0099f) {
++        g_config.perf.display_rate_scale = 1;
++    }
++
+     SectionTitle("Miscellaneous");
+     Toggle("Skip startup animation", &g_config.general.skip_boot_anim,
+            "Skip the full Xbox boot animation sequence");
+diff --git a/ui/xui/widgets.cc b/ui/xui/widgets.cc
+index 67430ecda8a..b5d7f044c10 100644
+--- a/ui/xui/widgets.cc
++++ b/ui/xui/widgets.cc
+@@ -22,6 +22,7 @@
+ #include "viewport-manager.hh"
+ #include "ui/xemu-os-utils.h"
+ #include "gl-helpers.hh"
++#include <algorithm>
+ 
+ void Separator()
+ {
+@@ -222,8 +223,9 @@ bool Toggle(const char *str_id, bool *v, const char *description)
+     return status;
+ }
+ 
+-void Slider(const char *str_id, float *v, const char *description)
++void Slider(const char *str_id, float *v, const char *description, float min, float max, float increment)
+ {
++    float x = (*v - min) / (max - min);
+     ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32_BLACK_TRANS);
+ 
+     ImGuiStyle &style = ImGui::GetStyle();
+@@ -238,6 +240,8 @@ void Slider(const char *str_id, float *v, const char *description)
+                 GetWidgetTitleDescriptionHeight(str_id, description));
+     WidgetTitleDescription(str_id, description, p);
+ 
++    ImGui::PushID(str_id);
++
+     // XXX: Internal API
+     ImVec2 wpos = ImGui::GetCursorPos();
+     ImRect bb(p, ImVec2(p.x + size.x, p.y + size.y));
+@@ -261,13 +265,13 @@ void Slider(const char *str_id, float *v, const char *description)
+             ImGui::IsKeyPressed(ImGuiKey_GamepadDpadLeft) ||
+             ImGui::IsKeyPressed(ImGuiKey_GamepadLStickLeft) ||
+             ImGui::IsKeyPressed(ImGuiKey_GamepadRStickLeft)) {
+-                *v -= 0.05;
++                x -= increment / max;
+         }
+         if (ImGui::IsKeyPressed(ImGuiKey_RightArrow) ||
+             ImGui::IsKeyPressed(ImGuiKey_GamepadDpadRight) ||
+             ImGui::IsKeyPressed(ImGuiKey_GamepadLStickRight) ||
+             ImGui::IsKeyPressed(ImGuiKey_GamepadRStickRight)) {
+-                *v += 0.05;
++                x += increment / max;
+         }
+ 
+         if (
+@@ -286,15 +290,17 @@ void Slider(const char *str_id, float *v, const char *description)
+ 
+     if (ImGui::IsItemActive()) {
+         ImVec2 mouse = ImGui::GetMousePos();
+-        *v = GetSliderValueForMousePos(mouse, slider_pos, slider_size);
++        x = GetSliderValueForMousePos(mouse, slider_pos, slider_size);
+     }
+-    *v = fmax(0, fmin(*v, 1));
+-    DrawSlider(*v, ImGui::IsItemHovered() || ImGui::IsItemActive(), slider_pos,
++    x = std::clamp(x, 0.f, 1.f);
++    *v = x * (max - min) + min;
++    DrawSlider(x, ImGui::IsItemHovered() || ImGui::IsItemActive(), slider_pos,
+                slider_size);
+ 
+     ImVec2 slider_max = ImVec2(slider_pos.x + slider_size.x, slider_pos.y + slider_size.y);
+     ImGui::RenderNavHighlight(ImRect(slider_pos, slider_max), window->GetID("###slider"));
+ 
++    ImGui::PopID();
+     ImGui::PopStyleColor();
+ }
+ 
+diff --git a/ui/xui/widgets.hh b/ui/xui/widgets.hh
+index 168878bb9fc..f698d437887 100644
+--- a/ui/xui/widgets.hh
++++ b/ui/xui/widgets.hh
+@@ -34,7 +34,7 @@ float GetSliderValueForMousePos(ImVec2 mouse, ImVec2 pos, ImVec2 size);
+ void DrawSlider(float v, bool hovered, ImVec2 pos, ImVec2 size);
+ void DrawToggle(bool enabled, bool hovered, ImVec2 pos, ImVec2 size);
+ bool Toggle(const char *str_id, bool *v, const char *description = nullptr);
+-void Slider(const char *str_id, float *v, const char *description = nullptr);
++void Slider(const char *str_id, float *v, const char *description = nullptr, float min = 0, float max = 1, float increment = 0.05);
+ bool FilePicker(const char *str_id, const char **buf, const char *filters,
+                 bool dir = false);
+ void DrawComboChevron();
