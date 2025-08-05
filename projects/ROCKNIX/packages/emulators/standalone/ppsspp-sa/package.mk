@@ -86,7 +86,8 @@ pre_make_target() {
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
   cp ${PKG_DIR}/scripts/* ${INSTALL}/usr/bin
-  cp PPSSPPSDL ${INSTALL}/usr/bin/ppsspp
+  #cp PPSSPPSDL ${INSTALL}/usr/bin/ppsspp
+  cp PPSSPPGold ${INSTALL}/usr/bin/ppsspp
   chmod 0755 ${INSTALL}/usr/bin/*
   ln -sf /storage/.config/ppsspp/assets ${INSTALL}/usr/bin/assets
   mkdir -p ${INSTALL}/usr/config/ppsspp/PSP/SYSTEM
