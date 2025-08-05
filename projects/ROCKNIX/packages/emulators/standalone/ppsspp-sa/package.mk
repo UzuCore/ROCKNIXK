@@ -33,7 +33,8 @@ PKG_CMAKE_OPTS_TARGET=" -DUSE_SYSTEM_FFMPEG=OFF \
                         -DUNITTEST=OFF \
                         -DSIMULATOR=OFF \
                         -DHEADLESS=OFF \
-                        -DUSE_DISCORD=OFF"
+                        -DUSE_DISCORD=OFF \
+                        -DGOLD=ON"
 
 if [ "${OPENGL_SUPPORT}" = "yes" ] && [ ! "${PREFER_GLES}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL} glu libglvnd glew"

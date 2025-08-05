@@ -88,7 +88,8 @@ pre_configure_target() {
                           -DUNITTEST=OFF \
                           -DSIMULATOR=OFF \
                           -DHEADLESS=OFF \
-                          -DUSE_DISCORD=OFF"
+                          -DUSE_DISCORD=OFF \
+                          -DGOLD=ON"
 }
 
 pre_make_target() {
