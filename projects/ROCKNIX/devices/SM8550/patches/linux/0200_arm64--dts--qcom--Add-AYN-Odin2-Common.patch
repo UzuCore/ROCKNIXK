@@ -28,7 +28,7 @@ index 000000000000..58d9ab342fe9
 +/delete-node/ &mpss_mem;
 +/delete-node/ &q6_mpss_dtb_mem;
 +/delete-node/ &cdsp_mem;
-+/delete-node/ &q6_cdsp_dtb_mem:
++/delete-node/ &q6_cdsp_dtb_mem;
 +
 +/delete-node/ &cci0;
 +/delete-node/ &cci1;
