@@ -40,6 +40,7 @@ PKG_MAKE_OPTS_TARGET="REGENIE=1 \
 		      ARCH= \
 		      TARGET=mame \
 		      SUBTARGET=arcade \
+		      IGNORE_GIT=0 \
 		      OSD=retro \
 		      USE_SYSTEM_LIB_EXPAT=1 \
 		      USE_SYSTEM_LIB_ZLIB=1 \
