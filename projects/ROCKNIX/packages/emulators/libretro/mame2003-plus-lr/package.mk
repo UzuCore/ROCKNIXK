@@ -31,7 +31,7 @@ PKG_LONGDESC="MAME - Multiple Arcade Machine Emulator"
 PKG_TOOLCHAIN="make"
 
 make_target() {
-  make ARCH="" CC="${CC}" NATIVE_CC="${CC}" LD="${CC}"
+  make ARCH="" CC="${CC}" NATIVE_CC="${CC}" LD="${CC}" GIT_VERSION=$(echo ${PKG_VERSION} | head -c 10)
 }
 
 makeinstall_target() {
