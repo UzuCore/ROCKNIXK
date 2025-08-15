@@ -129,7 +129,7 @@ jobs:
            echo "new_commits=true" >> $GITHUB_ENV
          fi
          git remote rm distribution-nightly
-     - name: release draft nightly
+     - name: release nightly
        if: env.new_commits == 'true'
        uses: ncipollo/release-action@v1
        with:
@@ -138,20 +138,6 @@ jobs:
          allowUpdates: true
          makeLatest: true
          prerelease: true
-         draft: true
-         body: ${{ steps.create-nightly-tag.outputs.commit_msg }}
-         token: ${{ secrets.GH_PAT }}
-         repo: distribution-nightly
-
-     - name: release nightly
-       if: env.new_commits == 'true'
-       uses: ncipollo/release-action@v1
-       with:
-         tag: nightly-${{ env.DATE }}
-         allowUpdates: true
-         makeLatest: true
-         prerelease: true
-         draft: false
          body: ${{ steps.create-nightly-tag.outputs.commit_msg }}
          token: ${{ secrets.GH_PAT }}
          repo: distribution-nightly
