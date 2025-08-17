@@ -102,4 +102,9 @@ fi
 # modules packages
 [ "${MODULES_PKG}" = "yes" ] && PKG_DEPENDS_TARGET+=" modules"
 
+# Entware support
+mkdir -p ${INSTALL}
+ln -sf /storage/.opt ${INSTALL}/opt
+PKG_DEPENDS_TARGET+=" entware"
+
 true
