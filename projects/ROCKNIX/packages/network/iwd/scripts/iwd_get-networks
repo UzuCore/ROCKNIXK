@@ -1,0 +1,15 @@
+#!/usr/bin/python3
+
+import sys
+import dbus
+
+bus = dbus.SystemBus()
+manager = dbus.Interface(bus.get_object("net.connman.iwd", "/"),
+                                        "org.freedesktop.DBus.ObjectManager")
+objects = manager.GetManagedObjects()
+
+for path, ifaces in objects.items():
+    if "net.connman.iwd.Network" in ifaces:
+        network = ifaces['net.connman.iwd.Network']
+        ssid = network.get("Name", "<hidden>")
+        print(f"{ssid}")

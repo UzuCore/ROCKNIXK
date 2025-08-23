@@ -26,6 +26,9 @@ post_makeinstall_target() {
 
   mkdir -p ${INSTALL}/etc/iwd
     cp -P ${PKG_DIR}/sources/main.conf ${INSTALL}/etc/iwd
+
+  mkdir -p ${INSTALL}/usr/bin
+    cp -P ${PKG_DIR}/scripts/iwd_get-networks ${INSTALL}/usr/bin
 }
 
 post_install() {
