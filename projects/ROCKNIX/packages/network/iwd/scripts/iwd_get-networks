@@ -4,12 +4,18 @@ import sys
 import dbus
 
 bus = dbus.SystemBus()
-manager = dbus.Interface(bus.get_object("net.connman.iwd", "/"),
-                                        "org.freedesktop.DBus.ObjectManager")
-objects = manager.GetManagedObjects()
 
-for path, ifaces in objects.items():
-    if "net.connman.iwd.Network" in ifaces:
-        network = ifaces['net.connman.iwd.Network']
-        ssid = network.get("Name", "<hidden>")
-        print(f"{ssid}")
+# Get all iwd objects at once
+objects = dbus.Interface(bus.get_object("net.connman.iwd", "/"),
+                         "org.freedesktop.DBus.ObjectManager").GetManagedObjects()
+
+# Find the first station's path using a generator expression
+station_path = next(p for p, i in objects.items() if "net.connman.iwd.Station" in i)
+
+# Get the station interface
+station = dbus.Interface(bus.get_object("net.connman.iwd", station_path),
+                         "net.connman.iwd.Station")
+
+# Get the sorted network list and print the SSID for each one
+for path, _ in station.GetOrderedNetworks():
+    print(objects[path]['net.connman.iwd.Network']['Name'])
