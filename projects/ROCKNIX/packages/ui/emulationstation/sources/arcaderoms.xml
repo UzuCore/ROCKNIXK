@@ -9554,6 +9554,7 @@
   <rom id="ncombat" name="Ninja Combat (NGM-009)" />
   <rom id="ncombath" name="Ninja Combat (NGH-009)" />
   <rom id="ncommand" name="Ninja Commando" />
+  <rom id="ncommandk" name="Ninja Commando (Korean Translation)" />
   <rom id="ncr537xx" name="NCR 53C7xx SCSI" />
   <rom id="ncr5380" name="NCR 5380 SCSI" />
   <rom id="ncr53c80" name="NCR 53C80 SCSI" />
