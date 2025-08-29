@@ -1,6 +1,6 @@
 Player 1 Input:
   Handler: SDL
-  Device: Retroid Pocket Gamepad 1
+  Device: AYN Odin Gamepad 1
   Config:
     Left Stick Left: LS X-
     Left Stick Down: LS Y-
@@ -13,10 +13,10 @@ Player 1 Input:
     Start: Start
     Select: Back
     PS Button: Guide
-    Square: Y
-    Cross: B
-    Circle: A
-    Triangle: X
+    Square: North
+    Cross: East
+    Circle: South
+    Triangle: West
     Left: Left
     Down: Down
     Right: Right
@@ -34,21 +34,23 @@ Player 1 Input:
     Tilt Left: ""
     Tilt Right: ""
     Motion Sensor X:
-      Axis: X
+      Axis: ""
       Mirrored: false
       Shift: 0
     Motion Sensor Y:
-      Axis: Y
+      Axis: ""
       Mirrored: false
       Shift: 0
     Motion Sensor Z:
-      Axis: Z
+      Axis: ""
       Mirrored: false
       Shift: 0
     Motion Sensor G:
-      Axis: RY
+      Axis: ""
       Mirrored: false
       Shift: 0
+    Orientation Reset Button: ""
+    Orientation Enabled: false
     Pressure Intensity Button: ""
     Pressure Intensity Percent: 50
     Pressure Intensity Toggle Mode: false
@@ -72,8 +74,8 @@ Player 1 Input:
     Use LED as a battery indicator: false
     LED battery indicator brightness: 10
     Player LED enabled: true
-    Enable Large Vibration Motor: true
-    Enable Small Vibration Motor: true
+    Large Vibration Motor Multiplier: 100
+    Small Vibration Motor Multiplier: 100
     Switch Vibration Motors: false
     Mouse Movement Mode: Relative
     Mouse Deadzone X Axis: 60
@@ -139,6 +141,8 @@ Player 2 Input:
       Axis: ""
       Mirrored: false
       Shift: 0
+    Orientation Reset Button: ""
+    Orientation Enabled: false
     Pressure Intensity Button: ""
     Pressure Intensity Percent: 50
     Pressure Intensity Toggle Mode: false
@@ -162,8 +166,8 @@ Player 2 Input:
     Use LED as a battery indicator: false
     LED battery indicator brightness: 50
     Player LED enabled: true
-    Enable Large Vibration Motor: true
-    Enable Small Vibration Motor: true
+    Large Vibration Motor Multiplier: 100
+    Small Vibration Motor Multiplier: 100
     Switch Vibration Motors: false
     Mouse Movement Mode: Relative
     Mouse Deadzone X Axis: 60
@@ -229,6 +233,8 @@ Player 3 Input:
       Axis: ""
       Mirrored: false
       Shift: 0
+    Orientation Reset Button: ""
+    Orientation Enabled: false
     Pressure Intensity Button: ""
     Pressure Intensity Percent: 50
     Pressure Intensity Toggle Mode: false
@@ -252,8 +258,8 @@ Player 3 Input:
     Use LED as a battery indicator: false
     LED battery indicator brightness: 50
     Player LED enabled: true
-    Enable Large Vibration Motor: true
-    Enable Small Vibration Motor: true
+    Large Vibration Motor Multiplier: 100
+    Small Vibration Motor Multiplier: 100
     Switch Vibration Motors: false
     Mouse Movement Mode: Relative
     Mouse Deadzone X Axis: 60
@@ -319,6 +325,8 @@ Player 4 Input:
       Axis: ""
       Mirrored: false
       Shift: 0
+    Orientation Reset Button: ""
+    Orientation Enabled: false
     Pressure Intensity Button: ""
     Pressure Intensity Percent: 50
     Pressure Intensity Toggle Mode: false
@@ -342,8 +350,8 @@ Player 4 Input:
     Use LED as a battery indicator: false
     LED battery indicator brightness: 50
     Player LED enabled: true
-    Enable Large Vibration Motor: true
-    Enable Small Vibration Motor: true
+    Large Vibration Motor Multiplier: 100
+    Small Vibration Motor Multiplier: 100
     Switch Vibration Motors: false
     Mouse Movement Mode: Relative
     Mouse Deadzone X Axis: 60
@@ -409,6 +417,8 @@ Player 5 Input:
       Axis: ""
       Mirrored: false
       Shift: 0
+    Orientation Reset Button: ""
+    Orientation Enabled: false
     Pressure Intensity Button: ""
     Pressure Intensity Percent: 50
     Pressure Intensity Toggle Mode: false
@@ -432,8 +442,8 @@ Player 5 Input:
     Use LED as a battery indicator: false
     LED battery indicator brightness: 50
     Player LED enabled: true
-    Enable Large Vibration Motor: true
-    Enable Small Vibration Motor: true
+    Large Vibration Motor Multiplier: 100
+    Small Vibration Motor Multiplier: 100
     Switch Vibration Motors: false
     Mouse Movement Mode: Relative
     Mouse Deadzone X Axis: 60
@@ -499,6 +509,8 @@ Player 6 Input:
       Axis: ""
       Mirrored: false
       Shift: 0
+    Orientation Reset Button: ""
+    Orientation Enabled: false
     Pressure Intensity Button: ""
     Pressure Intensity Percent: 50
     Pressure Intensity Toggle Mode: false
@@ -522,8 +534,8 @@ Player 6 Input:
     Use LED as a battery indicator: false
     LED battery indicator brightness: 50
     Player LED enabled: true
-    Enable Large Vibration Motor: true
-    Enable Small Vibration Motor: true
+    Large Vibration Motor Multiplier: 100
+    Small Vibration Motor Multiplier: 100
     Switch Vibration Motors: false
     Mouse Movement Mode: Relative
     Mouse Deadzone X Axis: 60
@@ -589,6 +601,8 @@ Player 7 Input:
       Axis: ""
       Mirrored: false
       Shift: 0
+    Orientation Reset Button: ""
+    Orientation Enabled: false
     Pressure Intensity Button: ""
     Pressure Intensity Percent: 50
     Pressure Intensity Toggle Mode: false
@@ -612,8 +626,8 @@ Player 7 Input:
     Use LED as a battery indicator: false
     LED battery indicator brightness: 50
     Player LED enabled: true
-    Enable Large Vibration Motor: true
-    Enable Small Vibration Motor: true
+    Large Vibration Motor Multiplier: 100
+    Small Vibration Motor Multiplier: 100
     Switch Vibration Motors: false
     Mouse Movement Mode: Relative
     Mouse Deadzone X Axis: 60
