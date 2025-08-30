@@ -200,6 +200,10 @@ makeinstall_target() {
   esac
   add_es_system amigacd32
 
+  ### Adventure Vision
+  add_emu_core advision retroarch mame true   
+  add_es_system advision
+
   ### Amstrad CPC
   add_emu_core amstradcpc retroarch crocods true
   add_emu_core amstradcpc retroarch cap32 false
