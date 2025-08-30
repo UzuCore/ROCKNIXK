@@ -182,7 +182,7 @@ diff -rupbN linux.orig/arch/arm64/boot/dts/qcom/qcs8550-ayaneo-pocketds.dts linu
 +		avdd-supply = <&sgm3804>;
 +		enable-gpio = <&tca6408 0 GPIO_ACTIVE_HIGH>;
 +		reset-gpios = <&tca6408 2 GPIO_ACTIVE_LOW>;
-+		rotation = <90>;
++		rotation = <270>;
 +		backlight = <&backlight>;
 +
 +		port {
