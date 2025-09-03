@@ -395,7 +395,7 @@ ${VERBOSE} && log $0 "Set emulation performance mode to (${CPU_GOVERNOR})"
 ${CPU_GOVERNOR}
 
 # Check for MangoHud support and turn MangoHud off by defualt, will add ES feature later
-MANGOHUD_SUPPORTED=$(get_setting "rocknix.mangohud.enabled")
+MANGOHUD_SUPPORTED=$(get_setting "rocknix.mangohud.enabled"  "${PLATFORM}" "${ROMNAME##*/}")
 if [ "${MANGOHUD_SUPPORTED}" = "1" ]; then
   RUNTHIS="/usr/bin/mangohud ${RUNTHIS}"
   ${VERBOSE} && log $0 "Enabling MangoHud"
