@@ -2,7 +2,7 @@
 # Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
 
 PKG_NAME="gamecontrollerdb"
-PKG_VERSION="c2f0f3eaf4ae95e55a1876b808d3c0b49fa61dbe"
+PKG_VERSION="86e83c3c9c1c3574df44bbb9d28513bfee8a8e3b"
 PKG_LICENSE="GPL"
 PKG_DEPENDS_TARGET="toolchain SDL2"
 PKG_SITE="https://github.com/gabomdq/SDL_GameControllerDB"

@@ -20,7 +20,7 @@
 ################################################################################
 
 PKG_NAME="slang-shaders"
-PKG_VERSION="0a305b879eec074f9d620282293844c7a878fb60"
+PKG_VERSION="4cfcd80ee58dcc31511a5016add55f91284d2987"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/slang-shaders"
 PKG_URL="${PKG_SITE}.git"

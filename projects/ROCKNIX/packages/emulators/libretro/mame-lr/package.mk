@@ -41,7 +41,7 @@ PKG_MAKE_OPTS_TARGET="REGENIE=1 \
 		      TARGET=mame \
 		      SUBTARGET=arcade \
 		      IGNORE_GIT=0 \
-		      NEW_GIT_VERSION=$(echo ${PKG_VERSION} | head -c 10) \
+		      NEW_GIT_VERSION=${PKG_VERSION:0:10} \
 		      OSD=retro \
 		      USE_SYSTEM_LIB_EXPAT=1 \
 		      USE_SYSTEM_LIB_ZLIB=1 \

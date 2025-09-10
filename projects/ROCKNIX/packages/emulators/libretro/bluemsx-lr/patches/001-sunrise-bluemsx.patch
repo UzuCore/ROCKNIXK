@@ -19,12 +19,13 @@ index d6bb4f7..d50f36a 100644
     enum retro_pixel_format fmt = RETRO_PIXEL_FORMAT_RGB565;
  
     if (!environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt))
-@@ -1058,10 +1061,15 @@ bool retro_load_game(const struct retro_game_info *info)
+@@ -1058,11 +1061,16 @@ bool retro_load_game(const struct retro_game_info *info)
        switch(media_type)
        {
           case MEDIA_TYPE_DISK:
 -            strcpy(disk_paths[0] , info->path);
 -            strcpy(properties->media.disks[0].fileName , info->path);
+-            disk_images = 1;
 -            disk_inserted = true;
 -            attach_disk_swap_interface();
 +            ide_strstr = strstr(info->path, "IDE_");
@@ -33,6 +34,7 @@ index d6bb4f7..d50f36a 100644
 +            else {
 +               strcpy(disk_paths[0] , info->path);
 +               strcpy(properties->media.disks[0].fileName , info->path);
++               disk_images = 1;
 +               disk_inserted = true;
 +               attach_disk_swap_interface();
 +            }

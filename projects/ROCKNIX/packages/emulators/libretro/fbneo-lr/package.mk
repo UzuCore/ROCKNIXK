@@ -16,7 +16,7 @@ PKG_TOOLCHAIN="make"
 pre_configure_target() {
 sed -i "s|LDFLAGS += -static-libgcc -static-libstdc++|LDFLAGS += -static-libgcc|"  ./src/burner/libretro/Makefile
 
-PKG_MAKE_OPTS_TARGET=" -C ./src/burner/libretro USE_CYCLONE=0 profile=performance GIT_VERSION=$(echo ${PKG_VERSION} | head -c 10)"
+PKG_MAKE_OPTS_TARGET=" -C ./src/burner/libretro USE_CYCLONE=0 profile=performance GIT_VERSION=${PKG_VERSION:0:10}"
 
 if [[ "${TARGET_FPU}" =~ "neon" ]]; then
 	PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=1"
