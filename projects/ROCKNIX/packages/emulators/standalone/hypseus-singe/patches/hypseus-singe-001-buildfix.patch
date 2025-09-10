@@ -1,7 +1,7 @@
 --- a/src/CMakeLists.txt	2021-06-07 19:12:18.646828485 +0200
 +++ b/src/CMakeLists.txt	2021-06-07 19:13:56.113491528 +0200
-@@ -45,14 +45,12 @@
- include(GNUInstallDirs)
+@@ -53,15 +53,13 @@
+ include(GetGitRevisionDescription)
  include(InstallRequiredSystemLibraries)
  include(FindPkgConfig)
 -include(ExternalProject)
@@ -11,6 +11,7 @@
  
  PKG_SEARCH_MODULE(SDL2 REQUIRED sdl2)
  PKG_SEARCH_MODULE(SDL2_TTF REQUIRED SDL2_ttf)
+ PKG_SEARCH_MODULE(SDL2_MIXER REQUIRED SDL2_mixer)
 -build_libmpeg2( )
 +PKG_SEARCH_MODULE(MPEG2 REQUIRED libmpeg2)
  
@@ -60,9 +61,9 @@ index cd046fe..67cea2d 100644
 +++ b/src/manymouse/manymouse.c
 @@ -17,7 +17,6 @@
  extern const ManyMouseDriver *ManyMouseDriver_evdev;
+-extern const ManyMouseDriver *ManyMouseDriver_xinput2;
  extern const ManyMouseDriver *ManyMouseDriver_hidmanager;
  extern const ManyMouseDriver *ManyMouseDriver_hidutilities;
--extern const ManyMouseDriver *ManyMouseDriver_xinput2;
  
  /*
   * These have to be in the favored order...obviously it doesn't matter if the
@@ -70,8 +71,8 @@ index cd046fe..67cea2d 100644
   */
  static const ManyMouseDriver **mice_drivers[] =
  {
--    &ManyMouseDriver_xinput2,
      &ManyMouseDriver_evdev,
+-    &ManyMouseDriver_xinput2,
      &ManyMouseDriver_windows,
      &ManyMouseDriver_hidmanager,
 

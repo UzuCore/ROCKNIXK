@@ -2,7 +2,7 @@
 # Copyright (C) 2025-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="mangohud"
-PKG_VERSION="11a92acdf2c30100f6224a1e9618f1180dac354e"
+PKG_VERSION="554ac9ecba348adb35b9782cd96e2f2ecc20b00e"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/flightlessmango/MangoHud"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
