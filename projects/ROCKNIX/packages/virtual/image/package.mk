@@ -16,7 +16,7 @@ PKG_DEPENDS_TARGET="toolchain squashfs-tools:host dosfstools:host fakeroot:host 
                     gzip six xmlstarlet pyudev dialog dbus-python network rocknix"
 
 case "${DEVICE}" in
-  RK*)
+  RK*|S922X)
     PKG_DEPENDS_TARGET+=" SDL2_glesonly"
   ;;
 esac
