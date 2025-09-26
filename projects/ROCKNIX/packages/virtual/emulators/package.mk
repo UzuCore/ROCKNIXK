@@ -76,7 +76,7 @@ case "${DEVICE}" in
   SM8250|SM8550|SDM845)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 daedalusx64-sa desmume-lr gpsp-lr pcsx_rearmed-lr"
     PKG_EMUS+=" aethersx2-sa azahar-sa box64 cemu-sa dolphin-sa mednafen melonds-sa nanoboyadvance-sa portmaster rpcs3-sa scummvmsa supermodel-sa \
-               yabasanshiro-sa xemu-sa duckstation-sa citron-sa eden-sa"
+               yabasanshiro-sa xemu-sa duckstation-sa skyemu-sa citron-sa eden-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr flycast2021-lr geolith-lr pcsx_rearmed-lr uae4arm kronos-lr"
     PKG_RETROARCH+=" retropie-shaders"
   ;;
@@ -420,6 +420,11 @@ makeinstall_target() {
       add_emu_core gb mednafen gb false
     ;;
   esac
+  case ${DEVICE} in
+    SM8*|SDM845)
+         add_emu_core gb skyemu skyemu-sa false
+    ;;
+  esac
   add_es_system gb
 
   ### Nintendo GameBoy Hacks
@@ -433,6 +438,11 @@ makeinstall_target() {
   case ${DEVICE} in
     RK3399|AMD64|RK3326|RK3588*|RK356*|H700|SM8*)
       add_emu_core gbh mednafen gb false
+    ;;
+  esac
+  case ${DEVICE} in
+    SM8*|SDM845)
+         add_emu_core gbh skyemu skyemu-sa false
     ;;
   esac
   add_es_system gbh
@@ -459,6 +469,11 @@ makeinstall_target() {
       add_emu_core gba mednafen gba false
     ;;
   esac
+  case ${DEVICE} in
+    SM8*|SDM845)
+         add_emu_core gba skyemu skyemu-sa false
+    ;;
+  esac
   add_es_system gba
 
   ### Nintendo GameBoy Advance Hacks
@@ -472,6 +487,11 @@ makeinstall_target() {
       add_emu_core gbah mednafen gba false
     ;;
   esac
+  case ${DEVICE} in
+    SM8*|SDM845)
+         add_emu_core gbah skyemu skyemu-sa false
+    ;;
+  esac
   add_es_system gbah
 
   ### Nintendo GameBoy Advance Video
@@ -483,6 +503,11 @@ makeinstall_target() {
     RK3399|AMD64|RK3326|RK3588*|RK356*|H700|SM8*)
       add_emu_core gbav retroarch gpsp false
       add_emu_core gbav mednafen gba false
+    ;;
+  esac
+  case ${DEVICE} in
+    SM8*|SDM845)
+         add_emu_core gbav skyemu skyemu-sa false
     ;;
   esac
   add_es_system gbav
@@ -500,6 +525,11 @@ makeinstall_target() {
       add_emu_core gbc mednafen gb false
     ;;
   esac
+  case ${DEVICE} in
+    SM8*|SDM845)
+         add_emu_core gbc skyemu skyemu-sa false
+    ;;
+  esac
   add_es_system gbc
 
   ### Nintendo GameBoy Color Hacks
@@ -513,6 +543,11 @@ makeinstall_target() {
   case ${DEVICE} in
     RK3399|AMD64|RK3326|RK3588*|RK356*|H700|SM8*)
       add_emu_core gbch mednafen gb false
+    ;;
+  esac
+  case ${DEVICE} in
+    SM8*|SDM845)
+         add_emu_core gbch skyemu skyemu-sa false
     ;;
   esac
   add_es_system gbch
@@ -772,6 +807,7 @@ makeinstall_target() {
     ;;
     SM8*|SDM845)
       add_emu_core nds melonds melonds-sa true
+      add_emu_core nds skyemu skyemu-sa false
       add_emu_core nds retroarch melonds false
       add_emu_core nds retroarch melondsds false
       add_emu_core nds retroarch desmume false
