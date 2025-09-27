@@ -6,15 +6,15 @@ PKG_LICENSE="GPLv3"
 PKG_LONGDESC="Eden is the world's most popular open-source Nintendo Switch emulator, forked from the Yuzu emulator."
 PKG_TOOLCHAIN="manual"
 PKG_SITE="https://github.com/pflyly/eden-nightly"
-PKG_VERSION="2025-09-16-27694"
-PKG_REL_VERSION="27694"
+PKG_VERSION="2025-09-26-27739"
+PKG_REL_VERSION="27739"
 
 case ${TARGET_ARCH} in
   x86_64)
-    PKG_URL="${PKG_SITE}/releases/download/${PKG_VERSION}/Eden-${PKG_REL_VERSION}-Common-PGO-light-x86_64_v3.AppImage"
+    PKG_URL="${PKG_SITE}/releases/download/${PKG_VERSION}/Eden-${PKG_REL_VERSION}-Common-PGO-x86_64_v3.AppImage"
   ;;
   aarch64)
-    PKG_URL="${PKG_SITE}/releases/download/${PKG_VERSION}/Eden-${PKG_REL_VERSION}-Linux-PGO-light-aarch64.AppImage"
+    PKG_URL="${PKG_SITE}/releases/download/${PKG_VERSION}/Eden-${PKG_REL_VERSION}-Linux-PGO-aarch64.AppImage"
   ;;
 esac
 
