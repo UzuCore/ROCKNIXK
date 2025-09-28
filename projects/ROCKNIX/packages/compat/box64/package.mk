@@ -2,7 +2,7 @@
 # Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
 
 PKG_NAME="box64"
-PKG_VERSION="ea48f2b823b253fd4ed61925d5b3ac9ac2d2955e"
+PKG_VERSION="9b2bef153b9edd19e4adaa53658b2519739f19cd"
 PKG_ARCH="aarch64"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/ptitSeb/box64"
@@ -34,7 +34,7 @@ makeinstall_target() {
   cp ${PKG_BUILD}/tests/box64-bash ${INSTALL}/usr/bin/bash-x64
 
   mkdir -p ${INSTALL}/usr/config
-  cp ${PKG_DIR}/config/box64.box64rc ${INSTALL}/usr/config/box64.box64rc
+  cp ${PKG_BUILD}/system/box64.box64rc ${INSTALL}/usr/config/box64.box64rc
 
   mkdir -p ${INSTALL}/etc
   ln -sf /storage/.config/box64.box64rc ${INSTALL}/etc/box64.box64rc
