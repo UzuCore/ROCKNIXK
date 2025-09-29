@@ -6,9 +6,9 @@ PKG_LICENSE="GPLv2"
 PKG_DEPENDS_TARGET="toolchain SDL2 boost libevdev libdrm ffmpeg zlib libpng lzo libusb zstd ecm openal-soft pulseaudio alsa-lib llvm qt6 libfmt"
 PKG_LONGDESC="Citron is a high-performance and easy-to-use emulator, tailored for enthusiasts and developers alike."
 PKG_TOOLCHAIN="cmake"
-PKG_SITE="https://git.citron-emu.org/citron/emu"
+PKG_SITE="https://git.citron-emu.org/citron/emulator"
 PKG_URL="${PKG_SITE}.git"
-PKG_VERSION="51800e249bc44bd13b528220a8e064c3744c05d1"
+PKG_VERSION="d62796240885ff46c98c10dfb5a9b8327f916e82"
 
 if [ ! "${OPENGL}" = "no" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL} glu libglvnd"
@@ -26,7 +26,7 @@ fi
 PKG_CMAKE_OPTS_TARGET+="-DENABLE_QT=ON \
                     -DENABLE_QT6=ON \
                     -DUSE_SYSTEM_QT=ON \
-		    -DCMAKE_BUILD_TYPE=Release \
+                    -DCMAKE_BUILD_TYPE=Release \
                     -DBUILD_SHARED_LIBS=OFF \
                     -DENABLE_SDL2=ON \
                     -DCITRON_USE_EXTERNAL_SDL2=OFF \
