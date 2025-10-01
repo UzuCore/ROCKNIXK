@@ -55,10 +55,12 @@ then
                            -DVULKAN=ON \
                            -DEGL_NO_X11=1 \
                            -DMESA_EGL_NO_X11_HEADERS=1"
+  GRENDERER="3 (VULKAN)"
 else
   PKG_CMAKE_OPTS_TARGET+=" -DVULKAN=OFF \
                            -DUSE_VULKAN_DISPLAY_KHR=OFF \
                            -DUSING_X11_VULKAN=OFF"
+  GRENDERER="0 (OPENGL)"
 fi
 
 if [ "${DISPLAYSERVER}" = "wl" ]; then
@@ -104,4 +106,8 @@ makeinstall_target() {
   cp -f ${PKG_DIR}/fonts/patch.jpn0.pgf ${INSTALL}/usr/config/ppsspp/assets/flash0/font/jpn0.pgf
   cp -f ${PKG_DIR}/fonts/patch.kr0.pgf ${INSTALL}/usr/config/ppsspp/assets/flash0/font/kr0.pgf
   curl -Lo ${INSTALL}/usr/config/ppsspp/PSP/Cheats/cheat.db https://raw.githubusercontent.com/Saramagrean/CWCheat-Database-Plus-/${CHEAT_DB_VERSION}/cheat.db
+}
+
+post_install() {
+  sed -e "s/@GRENDERER@/${GRENDERER}/g" -i ${INSTALL}/usr/bin/start_ppsspp.sh
 }

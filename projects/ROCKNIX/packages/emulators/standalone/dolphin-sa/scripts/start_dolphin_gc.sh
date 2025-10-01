@@ -366,6 +366,8 @@ fi
 rm -rf /storage/.local/share/dolphin-emu
 ln -sf /storage/.config/dolphin-emu /storage/.local/share/dolphin-emu
 
+@EXPORTS@
+
 # Retroachievements
   /usr/bin/cheevos_dolphin.sh
 
@@ -386,6 +388,7 @@ fi
   echo "AUDIOBE set to: ${AUDIOBE}"
   echo "ASWAPDISCS set to: ${ASWAPDISCS}"
   echo "CLOCK set to: ${CLOCK}"
+  echo "DOLPHIN_BACKEND set to: ${DOLPHIN_BACKEND}"
   echo "ENBCHEATS set to: ${ENBCHEATS}"
   echo "GRENDERER set to: ${GRENDERER}"
   echo "IRES set to: ${IRES}"
@@ -408,7 +411,6 @@ fi
   echo "Launching /usr/bin/${DOLPHIN_CORE} ${CMD} -e ${1}"
 
 # Run Dolphin emulator
-  @EXPORTS@
   ${GPTOKEYB} ${DOLPHIN_CORE} xbox360 &
   ${EMUPERF} /usr/bin/${DOLPHIN_CORE} ${CMD} -e "${1}"
   kill -9 "$(pidof gptokeyb)"

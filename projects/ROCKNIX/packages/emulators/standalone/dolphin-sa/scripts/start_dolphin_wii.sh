@@ -352,6 +352,8 @@ sed -i '/SkipIPL/c\SkipIPL = True' ${CONF_DIR}/${DOLPHIN_INI}
 rm -rf /storage/.local/share/dolphin-emu
 ln -sf /storage/.config/dolphin-emu /storage/.local/share/dolphin-emu
 
+@EXPORTS@
+
 # Retroachievements
   /usr/bin/cheevos_dolphin.sh
 
@@ -390,7 +392,6 @@ fi
   echo "Launching /usr/bin/${DOLPHIN_CORE} ${CMD} -e ${1}"
 
 # Run Dolphin emulator
-  @EXPORTS@
   ${GPTOKEYB} ${DOLPHIN_CORE} xbox360 &
   ${EMUPERF} /usr/bin/${DOLPHIN_CORE} ${CMD} -e "${1}"
   kill -9 "$(pidof gptokeyb)"

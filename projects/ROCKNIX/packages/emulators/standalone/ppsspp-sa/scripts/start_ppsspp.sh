@@ -71,14 +71,13 @@ fi
         #Default to OpenGL / GLES if no option is set.
         sed -i '/^GraphicsBackend =/c\GraphicsBackend = 0 (OPENGL)' ${CONF_DIR}/${PPSSPP_INI}
 
-        if [ "${GRENDERER}" = "opengl" ]
-        then
+        if [ "${GRENDERER}" = "opengl" ]; then
                 sed -i '/^GraphicsBackend =/c\GraphicsBackend = 0 (OPENGL)' ${CONF_DIR}/${PPSSPP_INI}
-        fi
-        if [ "${GRENDERER}" = "vulkan" ]
-        then
+        elif [ "${GRENDERER}" = "vulkan" ]; then
                 sed -i '/^GraphicsBackend =/c\GraphicsBackend = 3 (VULKAN)' ${CONF_DIR}/${PPSSPP_INI}
-        fi
+        else
+		sed -i '/^GraphicsBackend =/c\GraphicsBackend = @GRENDERER@' ${CONF_DIR}/${PPSSPP_INI}
+	fi
 
   #Internal Resolution
         if [ "${IRES}" = "1" ]

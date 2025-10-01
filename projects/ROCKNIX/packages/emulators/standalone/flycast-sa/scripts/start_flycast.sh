@@ -32,7 +32,7 @@ ASPECT=$(get_setting aspect_ratio "${PLATFORM}" "${GAME}")
 ASKIP=$(get_setting auto_frame_skip "${PLATFORM}" "${GAME}")
 FPS=$(get_setting show_fps "${PLATFORM}" "${GAME}")
 IRES=$(get_setting internal_resolution "${PLATFORM}" "${GAME}")
-RENDERER=$(get_setting graphics_backend "${PLATFORM}" "${GAME}")
+GRENDERER=$(get_setting graphics_backend "${PLATFORM}" "${GAME}")
 VSYNC=$(get_setting vsync "${PLATFORM}" "${GAME}")
 CHEEVOS=$(get_setting retroachievements "${PLATFORM}" "${GAME}")
 
@@ -95,15 +95,14 @@ fi
                 sed -i '/rend.Resolution =/c\rend.Resolution = 480' /storage/.config/flycast/emu.cfg
         fi
 
-  #Renderer
-        if [ "$RENDERER" = "opengl" ]
-        then
+  #Graphics Renderer
+        if [ "$GRENDERER" = "opengl" ]; then
                 sed -i '/^pvr.rend =/c\pvr.rend = 0' /storage/.config/flycast/emu.cfg
-        fi
-        if [ "$RENDERER" = "vulkan" ]
-        then
+        elif [ "$GRENDERER" = "vulkan" ]; then
                 sed -i '/^pvr.rend =/c\pvr.rend = 4' /storage/.config/flycast/emu.cfg
-        fi
+        else
+		sed -i '/^pvr.rend =/c\pvr.rend = @GRENDERER@' /storage/.config/flycast/emu.cfg
+	fi
 
   #ShowFPS
 	if [ "$FPS" = "0" ]
