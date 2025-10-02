@@ -369,10 +369,12 @@ fi
 # Debugging info:
   echo "GAME set to: ${GAME}"
   echo "PLATFORM set to: ${PLATFORM}"
+  echo "CPU CORES set to ${EMUPERF}"
   echo "AA set to: ${AA}"
   echo "ASPECT set to: ${ASPECT}"
   echo "AUDIOBE set to: ${AUDIOBE}"
   echo "CLOCK set to: ${CLOCK}"
+  echo "DOLPHIN_BACKEND set to: ${DOLPHIN_BACKEND}"
   echo "ENBCHEATS set to: ${ENBCHEATS}"
   echo "GRENDERER set to: ${GRENDERER}"
   echo "IRES set to: ${IRES}"

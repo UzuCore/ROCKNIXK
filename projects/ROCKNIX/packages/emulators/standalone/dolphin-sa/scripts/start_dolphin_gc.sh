@@ -383,6 +383,7 @@ fi
 # Debugging info:
   echo "GAME set to: ${GAME}"
   echo "PLATFORM set to: ${PLATFORM}"
+  echo "CPU CORES set to: ${EMUPERF}"
   echo "AA set to: ${AA}"
   echo "ASPECT set to: ${ASPECT}"
   echo "AUDIOBE set to: ${AUDIOBE}"
