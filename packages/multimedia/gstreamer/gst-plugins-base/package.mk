@@ -64,5 +64,6 @@ pre_configure_target() {
 
 post_makeinstall_target() {
   # clean up
-  safe_remove ${INSTALL}
+  safe_remove ${INSTALL}/usr/include
+  safe_remove ${INSTALL}/usr/share
 }
