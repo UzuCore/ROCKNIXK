@@ -327,10 +327,6 @@ if [[ $ZRAM -gt 0 ]]; then
 	fi
 fi
 
-#Never ask to confrim close
-sed -i '/^confirmStop\\default=/c\confirmStop\\default=false' /storage/.config/citron/qt-config.ini
-sed -i '/^confirmStop=/c\confirmStop=3' /storage/.config/citron/qt-config.ini
-
 #Link  .config/citron to .local
 rm -rf /storage/.local/share/citron
 ln -sf /storage/.config/citron /storage/.local/share/citron
