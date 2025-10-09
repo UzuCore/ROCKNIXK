@@ -96,7 +96,7 @@ _update_submodules() {
 
 _get_repo() {
   local git_params=("--recursive" "--shallow-submodules" "--filter=blob:none" "--no-tags")
-  
+
   [[ -n "${PKG_GIT_CLONE_BRANCH}" ]] && git_params+=("--branch" "${PKG_GIT_CLONE_BRANCH}")
   [[ "${PKG_GIT_CLONE_SINGLE}" == "yes" ]] && git_params+=("--single-branch")
 
@@ -194,6 +194,10 @@ main(){
 
   # Check if repo already exists and is valid
   _repo_exists_and_valid && exit 0
+
+  if [[ "${PKG_USETOKEN}" == "yes" && -n "${ROCKNIX_GHTOKEN}" ]]; then
+    PKG_URL="${PKG_URL/https:\/\//https:\/\/${ROCKNIX_GHTOKEN}@}"
+  fi
 
   # If not valid, proceed to get the repo
   build_msg "CLR_GET" "GET" "${1} (git)" "indent"

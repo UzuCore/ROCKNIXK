@@ -6,7 +6,7 @@
 
 . /etc/profile
 
-# Remove or comment out 'set -e' so the script doesn’t exit on a single error:
+# Remove or comment out 'set -e' so the script doesn't exit on a single error:
 # set -e
 set -o pipefail
 
@@ -31,8 +31,8 @@ KEY_VOLUME_UP=$(get_setting key.volume.up)
 KEY_VOLUME_DOWN=$(get_setting key.volume.down)
 [ -z "${KEY_VOLUME_DOWN}" ] && KEY_VOLUME_DOWN='KEY_VOLUME*DOWN'
 
-FUNCTION_VOLUME_UP_EVENT='*('${KEY_VOLUME_UP}'), value 1'
-FUNCTION_VOLUME_DOWN_EVENT='*('${KEY_VOLUME_DOWN}'), value 1'
+FUNCTION_VOLUME_UP_EVENT='*('${KEY_VOLUME_UP}'), value *'
+FUNCTION_VOLUME_DOWN_EVENT='*('${KEY_VOLUME_DOWN}'), value *'
 
 FUNCTION_POWER_RELEASED_EVENT='*(KEY_POWER), value 0'
 FUNCTION_POWER_PRESSED_EVENT='*(KEY_POWER), value 1'
@@ -101,12 +101,20 @@ CONTROLLER_DISCONNECTED="*error reading: No such device"
 DEVICE_DISCONNECTED="*error reading: No such device"
 
 ### Matches if a button was pressed (1), released (0) or held down (2)
-PRESS='value [1-9]'
+PRESS='value 1'
+REPEAT='value 2'
 RELEASE='value 0'
 
 ### Function buttons should be defined as not pressed for later matching.
 FN_A_PRESSED=false
 FN_B_PRESSED=false
+
+### Volume repeat variables
+VOLUME_REPEAT_DELAY=0.3  # Initial delay before repeating starts (seconds)
+VOLUME_REPEAT_INTERVAL=0.1  # Interval between repeats (seconds)
+VOLUME_UP_PRESSED=false
+VOLUME_DOWN_PRESSED=false
+VOLUME_REPEAT_PID=""
 
 ### Allow actions to be overridden in system.cfg
 FN_A_ACTION_UP="$(get_setting key.function.a.up)"
@@ -123,6 +131,44 @@ FN_AB_ACTION_DOWN="$(get_setting key.function.ab.down)"
 [ -z "${FN_B_ACTION_DOWN}" ]  && FN_B_ACTION_DOWN="ledcontrol poweroff"
 [ -z "${FN_AB_ACTION_UP}" ]   && FN_AB_ACTION_UP="wifictl enable"
 [ -z "${FN_AB_ACTION_DOWN}" ] && FN_AB_ACTION_DOWN="wifictl disable"
+
+### Volume repeat function
+start_volume_repeat() {
+    local direction=$1
+    
+    # Stop any existing volume repeat
+    stop_volume_repeat
+    
+    # Initial volume adjustment
+    volume ${direction}
+    
+    # Start background process for repeating volume adjustments
+    (
+        sleep ${VOLUME_REPEAT_DELAY}
+        while true; do
+            # Check if button is still pressed before adjusting
+            if { [ "${direction}" = "up" ] && [ "${VOLUME_UP_PRESSED}" = true ]; } || \
+               { [ "${direction}" = "down" ] && [ "${VOLUME_DOWN_PRESSED}" = true ]; }; then
+                volume ${direction}
+                sleep ${VOLUME_REPEAT_INTERVAL}
+            else
+                break
+            fi
+        done
+    ) &
+    
+    VOLUME_REPEAT_PID=$!
+    ${DEBUG} && log $0 "Started volume repeat (${direction}) with PID: ${VOLUME_REPEAT_PID}"
+}
+
+stop_volume_repeat() {
+    if [ -n "${VOLUME_REPEAT_PID}" ]; then
+        kill ${VOLUME_REPEAT_PID} 2>/dev/null
+        wait ${VOLUME_REPEAT_PID} 2>/dev/null
+        ${DEBUG} && log $0 "Stopped volume repeat with PID: ${VOLUME_REPEAT_PID}"
+    fi
+    VOLUME_REPEAT_PID=""
+}
 
 ### Simple functions to execute button actions, including global kill.
 execute_kill() {
@@ -284,10 +330,38 @@ set +e
         fi
       ;;
       (${FUNCTION_VOLUME_UP_EVENT})
-        execute_action up
+        if [[ "${line}" =~ ${PRESS} ]]; then
+          ${DEBUG} && log $0 "Volume Up: Pressed"
+          VOLUME_UP_PRESSED=true
+          # Only start volume repeat if no function keys are pressed
+          if [ "${FN_A_PRESSED}" = false ] && [ "${FN_B_PRESSED}" = false ]; then
+            start_volume_repeat up
+          else
+            # If function keys are pressed, use the original behavior
+            execute_action up
+          fi
+        elif [[ "${line}" =~ ${RELEASE} ]]; then
+          ${DEBUG} && log $0 "Volume Up: Released"
+          VOLUME_UP_PRESSED=false
+          stop_volume_repeat
+        fi
       ;;
       (${FUNCTION_VOLUME_DOWN_EVENT})
-        execute_action down
+        if [[ "${line}" =~ ${PRESS} ]]; then
+          ${DEBUG} && log $0 "Volume Down: Pressed"
+          VOLUME_DOWN_PRESSED=true
+          # Only start volume repeat if no function keys are pressed
+          if [ "${FN_A_PRESSED}" = false ] && [ "${FN_B_PRESSED}" = false ]; then
+            start_volume_repeat down
+          else
+            # If function keys are pressed, use the original behavior
+            execute_action down
+          fi
+        elif [[ "${line}" =~ ${RELEASE} ]]; then
+          ${DEBUG} && log $0 "Volume Down: Released"
+          VOLUME_DOWN_PRESSED=false
+          stop_volume_repeat
+        fi
       ;;
       (${FUNCTION_POWER_PRESSED_EVENT})
         ${DEBUG} && log $0 "${FUNCTION_POWER_PRESSED_EVENT}: Pressed"
