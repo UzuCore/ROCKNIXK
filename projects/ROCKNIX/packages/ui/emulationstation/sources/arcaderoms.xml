@@ -12362,6 +12362,7 @@
   <rom id="samsho3" name="Samurai Shodown III / Samurai Spirits - Zankurou Musouken (NGM-087)" />
   <rom id="samsho3en" name="Samurai Shodown III Enhanced (bootleg)" />
   <rom id="samsho3h" name="Samurai Shodown III / Samurai Spirits - Zankurou Musouken (NGH-087)" />
+  <rom id="samsho3k" name="Samurai Shodown III / Samurai Spirits - Zankurou Musouken (Korean Translation)" />  
   <rom id="samsho3uh" name="Samurai Shodown III / Samurai Spirits - Zankurou Musouken (AES Uncensored Hack)" />
   <rom id="samsho4" name="Samurai Shodown IV - Amakusa's Revenge / Samurai Spirits - Amakusa Kourin (NGM-222 ~ NGH-222)" />
   <rom id="samsho4k" name="Paewang Jeonseol / Legend of a Warrior (Korean censored Samurai Shodown IV)" />
@@ -16242,7 +16243,9 @@
   <rom id="wbmljb" name="Wonder Boy: Monster Land (Japan bootleg)" />
   <rom id="wbmljo" name="Wonder Boy: Monster Land (Japan Old Ver., MC-8123, 317-0043)" />
   <rom id="wbmljod" name="Wonder Boy: Monster Land (decrypted bootleg of Japan Old Ver., MC-8123, 317-0043)" />
+  <rom id="wbmlk" name="Wonder Boy: Monster Land (Korean Translation bootleg of New Ver., MC-8123, 317-0043)" />
   <rom id="wbmlkb" name="Wonder Boy: Monster Land (Korean Translation bootleg)" />
+  <rom id="wbmlkod" name="Wonder Boy: Monster Land (Korean Translation bootleg of Old Ver., MC-8123, 317-0043)" />  
   <rom id="wbmlvc" name="Wonder Boy: Monster Land (English, Virtual Console)" />
   <rom id="wbmlvcd" name="Wonder Boy: Monster Land (decrypted bootleg of English, Virtual Console release)" />
   <rom id="wboy" name="Wonder Boy (set 1, 315-5177)" />
