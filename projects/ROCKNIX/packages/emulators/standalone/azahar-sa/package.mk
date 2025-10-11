@@ -9,13 +9,18 @@ PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain ffmpeg mesa SDL2 boost zlib libusb boost zstd control-gen spirv-tools qt6"
 PKG_LONGDESC="Azahar - Nintendo 3DS emulator"
 PKG_TOOLCHAIN="cmake"
+PKG_PATCH_DIRS="common"
 
 if [ ! "${OPENGL}" = "no" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL} glu libglvnd"
 fi
 
-if [ "${OPENGLES_SUPPORT}" = yes ]; then
+if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
+
+  if [ "${PREFER_GLES}" = "yes" ]; then
+    PKG_PATCH_DIRS+=" prefer_gles"
+  fi
 fi
 
 if [ "${VULKAN_SUPPORT}" = "yes" ]; then
@@ -29,8 +34,8 @@ PKG_CMAKE_OPTS_TARGET+=" -DENABLE_QT_TRANSLATION=OFF \
                          -DENABLE_TESTS=OFF \
                          -DENABLE_ROOM=OFF \
                          -DUSE_DISCORD_PRESENCE=OFF \
-                         -DENABLE_VULKAN=ON \
-                         -DENABLE_OPENGL=ON"
+                         -DENABLE_OPENGL=ON \
+                         -DENABLE_VULKAN=ON"
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin

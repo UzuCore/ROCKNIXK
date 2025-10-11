@@ -1,31 +1,13 @@
-diff --git a/src/citra_qt/citra_qt.cpp b/src/citra_qt/citra_qt.cpp
-index 136989a67..a84e1498e 100644
---- a/src/citra_qt/citra_qt.cpp
-+++ b/src/citra_qt/citra_qt.cpp
-@@ -2720,10 +2720,6 @@ void GMainWindow::ToggleScreenLayout() {
-         case Settings::LayoutOption::HybridScreen:
-             return Settings::LayoutOption::SideScreen;
-         case Settings::LayoutOption::SideScreen:
--            return Settings::LayoutOption::SeparateWindows;
--        case Settings::LayoutOption::SeparateWindows:
--            return Settings::LayoutOption::CustomLayout;
--        case Settings::LayoutOption::CustomLayout:
-             return Settings::LayoutOption::Default;
-         default:
-             LOG_ERROR(Frontend, "Unknown layout option {}",
-diff --git a/src/citra_sdl/emu_window/emu_window_sdl2_vk.cpp b/src/citra_sdl/emu_window/emu_window_sdl2_vk.cpp
-index b002c15bb..33b6a365f 100644
---- a/src/citra_sdl/emu_window/emu_window_sdl2_vk.cpp
-+++ b/src/citra_sdl/emu_window/emu_window_sdl2_vk.cpp
-@@ -24,7 +24,7 @@ EmuWindow_SDL2_VK::EmuWindow_SDL2_VK(Core::System& system, bool fullscreen, bool
-                          SDL_WINDOWPOS_UNDEFINED, // x position
-                          SDL_WINDOWPOS_UNDEFINED, // y position
-                          Core::kScreenTopWidth, Core::kScreenTopHeight + Core::kScreenBottomHeight,
--                         SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-+                         SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-     SDL_SysWMinfo wm;
-     SDL_VERSION(&wm.version);
-     if (SDL_GetWindowWMInfo(render_window, &wm) == SDL_FALSE) {
+From dc5229925ce5383658888a8457bc45eee38d42b6 Mon Sep 17 00:00:00 2001
+From: John Williams <porschemad911@gmail.com>
+Date: Fri, 10 Oct 2025 09:41:10 +1100
+Subject: [PATCH 3/4] common - file paths
+
+---
+ src/common/common_paths.h | 15 ++++++++-------
+ src/common/file_util.cpp  |  4 ++--
+ 2 files changed, 10 insertions(+), 9 deletions(-)
+
 diff --git a/src/common/common_paths.h b/src/common/common_paths.h
 index 49155702a..166e8a6ea 100644
 --- a/src/common/common_paths.h
@@ -61,7 +43,7 @@ index 49155702a..166e8a6ea 100644
  #define DLL_DIR "external_dlls"
  #define SHADER_DIR "shaders"
 diff --git a/src/common/file_util.cpp b/src/common/file_util.cpp
-index 847cdad55..1e84c56a0 100644
+index c740e8416..dc5591713 100644
 --- a/src/common/file_util.cpp
 +++ b/src/common/file_util.cpp
 @@ -866,7 +866,7 @@ void SetUserPath(const std::string& path) {
@@ -82,3 +64,6 @@ index 847cdad55..1e84c56a0 100644
      g_default_paths = g_paths;
  }
  
+-- 
+2.47.3
+
