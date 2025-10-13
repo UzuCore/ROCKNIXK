@@ -1559,14 +1559,14 @@ index 000000000000..58d9ab342fe9
 +	vccq-max-microamp = <1200000>;
 +	vdd-hba-supply = <&vreg_l3g_1p2>;
 +
-+	status = "okay";
++	status = "disabled";
 +};
 +
 +&ufs_mem_phy {
 +	vdda-phy-supply = <&vreg_l1d_0p88>;
 +	vdda-pll-supply = <&vreg_l3e_1p2>;
 +
-+	status = "okay";
++	status = "disabled";
 +};
 +
 +&usb_1 {

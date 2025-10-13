@@ -104,3 +104,10 @@ if [ "${VULKAN_SUPPORT}" = "yes" ]; then
 else
   PKG_MESON_OPTS_TARGET+=" -Dvulkan-drivers="
 fi
+
+post_makeinstall_target() {
+  # While this likely breaks panfrost vulkan, it does fix vulkaninfo on libmali-vulkan
+  if [ "${DEVICE}" = "S922X" ]; then
+    rm -f ${INSTALL}/usr/lib/libvulkan_panfrost.so ${INSTALL}/usr/share/vulkan/icd.d/panfrost_icd.*.json
+  fi
+}
