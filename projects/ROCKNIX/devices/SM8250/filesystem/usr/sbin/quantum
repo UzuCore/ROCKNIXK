@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2025 ROCNIX (https://github.com/ROCKNIX)
 
-# Set quantom audio hack
+# Set quantum audio hack
 
 . /etc/profile
 
