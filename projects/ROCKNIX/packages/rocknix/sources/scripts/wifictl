@@ -30,29 +30,17 @@ DEFAULT_CHAN="6"
 ### we have to accept the ssid and key on the
 ### command line too.
 
-if [ ! -z "${2}" ]
-then
-  SSID="${2}"
-else
-  SSID="$(get_setting wifi.ssid)" 2>/dev/null
-fi
+SSID="${2:-$(get_setting wifi.ssid 2>/dev/null)}"
+PSK="${3:-$(get_setting wifi.key 2>/dev/null)}"
+COUNTRY="${4:-$(get_setting wifi.country 2>/dev/null)}"
 
-if [ ! -z "${3}" ]
-then
-  PSK="${3}"
-else
-  PSK="$(get_setting wifi.key)" 2>/dev/null
-fi
-
-if [ "${WIFI_TYPE}" = "1" ]
-then
+if [ "${WIFI_TYPE}" = "1" ]; then
   SSID="NETPLAY_AP"
   PSK="deadbeef"
 fi
 
 ADHOC_CHAN=$(get_setting wifi.adhoc.channel)
-if [ -z "${ADHOC_CHAN}" ]
-then
+if [ -z "${ADHOC_CHAN}" ]; then
   ADHOC_CHAN="${DEFAULT_CHAN}"
   set_setting wifi.adhoc.channel ${DEFAULT_CHAN}
 fi
@@ -67,6 +55,7 @@ wait_for_wifi() {
     iwctl device list | grep -q "${WIFI_DEV}" && break
     sleep 1
   done
+  [ -n "${COUNTRY}" ] && iw reg set "${COUNTRY}"
 }
 
 # lists all wifi networks
@@ -77,8 +66,7 @@ list_wifi() {
 
 set_powersave() {
   ENABLED=$(get_setting system.power.wifi)
-  if [ "${ENABLED}" = "1" ]
-  then
+  if [ "${ENABLED}" = "1" ]; then
     log $0 "Enabling WIFI power saving."
     iw ${WIFI_DEV} set power_save on 2>/dev/null
   else
@@ -140,8 +128,7 @@ case "${1}" in
   enable)
     rfkill unblock wifi
     if [ "${WIFI_TYPE}" = "1" ] && \
-       [ "${ADHOC_CLIENT_ID}" = "1" ]
-    then
+       [ "${ADHOC_CLIENT_ID}" = "1" ]; then
       create_adhoc >/dev/null 2>&1
     else
       destroy_adhoc >/dev/null 2>&1
@@ -150,39 +137,35 @@ case "${1}" in
     set_setting wifi.enabled 1
   ;;
   disable)
-    if [ "${WIFI_TYPE}" = "1" ]
-    then
+    if [ "${WIFI_TYPE}" = "1" ]; then
       destroy_adhoc >/dev/null 2>&1
     fi
     iwctl station ${WIFI_DEV} disconnect 2>/dev/null
     iwctl ap ${WIFI_DEV} stop 2>/dev/null
     rfkill block wifi >/dev/null 2>&1
     set_setting wifi.enabled 0
-  ;;
+    ;;
   reconnect)
     /usr/bin/wifictl disable
     /usr/bin/wifictl enable
-  ;;
+    ;;
   list)
     list_wifi
-  ;;
+    ;;
   channels)
     iw list | awk '/[0-9] MHz \[/ && ! /disabled|radar|no IR/ { gsub(/^.*\[/,""); gsub(/\].*$/,""); print}'
-  ;;
+    ;;
   has_ap_mode)
     has_ap_mode
-  ;;
+    ;;
   scan)
     iwctl station ${WIFI_DEV} scan 2>/dev/null
-  ;;
+    ;;
   scanlist)
     iwctl station ${WIFI_DEV} scan 2>/dev/null
     list_wifi
-  ;;
-  service)
-     echo "${SSID}"
-  ;;
+    ;;
   setpowersave)
     set_powersave
-  ;;
+    ;;
 esac

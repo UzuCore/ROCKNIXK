@@ -154,6 +154,17 @@ main() {
   update_cloud_sync_rules "${log_file}"
   update_cloud_sync_config "${log_file}"
   
+  # Remove conflicting --verbose flags from existing user config to prevent parameter conflicts
+  # This is needed for users upgrading from older versions where --verbose was used
+  if [ -f "/storage/.config/cloud_sync.conf" ]; then
+    log_to_file "${log_file}" "Removing conflicting --verbose flags from configuration"
+    sed -i 's/--verbose//g' /storage/.config/cloud_sync.conf
+    sed -i 's/-v / /g' /storage/.config/cloud_sync.conf
+    # Clean up any double spaces left by removal
+    sed -i 's/  \+/ /g' /storage/.config/cloud_sync.conf
+    log_to_file "${log_file}" "Configuration cleaned of conflicting flags"
+  fi
+  
   return 0
 }
 

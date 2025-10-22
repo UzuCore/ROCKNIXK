@@ -337,8 +337,18 @@ load_config() {
     log_message "Original RCLONEOPTS: ${RCLONEOPTS}" "false"
     RCLONEOPTS=$(echo "${RCLONEOPTS}" | tr '\n\\' '  ' | tr -s ' ')
     log_message "After newline cleanup: ${RCLONEOPTS}" "false"
+    
+    # Remove conflicting --verbose and -v flags that conflict with --log-level
+    RCLONEOPTS=$(echo "${RCLONEOPTS}" | sed 's/--verbose//g' | sed 's/-v / /g')
+    log_message "After removing verbose flags: ${RCLONEOPTS}" "false"
+    
     RCLONEOPTS=$(echo "${RCLONEOPTS}" | sed 's/--/ --/g' | sed 's/^ //')
     log_message "After spacing fix: ${RCLONEOPTS}" "false"
+    
+    # Clean up any double spaces left by removal
+    RCLONEOPTS=$(echo "${RCLONEOPTS}" | tr -s ' ')
+    log_message "After final cleanup: ${RCLONEOPTS}" "false"
+    
     RCLONE_OPTS_ARRAY=()
     for opt in ${RCLONEOPTS}; do
         RCLONE_OPTS_ARRAY+=("$opt")
