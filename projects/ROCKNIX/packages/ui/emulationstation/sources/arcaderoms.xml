@@ -2742,6 +2742,7 @@
   <rom id="crshrace2a" vert="true" name="Lethal Crash Race / Bakuretsu Crash Race (set 2, alternate sound ROM)" />
   <rom id="crswd2bl" name="Crossed Swords 2 (bootleg of CD version)" />
   <rom id="crsword" name="Crossed Swords (ALM-002 ~ ALH-002)" />
+  <rom id="crswordk" name="Crossed Swords (Korean Translation)" />
   <rom id="crszone" name="Crisis Zone (World, CSZO4 Ver. B)" />
   <rom id="crszonev2b" name="Crisis Zone (World, CSZO2 Ver. B)" />
   <rom id="crszonev3a" name="Crisis Zone (US, CSZO3 Ver. A)" />
@@ -4269,6 +4270,7 @@
   <rom id="fatfury1" name="Fatal Fury - King of Fighters / Garou Densetsu - Shukumei no Tatakai (NGM-033 ~ NGH-033)" />
   <rom id="fatfury2" name="Fatal Fury 2 / Garou Densetsu 2 - Arata-naru Tatakai (NGM-047 ~ NGH-047)" />
   <rom id="fatfury2a" name="Fatal Fury 2 / Garou Densetsu 2 - arata-naru tatakai (NGM-047)" />
+  <rom id="fatfury2k" name="Fatal Fury 2 / Garou Densetsu 2 - Arata-naru Tatakai (Korean Translation)" />
   <rom id="fatfury3" name="Fatal Fury 3 - Road to the Final Victory / Garou Densetsu 3 - Haruka-naru Tatakai (NGM-069 ~ NGH-069)" />
   <rom id="fatfury3a" name="Fatal Fury 3 - Road to the Final Victory / Garou Densetsu 3 - haruka-naru tatakai (NGM-069 ~ NGH-069) (alternate set)" />
   <rom id="fax" name="FAX" />
@@ -11672,8 +11674,10 @@
   <rom id="razmataz" vert="true" name="Razzmatazz" />
   <rom id="rbff1" name="Real Bout Fatal Fury / Real Bout Garou Densetsu (NGM-095 ~ NGH-095)" />
   <rom id="rbff1a" name="Real Bout Fatal Fury / Real Bout Garou Densetsu (bug fix revision)" />
+  <rom id="rbff1akr" name="Real Bout Fatal Fury / Real Bout Garou Densetsu (Korean Translation, bug fix revision)" />
   <rom id="rbff1k" name="Real Bout Fatal Fury / Real Bout Garou Densetsu (Korean release)" />
   <rom id="rbff1ka" name="Real Bout Fatal Fury / Real Bout Garou Densetsu (Korean release, bug fix revision)" />
+  <rom id="rbff1kr" name="Real Bout Fatal Fury / Real Bout Garou Densetsu (Korean Translation) " />
   <rom id="rbff1uh" name="Real Bout Fatal Fury / Real Bout Garou Densetsu (AES Uncensored Hack)" />
   <rom id="rbff2" name="Real Bout Fatal Fury 2 - The Newcomers / Real Bout Garou Densetsu 2 - The Newcomers (NGM-2400)" />
   <rom id="rbff2a" name="Real Bout Fatal Fury 2 - The Newcomers / Real Bout Garou Densetsu 2 - The Newcomers (set 2)" />
@@ -12389,6 +12393,7 @@
   <rom id="samsung_k9lag08u0m" name="Samsung K9LAG08U0M" />
   <rom id="samurai" vert="true" name="Samurai (World)" />
   <rom id="samuraia" vert="true" name="Samurai Aces (World)" />
+  <rom id="samuraiak" vert="true" name="Samurai Aces (Korea?)" />
   <rom id="samuraij" vert="true" name="Samurai (Japan)" />
   <rom id="sandor" name="Puzzle &amp; Action: Sando-R (J 951114 V1.000)" />
   <rom id="sandscrp" vert="true" name="Sand Scorpion" />
