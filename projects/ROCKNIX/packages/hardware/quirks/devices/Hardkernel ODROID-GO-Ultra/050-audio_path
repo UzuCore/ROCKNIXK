@@ -12,3 +12,7 @@ EOF
 ### Set sound properties
 amixer -c 0 -q sset 'FRDDR_A SINK 1 SEL' 'OUT 1'
 amixer -c 0 -q sset 'FRDDR_A SRC 1 EN' 'on'
+
+### Required with kernels after 6.12 - restart pipewire so the
+### source / sink get picked up correctly by wireplumber
+systemctl restart pipewire

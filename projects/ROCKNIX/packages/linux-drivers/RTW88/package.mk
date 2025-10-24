@@ -2,7 +2,7 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="RTW88"
-PKG_VERSION="d046e7636ba04fcc85d0a9d0aff9aadceed50494"
+PKG_VERSION="9bc8fecb61d4ad59e46b4dbd003d60ef2d8437a8"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/lwfinger/rtw88"
 PKG_URL="https://github.com/lwfinger/rtw88/archive/${PKG_VERSION}.tar.gz"

@@ -1,7 +1,7 @@
-From 4e36ea21c1c682102338a6f1b06a38247e61b2d3 Mon Sep 17 00:00:00 2001
+From 70f2a5bc84122fb740d6b1c339208e9d96c8cbd4 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Ond=C5=99ej=20Jirman?= <megi@xff.cz>
 Date: Sun, 7 Nov 2021 20:09:02 +0100
-Subject: [PATCH 12/42] power: supply: rk818-charger: Implement charger driver
+Subject: [PATCH 12/43] power: supply: rk818-charger: Implement charger driver
  for RK818 PMIC
 
 For now this driver is just meant to watch Type-C power supply
@@ -12,15 +12,15 @@ Signed-off-by: Ondrej Jirman <megi@xff.cz>
 ---
  drivers/power/supply/Kconfig         |   8 +
  drivers/power/supply/Makefile        |   1 +
- drivers/power/supply/rk818_charger.c | 649 +++++++++++++++++++++++++++
- 3 files changed, 658 insertions(+)
+ drivers/power/supply/rk818_charger.c | 650 +++++++++++++++++++++++++++
+ 3 files changed, 659 insertions(+)
  create mode 100644 drivers/power/supply/rk818_charger.c
 
 diff --git a/drivers/power/supply/Kconfig b/drivers/power/supply/Kconfig
-index 060de878e125..efde86091148 100644
+index d1b233cf680c..7a2e6d2cb4a7 100644
 --- a/drivers/power/supply/Kconfig
 +++ b/drivers/power/supply/Kconfig
-@@ -1026,4 +1026,12 @@ config BATTERY_RK818
+@@ -1082,4 +1082,12 @@ config BATTERY_RK818
  	  If you say yes here you will get support for the battery of RK818 PMIC.
  	  This driver can give support for Rk818 Battery Charge Interface.
  
@@ -34,20 +34,20 @@ index 060de878e125..efde86091148 100644
 +
  endif # POWER_SUPPLY
 diff --git a/drivers/power/supply/Makefile b/drivers/power/supply/Makefile
-index ed6d65d6ad10..3c10aadd2542 100644
+index fac9db4fa65b..44c108d6eecd 100644
 --- a/drivers/power/supply/Makefile
 +++ b/drivers/power/supply/Makefile
-@@ -118,3 +118,4 @@ obj-$(CONFIG_BATTERY_UG3105)	+= ug3105_battery.o
- obj-$(CONFIG_CHARGER_QCOM_SMB2)	+= qcom_pmi8998_charger.o
+@@ -123,3 +123,4 @@ obj-$(CONFIG_BATTERY_UG3105)	+= ug3105_battery.o
+ obj-$(CONFIG_CHARGER_QCOM_SMB2)	+= qcom_smbx.o
  obj-$(CONFIG_FUEL_GAUGE_MM8013)	+= mm8013.o
  obj-$(CONFIG_BATTERY_RK818)	+= rk818_battery.o
 +obj-$(CONFIG_CHARGER_RK818)	+= rk818_charger.o
 diff --git a/drivers/power/supply/rk818_charger.c b/drivers/power/supply/rk818_charger.c
 new file mode 100644
-index 000000000000..ef179a6f5e3d
+index 000000000000..85361ba794e3
 --- /dev/null
 +++ b/drivers/power/supply/rk818_charger.c
-@@ -0,0 +1,649 @@
+@@ -0,0 +1,650 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * rk818 usb power driver
@@ -61,6 +61,7 @@ index 000000000000..ef179a6f5e3d
 +#include <linux/module.h>
 +#include <linux/of_device.h>
 +#include <linux/platform_device.h>
++#include <linux/property.h>
 +#include <linux/power_supply.h>
 +#include <linux/regmap.h>
 +
@@ -614,7 +615,7 @@ index 000000000000..ef179a6f5e3d
 +	platform_set_drvdata(pdev, cg);
 +
 +	psy_cfg.drv_data = cg;
-+	psy_cfg.of_node = dev->of_node;
++	psy_cfg.fwnode = dev_fwnode(dev);
 +
 +	cg->usb_psy = devm_power_supply_register(dev, &rk818_usb_desc,
 +						 &psy_cfg);
@@ -698,5 +699,5 @@ index 000000000000..ef179a6f5e3d
 +MODULE_ALIAS("platform:rk818-charger");
 +MODULE_AUTHOR("Ondřej Jirman <megi@xff.cz>");
 -- 
-2.34.1
+2.47.3
 

@@ -1,7 +1,7 @@
-From 336a6c88a73275e51b98960e135425250d8d4e29 Mon Sep 17 00:00:00 2001
+From e6e87d624281e28494c580b5d5db81cd887685e1 Mon Sep 17 00:00:00 2001
 From: Ondrej Jirman <megi@xff.cz>
 Date: Sun, 11 Jun 2023 18:29:24 +0200
-Subject: [PATCH 10/42] power: supply: rk818-battery: Add battery driver for
+Subject: [PATCH 10/43] power: supply: rk818-battery: Add battery driver for
  RK818
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -23,10 +23,10 @@ Signed-of-by: Kamil Trzciński <ayufan@ayufan.eu>
  create mode 100644 drivers/power/supply/rk818_battery.h
 
 diff --git a/drivers/mfd/rk8xx-core.c b/drivers/mfd/rk8xx-core.c
-index 26a254a9f9af..3f422ab336f7 100644
+index 602218694334..3595f4de6f91 100644
 --- a/drivers/mfd/rk8xx-core.c
 +++ b/drivers/mfd/rk8xx-core.c
-@@ -131,6 +131,8 @@ static const struct mfd_cell rk817s[] = {
+@@ -132,6 +132,8 @@ static const struct mfd_cell rk817s[] = {
  static const struct mfd_cell rk818s[] = {
  	{ .name = "rk808-clkout", },
  	{ .name = "rk808-regulator", },
@@ -90,10 +90,10 @@ index 37287b06dab0..9c64d0105db9 100644
  
  static const struct regmap_config rk805_regmap_config = {
 diff --git a/drivers/power/supply/Kconfig b/drivers/power/supply/Kconfig
-index bcfa63fb9f1e..060de878e125 100644
+index 79ddb006e2da..d1b233cf680c 100644
 --- a/drivers/power/supply/Kconfig
 +++ b/drivers/power/supply/Kconfig
-@@ -1018,4 +1018,12 @@ config FUEL_GAUGE_MM8013
+@@ -1074,4 +1074,12 @@ config FUEL_GAUGE_MM8013
  	  the state of charge, temperature, cycle count, actual and design
  	  capacity, etc.
  
@@ -107,12 +107,12 @@ index bcfa63fb9f1e..060de878e125 100644
 +
  endif # POWER_SUPPLY
 diff --git a/drivers/power/supply/Makefile b/drivers/power/supply/Makefile
-index 8dcb41545317..ed6d65d6ad10 100644
+index f943c9150b32..fac9db4fa65b 100644
 --- a/drivers/power/supply/Makefile
 +++ b/drivers/power/supply/Makefile
-@@ -117,3 +117,4 @@ obj-$(CONFIG_CHARGER_SURFACE)	+= surface_charger.o
+@@ -122,3 +122,4 @@ obj-$(CONFIG_CHARGER_SURFACE)	+= surface_charger.o
  obj-$(CONFIG_BATTERY_UG3105)	+= ug3105_battery.o
- obj-$(CONFIG_CHARGER_QCOM_SMB2)	+= qcom_pmi8998_charger.o
+ obj-$(CONFIG_CHARGER_QCOM_SMB2)	+= qcom_smbx.o
  obj-$(CONFIG_FUEL_GAUGE_MM8013)	+= mm8013.o
 +obj-$(CONFIG_BATTERY_RK818)	+= rk818_battery.o
 diff --git a/drivers/power/supply/rk818_battery.c b/drivers/power/supply/rk818_battery.c
@@ -3866,7 +3866,7 @@ index 000000000000..2f4430a98167
 +#endif
 \ No newline at end of file
 diff --git a/include/linux/mfd/rk808.h b/include/linux/mfd/rk808.h
-index b9afafed4512..0a9ba1b7b092 100644
+index 077fe2e15b78..fc923d8d8734 100644
 --- a/include/linux/mfd/rk808.h
 +++ b/include/linux/mfd/rk808.h
 @@ -280,6 +280,8 @@ enum rk818_reg {
@@ -3971,5 +3971,5 @@ index b9afafed4512..0a9ba1b7b092 100644
  #define RK818_H5V_EN			BIT(0)
  #define RK818_REF_RDY_CTRL		BIT(1)
 -- 
-2.34.1
+2.47.3
 

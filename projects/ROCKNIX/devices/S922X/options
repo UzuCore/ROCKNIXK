@@ -45,12 +45,6 @@
     MALI_FAMILY="bifrost-g52"
     GRAPHIC_DRIVERS="panfrost"
 
-  # OpenGL(X) implementation to use (mesa / no)
-    OPENGL="mesa"
-
-  # OpenGL-ES implementation to use (mesa / no)
-    OPENGLES="mesa"
-
   # For maximum cross compatbility
     PREFER_GLES="yes"
 
@@ -70,7 +64,7 @@
   # for a list of additional drivers see packages/linux-drivers
   # Space separated list is supported,
   # e.g. ADDITIONAL_DRIVERS="DRIVER1 DRIVER2"
-    ADDITIONAL_DRIVERS="RTW88 RTL8851BU mali-bifrost"
+    ADDITIONAL_DRIVERS="RTW88 mali-bifrost"
 
   # Additional Firmware to use ( )
   # Space separated list is supported,

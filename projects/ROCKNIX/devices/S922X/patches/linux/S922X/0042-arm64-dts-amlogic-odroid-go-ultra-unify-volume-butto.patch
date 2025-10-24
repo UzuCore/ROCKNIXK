@@ -1,7 +1,7 @@
-From eade6fbaaa2d7ef84139faed5c24be6b38123f3e Mon Sep 17 00:00:00 2001
+From 5b57f665f073785a7d4d2e9c0c177d00de48237d Mon Sep 17 00:00:00 2001
 From: Danil Zagoskin <z@gosk.in>
 Date: Sat, 30 Nov 2024 18:37:51 +0000
-Subject: [PATCH 41/42] arm64: dts: amlogic: odroid-go ultra: unify volume
+Subject: [PATCH 42/43] arm64: dts: amlogic: odroid-go ultra: unify volume
  button labels
 
 ---
@@ -9,7 +9,7 @@ Subject: [PATCH 41/42] arm64: dts: amlogic: odroid-go ultra: unify volume
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/arch/arm64/boot/dts/amlogic/meson-g12b-odroid-go-ultra.dts b/arch/arm64/boot/dts/amlogic/meson-g12b-odroid-go-ultra.dts
-index ed12a778a796..b2fcfc0fecc9 100644
+index 4accbcda7e4b..67fa8e2ff6f2 100644
 --- a/arch/arm64/boot/dts/amlogic/meson-g12b-odroid-go-ultra.dts
 +++ b/arch/arm64/boot/dts/amlogic/meson-g12b-odroid-go-ultra.dts
 @@ -58,12 +58,12 @@ gpio-keys {
@@ -28,5 +28,5 @@ index ed12a778a796..b2fcfc0fecc9 100644
  			gpios = <&gpio GPIOX_9 GPIO_ACTIVE_LOW>;
  		};
 -- 
-2.34.1
+2.47.3
 

@@ -1,14 +1,14 @@
-From 703a4e991ee105392dea506336f6c608696f2b88 Mon Sep 17 00:00:00 2001
+From d93d7985ffd51a59b906a7a52f4d2d159358ea00 Mon Sep 17 00:00:00 2001
 From: spycat88 <spycat88@users.noreply.github.com>
 Date: Wed, 24 Jan 2024 22:22:49 +0000
-Subject: [PATCH 06/42] arm64: meson: odroid: disable heartbeat
+Subject: [PATCH 06/43] arm64: meson: odroid: disable heartbeat
 
 ---
  arch/arm64/boot/dts/amlogic/meson-g12b-odroid-go-ultra.dts | 2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/arch/arm64/boot/dts/amlogic/meson-g12b-odroid-go-ultra.dts b/arch/arm64/boot/dts/amlogic/meson-g12b-odroid-go-ultra.dts
-index 2112acdb2656..687dcf3fab9b 100644
+index 083646a8741d..2b73021d04bb 100644
 --- a/arch/arm64/boot/dts/amlogic/meson-g12b-odroid-go-ultra.dts
 +++ b/arch/arm64/boot/dts/amlogic/meson-g12b-odroid-go-ultra.dts
 @@ -194,7 +194,7 @@ leds {
@@ -21,5 +21,5 @@ index 2112acdb2656..687dcf3fab9b 100644
  	};
  
 -- 
-2.34.1
+2.47.3
 

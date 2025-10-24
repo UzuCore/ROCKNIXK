@@ -31,7 +31,7 @@ case ${DEVICE} in
   ;;
   *)
     case ${DEVICE} in
-      SM8250|SM8550)
+      S922X|SM8250|SM8550)
         PKG_VERSION="6.17.4"
       ;;
       H700)

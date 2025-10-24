@@ -1,7 +1,7 @@
-From ad689a467dcf6031e86cafbfe186eb925392ce55 Mon Sep 17 00:00:00 2001
+From fd7008b66f8365550a9b76f4828b708d55aed702 Mon Sep 17 00:00:00 2001
 From: Ondrej Jirman <megi@xff.cz>
 Date: Sat, 4 Nov 2023 18:25:03 +0100
-Subject: [PATCH 16/42] power: supply: rk818-charger: Unify rk818-charger and
+Subject: [PATCH 16/43] power: supply: rk818-charger: Unify rk818-charger and
  rk818-battery
 
 The BSP driver is still used, but there is now a one device handling
@@ -12,15 +12,16 @@ Signed-off-by: Ondrej Jirman <megi@xff.cz>
 ---
  drivers/power/supply/Kconfig         |  8 ---
  drivers/power/supply/Makefile        |  3 +-
- drivers/power/supply/rk818_battery.c | 38 ++++++++++---
+ drivers/power/supply/rk818_battery.c | 42 +++++++++++----
+ drivers/power/supply/rk818_battery.h |  9 +++-
  drivers/power/supply/rk818_charger.c | 81 ++++++++++++++++++++++------
- 4 files changed, 96 insertions(+), 34 deletions(-)
+ 5 files changed, 105 insertions(+), 38 deletions(-)
 
 diff --git a/drivers/power/supply/Kconfig b/drivers/power/supply/Kconfig
-index efde86091148..31b3fdcd4a8a 100644
+index 7a2e6d2cb4a7..c3941a7e3978 100644
 --- a/drivers/power/supply/Kconfig
 +++ b/drivers/power/supply/Kconfig
-@@ -1018,14 +1018,6 @@ config FUEL_GAUGE_MM8013
+@@ -1074,14 +1074,6 @@ config FUEL_GAUGE_MM8013
  	  the state of charge, temperature, cycle count, actual and design
  	  capacity, etc.
  
@@ -36,18 +37,18 @@ index efde86091148..31b3fdcd4a8a 100644
  	bool "RK818 Charger driver"
  	depends on MFD_RK8XX
 diff --git a/drivers/power/supply/Makefile b/drivers/power/supply/Makefile
-index 3c10aadd2542..c8ad91681ab8 100644
+index 44c108d6eecd..32e703b4dd00 100644
 --- a/drivers/power/supply/Makefile
 +++ b/drivers/power/supply/Makefile
-@@ -117,5 +117,4 @@ obj-$(CONFIG_CHARGER_SURFACE)	+= surface_charger.o
+@@ -122,5 +122,4 @@ obj-$(CONFIG_CHARGER_SURFACE)	+= surface_charger.o
  obj-$(CONFIG_BATTERY_UG3105)	+= ug3105_battery.o
- obj-$(CONFIG_CHARGER_QCOM_SMB2)	+= qcom_pmi8998_charger.o
+ obj-$(CONFIG_CHARGER_QCOM_SMB2)	+= qcom_smbx.o
  obj-$(CONFIG_FUEL_GAUGE_MM8013)	+= mm8013.o
 -obj-$(CONFIG_BATTERY_RK818)	+= rk818_battery.o
 -obj-$(CONFIG_CHARGER_RK818)	+= rk818_charger.o
 +obj-$(CONFIG_CHARGER_RK818)	+= rk818_charger.o rk818_battery.o
 diff --git a/drivers/power/supply/rk818_battery.c b/drivers/power/supply/rk818_battery.c
-index cc409b7aafb5..e0e5ed0e3d2a 100644
+index cc409b7aafb5..e6a792f2a686 100644
 --- a/drivers/power/supply/rk818_battery.c
 +++ b/drivers/power/supply/rk818_battery.c
 @@ -897,12 +897,10 @@ static int rk818_bat_get_charge_state(struct rk818_battery *di)
@@ -144,11 +145,50 @@ index cc409b7aafb5..e0e5ed0e3d2a 100644
  	return ret;
  }
  
+@@ -3371,7 +3393,7 @@ static int rk818_battery_resume(struct platform_device *dev)
+ {
+ 	struct rk818_battery *di = platform_get_drvdata(dev);
+ 	int interval_sec, time_step, pwroff_vol;
+-	u8 val, st;
++	u8 st;
+ 
+ 	di->s2r = true;
+ 	di->current_avg = rk818_bat_get_avg_current(di);
+@@ -3433,7 +3455,7 @@ static void rk818_battery_shutdown(struct platform_device *dev)
+ 
+ 	cancel_delayed_work_sync(&di->bat_delay_work);
+ 	cancel_delayed_work_sync(&di->calib_delay_work);
+-	del_timer(&di->caltimer);
++	timer_delete(&di->caltimer);
+ 	if (base2sec(di->boot_base) < REBOOT_PERIOD_SEC)
+ 		cnt = rk818_bat_check_reboot(di);
+ 	else
+diff --git a/drivers/power/supply/rk818_battery.h b/drivers/power/supply/rk818_battery.h
+index 2f4430a98167..19b810a4db6b 100644
+--- a/drivers/power/supply/rk818_battery.h
++++ b/drivers/power/supply/rk818_battery.h
+@@ -161,8 +161,13 @@ static const u16 chrg_cur_input_array[] = {
+ 	450, 80, 850, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 3000
+ };
+ 
+-void kernel_power_off(void);
++struct rk818_battery;
++
+ int rk818_bat_temp_notifier_register(struct notifier_block *nb);
+ int rk818_bat_temp_notifier_unregister(struct notifier_block *nb);
++int rk818_battery_get_property(struct rk818_battery *di,
++			       enum power_supply_property psp,
++			       union power_supply_propval *val);
++struct rk818_battery* rk818_battery_get(void);
+ 
+-#endif
+\ No newline at end of file
++#endif
 diff --git a/drivers/power/supply/rk818_charger.c b/drivers/power/supply/rk818_charger.c
-index 04d8ea6835c9..15b0cce6aecc 100644
+index ac0564a7d201..d4d54ff3003b 100644
 --- a/drivers/power/supply/rk818_charger.c
 +++ b/drivers/power/supply/rk818_charger.c
-@@ -356,14 +356,36 @@ static int rk818_charger_get_voltage_max(struct rk818_charger *cg, int *val)
+@@ -357,14 +357,36 @@ static int rk818_charger_get_voltage_max(struct rk818_charger *cg, int *val)
  	return 0;
  }
  
@@ -185,7 +225,7 @@ index 04d8ea6835c9..15b0cce6aecc 100644
  	switch (psp) {
  	case POWER_SUPPLY_PROP_ONLINE:
  		ret = regmap_read(cg->regmap, RK818_CHRG_CTRL_REG1, &reg);
-@@ -375,6 +397,20 @@ static int rk818_charger_get_property(struct power_supply *psy,
+@@ -376,6 +398,20 @@ static int rk818_charger_get_property(struct power_supply *psy,
  		val->intval = !!(reg & RK818_CHRG_CTRL_REG1_CHRG_EN);
  		break;
  
@@ -206,7 +246,7 @@ index 04d8ea6835c9..15b0cce6aecc 100644
  	case POWER_SUPPLY_PROP_STATUS:
  		ret = regmap_read(cg->regmap, RK818_SUP_STS_REG, &reg);
  		if (ret)
-@@ -478,17 +514,20 @@ static int rk818_charger_set_property(struct power_supply *psy,
+@@ -479,17 +515,20 @@ static int rk818_charger_set_property(struct power_supply *psy,
  				      const union power_supply_propval *val)
  {
  	struct rk818_charger *cg = power_supply_get_drvdata(psy);
@@ -236,7 +276,7 @@ index 04d8ea6835c9..15b0cce6aecc 100644
  
  	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
                  return rk818_charger_set_voltage_max(cg, val->intval);
-@@ -507,7 +546,7 @@ static int rk818_charger_prop_writeable(struct power_supply *psy,
+@@ -508,7 +547,7 @@ static int rk818_charger_prop_writeable(struct power_supply *psy,
  	switch (psp) {
  	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
  	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
@@ -245,7 +285,7 @@ index 04d8ea6835c9..15b0cce6aecc 100644
  		return 1;
  
  	default:
-@@ -519,6 +558,7 @@ static enum power_supply_property rk818_charger_props[] = {
+@@ -520,6 +559,7 @@ static enum power_supply_property rk818_charger_props[] = {
  	POWER_SUPPLY_PROP_ONLINE,
  	POWER_SUPPLY_PROP_HEALTH,
  	POWER_SUPPLY_PROP_STATUS,
@@ -253,7 +293,7 @@ index 04d8ea6835c9..15b0cce6aecc 100644
  	POWER_SUPPLY_PROP_CHARGE_TYPE,
  	POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT,
  	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,
-@@ -526,22 +566,31 @@ static enum power_supply_property rk818_charger_props[] = {
+@@ -527,22 +567,31 @@ static enum power_supply_property rk818_charger_props[] = {
  	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
  	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE_MAX,
  	POWER_SUPPLY_PROP_PRECHARGE_CURRENT,
@@ -292,5 +332,5 @@ index 04d8ea6835c9..15b0cce6aecc 100644
  
  // }}}
 -- 
-2.34.1
+2.47.3
 
