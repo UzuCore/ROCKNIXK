@@ -90,7 +90,7 @@ declare -a HAS_CHEEVOS=(    arcade
                             ngp
                             ngpc
                             odyssey2
-                            opera
+                            3do
                             pcengine
                             pcenginecd
                             pcfx
