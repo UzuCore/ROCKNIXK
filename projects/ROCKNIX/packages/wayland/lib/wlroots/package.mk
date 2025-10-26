@@ -9,7 +9,7 @@ PKG_LONGDESC="A modular Wayland compositor library"
 PKG_TOOLCHAIN="meson"
 
 case ${DEVICE} in
-  SM8250|SM8550|AMD64|RK3399|H700)
+  SM8250|SM8550|RK3399|H700)
     PKG_VERSION="0.19.0"
     PKG_SHA256="967f3112c82e8ea18cbdc513e22196b30ccc9fad3fb836f1cff80312c66fab96"
     PKG_URL="${PKG_SITE}/-/archive/${PKG_VERSION}/wlroots-${PKG_VERSION}.tar.gz"

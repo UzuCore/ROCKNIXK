@@ -18,31 +18,13 @@ if [ "${OPENGLES_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
 fi
 
-if [ "${VULKAN_SUPPORT}" = "yes" ]
-then
+if [ "${VULKAN_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${VULKAN}"
 fi
 
 PKG_MAKE_OPTS_TARGET+=" LINK_STATIC_LIBCPLUSPLUS=0"
 
-case ${DEVICE} in
-  AMD64)
-    PKG_MAKE_OPTS_TARGET+=" HAVE_HW=1"
-  ;;
-esac
-
 makeinstall_target() {
-
-mkdir -p ${INSTALL}/usr/lib/libretro
-
-case ${DEVICE} in
-  AMD64)
-    cp mednafen_psx_hw_libretro.so ${INSTALL}/usr/lib/libretro/beetle_psx_libretro.so
-    cp -vP ${PKG_BUILD}/../core-info-*/beetle_psx_hw_libretro.info ${INSTALL}/usr/lib/libretro/beetle_psx_libretro.info
-    sed -i 's/Beetle PSX HW/Beetle PSX/g' ${INSTALL}/usr/lib/libretro/beetle_psx_libretro.info
-  ;;
-  *)
-    cp mednafen_psx_libretro.so ${INSTALL}/usr/lib/libretro/beetle_psx_libretro.so
-  ;;
-esac
+  mkdir -p ${INSTALL}/usr/lib/libretro
+  cp mednafen_psx_libretro.so ${INSTALL}/usr/lib/libretro/beetle_psx_libretro.so
 }

@@ -10,22 +10,15 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SHORTDESC="An enhanced remake of the melonDS core for libretro that prioritizes standalone parity, reliability, and usability."
 PKG_TOOLCHAIN="cmake-make"
 
-if [ "${OPENGL_SUPPORT}" = "yes" ]; then
-  PKG_DEPENDS_TARGET+=" ${OPENGL}"
-elif [ "${OPENGLES_SUPPORT}" = "yes" ]; then
-  PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-fi
-
 PKG_CMAKE_OPTS_TARGET=" -DENABLE_OPENGL=ON"
 
-case ${DEVICE} in
-  AMD64)
-    PKG_CMAKE_OPTS_TARGET+=" -DEFAULT_OPENGL_PROFILE=OpenGL"
-  ;;
-  *)
-    PKG_CMAKE_OPTS_TARGET+=" -DEFAULT_OPENGL_PROFILE=OpenGLES2"
-  ;;
-esac
+if [ "${OPENGL_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" ${OPENGL}"
+  PKG_CMAKE_OPTS_TARGET+=" -DDEFAULT_OPENGL_PROFILE=OpenGL"
+elif [ "${OPENGLES_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" ${OPENGLES}"
+  PKG_CMAKE_OPTS_TARGET+=" -DDEFAULT_OPENGL_PROFILE=OpenGLES2"
+fi
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro

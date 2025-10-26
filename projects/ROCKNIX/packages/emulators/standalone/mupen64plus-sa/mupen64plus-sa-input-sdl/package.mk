@@ -14,16 +14,12 @@ PKG_LONGDESC="Mupen64Plus Standalone Input SDL"
 PKG_TOOLCHAIN="manual"
 
 case ${DEVICE} in
-  AMD64|RK3588|S922X|RK3399|RK3566*|SM8250|SM8550)
+  RK3588|S922X|RK3399|RK3566*|SM8250|SM8550)
     PKG_DEPENDS_TARGET+=" mupen64plus-sa-simplecore"
   ;;
 esac
 
 case ${DEVICE} in
-  AMD64)
-    PKG_DEPENDS_TARGET+=" ${OPENGL} glu libglvnd"
-    export USE_GLES=0
-  ;;
   *)
     PKG_DEPENDS_TARGET+=" ${OPENGLES}"
     export USE_GLES=1
@@ -53,7 +49,7 @@ make_target() {
   cp ${PKG_BUILD}/projects/unix/mupen64plus-input-sdl.so ${PKG_BUILD}/projects/unix/mupen64plus-input-sdl-base.so
 
   case ${DEVICE} in
-    AMD64|RK3588|S922X|RK3399|RK3566*|SM8250|SM8550)
+    RK3588|S922X|RK3399|RK3566*|SM8250|SM8550)
       export APIDIR=$(get_build_dir mupen64plus-sa-simplecore)/src/api
       make -C projects/unix all ${PKG_MAKE_OPTS_TARGET}
       cp ${PKG_BUILD}/projects/unix/mupen64plus-input-sdl.so ${PKG_BUILD}/projects/unix/mupen64plus-input-sdl-simple.so

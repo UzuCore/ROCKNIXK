@@ -34,11 +34,6 @@ kconfig-olddefconfig-%:
 kconfig-menuconfig-%:
 	DEVICE=$* ./tools/adjust_kernel_config menuconfig
 
-AMD64:
-	unset DEVICE_ROOT
-	PROJECT=ROCKNIX DEVICE=AMD64 ARCH=i686 ./scripts/build_distro
-	PROJECT=ROCKNIX DEVICE=AMD64 ARCH=x86_64 ./scripts/build_distro
-
 RK3588:
 	unset DEVICE_ROOT
 	PROJECT=ROCKNIX DEVICE=RK3588 ARCH=arm ./scripts/build_distro
@@ -95,7 +90,7 @@ package-clean:
 
 ## Docker builds - overview
 # docker-* commands just wire up docker to call the normal make command via docker
-# For example: make docker-AMD64 will use docker to call: make AMD64
+# For example: make docker-SM8250 will use docker to call: make SM8250
 # All variables are scoped to docker-* commands to prevent weird collisions/behavior with non-docker commands
 
 docker-%: DOCKER_IMAGE := "ghcr.io/rocknix/rocknix-build:latest"
