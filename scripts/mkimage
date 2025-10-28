@@ -12,7 +12,6 @@
 # set variables
 IMG_TMP=$(mktemp -d -p ${TARGET_IMG})
 SAVE_ERROR="${IMG_TMP}/save_error"
-. projects/${PROJECT}/devices/${DEVICE}/options
 
 if [ -z "${SYSTEM_SIZE}" -o -z "${SYSTEM_PART_START}" ]; then
   echo "mkimage: SYSTEM_SIZE and SYSTEM_PART_START must be configured!"

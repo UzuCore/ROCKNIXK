@@ -1,5 +1,5 @@
 <dtb>
-  <H700 bootmethod="extlinux">
+  <H700 mkimage_options="dtb,extlinux,uboot" fdt="dtb.img" fdt_type="fdt" dtb_prefix="allwinner">
     <file>sun50i-h700-anbernic-rg35xx-plus</file>
     <file>sun50i-h700-anbernic-rg35xx-plus-rev6-panel</file>
     <file>sun50i-h700-anbernic-rg35xx-pro</file>
@@ -16,8 +16,8 @@
     <file>sun50i-h700-anbernic-rg34xx</file>
     <file>sun50i-h700-anbernic-rg34xx-sp</file>
   </H700>
-  <RK3326>
-    <a bootmethod="bootini">
+  <RK3326 dtb_prefix="rockchip">
+    <a mkimage_options="dtb,bootini,uboot">
       <file>rk3326-anbernic-rg351m</file>
       <file>rk3326-anbernic-rg351v</file>
       <file>rk3326-gameconsole-r33s</file>
@@ -29,18 +29,18 @@
       <file>rk3326-powkiddy-rgb10</file>
       <file>rk3326-powkiddy-rgb20s</file>
     </a>
-    <b bootmethod="bootini">
+    <b mkimage_options="dtb,bootini,uboot">
       <file>rk3326-powkiddy-rgb10x</file>
       <file>rk3326-magicx-xu10</file>
       <file>rk3326-magicx-xu-mini-m</file>
       <file>rk3326-gameconsole-r36max</file>
     </b>
   </RK3326>
-  <RK3399 bootmethod="extlinux">
+  <RK3399 mkimage_options="dtb,extlinux,uboot" fdt="device_trees/rk3399-anbernic-rg552.dtb" fdt_type="fdt" dtb_prefix="rockchip">
     <file>rk3399-anbernic-rg552</file>
   </RK3399>
-  <RK3566>
-    <Generic bootmethod="extlinux_fdtdir">
+  <RK3566 dtb_prefix="rockchip">
+    <Generic mkimage_options="dtb,extlinux,uboot" fdt="device_trees" fdt_type="fdtdir">
       <file>rk3566-anbernic-rg-arc-d</file>
       <file>rk3566-anbernic-rg-arc-s</file>
       <file>rk3566-anbernic-rg353p</file>
@@ -54,36 +54,30 @@
       <file>rk3566-powkiddy-rgb30</file>
       <file>rk3566-powkiddy-rk2023</file>
     </Generic>
-    <Powkiddy_x55 bootmethod="extlinux">
+    <Powkiddy_x55 mkimage_options="dtb,extlinux,uboot" fdt="device_trees/rk3566-powkiddy-x55.dtb" fdt_type="fdt">
       <file>rk3566-powkiddy-x55</file>
       <file>rk3566-powkiddy-x35s</file>
     </Powkiddy_x55>
   </RK3566>
-  <RK3588 bootmethod="extlinux">
+  <RK3588 mkimage_options="dtb,extlinux,uboot" fdt="device_trees/rk3588s-gameforce-ace.dtb" fdt_type="fdt" dtb_prefix="rockchip">
     <file>rk3588s-gameforce-ace</file>
-    <file>rk3588-orangepi-5-plus</file>
-    <file>rk3588-orangepi-5-max</file>
-    <file>rk3588-rock-5b</file>
-    <file>rk3588-rock-5b-plus</file>
-    <file>rk3588s-orangepi-5</file>
-    <file>rk3588s-orangepi-5-pro</file>
     <file>rk3588s-retro-lite-cm5</file>
     <file>rk3588s-retroled-cm5</file>
-    <file>rk3588s-rock-5a</file>
-    <file>rk3588s-nanopi-r6c</file>
-    <file>rk3588s-nanopi-r6s</file>
   </RK3588>
-  <S922X bootmethod="extlinux_fdtdir">
+  <S922X mkimage_options="dtb,extlinux,gou_extras,uboot" fdt_type="fdtdir" dtb_prefix="amlogic">
     <file>meson-g12b-odroid-go-ultra</file>
     <file>meson-g12b-powkiddy-rgb10-max-3-pro</file>
   </S922X>
-  <SM8250 bootmethod="grub">
+  <SDM845 mkimage_options="dtb,efi" dtb_prefix="qcom">
+    <file short="odin" full="AYN Odin" rotation="3">sdm845-ayn-odin</file>
+  </SDM845>
+  <SM8250 mkimage_options="dtb,efi" dtb_prefix="qcom">
     <file short="rp5" full="Retroid Pocket 5" rotation="3">sm8250-retroidpocket-rp5</file>
     <file short="rpflip2" full="Retroid Pocket Flip2" rotation="3">sm8250-retroidpocket-flip2</file>
     <file short="rpmini" full="Retroid Pocket Mini" rotation="1">sm8250-retroidpocket-rpmini</file>
     <file short="rpminiv2" full="Retroid Pocket Mini V2" rotation="1">sm8250-retroidpocket-rpminiv2</file>
   </SM8250>
-  <SM8550 bootmethod="grub">
+  <SM8550 mkimage_options="dtb,efi,linuxloader,uboot" dtb_prefix="qcom">
     <file short="odin2" full="AYN Odin2">qcs8550-ayn-odin2</file>
     <file short="odin2portal" full="AYN Odin2 Portal">qcs8550-ayn-odin2portal</file>
     <file short="odin2mini" full="AYN Odin2 Mini">qcs8550-ayn-odin2mini</file>
@@ -92,7 +86,4 @@
     <file short="pocketds" full="AYANEO Pocket DS">qcs8550-ayaneo-pocketds</file>
     <file short="pocketevo" full="AYANEO Pocket EVO">qcs8550-ayaneo-pocketevo</file>
   </SM8550>
-  <SDM845 bootmethod="grub">
-    <file short="odin" full="AYN Odin" rotation="3">sdm845-ayn-odin</file>
-  </SDM845>
 </dtb>

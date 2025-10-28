@@ -211,3 +211,129 @@ EOF
   fi
   add_system_doc ${SYSTEM_NAME}
 }
+
+# dtb.xml parsing
+DTBXML="${PROJECT_DIR}/${PROJECT}/bootloader/dtb.xml"
+
+SUBDEVICES=$(xmlstarlet sel -t -m "//dtb/${DEVICE}/*[@mkimage_options]" -v "name()" -n "${DTBXML}" 2>/dev/null | tr '\n' ' ')
+
+get_kernel_make_extracmd() {
+  local DTB_PREFIX
+  DTB_PREFIX=$(xmlstarlet sel -t -v "//dtb/${DEVICE}/@dtb_prefix" "${DTBXML}" 2>/dev/null)
+  DTB_PREFIX="${DTB_PREFIX}/"
+  xmlstarlet sel -t -m "//dtb/${DEVICE}//file" -o "${DTB_PREFIX}" -v "." -o ".dtb " "${DTBXML}" 2>/dev/null
+}
+
+get_fdt() {
+  local FDT_FILENAME=""
+    
+  if [[ -n "${SUBDEVICE}" ]]; then
+    FDT_FILENAME=$(xmlstarlet sel -t -v "//dtb/${DEVICE}/${SUBDEVICE}/@fdt" "${DTBXML}" 2>/dev/null || true)
+  fi
+
+  if [[ -z "${FDT_FILENAME}" ]]; then
+    FDT_FILENAME=$(xmlstarlet sel -t -v "//dtb/${DEVICE}/@fdt" "${DTBXML}" 2>/dev/null || true)
+  fi
+    
+  [ -n "${FDT_FILENAME}" ] && echo "${FDT_FILENAME}" || true
+}
+
+get_fdt_type() {
+  local FDT_TYPE=""
+
+  if [[ -n "${SUBDEVICE}" ]]; then
+    FDT_TYPE=$(xmlstarlet sel -t -v "//dtb/${DEVICE}/${SUBDEVICE}/@fdt_type" "${DTBXML}" 2>/dev/null)
+  fi
+
+  if [[ -z "${FDT_TYPE}" ]]; then
+    FDT_TYPE=$(xmlstarlet sel -t -v "//dtb/${DEVICE}/@fdt_type" "${DTBXML}" 2>/dev/null)
+  fi
+
+  if [[ "${FDT_TYPE}" == "fdtdir" ]]; then
+    echo "FDTDIR"
+  else
+    echo "FDT"
+  fi
+}
+
+generate_grub_cfg_body() {
+  cat << EOF
+insmod part_gpt
+insmod part_msdos
+load_env
+
+if [ "\${saved_entry}" ]; then
+  set timeout=2
+  set default="\${saved_entry}"
+else
+  set timeout=-1
+fi
+
+if [ x"\${feature_menuentry_id}" = xy ]; then
+  menuentry_id_option="--id"
+else
+  menuentry_id_option=""
+fi
+export menuentry_id_option
+
+function savedefault {
+  saved_entry="\${chosen}"
+  save_env saved_entry
+}
+
+set timeout_style=menu
+set lang=en_US
+loadfont /EFI/BOOT/dejavu-mono.pf2
+set rotation=270
+set gfxmode=auto
+insmod efi_gop
+insmod gfxterm
+terminal_output gfxterm
+set menu_color_normal=cyan/blue
+set menu_color_highlight=white/blue
+
+EOF
+
+  xmlstarlet sel -t -m "//dtb/${DEVICE}/file" \
+    -v "concat(@short, '|', @full, '|', .)" -n "${DTBXML}" 2>/dev/null | while IFS='|' read -r SHORT FULL DTB; do
+
+  cat << EOF
+menuentry '${FULL}' \$menuentry_id_option '${SHORT}' {
+        savedefault
+        search --set -f /KERNEL
+        linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE}
+        devicetree /${DTB}.dtb
+}
+EOF
+  done
+
+  xmlstarlet sel -t -m "//dtb/${DEVICE}/file" \
+    -v "concat(@short, '|', @full, '|', .)" -n "${DTBXML}" 2>/dev/null | while IFS='|' read -r SHORT FULL DTB; do
+
+  cat << EOF
+menuentry '${FULL} RECOVERY' \$menuentry_id_option '${SHORT}-recovery' {
+        search --set -f /KERNEL
+        linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} recovery
+        devicetree /${DTB}.dtb
+}
+EOF
+  done
+}
+
+mkimage_all() {
+  local OPTIONS_LIST=""
+    
+  if [[ -n "${SUBDEVICE}" ]]; then
+    OPTIONS_LIST=$(xmlstarlet sel -t -v "//dtb/${DEVICE}/${SUBDEVICE}/@mkimage_options" "${DTBXML}" 2>/dev/null)
+  fi
+
+  if [[ -z "${OPTIONS_LIST}" ]]; then
+    OPTIONS_LIST=$(xmlstarlet sel -t -v "//dtb/${DEVICE}/@mkimage_options" "${DTBXML}" 2>/dev/null)
+  fi
+
+  for step in $(echo "${OPTIONS_LIST}" | tr ',' ' '); do
+    local func_name="mkimage_${step}"
+        
+    "${func_name}"
+  done
+}

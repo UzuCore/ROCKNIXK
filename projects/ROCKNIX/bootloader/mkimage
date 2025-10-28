@@ -1,0 +1,92 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
+
+. config/functions
+
+mkimage_uboot() {
+  if [ -f "${RELEASE_DIR}/3rdparty/bootloader/${SUBDEVICE}_uboot.bin" ]; then
+    # RK3566-Generic and RK3566-Powkiddy_x55
+    echo "image: writing ${SUBDEVICE}_uboot.bin to $(basename "${DISK}")..."
+    dd if="${RELEASE_DIR}/3rdparty/bootloader/${SUBDEVICE}_uboot.bin" of="${DISK}" bs=512 seek=64 conv=sync,noerror,notrunc >"${SAVE_ERROR}" 2>&1 || show_error
+  elif [ -f "${RELEASE_DIR}/3rdparty/bootloader/uboot.bin" ]; then
+    echo "image: writing uboot.bin to $(basename "${DISK}")..."
+    dd if="${RELEASE_DIR}/3rdparty/bootloader/uboot.bin" of="${DISK}" bs=512 seek=64 conv=sync,noerror,notrunc >"${SAVE_ERROR}" 2>&1 || show_error
+  elif [ -f "${RELEASE_DIR}/3rdparty/bootloader/u-boot.bin" ]; then
+    # S922X
+    echo "image: writing u-boot.bin to $(basename "${DISK}")..."
+    dd if="${RELEASE_DIR}/3rdparty/bootloader/u-boot.bin" of="${DISK}" bs=512 seek=1 conv=sync,noerror,notrunc >"${SAVE_ERROR}" 2>&1 || show_error
+  elif [ -f "${RELEASE_DIR}/3rdparty/bootloader/u-boot-sunxi-with-spl.bin" ]; then
+    # H700
+    echo "image: writing u-boot-sunxi-with-spl.bin to $(basename "${DISK}")..."
+    dd if="${RELEASE_DIR}/3rdparty/bootloader/u-boot-sunxi-with-spl.bin" of="${DISK}" bs=1K seek=8 conv=fsync,notrunc >"${SAVE_ERROR}" 2>&1 || show_error
+  else
+    # SM8550
+    echo "image: copying u-boot files..."
+    mcopy -s -o "${RELEASE_DIR}/3rdparty/bootloader/boot" ::
+  fi
+}
+
+mkimage_extlinux() {
+  local fdt_type
+  fdt_type=$(get_fdt_type)
+
+  echo "image: set extlinux.conf to $fdt_type /$(get_fdt)..."
+  mkdir -p "${IMG_TMP}/extlinux"
+
+  cat << EOF > "${IMG_TMP}/extlinux/extlinux.conf"
+LABEL ${DISTRO}
+  LINUX /${KERNEL_NAME}
+  ${fdt_type} /$(get_fdt)
+  APPEND boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} ${EXTRA_CMDLINE}
+EOF
+
+  echo "image: copying extlinux.conf..."
+  mcopy -s -o "${IMG_TMP}/extlinux" ::
+}
+
+mkimage_bootini() {
+  if [ -f "${RELEASE_DIR}/3rdparty/bootloader/${SUBDEVICE}_boot.ini" ]; then
+    echo "image: copying ${SUBDEVICE}_boot.ini..."
+    mcopy "${RELEASE_DIR}/3rdparty/bootloader/${SUBDEVICE}_boot.ini" ::/boot.ini
+  elif [ -f "${RELEASE_DIR}/3rdparty/bootloader/boot.ini" ]; then
+    echo "image: copying boot.ini..."
+    mcopy "${RELEASE_DIR}/3rdparty/bootloader/boot.ini" ::
+  fi
+}
+
+mkimage_dtb() {
+  echo "image: copying device trees..."
+  case "$DEVICE" in
+    RK3326)
+      mcopy "${RELEASE_DIR}/3rdparty/bootloader/device_trees/"*.dtb ::
+      ;;
+    S922X|SDM845|SM8250|SM8550)
+      mcopy "${RELEASE_DIR}/3rdparty/bootloader/"*.dtb ::
+      ;;
+    *)
+      mcopy -s "${RELEASE_DIR}/3rdparty/bootloader/device_trees" ::
+      ;;
+  esac
+
+  if [ -d "${RELEASE_DIR}/3rdparty/bootloader/overlays" ]; then
+    echo "image: copying device tree overlays..."
+    mcopy -s "${RELEASE_DIR}/3rdparty/bootloader/overlays" ::
+  fi
+}
+
+mkimage_gou_extras() {
+  echo "image: copying res..."
+  mcopy "${RELEASE_DIR}/3rdparty/bootloader/res" ::
+}
+
+mkimage_efi() {
+  echo "image: copying EFI files..."
+  mcopy -s -o "${RELEASE_DIR}/3rdparty/bootloader/EFI" ::
+}
+
+mkimage_linuxloader() {
+  echo "image: copying LinuxLoader.cfg..."
+  mcopy "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/bootloader/LinuxLoader.cfg" ::
+}
+
+mkimage_all

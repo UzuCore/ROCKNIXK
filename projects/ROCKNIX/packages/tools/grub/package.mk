@@ -74,7 +74,7 @@ makeinstall_target() {
   cp -av bootaa64.efi ${INSTALL}/usr/share/bootloader/EFI/BOOT
 
   # Create grub configuration
-  find_file_path bootloader/grub && . ${FOUND_PATH}
+  generate_grub_cfg_body > "${INSTALL}/usr/share/bootloader/EFI/BOOT/grub.cfg"
 
   # Always install the update script
   find_file_path bootloader/update.sh && cp -av ${FOUND_PATH} ${INSTALL}/usr/share/bootloader
