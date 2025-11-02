@@ -42,7 +42,6 @@ while true; do
         fi
       ;;
     esac
-    /usr/bin/wifictl setpowersave
     CURRENT_MODE="${AC_STATUS}"
   fi
   ### Until we have an overlay. :rofl:
