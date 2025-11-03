@@ -1201,13 +1201,14 @@ index ceedae9e399b..254ebf8ac0c3 100644
  			};
  		};
  
-@@ -868,6 +957,225 @@ ohci3: usb@5311400 {
+@@ -868,6 +957,226 @@ ohci3: usb@5311400 {
  			status = "disabled";
  		};
  
 +		hdmi: hdmi@6000000 {
 +			compatible = "allwinner,sun50i-h616-dw-hdmi",
 +				     "allwinner,sun50i-h6-dw-hdmi";
++			#sound-dai-cells = <0>;
 +			reg = <0x06000000 0x10000>;
 +			reg-io-width = <1>;
 +			interrupts = <GIC_SPI 63 IRQ_TYPE_LEVEL_HIGH>;
