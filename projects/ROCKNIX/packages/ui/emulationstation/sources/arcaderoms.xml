@@ -4268,6 +4268,7 @@
   <rom id="fatfurspb" name="Fatal Fury Special (SNES bootleg with timer)" />
   <rom id="fatfurwa" name="Fatal Fury: Wild Ambition / Garou Densetsu: Wild Ambition (rev.A)" />
   <rom id="fatfury1" name="Fatal Fury - King of Fighters / Garou Densetsu - Shukumei no Tatakai (NGM-033 ~ NGH-033)" />
+  <rom id="fatfury1k" name="Fatal Fury - King of Fighters / Garou Densetsu - Shukumei no Tatakai (Korean Translation)" />
   <rom id="fatfury2" name="Fatal Fury 2 / Garou Densetsu 2 - Arata-naru Tatakai (NGM-047 ~ NGH-047)" />
   <rom id="fatfury2a" name="Fatal Fury 2 / Garou Densetsu 2 - arata-naru tatakai (NGM-047)" />
   <rom id="fatfury2k" name="Fatal Fury 2 / Garou Densetsu 2 - Arata-naru Tatakai (Korean Translation)" />
@@ -4567,7 +4568,7 @@
   <rom id="flipjack" vert="true" name="Flipper Jack" />
   <rom id="flipmaze" name="Flip Maze (V2.04J 1999/09/02 20:00)" />
   <rom id="flipshot" name="Battle Flip Shot" />
-  <rom id="flipshtk" name="Battle Flip Shot (Korean Translation)" />
+  <rom id="flipshotk" name="Battle Flip Shot (Korean Translation)" />
   <rom id="flipull" name="Flipull (Japan)" />
   <rom id="flkatck" vert="true" name="Flak Attack (Japan)" />
   <rom id="flkatcka" vert="true" name="Flak Attack (Japan, PWB 450593 sub-board)" />
@@ -7343,6 +7344,7 @@
   <rom id="kotm" name="King of the Monsters (set 1)" />
   <rom id="kotm2" name="King of the Monsters 2 - The Next Thing (NGM-039 ~ NGH-039)" />
   <rom id="kotm2a" name="King of the Monsters 2 - The Next Thing (older)" />
+  <rom id="kotm2k" name="King of the Monsters 2 - The Next Thing (Korean Translation)" />
   <rom id="kotm2p" name="King of the Monsters 2 - The Next Thing (prototype)" />
   <rom id="kotmh" name="King of the Monsters (set 2)" />
   <rom id="kouyakyu" name="The Koukou Yakyuu" />
@@ -9666,8 +9668,8 @@
   <rom id="neocart_zupapa" name="Neo Geo Zupapa CMC42 Cart" />
   <rom id="neocdz" name="Neo Geo CDZ system" />
   <rom id="neocstlv" name="Neo CastleVania (HB, Demo)" />
-  <rom id="neocu98k" name="Neo-Geo Cup '98 - The Road to the Victory (Korean Translation)" />
   <rom id="neocup98" name="Neo-Geo Cup '98 - The Road to the Victory" />
+  <rom id="neocup98k" name="Neo-Geo Cup '98 - The Road to the Victory (Korean Translation)" />
   <rom id="neodemo" name="Chaos Demo (Neo Geo)" />
   <rom id="neodrift" name="Neo Drift Out - New Technology" />
   <rom id="neogalag" name="Galaga Demo (HB, set 1)" />
@@ -11229,10 +11231,10 @@
   <rom id="puzloopu" name="Puzz Loop (USA)" />
   <rom id="puzlstar" name="Puzzle Star / Mohuan Xingzuo (ver. 100MG, 09/30/99 build)" />
   <rom id="puzlstara" name="Puzzle Star / Mohuan Xingzuo (ver. 100MG, 09/20/99 build)" />
-  <rom id="puzzldpk" name="Puzzle De Pon! (Korean Translation)" />
   <rom id="puzzldpr" name="Puzzle De Pon! R!" />
-  <rom id="puzzldrk" name="Puzzle De Pon! R! (Korean Translation)" />
+  <rom id="puzzldprk" name="Puzzle De Pon! R! (Korean Translation)" />
   <rom id="puzzledp" name="Puzzle De Pon!" />
+  <rom id="puzzledpk" name="Puzzle De Pon! (Korean Translation)" />
   <rom id="puzzlekg" name="Puzzle King (Dance &amp; Puzzle)" />
   <rom id="puzzlet" name="Puzzlet (Japan)" />
   <rom id="puzzli" name="Puzzli (revision B)" />
@@ -16444,8 +16446,8 @@
   <rom id="wizwarz" name="Wiz Warz (prototype)" />
   <rom id="wizzquiz" name="Wizz Quiz (Konami version)" />
   <rom id="wizzquiza" name="Wizz Quiz (version 4)" />
-  <rom id="wjammerk" name="Windjammers / Flying Power Disc (Korean Translation)" />
   <rom id="wjammers" name="Windjammers / Flying Power Disc" />
+  <rom id="wjammersk" name="Windjammers / Flying Power Disc (Korean Translation)" />
   <rom id="wlcc" name="Wanli Changcheng (China, V638C)" />
   <rom id="wldarrow" name="Wild Arrow (color, Standard V4.8)" />
   <rom id="wldcourt" name="Pro Tennis World Court (Japan)" />
