@@ -109,3 +109,9 @@ fi
 if [ "${DEVICE_HAS_DUAL_SCREEN}" = "true" ]; then
   echo 'for_window [title=".*(Secondary|\[w2\]|Sub|Bottom|Screen 2|GamePad).*"] move window to output '"${connected_cons[0]}" >> $SWAY_HOME/config
 fi
+
+#disable switch focus to secondary screen
+if [ "${QUIRK_DEVICE}" = "AYN Thor" ]; then
+  echo 'seat seat1 attach "0:0:generic_ft5x06_(8d)"' >> $SWAY_HOME/config
+  echo 'seat seat1 fallback yes' >> $SWAY_HOME/config
+fi
