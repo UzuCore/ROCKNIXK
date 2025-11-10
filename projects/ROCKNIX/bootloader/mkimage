@@ -19,6 +19,11 @@ mkimage_uboot() {
     # H700
     echo "image: writing u-boot-sunxi-with-spl.bin to $(basename "${DISK}")..."
     dd if="${RELEASE_DIR}/3rdparty/bootloader/u-boot-sunxi-with-spl.bin" of="${DISK}" bs=1K seek=8 conv=fsync,notrunc >"${SAVE_ERROR}" 2>&1 || show_error
+  elif [ -f "${RELEASE_DIR}/3rdparty/bootloader/rocknix-u-boot.img" ]; then
+    # SM8650
+    echo "image: copying rocknix u-boot files..."
+    mcopy -o "${RELEASE_DIR}/3rdparty/bootloader/rocknix-u-boot.img" ::
+    mcopy -s -o "${RELEASE_DIR}/3rdparty/bootloader/device_trees" ::
   else
     # SM8550
     echo "image: copying u-boot files..."
@@ -27,30 +32,35 @@ mkimage_uboot() {
 }
 
 mkimage_extlinux() {
-  local fdt_type
-  fdt_type=$(get_fdt_type)
+  if [ -d "${RELEASE_DIR}/3rdparty/bootloader/extlinux" ]; then
+    echo "image: copying custom extlinux.conf..."
+    mcopy -s -o "${RELEASE_DIR}/3rdparty/bootloader/extlinux" ::
+  else
+    local fdt_type
+    fdt_type=$(get_fdt_type)
 
-  echo "image: set extlinux.conf to $fdt_type /$(get_fdt)..."
-  mkdir -p "${IMG_TMP}/extlinux"
+    echo "image: set extlinux.conf to $fdt_type /$(get_fdt)..."
+    mkdir -p "${IMG_TMP}/extlinux"
 
-  cat << EOF > "${IMG_TMP}/extlinux/extlinux.conf"
+    cat << EOF > "${IMG_TMP}/extlinux/extlinux.conf"
 LABEL ${DISTRO}
   LINUX /${KERNEL_NAME}
   ${fdt_type} /$(get_fdt)
   APPEND boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} ${EXTRA_CMDLINE}
 EOF
 
-  echo "image: copying extlinux.conf..."
-  mcopy -s -o "${IMG_TMP}/extlinux" ::
+    echo "image: copying extlinux.conf..."
+    mcopy -s -o "${IMG_TMP}/extlinux" ::
+  fi
 }
 
-mkimage_bootini() {
-  if [ -f "${RELEASE_DIR}/3rdparty/bootloader/${SUBDEVICE}_boot.ini" ]; then
-    echo "image: copying ${SUBDEVICE}_boot.ini..."
-    mcopy "${RELEASE_DIR}/3rdparty/bootloader/${SUBDEVICE}_boot.ini" ::/boot.ini
-  elif [ -f "${RELEASE_DIR}/3rdparty/bootloader/boot.ini" ]; then
-    echo "image: copying boot.ini..."
-    mcopy "${RELEASE_DIR}/3rdparty/bootloader/boot.ini" ::
+mkimage_bootscr() {
+  if [ -f "${RELEASE_DIR}/3rdparty/bootloader/${SUBDEVICE}_boot.scr" ]; then
+    echo "image: copying ${SUBDEVICE}_boot.scr..."
+    mcopy "${RELEASE_DIR}/3rdparty/bootloader/${SUBDEVICE}_boot.scr" ::/boot.scr
+  else
+    echo "cannot find ${RELEASE_DIR}/3rdparty/bootloader/${SUBDEVICE}_boot.scr"
+    exit 2
   fi
 }
 
@@ -60,7 +70,7 @@ mkimage_dtb() {
     RK3326)
       mcopy "${RELEASE_DIR}/3rdparty/bootloader/device_trees/"*.dtb ::
       ;;
-    S922X|SDM845|SM8250|SM8550)
+    S922X|SDM845|SM8250|SM8550|SM8650)
       mcopy "${RELEASE_DIR}/3rdparty/bootloader/"*.dtb ::
       ;;
     *)
