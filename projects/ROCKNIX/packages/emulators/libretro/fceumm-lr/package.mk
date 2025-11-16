@@ -20,7 +20,7 @@
 ################################################################################
 
 PKG_NAME="fceumm-lr"
-PKG_VERSION="a5dbb223fc27cc4c7763c977682cfe3b3450d482"
+PKG_VERSION="5cd4a43e16a7f3cd35628d481c347a0a98cfdfa2"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/libretro-fceumm"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
