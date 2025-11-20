@@ -119,6 +119,18 @@
         <image>./images/aethersx2.svg</image>
     </game>
     <game>
+        <path>./Start BigPEmu.sh</path>
+        <name>Start BigPEmu</name>
+        <desc>Opens the BigPEmu GUI (Jaguar) to enable global configuration changes to be made directly to the emulator. It's recommended to have a mouse and keyboard to modify settings.</desc>
+        <developer>ROCKNIX</developer>
+        <publisher>ROCKNIX</publisher>
+        <rating>5.0</rating>
+        <releasedate>2025</releasedate>
+        <genre>Emulator</genre>
+        <players>1</players>
+        <image>./images/bigpemu.svg</image>
+    </game>
+    <game>
         <path>./Start CEMU.sh</path>
         <name>Cemu 실행</name>
         <desc>Cemu GUI(WiiU)를 열어 전역 구성 변경 사항을 에뮬레이터에 직접 적용할 수 있습니다. 설정을 수정하려면 마우스와 키보드를 준비하는 것이 좋습니다. Wii U 게임 및 애플리케이션을 에뮬레이션하는 소프트웨어입니다.</desc>
@@ -165,6 +177,18 @@
         <genre>Emulator</genre>
         <players>1</players>
         <image>./images/duckstation.svg</image>
+    </game>
+    <game>
+        <path>./Start Flycast.sh</path>
+        <name>Start Flycast</name>
+        <desc>Opens the Flycast GUI (Dreamcast / Naomi / Atomiswave) to enable global configuration changes to be made directly to the emulator. It's recommended to have a mouse and keyboard to modify settings.</desc>
+        <developer>ROCKNIX</developer>
+        <publisher>ROCKNIX</publisher>
+        <rating>5.0</rating>
+        <releasedate>2025</releasedate>
+        <genre>Emulator</genre>
+        <players>1</players>
+        <image>./images/flycast.svg</image>
     </game>
     <game>
         <path>./Start HATARISA.sh</path>
@@ -225,6 +249,18 @@
         <genre>Emulator</genre>
         <players>1</players>
         <image>./images/ppsspp.svg</image>
+    </game>
+    <game>
+        <path>./Start SkyEmu.sh</path>
+        <name>Start SkyEmu</name>
+        <desc>Opens the SkyEmu GUI (GB / GBC / GBA / NDS) to enable global configuration changes to be made directly to the emulator. It's recommended to have a mouse and keyboard to modify settings.</desc>
+        <developer>ROCKNIX</developer>
+        <publisher>ROCKNIX</publisher>
+        <rating>5.0</rating>
+        <releasedate>2025</releasedate>
+        <genre>Emulator</genre>
+        <players>1</players>
+        <image>./images/skyemu.svg</image>
     </game>
     <game>
         <path>./Start 32bit Retroarch.sh</path>
