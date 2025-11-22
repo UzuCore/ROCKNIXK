@@ -6,7 +6,7 @@ PKG_VERSION="554ac9ecba348adb35b9782cd96e2f2ecc20b00e"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/flightlessmango/MangoHud"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain glslang mesa Python3 wayland libxcb"
+PKG_DEPENDS_TARGET="toolchain glslang mesa Python3 wayland libxcb dbus"
 PKG_LONGDESC="A Vulkan and OpenGL overlay for monitoring FPS, temperatures, CPU/GPU load and more."
 PKG_PATCH_DIRS+="${DEVICE}"
 
