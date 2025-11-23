@@ -72,7 +72,7 @@ makeinstall_target() {
   esac
 
   mkdir -p ${INSTALL}/usr/config
-    cp ${PKG_BUILD}/system/box86.box86rc ${INSTALL}/usr/config/box86.box86rc
+    cp ${ROOT}/build.${DISTRO}-${DEVICE}.arm/build/${PKG_NAME}-*/system/box86.box86rc ${INSTALL}/usr/config/box86.box86rc
 
   mkdir -p ${INSTALL}/etc
     ln -sf /storage/.config/box86.box86rc ${INSTALL}/etc/box86.box86rc
