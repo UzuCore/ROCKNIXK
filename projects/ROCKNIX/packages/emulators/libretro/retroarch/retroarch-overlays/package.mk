@@ -2,7 +2,7 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="retroarch-overlays"
-PKG_VERSION="0af6d600ee50eb764a9012df1155745c25142399"
+PKG_VERSION="ea3f2bf187ae814fdd90431cf796dfe1438cf98c"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/common-overlays"
 PKG_URL="https://github.com/libretro/common-overlays/archive/${PKG_VERSION}.tar.gz"
