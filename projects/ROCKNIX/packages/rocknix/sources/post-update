@@ -210,3 +210,6 @@ fi
 # Update EmulationStation Resources
 rm -r /storage/.config/emulationstation/resources
 cp -rf /usr/config/emulationstation/resources /storage/.config/emulationstation/
+
+# Clean melonds-sa Gallium HUD config
+sed -i '/nds.show_fps=/d' /storage/.config/system/configs/system.cfg
