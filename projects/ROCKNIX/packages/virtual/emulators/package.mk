@@ -8,7 +8,7 @@ PKG_SECTION="emulation" # Do not change to virtual or makeinstall_target will no
 PKG_LONGDESC="Emulation metapackage."
 PKG_TOOLCHAIN="manual"
 
-PKG_EMUS="amiberry flycast-sa gzdoom-sa hatarisa hypseus-singe moonlight mupen64plus-sa openbor pico-8 ppsspp-sa vice-sa wine"
+PKG_EMUS="amiberry flycast-sa gzdoom-sa hatarisa moonlight mupen64plus-sa openbor pico-8 ppsspp-sa vice-sa wine"
 EMUS_32BIT=""
 
 PKG_RETROARCH="core-info libretro-database retroarch retroarch-assets retroarch-joypads retroarch-overlays slang-shaders"
@@ -326,8 +326,8 @@ makeinstall_target() {
   add_es_system cps3
 
   ### Daphne
-  add_emu_core daphne hypseus-singe hypseus-singe true
-  add_emu_core daphne retroarch daphne false
+  #add_emu_core daphne hypseus-singe hypseus-singe true
+  add_emu_core daphne retroarch daphne true
   add_es_system daphne
 
   ### Sega Dreamcast
