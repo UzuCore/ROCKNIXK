@@ -5,7 +5,7 @@ PKG_NAME="rocknix-abl"
 PKG_VERSION="1.3"
 PKG_ARCH="aarch64"
 PKG_SITE="https://github.com/ROCKNIX/packages"
-PKG_URL="${PKG_SITE}/raw/refs/heads/main/rocknix-abl-e854aed3eedbf03a8ea2c22d8ec7ec21a89e43ed.tar.gz"
+PKG_URL="${PKG_SITE}/raw/refs/heads/main/rocknix-abl-43e24804c9265b484d39e4c785fb425114dca1eb.tar.gz"
 PKG_LONGDESC="ROCKNIX ABL."
 PKG_TOOLCHAIN="manual"
 
