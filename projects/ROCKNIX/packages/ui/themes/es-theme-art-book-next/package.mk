@@ -2,7 +2,7 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="es-theme-art-book-next"
-PKG_VERSION="f64efaf57c2be422be0ab2fb924bc0a962ce23d4"
+PKG_VERSION="2ba7a19534caeb769bb21a97e0c78bfba955fc71"
 PKG_LICENSE="CUSTOM"
 PKG_SITE="https://github.com/UzuCore/es-theme-art-book-dc"
 PKG_URL="https://github.com/UzuCore/es-theme-art-book-dc/archive/${PKG_VERSION}.tar.gz"
