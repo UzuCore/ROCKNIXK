@@ -7,7 +7,7 @@ PKG_VERSION="5f6ad051511dd8af5fb707efc2fd6b56834045d6" # 2.8.1
 PKG_LICENSE="GPL2"
 PKG_SITE="https://github.com/british-choi/scummvm"
 PKG_URL="${PKG_SITE}.git"
-PKG_DEPENDS_TARGET="toolchain SDL2 SDL2_net freetype fluidsynth soundfont-generaluser pipewire libmad libtheora"
+PKG_DEPENDS_TARGET="toolchain SDL2 SDL2_net freetype fluidsynth soundfont-generaluser pipewire libmad libtheora faad2"
 PKG_LONGDESC="Script Creation Utility for Maniac Mansion Virtual Machine"
 
 pre_configure_target() { 

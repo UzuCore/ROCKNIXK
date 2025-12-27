@@ -1565,19 +1565,12 @@ w_download_to()
                 "${_W_url}"
         elif [ "${WINETRICKS_DOWNLOADER}" = "wget" ] ; then
             # Use -nd to insulate ourselves from people who set -x in WGETRC
-            # [*] --retry-connrefused works around the broken sf.net mirroring
-            # system when downloading corefonts
-            # [*] --read-timeout is useful on the adobe server that doesn't
-            # close the connection unless you tell it to (control-C or closing
-            # the socket)
 
             # shellcheck disable=SC2086
             winetricks_wget_progress \
                 -O "${_W_file}" \
                 -nd \
                 -c\
-                --read-timeout 300 \
-                --retry-connrefused \
                 --timeout "${WINETRICKS_DOWNLOADER_TIMEOUT}" \
                 --tries "${WINETRICKS_DOWNLOADER_RETRIES}" \
                 --header "Accept: */*" \
