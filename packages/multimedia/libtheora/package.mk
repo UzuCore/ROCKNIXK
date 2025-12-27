@@ -11,9 +11,10 @@ PKG_BUILD_DEPENDS="libogg libvorbis host-pkgconf"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="On2's VP3 codec"
 PKG_TOOLCHAIN="autotools"
+export CFLAGS="${CFLAGS} -fPIC"
 
 # package specific configure options
-PKG_CONFIGURE_OPTS_TARGET="--disable-examples --disable-oggtest --disable-vorbistest --disable-sdltest --enable-static --disable-shared --disable-spec"
+PKG_CONFIGURE_OPTS_TARGET="--disable-examples --disable-oggtest --disable-vorbistest --disable-sdltest --enable-static --enable-shared --disable-spec"
 
 post_makeinstall_target() {
   mkdir -p ${SYSROOT_PREFIX}/usr/lib/pkgconfig

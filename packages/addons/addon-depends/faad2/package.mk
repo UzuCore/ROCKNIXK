@@ -11,7 +11,7 @@ PKG_URL="https://github.com/knik0/faad2/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="An MPEG-4 AAC decoder."
 
-PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=OFF"
+PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=ON"
 
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/bin
