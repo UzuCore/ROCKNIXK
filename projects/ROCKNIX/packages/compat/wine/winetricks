@@ -76,6 +76,7 @@ WINETRICKS_VERSION=20250102-next
 #   Copyright (C) 2013,2016 André Hentschel <nerv!dawncrow.de>
 #   Copyright (C) 2023 Georgi Georgiev (RacerBG) <g.georgiev.shumen!gmail.com>
 #   Copyright (C) 2025 ykla <yklaxds!gmail.com>
+#   Copyright (C) 2025 Allan Rémy
 #
 # License:
 #   This program is free software; you can redistribute it and/or
@@ -359,6 +360,31 @@ _w_get_broken_messages()
             broken_good_and_bad_version_known_win64="Пакетът (${W_PACKAGE}) е повреден при 64-битовата архитектура на wine-${_wine_version_stripped}. Повреден е от версия ${bad_version}. Използвайте папка, създадена с WINEARCH=win32 или wine to >=${good_version}. Вижте ${bug_link} за повече информация. Използвайте --force, за да опитате въпреки това."
             broken_only_bad_version_known_win64="Пакетът (${W_PACKAGE}) е повреден при 64-битовата архитектура на wine-${_wine_version_stripped}. Повреден е от версия ${bad_version}. Използвайте папка, създадена с WINEARCH=win32. Вижте ${bug_link} за повече информация. Използвайте --force, за да опитате въпреки това."
             broken_no_version_known_win64="Пакетът (${W_PACKAGE}) е повреден, когато wine е създаден без mingw. Вижте ${bug_link} за повече информация. Използвайте --force, за да опитате въпреки това."
+            ;;
+        fr*)
+            # default broken messages
+            broken_good_version_known_default="Ce paquet (${W_PACKAGE}) ne fonctionne pas correctement dans wine-${_wine_version_stripped}. Effectuez une mise à niveau vers >=${good_version}. Consultez ${bug_link} pour plus d'informations. Utilisez --force pour essayer quand même."
+            broken_good_and_bad_version_known_default="Ce paquet (${W_PACKAGE}) est cassé dans wine-${_wine_version_stripped}. Cassé depuis ${bad_version}. Mettez à jour vers >=${good_version}. Voir ${bug_link} pour plus d'informations. Utilisez --force pour essayer quand même."
+            broken_only_bad_version_known_default="Ce paquet (${W_PACKAGE}) est cassé dans wine-${_wine_version_stripped}. Cassé depuis ${bad_version}. Voir ${bug_link} pour plus d'informations. Utilisez --force pour essayer quand même."
+            broken_no_version_known_default="Ce paquet (${W_PACKAGE}) est cassé. Voir ${bug_link} pour plus d'informations. Utilisez --force pour essayer quand même."
+
+            # mingw broken messages
+            broken_good_version_known_mingw="Ce paquet (${W_PACKAGE}) ne fonctionne pas sous wine-${_wine_version_stripped} lorsque wine est compilé avec mingw. Effectuez une mise à niveau vers >=${good_version} ou recompilez wine sans mingw. Consultez ${bug_link} pour plus d'informations. Utilisez --force pour essayer quand même."
+            broken_good_and_bad_version_known_mingw="Ce paquet (${W_PACKAGE}) est cassé dans wine-${_wine_version_stripped}. Cassé depuis ${bad_version} lorsque wine est compilé avec mingw. Mettez à jour vers >=${good_version} ou recompilez wine sans mingw. Voir ${bug_link} pour plus d'informations. Utilisez --force pour essayer quand même."
+            broken_only_bad_version_known_mingw="Ce paquet (${W_PACKAGE}) est cassé dans wine-${_wine_version_stripped}. Cassé depuis ${bad_version} lorsque wine est compilé avec mingw. Voir ${bug_link} pour plus d'informations. Utilisez --force pour essayer quand même."
+            broken_no_version_known_mingw="Ce paquet (${W_PACKAGE}) est cassé lorsque Wine est compilé avec mingw. Voir ${bug_link} pour plus d'informations. Utilisez --force pour essayer quand même."
+
+            # no mingw broken messages
+            broken_good_version_known_no_mingw="Ce paquet (${W_PACKAGE}) est défectueux dans wine-${_wine_version_stripped} lorsque wine est compilé sans mingw. Effectuez une mise à niveau vers >=${good_version}. Consultez ${bug_link} pour plus d'informations. Utilisez --force pour essayer quand même."
+            broken_good_and_bad_version_known_no_mingw="Ce paquet (${W_PACKAGE}) est cassé dans wine-${_wine_version_stripped}. Cassé depuis ${bad_version} lorsque wine est compilé sans mingw. Mettez à jour vers >=${good_version}. Voir ${bug_link} pour plus d'informations. Utilisez --force pour essayer quand même."
+            broken_only_bad_version_known_no_mingw="Ce paquet (${W_PACKAGE}) est cassé dans wine-${_wine_version_stripped}. Cassé depuis ${bad_version} lorsque wine est compilé sans mingw. Voir ${bug_link} pour plus d'informations. Utilisez --force pour essayer quand même."
+            broken_no_version_known_no_mingw="Ce paquet (${W_PACKAGE}) est cassé lorsque wine est compilé sans mingw. Voir ${bug_link} pour plus d'informations. Utilisez --force pour essayer quand même."
+
+            # win64 broken messages
+            broken_good_version_known_win64="Ce paquet (${W_PACKAGE}) ne fonctionne pas sous Wine 64 bits-${_wine_version_stripped}. Utilisez un préfixe créé avec WINEARCH=win32 ou mettez à niveau Wine vers >=${good_version} pour contourner ce problème. Ou utilisez --force pour essayer quand même. Voir ${bug_link} pour plus d'informations. Utilisez --force pour essayer quand même."
+            broken_good_and_bad_version_known_win64="Ce paquet (${W_PACKAGE}) est cassé sur wine-${_wine_version_stripped} 64 bits. Cassé depuis ${bad_version}. Utilisez un préfixe créé avec WINEARCH=win32 ou mettez à jour wine vers >=${good_version} pour contourner ce problème. Voir ${bug_link} pour plus d'informations. Utilisez --force pour essayer quand même."
+            broken_only_bad_version_known_win64="Ce paquet (${W_PACKAGE}) est cassé sur wine-${_wine_version_stripped} 64 bits. Cassé depuis ${bad_version}. Utilisez un préfixe créé avec WINEARCH=win32 pour contourner ce problème. Voir ${bug_link} pour plus d'informations. Utilisez --force pour essayer quand même."
+            broken_no_version_known_win64="Ce paquet (${W_PACKAGE}) est cassé lorsque wine est compilé sans mingw. Voir ${bug_link} pour plus d'informations. Utilisez --force pour essayer quand même."
             ;;
         pt*)
             # default broken messages
@@ -1149,6 +1175,29 @@ w_get_github_latest_prerelease()
     case "${json_length}" in
         0*) latest_version="$(sed -e "s/\",\"/|/g" "${W_TMP_EARLY}/release.json" | tr '|' '\n' | grep tag_name -m 1 | sed 's@.*"@@')";;
         *) latest_version="$(grep -m 1 -w tag_name "${W_TMP_EARLY}/release.json" | cut -d '"' -f 4)";;
+    esac
+
+    echo "${latest_version}"
+}
+
+# Get the latest tagged release from gitlab.com API
+w_get_gitlab_latest_release()
+{
+    # FIXME: can we get releases that aren't on master branch?
+    org="$1"
+    repo="$2"
+
+    # release.json might still exists from the previous verb
+    w_try rm -f "${W_TMP_EARLY}/release.json"
+
+    WINETRICKS_SUPER_QUIET=1 w_download_to "${W_TMP_EARLY}" "https://gitlab.com/api/v4/projects/${org}%2F${repo}/releases" "" "release.json" >/dev/null 2>&1
+
+    # aria2c condenses the json (https://github.com/aria2/aria2/issues/1389)
+    # but curl/wget don't, so handle both cases:
+    json_length="$(wc -l "${W_TMP_EARLY}/release.json")"
+    case "${json_length}" in
+        0*) latest_version="$(sed -e "s/\",\"/|/g" "${W_TMP_EARLY}/release.json" | tr '|' '\n' | grep tag_name | sed 's@.*"@@' | head -n 1)";;
+        *) latest_version="$(grep -w tag_name "${W_TMP_EARLY}/release.json" | cut -d '"' -f 4 | head -n 1)";;
     esac
 
     echo "${latest_version}"
@@ -3186,6 +3235,17 @@ winetricks_prefixmenu()
             _W_msg_unattended1="Включване на автоматичното инсталиране"
             _W_msg_help="Отваряне на помощта"
             ;;
+        fr*) _W_msg_title="Winetricks - Choisir un préfixe"
+            _W_msg_body="Que souhaitez-vous faire ?"
+            _W_msg_apps="Installer une application"
+            _W_msg_benchmarks="Installer un benchmark"
+            _W_msg_default="Sélectionner le préfixe par défaut"
+            _W_msg_mkprefix="Créer un nouveau préfixe"
+            _W_msg_unattended0="Désactiver une installation silencieuse"
+            _W_msg_unattended1="Activer une installation silencieuse"
+            _W_msg_help="Voir aide"
+            _W_msg_cancel="Quitter"
+            ;;
         ru*) _W_msg_title="Winetricks - выберите путь wine (префикс)"
             _W_msg_body='Что вы хотите сделать?'
             _W_msg_apps='Установить программу'
@@ -3366,6 +3426,10 @@ winetricks_mkprefixmenu()
             _W_msg_name="Name"
             _W_msg_arch="Architektur"
             ;;
+        fr*)  _W_msg_title="Winetricks - Créer un nouveau préfixe"
+            _W_msg_name="Nom :"
+            _W_msg_arch="Architecture"
+            ;;
         pt*) _W_msg_title="Winetricks - criar novo wineprefix"
             _W_msg_name="Nome"
             _W_msg_arch="Arquitetura"
@@ -3451,6 +3515,23 @@ winetricks_mainmenu()
             _W_msg_folder='Ordner durchsuchen'
             _W_msg_annihilate="ALLE DATEIEN UND PROGRAMME IN DIESEM WINEPREFIX Löschen"
             ;;
+        fr*) _W_msg_title="Winetricks - Le préfixe actuel est \"${WINEPREFIX}\""
+            _W_msg_body='Que souhaitez-vous faire avec ce préfixe ?'
+            _W_msg_cancel="Revenir en arrière"
+            _W_msg_dlls="Installer une DLL ou un composant Windows"
+            _W_msg_fonts='Installer une police'
+            _W_msg_settings='Modifier les paramètres'
+            _W_msg_winecfg='Exécuter winecfg'
+            _W_msg_regedit='Exécuter regedit'
+            _W_msg_taskmgr='Exécuter taskmgr'
+            _W_msg_explorer='Exécuter explorer'
+            _W_msg_uninstaller='Exécuter uninstaller'
+            _W_msg_winecmd='Exécuter une invite de commande'
+            _W_msg_wine_misc_exe='Exécuter un exécutable arbitraire (.exe/.msi/.msu)'
+            _W_msg_shell='Exécuter une invite de commande pour le débogage'
+            _W_msg_folder='Parcourir les fichiers'
+            _W_msg_annihilate="Supprimer TOUTES LES DONNÉES ET APPLICATIONS CONTENUES DANS CE PRÉFIXE"
+            ;;
         pl*) _W_msg_title="Winetricks - obecny prefiks to \"${WINEPREFIX}\""
             _W_msg_body='Co chcesz zrobić w tym prefiksie?'
             _W_msg_dlls="Zainstalować windowsową bibliotekę DLL lub komponent"
@@ -3465,7 +3546,7 @@ winetricks_mainmenu()
             _W_msg_wine_misc_exe='Run an arbitrary executable (.exe/.msi/.msu)'
             _W_msg_shell='Uruchomić powłokę wiersza poleceń (dla debugowania)'
             _W_msg_folder='Przeglądać pliki'
-            _W_msg_annihilate="Usuńąć WSZYSTKIE DANE I APLIKACJE WEWNĄTRZ TEGO PREFIKSU WINE"
+            _W_msg_annihilate="Usunąć WSZYSTKIE DANE I APLIKACJE WEWNĄTRZ TEGO PREFIKSU WINE"
             ;;
         pt*) _W_msg_title="Winetricks - o prefixo atual é \"${WINEPREFIX}\""
             _W_msg_body='O que você gostaria de fazer com este prefixo wineprefix?'
@@ -3637,6 +3718,9 @@ winetricks_settings_menu()
         de*) _W_msg_title="Winetricks - Aktueller Präfix ist \"${WINEPREFIX}\""
             _W_msg_body='Welche Einstellungen möchten Sie ändern?'
             ;;
+        fr*) _W_msg_title="Winetricks - Le préfixe actuel est \"${WINEPREFIX}\""
+            _W_msg_body='Quels paramètres souhaitez-vous modifier ?'
+            ;;
         pl*) _W_msg_title="Winetricks - obecny prefiks to \"${WINEPREFIX}\""
             _W_msg_body='Jakie ustawienia chcesz zmienić?'
             ;;
@@ -3695,6 +3779,19 @@ winetricks_settings_menu()
                         --column '' \
                         --column Einstellung \
                         --column Name \
+                        --height ${WINETRICKS_MENU_HEIGHT} \
+                        --width ${WINETRICKS_MENU_WIDTH} \
+                        "
+                    ;;
+                fr*) printf %s "zenity \
+                        --title '${_W_msg_title}' \
+                        --text '${_W_msg_body}' \
+                        --cancel-label 'Revenir en arrière' \
+                        --list \
+                        --checklist \
+                        --column '' \
+                        --column Paramètres \
+                        --column Titre \
                         --height ${WINETRICKS_MENU_HEIGHT} \
                         --width ${WINETRICKS_MENU_WIDTH} \
                         "
@@ -3860,6 +3957,10 @@ winetricks_showmenu()
             _W_msg_body='Welche Paket(e) möchten Sie installieren?'
             _W_cached="gecached"
             ;;
+        fr*) _W_msg_title="Winetricks - Le préfixe actuel est \"${WINEPREFIX}\""
+            _W_msg_body="Quel(s) paquet(s) souhaitez-vous installer ?"
+            _W_cached="mis en cache"
+            ;;
         pl*) _W_msg_title="Winetricks - obecny prefiks to \"${WINEPREFIX}\""
             _W_msg_body='Które paczki chesz zainstalować?'
             _W_cached="zarchiwizowane"
@@ -3936,6 +4037,22 @@ winetricks_showmenu()
                         --column Name \
                         --column Herausgeber \
                         --column Jahr \
+                        --column Media \
+                        --column Status \
+                        --height ${WINETRICKS_MENU_HEIGHT} \
+                        --width ${WINETRICKS_MENU_WIDTH} \
+                        "
+                        ;;
+                fr*) printf %s "zenity \
+                        --title '${_W_msg_title}' \
+                        --text '${_W_msg_body}' \
+                        --list \
+                        --checklist \
+                        --column '' \
+                        --column Package \
+                        --column Titre \
+                        --column Éditeur \
+                        --column Année \
                         --column Media \
                         --column Status \
                         --height ${WINETRICKS_MENU_HEIGHT} \
@@ -4282,6 +4399,7 @@ winetricks_list_all()
         bg*) _W_cached="кеширано"   ; _W_download="за изтегляне"  ;;
         da*) _W_cached="cached"   ; _W_download="kan hentes"    ;;
         de*) _W_cached="gecached" ; _W_download="herunterladbar";;
+        fr*) _W_cached="mis en cache"   ; _W_download="téléchargeable";;
         pl*) _W_cached="zarchiwizowane"   ; _W_download="do pobrania"  ;;
         pt*) _W_cached="em cache"   ; _W_download="para download"  ;;
         ru*) _W_cached="в кэше"   ; _W_download="доступно для скачивания"  ;;
@@ -4602,6 +4720,7 @@ winetricks_set_wineprefix()
         if [ "${W_NO_WIN64_WARNINGS}" = 0 ]; then
             case ${LANG} in
                 bg*) w_warn "Използвате 64-битова папка. Повечето програми са за 32-битова архитектура. Ако възникнат проблеми, моля, използвайте 32-битова папка, преди да ги докладвате." ;;
+                fr*) w_warn "Vous utilisez un WINEPREFIX 64 bits. Notez que de nombreux verbes n'installent que des versions 32 bits des paquets. Si vous rencontrez des problèmes, veuillez refaire un test dans un WINEPREFIX 32 bits propre avant de signaler un bug." ;;
                 ru*) w_warn "Вы используете 64-битный WINEPREFIX. Важно: многие ветки устанавливают только 32-битные версии пакетов. Если у вас возникли проблемы, пожалуйста, проверьте еще раз на чистом 32-битном WINEPREFIX до отправки отчета об ошибке." ;;
                 pt*) w_warn "Você está usando um WINEPREFIX de 64-bit. Observe que muitos casos instalam apenas versões de pacotes de 32-bit. Se você encontrar problemas, teste novamente em um WINEPREFIX limpo de 32-bit antes de relatar um bug." ;;
                 zh_CN*) w_warn "您正在使用 64 位的 WINEPREFIX。请注意，许多脚本（verbs）只安装 32 位版本的软件包。如果遇到问题，请先在干净的 32 位 WINEPREFIX 中重新测试，然后再报告错误。" ;;
@@ -4714,6 +4833,7 @@ winetricks_annihilate_wineprefix()
 
     case ${LANG} in
         bg*) w_askpermission "Изтриване на ${WINEPREFIX}, нейните приложения, икони и менюта?" ;;
+        fr*) w_askpermission "Supprimer ${WINEPREFIX}, ses applications, ses icônes et ses éléments de menu ?" ;;
         uk*) w_askpermission "Бажаєте видалити '${WINEPREFIX}'?" ;;
         pl*) w_askpermission "Czy na pewno chcesz usunąć prefiks ${WINEPREFIX} i wszystkie jego elementy?" ;;
         pt*) w_askpermission "Apagar ${WINEPREFIX}, Estes apps, ícones e ítens do menu?" ;;
@@ -5077,6 +5197,50 @@ prefix=foobar         WINEPREFIX=${W_PREFIXES_ROOT}/foobar auswählen
 annihilate            ALLE DATEIEN UND PROGRAMME IN DIESEM WINEPREFIX Löschen
 _EOF_
             ;;
+        fr*)
+            cat <<_EOF_
+Utilisation : $0 [options] [commande|verbe|chemin-vers-le-verbe] ...
+Exécute les verbes donnés. Chaque verbe installe une application ou modifie un paramètre.
+
+Options :
+    --country=CC      Définit le code pays sur CC et ne détecte pas votre adresse IP
+-f, --force           Ne vérifie pas si les paquets sont déjà installés
+    --gui             Affiche les diagnostics de l'interface graphique même lorsque l'application est lancée en ligne de commande
+    --gui=OPT         Définit OPT sur kdialog ou zenity pour remplacer le moteur GUI
+    --isolate         Installe chaque application ou jeu dans son propre bottle (WINEPREFIX)
+    --self-update     Mettre à jour cette application vers la dernière version (non Debian)
+    --update-rollback Annuler la dernière mise à jour automatique
+-k, --keep_isos       Mettre en cache les images ISO (permet une installation ultérieure sans disque)
+    --no-clean        Ne pas supprimer les répertoires temporaires (utile pendant le débogage)
+    --optin           Activer le rapport des verbes que vous utilisez aux responsables de Winetricks
+    --optout          Désactiver le rapport des verbes que vous utilisez aux responsables de Winetricks
+-q, --unattended      Ne poser aucune question, installer automatiquement
+-r, --ddrescue        Réessayer plusieurs fois lors de la mise en cache de disques rayés
+-t  --torify          Exécute les téléchargements sous torify, si disponible
+    --verify          Exécute des tests GUI (automatisés) pour les verbes, si disponibles
+-v, --verbose         Affiche toutes les commandes au fur et à mesure de leur exécution
+-h, --help            Affiche ce message et quitte
+-V, --version         Affiche la version et quitte
+
+Commandes :
+list                  Liste des catégories
+list-all              Liste toutes les catégories et leurs verbes
+apps list             Liste les verbes dans la catégorie « applications »
+benchmarks list       Liste les verbes dans la catégorie « benchmarks »
+dlls list             Liste les verbes de la catégorie « dlls »
+fonts list            Liste les verbes de la catégorie « polices »
+settings list         Liste les verbes de la catégorie « paramètres »
+list-cached           Liste les verbes mis en cache et prêts à être installés
+list-download         Liste les verbes qui se téléchargent automatiquement
+list-manual-download  Liste les verbes qui se téléchargent avec l'aide de l'utilisateur
+list-installed        Liste les verbes déjà installés
+arch=32|64            Crée un préfixe en 32 ou 64 bits, cette option doit être
+                      Spécifiée avant prefix=foobar et ne fonctionnera pas dans le cas du
+                      wineprefix par défaut.
+prefix=foobar         Sélectionner WINEPREFIX=${W_PREFIXES_ROOT}/foobar
+annihilate            Supprimer TOUTES LES DONNÉES ET APPLICATIONS CONTENUES DANS CE WINEPREFIX
+_EOF_
+            ;;
         zh_CN*)
             cat <<_EOF_
 用法：$0 [选项] [命令|脚本|脚本路径] ...
@@ -5115,6 +5279,7 @@ list-installed        列出已安装的脚本
 arch=32|64            创建 32 位或 64 位 wineprefix，此选项必须在 prefix=foobar 之前指定，默认 wineprefix 不支持此选项
 prefix=foobar         选择 WINEPREFIX 为 ${W_PREFIXES_ROOT}/foobar
 annihilate            删除该 WINEPREFIX 内的所有数据和应用程序
+_EOF_
             ;;
         *)
             cat <<_EOF_
@@ -6445,7 +6610,7 @@ load_dinput8()
 #----------------------------------------------------------------
 
 w_metadata dinputto8 dlls \
-    title="A dll module that is designed to improve compatibility in games using DirectInput 1-7 by converting all API calls to their equivalent DirectInput 8 (1.0.78.0)" \
+    title="A dll module that is designed to improve compatibility in games using DirectInput 1-7 by converting all API calls to their equivalent DirectInput 8 (1.0.92.0)" \
     homepage="https://github.com/elishacloud/dinputto8" \
     publisher="Elisha Riedlinger" \
     year="2018" \
@@ -6456,7 +6621,7 @@ w_metadata dinputto8 dlls \
 
 load_dinputto8()
 {
-    w_download https://github.com/elishacloud/dinputto8/releases/download/v1.0.78.0/dinput.dll 467f50cac676635ed68658b8be32e1a2cacece37a22bb13e8ec8330706a32ca7
+    w_download https://github.com/elishacloud/dinputto8/releases/download/v1.0.92.0/dinput.dll 8f1e53a55c66f870b91c1e43a39c02a4a87900cf453776de41643863bdfa00e6
     w_try_cp_dll "${W_CACHE}/${W_PACKAGE}/dinput.dll" "${W_SYSTEM32_DLLS}/dinput.dll"
     w_override_dlls native dinput
 }
@@ -7809,96 +7974,6 @@ load_dxvk2071()
     helper_dxvk "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
 }
 
-w_metadata dxvk2041g dlls \
-    title="Vulkan-based D3D8/D3D9/D3D10/D3D11 implementation for Linux / Wine (2.4.1)" \
-    publisher="Philip Rebohle" \
-    year="2024" \
-    media="download" \
-    file1="dxvk-gplasync-v2.4.1-1.tar.gz" \
-    installed_file1="${W_SYSTEM32_DLLS_WIN}/d3d8.dll" \
-    installed_file2="${W_SYSTEM32_DLLS_WIN}/d3d9.dll" \
-    installed_file3="${W_SYSTEM32_DLLS_WIN}/d3d10core.dll" \
-    installed_file4="${W_SYSTEM32_DLLS_WIN}/d3d11.dll" \
-    installed_file5="${W_SYSTEM32_DLLS_WIN}/dxgi.dll"
-
-load_dxvk2041g()
-{
-    w_download "https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/releases/dxvk-gplasync-v2.4.1-1.tar.gz" ee96eaf60d3d924434cced411b80d7f0669d97b7121db1890bf2b18e71f8a1f4
-    helper_dxvk "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
-}
-
-w_metadata dxvk2053g dlls \
-    title="Vulkan-based D3D8/D3D9/D3D10/D3D11 implementation for Linux / Wine (2.5.3)" \
-    publisher="Philip Rebohle" \
-    year="2025" \
-    media="download" \
-    file1="dxvk-gplasync-v2.5.3-1.tar.gz" \
-    installed_file1="${W_SYSTEM32_DLLS_WIN}/d3d8.dll" \
-    installed_file2="${W_SYSTEM32_DLLS_WIN}/d3d9.dll" \
-    installed_file3="${W_SYSTEM32_DLLS_WIN}/d3d10core.dll" \
-    installed_file4="${W_SYSTEM32_DLLS_WIN}/d3d11.dll" \
-    installed_file5="${W_SYSTEM32_DLLS_WIN}/dxgi.dll"
-
-load_dxvk2053g()
-{
-    w_download "https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/releases/dxvk-gplasync-v2.5.3-1.tar.gz" 510046f5bc142d9f9e51a8e6a6e88974a2b290c0035da955668d0e8d7b425943
-    helper_dxvk "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
-}
-
-w_metadata dxvk2062g dlls \
-    title="Vulkan-based D3D8/D3D9/D3D10/D3D11 implementation for Linux / Wine (2.6.2)" \
-    publisher="Philip Rebohle" \
-    year="2025" \
-    media="download" \
-    file1="dxvk-gplasync-v2.6.2-1.tar.gz" \
-    installed_file1="${W_SYSTEM32_DLLS_WIN}/d3d8.dll" \
-    installed_file2="${W_SYSTEM32_DLLS_WIN}/d3d9.dll" \
-    installed_file3="${W_SYSTEM32_DLLS_WIN}/d3d10core.dll" \
-    installed_file4="${W_SYSTEM32_DLLS_WIN}/d3d11.dll" \
-    installed_file5="${W_SYSTEM32_DLLS_WIN}/dxgi.dll"
-
-load_dxvk2062g()
-{
-    w_download "https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/releases/dxvk-gplasync-v2.6.2-1.tar.gz" c645d3f2550ff66d0a51ba27a535aaa7351fd087feb7b298e7283cb2a3ee173b
-    helper_dxvk "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
-}
-
-w_metadata dxvk2070g dlls \
-    title="Vulkan-based D3D8/D3D9/D3D10/D3D11 implementation for Linux / Wine (2.7.0)" \
-    publisher="Philip Rebohle" \
-    year="2025" \
-    media="download" \
-    file1="dxvk-gplasync-v2.7-1.tar.gz" \
-    installed_file1="${W_SYSTEM32_DLLS_WIN}/d3d8.dll" \
-    installed_file2="${W_SYSTEM32_DLLS_WIN}/d3d9.dll" \
-    installed_file3="${W_SYSTEM32_DLLS_WIN}/d3d10core.dll" \
-    installed_file4="${W_SYSTEM32_DLLS_WIN}/d3d11.dll" \
-    installed_file5="${W_SYSTEM32_DLLS_WIN}/dxgi.dll"
-
-load_dxvk2070g()
-{
-    w_download "https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/releases/dxvk-gplasync-v2.7-1.tar.gz" 612e6b059d060bb51a46085ae9abf4036bc1c357e174e3f1924d266c632dfe97
-    helper_dxvk "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
-}
-
-w_metadata dxvk2071g dlls \
-    title="Vulkan-based D3D8/D3D9/D3D10/D3D11 implementation for Linux / Wine (2.7.1)" \
-    publisher="Philip Rebohle" \
-    year="2025" \
-    media="download" \
-    file1="dxvk-gplasync-v2.7.1-1.tar.gz" \
-    installed_file1="${W_SYSTEM32_DLLS_WIN}/d3d8.dll" \
-    installed_file2="${W_SYSTEM32_DLLS_WIN}/d3d9.dll" \
-    installed_file3="${W_SYSTEM32_DLLS_WIN}/d3d10core.dll" \
-    installed_file4="${W_SYSTEM32_DLLS_WIN}/d3d11.dll" \
-    installed_file5="${W_SYSTEM32_DLLS_WIN}/dxgi.dll"
-
-load_dxvk2071g()
-{
-    w_download "https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/releases/dxvk-gplasync-v2.7.1-1.tar.gz" 590050b88be7b156cf641abe762e1ad47ebbe828f7f0edb2970aa4716ee3af6d
-    helper_dxvk "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
-}
-
 #----------------------------------------------------------------
 
 w_metadata dxvk dlls \
@@ -7920,6 +7995,123 @@ load_dxvk()
     w_linkcheck_ignore=1 w_download "https://github.com/doitsujin/dxvk/releases/download/v${_W_dxvk_version}/dxvk-${_W_dxvk_version}.tar.gz"
     helper_dxvk "dxvk-${_W_dxvk_version}.tar.gz" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
     unset _W_dxvk_version
+}
+
+#----------------------------------------------------------------
+
+# $1 - dxvk async archive name (required)
+# $2 - dxvk async version (required)
+# $3 - minimum Wine version (required)
+# $4 - minimum Vulkan API version (required)
+# $5 - [dxgi,][d3d8,][d3d9,][d3d10core,]d3d11 (required)
+helper_dxvk_async()
+{
+    _W_package_archive="${1}"
+    _W_package_version="${2}"
+    _W_min_wine_version="${3}"
+    _W_min_vulkan_version="${4}"
+    _W_dll_overrides="$(echo "${5}" | sed 's/,/ /g')"
+    # dxvk async repository, for d3d8/d3d9/d3d10/d3d11 support
+    _W_repository="Ph42oN/dxvk-gplasync"
+
+    _W_supported_overrides="dxgi d3d8 d3d9 d3d10core d3d11"
+    _W_invalid_overrides="$(echo "${_W_dll_overrides}" | awk -vvalid_overrides_regex="$(echo "${_W_supported_overrides}" | sed 's/ /|/g')" '{ gsub(valid_overrides_regex,""); sub("[ ]*",""); print $0 }')"
+    if [ "${_W_invalid_overrides}" != "" ]; then
+        w_die "parameter (4) unsupported dll override: '${_W_invalid_overrides}' ; supported dll overrides: ${_W_supported_overrides}"
+    fi
+
+    _W_package_dir="${_W_package_archive%.tar.gz}"
+    w_warn "Please refer to ${_W_repository#*/} version ${_W_package_version} release notes... See: https://gitlab.com/${_W_repository}/-/releases/v${_W_package_version}"
+    w_warn "Please refer to current dxvk base graphics driver requirements... See: https://github.com/doitsujin/dxvk/wiki/Driver-support" # The async fork lacks a wiki, and upstream's is most relevant anyway
+
+    if w_wine_version_in ",${_W_min_wine_version}" ; then
+        # shellcheck disable=SC2140
+        w_warn "${_W_repository#*/} ${_W_package_version} does not support wine version ${_wine_version_stripped} . "\
+            "${_W_repository#*/} ${_W_package_version} requires wine version ${_W_min_wine_version} (or newer). "\
+            "Vulkan ${_W_min_vulkan_version} API (or newer) support is recommended."
+    fi
+
+    if [ "${_W_package_archive##*.}" = "zip" ]; then
+        w_try_unzip "${W_TMP}" "${W_CACHE}/${W_PACKAGE}/${_W_package_archive}"
+    else
+        w_try tar -C "${W_TMP}" -zxf "${W_CACHE}/${W_PACKAGE}/${_W_package_archive}"
+    fi
+
+    for _W_dll in ${_W_dll_overrides}; do
+        w_try mv "${W_TMP}/${_W_package_dir}/x32/${_W_dll}.dll" "${W_SYSTEM32_DLLS}/"
+    done
+
+    if test "${W_ARCH}" = "win64"; then
+        for _W_dll in ${_W_dll_overrides}; do
+            w_try mv "${W_TMP}/${_W_package_dir}/x64/${_W_dll}.dll" "${W_SYSTEM64_DLLS}/"
+        done
+    fi
+    # shellcheck disable=SC2086
+    w_override_dlls native ${_W_dll_overrides}
+
+    unset _W_dll _W_dll_overrides _W_invalid_overrides _W_min_vulkan_version _W_min_wine_version \
+        _W_package_archive _W_package_dir _W_package_version \
+        _W_repository _W_supported_overrides
+}
+
+#----------------------------------------------------------------
+
+w_metadata dxvk2041g dlls \
+    title="Vulkan-based D3D8/D3D9/D3D10/D3D11 implementation for Linux / Wine (2.4.1)" \
+    publisher="Philip Rebohle" \
+    year="2024" \
+    media="download" \
+    file1="dxvk-gplasync-v2.4.1-1.tar.gz" \
+    installed_file1="${W_SYSTEM32_DLLS_WIN}/d3d8.dll" \
+    installed_file2="${W_SYSTEM32_DLLS_WIN}/d3d9.dll" \
+    installed_file3="${W_SYSTEM32_DLLS_WIN}/d3d10core.dll" \
+    installed_file4="${W_SYSTEM32_DLLS_WIN}/d3d11.dll" \
+    installed_file5="${W_SYSTEM32_DLLS_WIN}/dxgi.dll"
+
+load_dxvk2041g()
+{
+    w_download "https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/releases/dxvk-gplasync-v2.4.1-1.tar.gz" ee96eaf60d3d924434cced411b80d7f0669d97b7121db1890bf2b18e71f8a1f4
+    helper_dxvk_async "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
+}
+
+w_metadata dxvk2071g dlls \
+    title="Vulkan-based D3D8/D3D9/D3D10/D3D11 implementation for Linux / Wine (2.7.1)" \
+    publisher="Philip Rebohle" \
+    year="2025" \
+    media="download" \
+    file1="dxvk-gplasync-v2.7.1-1.tar.gz" \
+    installed_file1="${W_SYSTEM32_DLLS_WIN}/d3d8.dll" \
+    installed_file2="${W_SYSTEM32_DLLS_WIN}/d3d9.dll" \
+    installed_file3="${W_SYSTEM32_DLLS_WIN}/d3d10core.dll" \
+    installed_file4="${W_SYSTEM32_DLLS_WIN}/d3d11.dll" \
+    installed_file5="${W_SYSTEM32_DLLS_WIN}/dxgi.dll"
+
+load_dxvk2071g()
+{
+    w_download "https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/releases/dxvk-gplasync-v2.7.1-1.tar.gz" 590050b88be7b156cf641abe762e1ad47ebbe828f7f0edb2970aa4716ee3af6d
+    helper_dxvk_async "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
+}
+
+#----------------------------------------------------------------
+w_metadata dxvk_async dlls \
+    title="DXVK with Async and GPL patches [USE AT OWN RISK IN GAMES WITH ANTICHEAT] (latest)" \
+    publisher="Ph42oN" \
+    year="2025" \
+    media="download" \
+    installed_file1="${W_SYSTEM32_DLLS_WIN}/d3d8.dll" \
+    installed_file2="${W_SYSTEM32_DLLS_WIN}/d3d9.dll" \
+    installed_file3="${W_SYSTEM32_DLLS_WIN}/d3d10core.dll" \
+    installed_file4="${W_SYSTEM32_DLLS_WIN}/d3d11.dll" \
+    installed_file5="${W_SYSTEM32_DLLS_WIN}/dxgi.dll"
+
+load_dxvk_async()
+{
+    # https://gitlab.com/Ph42oN/dxvk-gplasync
+    _W_dxvk_async_version="$(w_get_gitlab_latest_release Ph42oN dxvk-gplasync)"
+    _W_dxvk_async_version="${_W_dxvk_async_version#v}"
+    w_linkcheck_ignore=1 w_download "https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/releases/dxvk-gplasync-v${_W_dxvk_async_version}.tar.gz"
+    helper_dxvk_async "dxvk-gplasync-v${_W_dxvk_async_version}.tar.gz" "${_W_dxvk_async_version}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
+    unset _W_dxvk_async_version
 }
 
 #----------------------------------------------------------------
@@ -9870,7 +10062,7 @@ load_dsound()
 
     # Don't try to register native dsound; it doesn't export DllRegisterServer().
     #w_try_regsvr32 dsound.dll
-    w_override_dlls native dsound
+    w_override_dlls native,builtin dsound
 }
 
 #----------------------------------------------------------------
@@ -12817,7 +13009,7 @@ load_vcrun2003()
 {
     # Sadly, I know of no Microsoft URL for these
     # winetricks-test can't handle ${file1} in url since it does a raw parsing :/
-    w_download https://sourceforge.net/projects/bzflag/files/bzedit%20win32/1.6.5/BZEditW32_1.6.5.exe 84d1bda5dbf814742898a2e1c0e4bc793e9bc1fba4b7a93d59a7ef12bd0fd802
+    w_download https://downloads.sourceforge.net/project/bzflag/bzedit%20win32/1.6.5/BZEditW32_1.6.5.exe 84d1bda5dbf814742898a2e1c0e4bc793e9bc1fba4b7a93d59a7ef12bd0fd802
 
     w_try_7z "${W_SYSTEM32_DLLS}" "${W_CACHE}/vcrun2003/BZEditW32_1.6.5.exe" "mfc71.dll" "msvcp71.dll" "msvcr71.dll" -y
 }
@@ -12832,7 +13024,7 @@ w_metadata mfc71 dlls \
 
 load_mfc71()
 {
-    w_download_to vcrun2003 https://sourceforge.net/projects/bzflag/files/bzedit%20win32/1.6.5/BZEditW32_1.6.5.exe 84d1bda5dbf814742898a2e1c0e4bc793e9bc1fba4b7a93d59a7ef12bd0fd802
+    w_download_to vcrun2003 https://downloads.sourceforge.net/project/bzflag/bzedit%20win32/1.6.5/BZEditW32_1.6.5.exe 84d1bda5dbf814742898a2e1c0e4bc793e9bc1fba4b7a93d59a7ef12bd0fd802
 
     w_try_7z "${W_SYSTEM32_DLLS}" "${W_CACHE}/vcrun2003/BZEditW32_1.6.5.exe" "mfc71.dll" -y
 }
@@ -15326,40 +15518,6 @@ load_emu8086()
     w_download https://web.archive.org/web/20160206003914if_/http://emu8086.com/files/emu8086v408r11.zip d56d6e42fe170c52df5abd6002b1e8fef0b840eb8d8807d77819fe1fc2e17afd
     w_try_unzip "${W_TMP}" "${W_CACHE}/${W_PACKAGE}/${file1}"
     w_try "${WINE}" "${W_TMP}/Setup.exe" ${W_OPT_UNATTENDED:+/silent}
-}
-
-#----------------------------------------------------------------
-
-w_metadata ev3 apps \
-    title="Lego Mindstorms EV3 Home Edition" \
-    publisher="Lego" \
-    year="2014" \
-    media="download" \
-    file1="LMS-EV3-WIN32-ENUS-01-02-01-full-setup.exe" \
-    installed_exe1="${W_PROGRAMS_X86_WIN}/LEGO Software/LEGO MINDSTORMS EV3 Home Edition/MindstormsEV3.exe"
-
-load_ev3()
-{
-    if w_workaround_wine_bug 40192 "Installing vcrun2005 as Wine does not have MFC80.dll"; then
-        w_call vcrun2005
-    fi
-
-    if w_workaround_wine_bug 40193 "Installing IE8 as built-in Gecko is not sufficient"; then
-        w_call ie8
-    fi
-
-    w_call dotnet40
-
-    # 2016/03/22: LMS-EV3-WIN32-ENUS-01-02-01-full-setup.exe c47341f08242f0f6f01996530e7c93bda2d666747ada60ab93fa773a55d40a19
-
-    w_download http://esd.lego.com.edgesuite.net/digitaldelivery/mindstorms/6ecda7c2-1189-4816-b2dd-440e22d65814/public/LMS-EV3-WIN32-ENUS-01-02-01-full-setup.exe c47341f08242f0f6f01996530e7c93bda2d666747ada60ab93fa773a55d40a19
-
-    w_try_cd "${W_CACHE}"/"${W_PACKAGE}"
-    w_try "${WINE}" "${file1}" ${W_OPT_UNATTENDED:+/qb /AcceptLicenses yes}
-
-    if w_workaround_wine_bug 40729 "Setting override for urlmon.dll to native to avoid crash"; then
-        w_override_dlls native urlmon
-    fi
 }
 
 #----------------------------------------------------------------
@@ -17908,6 +18066,32 @@ w_metadata windowmanagerdecorated=n settings \
     title_bg="Не позволявайте на мениджъра на прозорците да декорира прозорците" \
     title_uk="Не дозволяти менеджеру вікон декорувати вікна" \
     title="Prevent the window manager from decorating windows"
+
+#----------------------------------------------------------------
+
+w_metadata useegl=y settings \
+    title="Enable EGL (default)"
+w_metadata useegl=n settings \
+    title="Disable EGL, use GLX instead"
+
+load_useegl()
+{
+    case "$1" in
+        y) arg="Y";;
+        n) arg="N";;
+        *) w_die "illegal value $1 for UseEGL";;
+    esac
+
+    echo "Setting UseEGL to ${arg}"
+    cat > "${W_TMP}"/set-useegl.reg <<_EOF_
+REGEDIT4
+
+[HKEY_CURRENT_USER\\Software\\Wine\\X11 Driver]
+"UseEGL"="${arg}"
+
+_EOF_
+    w_try_regedit "${W_TMP}"/set-useegl.reg
+}
 
 #----------------------------------------------------------------
 
