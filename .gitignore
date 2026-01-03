@@ -42,7 +42,7 @@ tools/mkpkg/*.git
 projects/**/*.old
 
 # ROCKNIX
-/.rocknix
+/.ROCKNIX
 /.cache
 /.doc_cache
 /.env
