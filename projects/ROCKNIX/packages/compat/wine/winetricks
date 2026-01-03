@@ -7974,6 +7974,25 @@ load_dxvk2071()
     helper_dxvk "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
 }
 
+w_metadata dxvk2041g dlls \
+    title="DXVK with Async and GPL patches [USE AT OWN RISK IN GAMES WITH ANTICHEAT] (2.4.1)" \
+    publisher="Ph42oN" \
+    publisher="Philip Rebohle" \
+    year="2024" \
+    media="download" \
+    file1="dxvk-gplasync-v2.4.1-1.tar.gz" \
+    installed_file1="${W_SYSTEM32_DLLS_WIN}/d3d8.dll" \
+    installed_file2="${W_SYSTEM32_DLLS_WIN}/d3d9.dll" \
+    installed_file3="${W_SYSTEM32_DLLS_WIN}/d3d10core.dll" \
+    installed_file4="${W_SYSTEM32_DLLS_WIN}/d3d11.dll" \
+    installed_file5="${W_SYSTEM32_DLLS_WIN}/dxgi.dll"
+
+load_dxvk2041g()
+{
+    w_download "https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/releases/dxvk-gplasync-v2.4.1-1.tar.gz" ee96eaf60d3d924434cced411b80d7f0669d97b7121db1890bf2b18e71f8a1f4
+    helper_dxvk "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
+}
+
 #----------------------------------------------------------------
 
 w_metadata dxvk dlls \
@@ -8056,43 +8075,6 @@ helper_dxvk_async()
 
 #----------------------------------------------------------------
 
-w_metadata dxvk2041g dlls \
-    title="Vulkan-based D3D8/D3D9/D3D10/D3D11 implementation for Linux / Wine (2.4.1)" \
-    publisher="Philip Rebohle" \
-    year="2024" \
-    media="download" \
-    file1="dxvk-gplasync-v2.4.1-1.tar.gz" \
-    installed_file1="${W_SYSTEM32_DLLS_WIN}/d3d8.dll" \
-    installed_file2="${W_SYSTEM32_DLLS_WIN}/d3d9.dll" \
-    installed_file3="${W_SYSTEM32_DLLS_WIN}/d3d10core.dll" \
-    installed_file4="${W_SYSTEM32_DLLS_WIN}/d3d11.dll" \
-    installed_file5="${W_SYSTEM32_DLLS_WIN}/dxgi.dll"
-
-load_dxvk2041g()
-{
-    w_download "https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/releases/dxvk-gplasync-v2.4.1-1.tar.gz" ee96eaf60d3d924434cced411b80d7f0669d97b7121db1890bf2b18e71f8a1f4
-    helper_dxvk_async "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
-}
-
-w_metadata dxvk2071g dlls \
-    title="Vulkan-based D3D8/D3D9/D3D10/D3D11 implementation for Linux / Wine (2.7.1)" \
-    publisher="Philip Rebohle" \
-    year="2025" \
-    media="download" \
-    file1="dxvk-gplasync-v2.7.1-1.tar.gz" \
-    installed_file1="${W_SYSTEM32_DLLS_WIN}/d3d8.dll" \
-    installed_file2="${W_SYSTEM32_DLLS_WIN}/d3d9.dll" \
-    installed_file3="${W_SYSTEM32_DLLS_WIN}/d3d10core.dll" \
-    installed_file4="${W_SYSTEM32_DLLS_WIN}/d3d11.dll" \
-    installed_file5="${W_SYSTEM32_DLLS_WIN}/dxgi.dll"
-
-load_dxvk2071g()
-{
-    w_download "https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/releases/dxvk-gplasync-v2.7.1-1.tar.gz" 590050b88be7b156cf641abe762e1ad47ebbe828f7f0edb2970aa4716ee3af6d
-    helper_dxvk_async "${file1}" "7.1" "1.3.204" "dxgi,d3d8,d3d9,d3d10core,d3d11"
-}
-
-#----------------------------------------------------------------
 w_metadata dxvk_async dlls \
     title="DXVK with Async and GPL patches [USE AT OWN RISK IN GAMES WITH ANTICHEAT] (latest)" \
     publisher="Ph42oN" \
