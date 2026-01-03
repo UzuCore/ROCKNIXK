@@ -142,8 +142,8 @@ makeinstall_target() {
   start_system_doc
 
   ### Acorn BBC Micro
-  add_emu_core bbc retroarch b2 true
-  add_es_system bbc
+  add_emu_core bbcmicro retroarch b2 true
+  add_es_system bbcmicro
 
   ### Panasonic 3DO
   add_emu_core 3do retroarch opera true
