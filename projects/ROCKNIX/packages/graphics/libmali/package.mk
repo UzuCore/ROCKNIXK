@@ -4,7 +4,6 @@
 # Copyright (C) 2024 ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="libmali"
-PKG_VERSION="g13p0"
 PKG_LICENSE="nonfree"
 PKG_SITE="https://github.com/ROCKNIX/libmali"
 # zip format makes extract very fast (<1s). tgz takes 20 seconds to scan the whole file
@@ -18,6 +17,20 @@ PKG_PATCH_DIRS+=" ${DEVICE}"
 # patchelf is incompatible with strip, but is needed to ensure apps call wrapped functions
 PKG_BUILD_FLAGS="-strip"
 
+case "$(DEVICE)" in
+  S922X)
+    PKG_VERSION="r51p0"
+    MALI_FAMILY="meson"
+    PKG_DEPENDS_TARGET+=" vulkan-wsi-layer vulkan-tools"
+  ;;
+  RK3588)
+    PKG_VERSION="g13p0"
+  ;;
+  *) # RK3326 and RK3566
+    PKG_VERSION="g24p0"
+  ;;
+esac
+
 case "${DISPLAYSERVER}" in
   wl)
     PLATFORM="wayland-gbm"
@@ -30,12 +43,6 @@ case "${DISPLAYSERVER}" in
     PLATFORM="gbm"
     ;;
 esac
-
-if [ "${DEVICE}" = "S922X" ] && [ "${ARCH}" = "aarch64" ]; then
-  PKG_VERSION="r51p0"
-  MALI_FAMILY="meson"
-  PKG_DEPENDS_TARGET+=" vulkan-wsi-layer vulkan-tools"
-fi
 
 PKG_MESON_OPTS_TARGET+=" -Darch=${ARCH} -Dgpu=${MALI_FAMILY} -Dversion=${PKG_VERSION} -Dplatform=${PLATFORM} \
                        -Dkhr-header=false -Dvendor-package=true -Dwrappers=enabled -Dhooks=true"
