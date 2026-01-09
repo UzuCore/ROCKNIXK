@@ -17,7 +17,7 @@ PKG_PATCH_DIRS+=" ${DEVICE}"
 # patchelf is incompatible with strip, but is needed to ensure apps call wrapped functions
 PKG_BUILD_FLAGS="-strip"
 
-case "$(DEVICE)" in
+case "${DEVICE}" in
   S922X)
     PKG_VERSION="r51p0"
     MALI_FAMILY="meson"
