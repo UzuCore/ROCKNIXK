@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026-present ROCKNIX (https://github.com/ROCKNIX)
+
+function gpu_profiling() {
+  local sysfs_node
+  local profiling_state=${1}
+  
+  case "${HW_DEVICE}" in
+    S922X)
+      sysfs_node="/sys/bus/platform/drivers/panfrost/ffe40000.gpu/profiling"
+
+      case "${profiling_state}" in
+        "on")
+          echo 1 > "${sysfs_node}"
+        ;;
+        "off")
+          echo 0 > "${sysfs_node}"
+        ;;
+      esac
+    ;;
+  esac
+}
