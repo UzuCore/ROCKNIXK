@@ -16,6 +16,7 @@ PKG_PATCH_DIRS+="${DEVICE}"
 
 if [ -f "${ROOT}/.rocknix/options" ]; then
   . "${ROOT}/.rocknix/options"
+fi
 
 if [ ! "${OPENGL}" = "no" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL} glu"
