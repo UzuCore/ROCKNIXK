@@ -7,14 +7,12 @@ function gpu_profiling() {
   
   case "${HW_DEVICE}" in
     S922X)
-      sysfs_node="/sys/bus/platform/drivers/panfrost/ffe40000.gpu/profiling"
-
       case "${profiling_state}" in
         "on")
-          echo 1 > "${sysfs_node}"
+          echo 1 > /sys/bus/platform/drivers/panfrost/[a-f0-9]*.gpu/profiling
         ;;
         "off")
-          echo 0 > "${sysfs_node}"
+          echo 0 > /sys/bus/platform/drivers/panfrost/[a-f0-9]*.gpu/profiling
         ;;
       esac
     ;;
