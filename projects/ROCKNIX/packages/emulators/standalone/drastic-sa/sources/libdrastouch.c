@@ -163,17 +163,16 @@ int SDL_PollEvent(SDL_Event* event) {
                 int xrel = x - last_x;
                 int yrel = y - last_y;
 
-                // Only update when needed
-                if (xrel != 0 || yrel != 0) {
-                    event->type = SDL_MOUSEMOTION;
-                    event->motion.x = x;
-                    event->motion.y = y;
-                    event->motion.xrel = xrel;
-                    event->motion.yrel = yrel;
+                // Motion is also used when already clicked but not moving
+                // Always update it
+                event->type = SDL_MOUSEMOTION;
+                event->motion.x = x;
+                event->motion.y = y;
+                event->motion.xrel = xrel;
+                event->motion.yrel = yrel;
 
-                    last_x = x;
-                    last_y = y;
-                }
+                last_x = x;
+                last_y = y;
                 break;
             }
             case SDL_FINGERUP: {
