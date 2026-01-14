@@ -51,7 +51,7 @@ rm -rf /storage/.config/drastic/backup
 ln -sf /storage/roms/nds /storage/.config/drastic/backup
 
 if echo "${UI_SERVICE}" | grep "sway"; then
-    /usr/bin/drastic_sense.sh &
+  /usr/bin/drastic_sense.sh &
 fi
 
 cd /storage/.config/drastic/
@@ -68,6 +68,9 @@ if [ "${HW_DEVICE}" = "S922X" ]; then
 fi
 
 $GPTOKEYB "drastic" -c "drastic.gptk" &
+# Fix actual touch inputs by replacing touch->mouse translation
+export LD_PRELOAD="/usr/lib/libdrastouch.so"
+export SDL_TOUCH_MOUSE_EVENTS="0"
 ./drastic "$1"
 kill -9 $(pidof gptokeyb)
 

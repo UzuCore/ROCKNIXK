@@ -69,10 +69,16 @@ post_makeinstall_target() {
   mkdir -p ${INSTALL}/usr/config/MangoHud
   cp -rf ${PKG_DIR}/config/* ${INSTALL}/usr/config/MangoHud
 
-  # Set font size for display resolution
+  # Customize config per platform, eg set font size for display resolution
   case ${DEVICE} in
-    S922X|RK3326)
+    RK3326)
       sed -e "s/@FONT_SIZE@/30/g" -i ${INSTALL}/usr/config/MangoHud/MangoHud.conf
+    ;;
+    S922X)
+      sed -e "s/@FONT_SIZE@/30/g" -i ${INSTALL}/usr/config/MangoHud/MangoHud.conf
+
+      # No GPU temperature sensor available
+      sed -i 's/^gpu_temp/\# gpu_temp/g' ${INSTALL}/usr/config/MangoHud/MangoHud.conf
     ;;
     *)
       sed -e "s/@FONT_SIZE@/40/g" -i ${INSTALL}/usr/config/MangoHud/MangoHud.conf
