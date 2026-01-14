@@ -9,6 +9,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <array>
+#include <memory>
 
 const std::string CONFIG_DIR = "/storage/.config/mako";
 const std::string CONFIG_FILE = CONFIG_DIR + "/config";
@@ -50,11 +52,51 @@ void ensure_mako_config() {
     }
 }
 
+// Check focused app function
+std::string get_focused_app() {
+    std::string result;
+    std::array<char, 128> buffer;
+    std::unique_ptr<FILE, void(*)(FILE*)> pipe(
+        popen("swaymsg -t get_tree | jq -r '.. | select(.focused?) | .app_id'", "r"),
+        [](FILE* f){ if(f) pclose(f); }
+    );
+    if (!pipe) return "";
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        result += buffer.data();
+    }
+    if (!result.empty() && result.back() == '\n') result.pop_back();
+    return result;
+}
+
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <message>" << std::endl;
         std::cerr << "Example: " << argv[0] << " \"Hello World\"" << std::endl;
         return 1;
+    }
+
+    // check for -no-es / -no-ra option
+    bool no_es_flag = false;
+    bool no_ra_flag = false;
+    for (int i = 2; i < argc; ++i) {
+        if (std::string(argv[i]) == "-no-es") {
+            no_es_flag = true;
+        }
+        if (std::string(argv[i]) == "-no-ra") {
+            no_ra_flag = true;
+        }
+    }
+
+    if (no_es_flag || no_ra_flag) {
+        std::string focused_app = get_focused_app();
+        // skip notification if -no-es and EmulationStation focused
+        if (no_es_flag && focused_app == "emulationstation") {
+            return 0;
+        }
+        // skip notification if -no-ra and Retorarch focused
+        if (no_ra_flag && focused_app == "com.libretro.RetroArch") {
+            return 0;
+        }
     }
 
     // Ensure the Mako config exists
