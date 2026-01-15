@@ -2,7 +2,7 @@
 # Copyright (C) 2024-present JELOS (https://github.com/JustEnoughLinuxOS)
 
 PKG_NAME="wine"
-PKG_VERSION="11.0-rc3"
+PKG_VERSION="11.0"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/Kron4ek/Wine-Builds"
 
