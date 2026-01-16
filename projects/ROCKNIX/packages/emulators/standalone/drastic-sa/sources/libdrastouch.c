@@ -3,8 +3,8 @@
 #include <SDL2/SDL.h>
 #include <stdio.h>
 
-static const int ds_screen_width = 256;
-static const int ds_screen_height = 192;
+static int ds_screen_width = 256;
+static int ds_screen_height = 192;
 static int last_x = -1;
 static int last_y = -1;
 static int xy_idx = 0;
@@ -12,8 +12,10 @@ static int phys_width = -1;
 static int phys_height = -1;
 static int logical_width = -1;
 static int logical_height = -1;
+static int actual_touch = 0;
 
-static SDL_Texture* screens[2];
+static SDL_Texture* screens[4];
+static SDL_Texture* stylus_tex[2];
 static SDL_Rect touch_rect_storage = {0};
 static SDL_Rect* touch_rect = NULL;
 static SDL_Renderer* renderer = NULL;
@@ -50,9 +52,9 @@ SDL_Window* SDL_CreateWindow(const char* title, int x, int y, int w, int h, Uint
     phys_width = total_width;
     phys_height = total_height;
 
-    // DraStic starts in the center of the virtual screen
-    last_x = ds_screen_width / 2;
-    last_y = ds_screen_height / 2;
+    // DraStic starts in the center of the native virtual screen
+    last_x = 128;
+    last_y = 96;
 
     // Check which screen side is longer for dual screens
     if (num_displays > 1)
@@ -78,18 +80,28 @@ int SDL_RenderSetLogicalSize(SDL_Renderer* renderer, int w, int h) {
 
 SDL_Texture* SDL_CreateTexture(SDL_Renderer *renderer, Uint32 format, int type, int w, int h) {
 	SDL_Texture* texture = real_SDL_CreateTexture(renderer, format, type, w, h);
-	// Identify DS screen textures (2x native by default)
+	// Identify DS screen and stylus textures
 	if (type == SDL_TEXTUREACCESS_STREAMING) {
 		if (w == 512 && h == 384) {
+            ds_screen_width = 512;
+            ds_screen_height = 384;
 			if (!screens[0]) screens[0] = texture;
 			else if (!screens[1]) screens[1] = texture;
-		}
-	}
+        } else if (w == 256 && h == 192 && !screens[0]) {
+		    if (!screens[2]) screens[2] = texture;
+		    else if (!screens[3]) screens[3] = texture;
+        }
+    }
+    if (w == 32 && h == 32) {
+		if (!stylus_tex[0]) stylus_tex[0] = texture;
+		else if (!stylus_tex[1]) stylus_tex[1] = texture;
+    }
 	return texture;
 }
 
 int SDL_RenderCopy(SDL_Renderer *renderer, SDL_Texture *texture, const SDL_Rect *srcrect, const SDL_Rect *dstrect) {
-    if (screens[0] && texture == screens[0]) {
+    if ((screens[0] && texture == screens[0] && ds_screen_width == 512) ||
+        (screens[3] && texture == screens[3] && ds_screen_width == 256)) {
         // Convert renderer coordinates to physical screen coordinates
         if (logical_width > 0 && logical_height > 0) {
             int output_w, output_h;
@@ -110,6 +122,11 @@ int SDL_RenderCopy(SDL_Renderer *renderer, SDL_Texture *texture, const SDL_Rect 
         }
         touch_rect = &touch_rect_storage;
     }
+
+    // Make stylus fully transparent for actual touchscreens
+    if (actual_touch && (texture == stylus_tex[0] || texture == stylus_tex[1]))
+        SDL_SetTextureAlphaMod(texture, 0);
+    
     return real_SDL_RenderCopy(renderer, texture, srcrect, dstrect);
 }
 
@@ -121,15 +138,18 @@ int SDL_PollEvent(SDL_Event* event) {
 
         switch (event->type) {
             case SDL_FINGERDOWN: {
+                if (!actual_touch)
+                    actual_touch = 1;
+
                 int x = (int)(event->tfinger.x * phys_width);
                 int y = (int)(event->tfinger.y * phys_height);
                 if (x < touch_rect->x || x > touch_rect->x + touch_rect->w ||
                     y < touch_rect->y || y > touch_rect->y + touch_rect->h)
                     return 0; // Outside valid coords, don't convert
 
-                // Scale to virtual touchscreen
-                x = ((x - touch_rect->x) * ds_screen_width) / touch_rect->w;
-                y = ((y - touch_rect->y) * ds_screen_height) / touch_rect->h;
+                // Scale to native virtual touchscreen
+                x = ((x - touch_rect->x) * 256) / touch_rect->w;
+                y = ((y - touch_rect->y) * 192) / touch_rect->h;
 
                 // Queue click for after jump
                 event->type = SDL_MOUSEBUTTONDOWN;
@@ -158,8 +178,8 @@ int SDL_PollEvent(SDL_Event* event) {
                     y < touch_rect->y || y > touch_rect->y + touch_rect->h)
                     return 0;
 
-                x = ((x - touch_rect->x) * ds_screen_width) / touch_rect->w;
-                y = ((y - touch_rect->y) * ds_screen_height) / touch_rect->h;
+                x = ((x - touch_rect->x) * 256) / touch_rect->w;
+                y = ((y - touch_rect->y) * 192) / touch_rect->h;
                 int xrel = x - last_x;
                 int yrel = y - last_y;
 
@@ -176,22 +196,11 @@ int SDL_PollEvent(SDL_Event* event) {
                 break;
             }
             case SDL_FINGERUP: {
-                // Queue jump to bottom right for after release to "hide" the stylus icon
-                event->type = SDL_MOUSEMOTION;
-                event->motion.x = ds_screen_width;
-                event->motion.y = ds_screen_height;
-                event->motion.xrel = ds_screen_width - last_x;
-                event->motion.yrel = ds_screen_height - last_y;
-                SDL_PushEvent(event);
-                
                 event->type = SDL_MOUSEBUTTONUP;
                 event->button.button = SDL_BUTTON_LEFT;
                 event->button.state = SDL_RELEASED;
                 event->button.x = last_x;
                 event->button.y = last_y;
-
-                last_x = ds_screen_width;
-                last_y = ds_screen_height;
                 break;
             }
         }
