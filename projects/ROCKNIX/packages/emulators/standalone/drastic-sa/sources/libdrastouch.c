@@ -20,6 +20,7 @@ static SDL_Rect touch_rect_storage = {0};
 static SDL_Rect* touch_rect = NULL;
 static SDL_Renderer* renderer = NULL;
 static SDL_Window* (*real_SDL_CreateWindow)(const char*, int, int, int, int, Uint32) = NULL;
+static void (*real_SDL_SetWindowSize)(SDL_Window* window, int w, int h) = NULL;
 static SDL_Renderer* (*real_SDL_CreateRenderer)(SDL_Window*, int, Uint32) = NULL;
 static int (*real_SDL_RenderSetLogicalSize)(SDL_Renderer*, int, int) = NULL;
 static SDL_Texture* (*real_SDL_CreateTexture)(SDL_Renderer*, Uint32, int, int, int) = NULL;
@@ -46,7 +47,6 @@ SDL_Window* SDL_CreateWindow(const char* title, int x, int y, int w, int h, Uint
                 total_height += bounds.h;
         }
     }
-    SDL_Window* window = real_SDL_CreateWindow(title, 0, 0, total_width, total_height, flags);
 
     // Record screen size for rect tracking/conversion
     phys_width = total_width;
@@ -60,7 +60,33 @@ SDL_Window* SDL_CreateWindow(const char* title, int x, int y, int w, int h, Uint
     if (num_displays > 1)
         xy_idx = (last_width > last_height) ? 1 : 2;
 
-    return window;
+    // Set window size to single screen to fix offsets when resizing
+    return real_SDL_CreateWindow(title, 0, 0, last_width, last_height, flags);
+}
+
+void SDL_SetWindowSize(SDL_Window* window, int w, int h) {
+    static int init_resize = 2;
+
+    if (init_resize > 0) {
+        real_SDL_SetWindowSize(window, w, h);
+        init_resize -= 1;
+    }
+
+    // Force window size to fill AFTER DraStic does its weird init thing
+    // Also check if this is a resize after init, if so, toggle a scale down to allow DraStic menu visibility
+    if (init_resize == 0) {
+        real_SDL_SetWindowSize(window, phys_width, phys_height);
+        init_resize = -1;
+    } else if (init_resize == -1) {
+        if (xy_idx == 1)
+            w = phys_width / 2;
+        if (xy_idx == 2)
+            h = phys_height / 2;
+
+        real_SDL_SetWindowSize(window, w, h);
+        init_resize = 0;
+    }
+
 }
 
 SDL_Renderer* SDL_CreateRenderer(SDL_Window* window, int index, Uint32 flags) {
@@ -143,6 +169,11 @@ int SDL_PollEvent(SDL_Event* event) {
 
                 int x = (int)(event->tfinger.x * phys_width);
                 int y = (int)(event->tfinger.y * phys_height);
+                if (xy_idx == 1)
+                    x *= 2;
+                if (xy_idx == 2)
+                    y *= 2;
+
                 if (x < touch_rect->x || x > touch_rect->x + touch_rect->w ||
                     y < touch_rect->y || y > touch_rect->y + touch_rect->h)
                     return 0; // Outside valid coords, don't convert
@@ -174,6 +205,11 @@ int SDL_PollEvent(SDL_Event* event) {
             case SDL_FINGERMOTION: {
                 int x = (int)(event->tfinger.x * phys_width);
                 int y = (int)(event->tfinger.y * phys_height);
+                if (xy_idx == 1)
+                    x *= 2;
+                if (xy_idx == 2)
+                    y *= 2;
+
                 if (x < touch_rect->x || x > touch_rect->x + touch_rect->w ||
                     y < touch_rect->y || y > touch_rect->y + touch_rect->h)
                     return 0;
@@ -211,6 +247,7 @@ int SDL_PollEvent(SDL_Event* event) {
 __attribute__((constructor))
 static void init(void) {
     real_SDL_CreateWindow = dlsym(RTLD_NEXT, "SDL_CreateWindow");
+    real_SDL_SetWindowSize = dlsym(RTLD_NEXT, "SDL_SetWindowSize");
     real_SDL_CreateRenderer = dlsym(RTLD_NEXT, "SDL_CreateRenderer");
     real_SDL_RenderSetLogicalSize = dlsym(RTLD_NEXT, "SDL_RenderSetLogicalSize");
     real_SDL_CreateTexture = dlsym(RTLD_NEXT, "SDL_CreateTexture");
