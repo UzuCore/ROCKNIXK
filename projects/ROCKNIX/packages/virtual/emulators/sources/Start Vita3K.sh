@@ -28,4 +28,4 @@ if [ -n "${GAME}" ]; then
 fi
 
 #Start Vita3K
-/usr/bin/Vita3K ${OPTIONS}
+/usr/bin/Vita3K -F ${OPTIONS}

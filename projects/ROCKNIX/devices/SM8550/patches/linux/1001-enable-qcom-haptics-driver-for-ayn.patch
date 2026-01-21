@@ -70,7 +70,7 @@ diff -Naur a/arch/arm64/boot/dts/qcom/qcs8550-ayn-common.dtsi b/arch/arm64/boot/
 +						<0x13f 0x00 0x00>,
 +						<0x11f 0x00 0x00>;
 +			qcom,wf-pattern-period-us = <5880>;
-+			qcom,wf-vmax-mv = <5000>;
++			qcom,wf-vmax-mv = <3200>;
 +		};
 +
 +		effect_2 {
@@ -86,7 +86,7 @@ diff -Naur a/arch/arm64/boot/dts/qcom/qcs8550-ayn-common.dtsi b/arch/arm64/boot/
 +						<0x13f 0x00 0x00>,
 +						<0x11f 0x00 0x00>;
 +			qcom,wf-pattern-period-us = <5880>;
-+			qcom,wf-vmax-mv = <5000>;
++			qcom,wf-vmax-mv = <3200>;
 +		};
 +
 +		effect_3 {
@@ -102,7 +102,7 @@ diff -Naur a/arch/arm64/boot/dts/qcom/qcs8550-ayn-common.dtsi b/arch/arm64/boot/
 +						<0x13f 0x00 0x00>,
 +						<0x11f 0x00 0x00>;
 +			qcom,wf-pattern-period-us = <5880>;
-+			qcom,wf-vmax-mv = <5000>;
++			qcom,wf-vmax-mv = <3200>;
 +		};
 +
 +		effect_4 {
@@ -118,7 +118,7 @@ diff -Naur a/arch/arm64/boot/dts/qcom/qcs8550-ayn-common.dtsi b/arch/arm64/boot/
 +						<0x13f 0x00 0x00>,
 +						<0x11f 0x00 0x00>;
 +			qcom,wf-pattern-period-us = <5880>;
-+			qcom,wf-vmax-mv = <5000>;
++			qcom,wf-vmax-mv = <3200>;
 +		};
 +
 +		effect_5 {

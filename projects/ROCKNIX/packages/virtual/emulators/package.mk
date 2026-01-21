@@ -65,7 +65,7 @@ case "${DEVICE}" in
   SDM845|SM8250|SM8550|SM8650)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 daedalusx64-sa desmume-lr gpsp-lr pcsx_rearmed-lr"
     PKG_EMUS+=" aethersx2-sa azahar-sa box64 bigpemu-sa cemu-sa dolphin-sa mednafen melonds-sa nanoboyadvance-sa portmaster rpcs3-sa scummvmsa supermodel-sa \
-                yabasanshiro-sa xemu-sa duckstation-sa skyemu-sa citron-sa eden-sa"
+                yabasanshiro-sa xemu-sa duckstation-sa skyemu-sa citron-sa eden-sa vita3k-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr flycast2021-lr geolith-lr pcsx_rearmed-lr uae4arm kronos-lr"
     PKG_RETROARCH+=" retropie-shaders"
     ;;
@@ -976,6 +976,15 @@ makeinstall_target() {
   add_emu_core psp ppsspp ppsspp-sa true
   add_es_system psp
   install_script "Start PPSSPP.sh"
+
+  ### Sony Playstation Vita
+  case ${DEVICE} in
+    SDM845|SM8250|SM8550|SM8650)
+      add_emu_core psvita Vita3K vita3k-sa true
+      add_es_system psvita
+      install_script "Start Vita3K.sh"
+      ;;
+  esac
 
   ### Sony Playstation Portable Minis
   add_emu_core pspminis ppsspp ppsspp-sa true
