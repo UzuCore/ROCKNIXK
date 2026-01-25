@@ -2,7 +2,7 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="qt6"
-PKG_VERSION_MAJOR="6.8"
+PKG_VERSION_MAJOR="6.9"
 PKG_VERSION="${PKG_VERSION_MAJOR}.3"
 PKG_LICENSE="GPL"
 PKG_SITE="https://download.qt.io"
