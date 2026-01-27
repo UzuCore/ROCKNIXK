@@ -6,7 +6,7 @@
 
 # Name of this version of winetricks (YYYYMMDD)
 # (This doesn't change often, use the sha256sum of the file when reporting problems)
-WINETRICKS_VERSION=20250102-next
+WINETRICKS_VERSION=20260125-next
 
 # This is a UTF-8 file
 # You should see an o with two dots over it here [ö]
@@ -4598,7 +4598,7 @@ winetricks_set_wineprefix()
                 _W_wineserver_binary_arch="$(winetricks_get_file_arch "${WINE_BINDIR}/wineserver")"
             fi
         fi
-        if [ -z "${_W_wineserver_binary_arch}" ]; then
+        if [ -z "${W_OPT_UNATTENDED}" ] && [ -z "${_W_wineserver_binary_arch}" ]; then
             w_warn "Unknown file arch of ${WINESERVER_BIN}."
         fi
 
@@ -4615,7 +4615,7 @@ winetricks_set_wineprefix()
                 _W_wine_binary_arch="$(winetricks_get_file_arch "${WINE_BINDIR}/wine")"
             fi
         fi
-        if [ -z "${_W_wine_binary_arch}" ]; then
+        if [ -z "${W_OPT_UNATTENDED}" ] && [ -z "${_W_wine_binary_arch}" ]; then
             w_warn "Unknown file arch of ${WINE_BIN}."
         fi
 
@@ -9900,6 +9900,56 @@ load_dotnetdesktop9()
         # Also install the 64-bit version
         w_download https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/9.0.7/windowsdesktop-runtime-9.0.7-win-x64.exe 508e14881c88eb98d224fe9438e7f1ff39fb4b45ada7cd4bffc27b41c35d46d5
         w_try "${WINE}" "windowsdesktop-runtime-9.0.7-win-x64.exe" ${W_OPT_UNATTENDED:+/quiet}
+    fi
+}
+
+#----------------------------------------------------------------
+
+w_metadata dotnet10 dlls \
+    title="MS .NET Runtime 10.0 LTS" \
+    publisher="Microsoft" \
+    year="2025" \
+    media="download" \
+    file1="dotnet-runtime-10.0.0-win-x86.exe" \
+    installed_file1="${W_PROGRAMS_WIN}/dotnet/dotnet.exe"
+
+load_dotnet10()
+{
+    # Official version, see https://dotnet.microsoft.com/en-us/download/dotnet/10.0
+    w_download https://builds.dotnet.microsoft.com/dotnet/Runtime/10.0.0/dotnet-runtime-10.0.0-win-x86.exe 90bc5667c2a35c030a2e964e7083fe8fbdbc461377d27b4f0d9bf7b400d7b982
+
+    w_try_cd "${W_CACHE}"/"${W_PACKAGE}"
+    w_try "${WINE}" "${file1}" ${W_OPT_UNATTENDED:+/quiet}
+
+    if [ "${W_ARCH}" = "win64" ]; then
+        # Also install the 64-bit version
+        w_download https://builds.dotnet.microsoft.com/dotnet/Runtime/10.0.0/dotnet-runtime-10.0.0-win-x64.exe ca2dd25d477174767a55756d9ef92bbda0d3c7ef12cef284a542689b2ba52767
+        w_try "${WINE}" "dotnet-runtime-10.0.0-win-x64.exe" ${W_OPT_UNATTENDED:+/quiet}
+    fi
+}
+
+#----------------------------------------------------------------
+
+w_metadata dotnetdesktop10 dlls \
+    title="MS .NET Desktop Runtime 10.0 LTS" \
+    publisher="Microsoft" \
+    year="2025" \
+    media="download" \
+    file1="windowsdesktop-runtime-10.0.0-win-x86.exe" \
+    installed_file1="${W_PROGRAMS_WIN}/dotnet/dotnet.exe"
+
+load_dotnetdesktop10()
+{
+    # Official version, see https://dotnet.microsoft.com/en-us/download/dotnet/10.0
+    w_download https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/10.0.0/windowsdesktop-runtime-10.0.0-win-x86.exe ac38c81fef78c565d6bfbddf49ac5bcca354616176c0108c5f0e23333c3d093a
+
+    w_try_cd "${W_CACHE}"/"${W_PACKAGE}"
+    w_try "${WINE}" "${file1}" ${W_OPT_UNATTENDED:+/quiet}
+
+    if [ "${W_ARCH}" = "win64" ]; then
+        # Also install the 64-bit version
+        w_download https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/10.0.0/windowsdesktop-runtime-10.0.0-win-x64.exe fc0494eaf529b15f74b10d920784cc618ff0845bebfdfd5d85d585e921157a5c
+        w_try "${WINE}" "windowsdesktop-runtime-10.0.0-win-x64.exe" ${W_OPT_UNATTENDED:+/quiet}
     fi
 }
 
@@ -15479,8 +15529,10 @@ w_metadata dxwnd apps \
 load_dxwnd()
 {
     # 2022/10/02 v2_05_88_build.rar a80ad1246493b3b34fba2131494052423ac298a39592d4e06a685568b829922e
-    w_download https://versaweb.dl.sourceforge.net/project/dxwnd/Latest%20build/v2_05_88_build.rar a80ad1246493b3b34fba2131494052423ac298a39592d4e06a685568b829922e
-    w_try_7z "${W_PROGRAMS_X86_UNIX}"/dxwnd "${W_CACHE}"/"${W_PACKAGE}"/"${file1}" -aoa
+    w_download https://downloads.sourceforge.net/project/dxwnd/Latest%20build/v2_05_88_build.rar a80ad1246493b3b34fba2131494052423ac298a39592d4e06a685568b829922e
+    w_try_mkdir "${W_PROGRAMS_X86_UNIX}"/dxwnd
+    w_try_cd "${W_PROGRAMS_X86_UNIX}"/dxwnd
+    w_try_unrar "${W_CACHE}/${W_PACKAGE}/${file1}"
 }
 
 #----------------------------------------------------------------
