@@ -8,7 +8,7 @@ PKG_LONGDESC="Citron is a high-performance and easy-to-use emulator, tailored fo
 PKG_TOOLCHAIN="cmake"
 PKG_SITE="https://git.citron-emu.org/Citron/Emulator"
 PKG_URL="${PKG_SITE}.git"
-PKG_VERSION="4229eaa8fd5fa69138851798c75afacbdd488005" # v2026.1.18
+PKG_VERSION="544456b8be86b9d75453acc2ae87fd5d9768fa36" # v2026.2.1
 
 if [ ! "${OPENGL}" = "no" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL} glu libglvnd"
