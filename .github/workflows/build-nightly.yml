@@ -232,15 +232,4 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           draft: true
           bodyFile: "release-body.md"
-      - name: Set up SSH sourceforge
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SF_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan frs.sourceforge.net >> ~/.ssh/known_hosts
-      - name: Upload files sourceforge
-        run: |
-          FILES=$(find . -type f \( -name "*.tar" -o -name "*.img.gz" -o -name "*.sha256" \))
-          for FILE in $FILES; do
-            rsync -e ssh "$FILE" tiopex@frs.sourceforge.net:/home/frs/project/rocknix/official/${{ env.DATE }}/
-          done               
+
