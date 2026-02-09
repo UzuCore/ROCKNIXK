@@ -244,3 +244,6 @@ if [[ "${HW_DEVICE}" == "S922X" ]]; then
   grep -q "^psp\.rocknix\.mangohud\.enabled=" /storage/.config/system/configs/system.cfg ||
     sed -i '$ a\psp.rocknix.mangohud.enabled=0' /storage/.config/system/configs/system.cfg
 fi
+
+# S922X - disable fake suspend DPMS as it causes crash / reboot on resume
+[[ "${HW_DEVICE}" == "S922X" ]] && sed -i '/system.suspend.dpms/c\system.suspend.dpms=0' /storage/.config/system/configs/system.cfg
