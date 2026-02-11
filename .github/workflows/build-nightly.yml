@@ -180,7 +180,12 @@ jobs:
      - name: Download artifacts
        uses: actions/download-artifact@v4
        with:
-         pattern: ROCKNIX-*
+         pattern: ROCKNIX-image*
+         merge-multiple: true
+     - name: Download artifacts
+       uses: actions/download-artifact@v4
+       with:
+         pattern: ROCKNIX-update*
          merge-multiple: true
      - name: get date
        run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
@@ -264,7 +269,12 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: ROCKNIX-*
+          pattern: ROCKNIX-image*
+          merge-multiple: true
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ROCKNIX-update*
           merge-multiple: true
       - name: get date
         run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
