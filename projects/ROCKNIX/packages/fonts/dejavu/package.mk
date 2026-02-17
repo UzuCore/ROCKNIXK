@@ -13,4 +13,5 @@ PKG_TOOLCHAIN="manual"
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/share/fonts/truetype/dejavu/
   cp -rf ${PKG_BUILD}/ttf/DejaVuSansCondensed.ttf ${INSTALL}/usr/share/fonts/truetype/dejavu/
+  cp -f ${ROOT}/distributions/${DISTRO}/fonts/NanumSquareNeo-bRg.ttf ${INSTALL}/usr/share/fonts/truetype/dejavu/
 }

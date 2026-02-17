@@ -2,7 +2,7 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="eden-sa"
-PKG_VERSION="385b7cad77c3546082087c3993a3944c2050dd15" # v0.1.1
+PKG_VERSION="8e373eb714aa01117ec885680477501cdb572112" # v0.2.0-rc1
 PKG_LICENSE="GPLv2"
 PKG_DEPENDS_TARGET="toolchain SDL2 boost libevdev libdrm ffmpeg zlib libpng lzo libusb zstd ecm openal-soft pulseaudio alsa-lib llvm qt6 libfmt libva libX11"
 PKG_LONGDESC="Eden is a high-performance and easy-to-use emulator, tailored for enthusiasts and developers alike."
@@ -38,7 +38,7 @@ PKG_CMAKE_OPTS_TARGET+=" -DYUZU_BUILD_PRESET=generic \
     -DYUZU_ROOM=ON \
     -DYUZU_ROOM_STANDALONE=OFF \
     -DYUZU_CMD=OFF \
-    -DYUZU_ENABLE_LTO=ON \
+    -DVulkanHeaders_FORCE_BUNDLED=ON \
     -DENABLE_LTO=ON \
     -DCMAKE_BUILD_TYPE=Release"
 

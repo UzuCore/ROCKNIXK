@@ -44,4 +44,4 @@ export SDL_AUDIODRIVER=pulseaudio
 set_kill set "-9 eden"
 
 #Run eden emulator
-/usr/bin/eden -f -g "${1}"
+/usr/bin/eden -f "${1}"
