@@ -7,6 +7,6 @@ source /etc/profile
 
 set_kill set "eden"
 
-sway_fullscreen "eden" &
+sway_fullscreen "eden" "class" &
 
 /usr/bin/eden >/dev/null 2>&1
