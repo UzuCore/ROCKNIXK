@@ -381,16 +381,4 @@
         <players>1</players>
         <image>./images/nfs.svg</image>
      </game>
-     <game>
-         <path>./Start Citron.sh</path>
-         <name>Citron 실행</name>
-         <desc>Citron GUI(Switch)를 열어 에뮬레이터에서 직접 글로벌 설정을 변경할 수 있습니다. 설정을 수정하려면 마우스와 키보드를 준비하는 것이 좋습니다. Yuzu는 Citra 개발자가 개발한 Nintendo Switch용 실험용 오픈소스 에뮬레이터입니다.</desc>
-         <developer>ROCKNIX</developer>
-         <publisher>ROCKNIX</publisher>
-         <rating>5.0</rating>
-         <releasedate>2024</releasedate>
-         <genre>Emulator</genre>
-         <players>1</players>
-         <image>./images/citron.svg</image>
-     </game>
 </gameList>

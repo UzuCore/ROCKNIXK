@@ -1,42 +1,43 @@
 diff --git a/dists/engine-data/ultima8.dat b/dists/engine-data/ultima8.dat
-index 23411f594e0d97952153b40b76fae09fcbef7e6b..95783d53903a219ddbeca69ed9c25dd5daa09b68 100644
+index 6bb829943923b6253d9790314ba856cb627a350c..6bb282405611721f00b4bf58ca3788ffcafa06fa 100644
 GIT binary patch
-delta 1012
-zcmbPvm~Zk4zGjiR?ILp-w~NeWT3|o@#R6u&?G96!n^~qmc+ZrzJ^dBaDdy>`=K@8A
-zUNVI;Zuk1YB*e0vvy1r)>vqF;OzRo9FKK2@W!rvuCUYNCJu{040|NsGLyMPr<ROvW
-zn?5lzF#KX-VBi6YmRe-z7o{fV>1F0+wobIozw97!{QGZ_{*a9!4@=Iij(!;u*>{&^
-zAyei8=cx}n^g9LZ*nj&>p4inWGWo_LC!HQ29Rq^{XIes3b}6XsV~}s!+#73V^H=Ww
-z|L=S94mRrl)H@+r&u`gcRB+UUMXW$zUyFxd*32zu{<p+5eL0w1WW(I<$+oUxx7D45
-zVzp1t?QUtkNmhGc*WSS0&VHv+IQ-m{MLK658+?=P>r;(CA$Y4?zIdsQqekj<wfM)|
-zPpW(9C70Dra(jLLWbl>EY+`rbM7Q5QJdgF5ZE^<BHuh@|1%9y?+^#qB>Hc@WDEITz
-zqmP~j@=m(<N@P;}`S5i63v*9Qt&9#1t?9Sh?Xz$7qn8?WMSAD;!d}}hdAM&vqrd5%
-zI`Mj!Qkw^78rPj}QeFG_iBc`=$?aD)vmPuyF!j&+OBz$oRxdUAxOQhrt>7iKxOxxY
-zD~Favb!t1`I<#`?AD{TeX6LLH=GM=d>Lx3?a&gO+X7l~Y6Zbh<ZEIovy~=Zyc7GO&
-ztiN);T;G*L@++5TElqmFCU;tkF*vQiTVsFJwr8*RRqP14uH_%f(_^yNO=G3tl@~FM
-zVNQEn+&Iq)MX7G_elcai^bNtPd%V_$hOA!^7`S<n&Hh;*57s>5Ub##qB>Vb_Ln>+;
-z<#MlRDcv^HaSGVou}kH5!14}`muVB@tlsL}`g#2)`}X(!%+9RaeV#MzVBE+jGIx8-
-z7bcJX?OX0J^>9s}KZjWZm{O*noWpDmN`_L*lkAzMJ5FU5nJ&4IS#A2#dCXEw$}ZCn
-z&SSQm{&y~r)9W%_avrk{D0NCPg?mgtK9|{S`Y)g|-d&zdz~q*im!6YZoH704TxOl=
-z@8<(eJmbqWoo4~F>GV*LVF!Yz7tUignLZaJl^@D9eb;=Tl>I^=?@Bb&^q7Urnvsl5
-z_6)d^v<fg$gMb1M=f#0+L?m!7uqXoqBZCA(WV~~PAMb5oRzL#N^%gMeGIu2~O^;i^
-z9LT#k1*E^YATbZ_;s~I(*!HJ_#HaHtWHz22KL_Zt@^q%@HFKB^r~3k3&DG7q%n+7Z
-ql<1T)y>Sk+&NQGF=F5|rr_0V|))ir81KB4Cgp*hq7_#Rv19<?MYLtoq
+delta 1054
+zcmX?lgm3>zK9&G)W|ryxbD1TY4d%8R%w^neFqf&te*31W%*$D(8+~9Z+&=#m(;epN
+z!Sk4fw%fmCN?@G6Y(6vJ_KhEyI9aC8UI1jab}@ft-Cq5UX*=U|*9Aaj0xitRY}+Ge
+zF)v}NXJ!#$U|`^2Xz?<SJS4Jv(<ep-hF?q!3_L*5Qj6^TqSVAZz0ADK)`_<HmmMUI
+zfB!AgAF?szVad7G(Jw<H`|h$VWXfFNJoRCRey5-v`){Ag6T2EkCf``(q|@W0V_<OL
+zOiPH$E(NuH4DwBzdt=RP{>uIT|9wy1!AAX`dM707`7K+F3XYnvh!qIzYw_^Qnz`l7
+z|CX4hF9(y0Y?#|U+154ewz`v0toG@--7T#*$!ZVm+8emr+3z$8ho76WNaxIBgKx5Z
+zeX8*%1aFng7cbRu)JUDK7XNtrNp%ms<g&U+Zm-Xu48F3NP3+E_==R%(=dm8MP0rxi
+z#(wRgz%TZK+x131-T&?v<$iv8^wHBm-bwdfiA;(=AD(W1VeW~kmC?bWHT`zGefF(>
+z^ird)NbkH}*lXJ*5BE)I^f%p8CtmMTYV+Vs<GRyLs%sxVQL1G<x&5kU)`P_drv6!f
+zNn^^{>ZK+h*X}H-6}+StSMT9_<<PRIPHpE~hgMGg;}gHw?3~rY-1<3F-DE{qE^gV<
+zY`#Bv;yy>KZ7s~dS9z||?$2V8^;gc9>$`GDe&zD4rAd$2<W6fb2B-CRYwVBO_U!e(
+ziX9=>wfsYQdQA4ZX{;2y@*<`&%xQ0n8|PV}DAg_AFQzP*z9Cq3kJsAJko7A912-?S
+z*+1*!!J0?hE0?K+WM4mVNJVX<T<#SurQ2pYP64|+cB%XhSl+?$GHqg<)mxogKd=8}
+z-(E0**@<;~?sKLij2rnx=5F8hg~_9T`<6RQYq_R-&t=vCrj+TWbD7PjPg%$;#XQNL
+zY5K;6%x2Sl=QGPO*}6>6ozHAJedRo6DW+8}(~r($wwN{#n4H6b0z6$FOuz(|Sd^Pz
+zS~UIO0%i@c6fo^d@%-=vNu}nc=VTU7Kd^vV6D$Qx%TmnzeoWJMEMPXA{&ybG2C<Oo
+zvh$e@z|x*TX`Zv8Af4%{MY)N2U_+-rU&t)S>=eT^onsNRW;7#{Jp-=vt^!Q)AfN!m
+z@8Uq_AW}aUSd@W*kwJnXGTu4DkM}k(pP+#0cNQ>fGjk;}P3Kz39LOw@$}~L=6cj8V
+z-`k~4SC|J3CGNREM>1tFF@&WSCF+%wq)op#pV^5^jFlNI;*>I7cP_Ke^ff?b%yCng
+ar=Oh5tSiFG2C_&H2q&>JFo@4*2J!%;bDkgo
 
-delta 429
-zcmYk2O(;ZR6o&6T@0|(pB~jBYE7T|{<v$r@LGqU<*$@{I3$c<iNl_vO$Ar1}&P=ve
-z)3+rSSXfxff)!DWl8pu5uyN`vPUq)+-V?eI;WJ@$wZY)57<@7`M&84qSQdIh&{jY`
-zgs_$&Pc1svrPV^iy4-K3E6D2}I@Y<YnI_~#E9Dq6Y@lUBF7%S+mACEm;gNfTRN;|M
-zfHn=DbRlGNfEJ0<WAJBcD*CLMq0-seQFa~pc|HP@au1m!sNzHnCXViilOg2sqXOfT
-z2n3%;)lmH--$&KZjjf8$Cw{e2$%;zwij7R_f972qb$sc-%qVyzZLWH3Xv*S%ixMtM
-z?cBU^qm3F?;6nIPD4MP^9;{1pgQG4hFT(t5q?++y#|Qo5HjVrOzdLBc?h?4tMFlIj
-z!uS8o*D93g=!`WzJpLz}uekBH0j`ar8)@6%^{9frR-RF~1Ad91HuWPDi7<G@MKOQJ
-R;1$_gwpQ-Zw9W%4jvp~@jlTc@
+delta 410
+zcmYk2KS)AR6vpp6Ck+}d{Shn)i43bDE0X>#1qn$*5!4oigOyOGR!f5r(Go!_$|)(H
+z`W{WyCbzAnhK8WMhNhyZXmD%kJY3>(hI7xk-~D~x&Aq(4l?qm&{cKn6ORX#+Gp5$E
+zcv+{$m*G)U$3ci{>N)_=sM_X0X*3ytxUx@yvqp8;FnFY%<{@rZEz?kIr@In1DsKq9
+zHrmlqs;e<Lsi7w8c5wkRKxG5FPzXUU2KG~@jxKPV(S(je6f)6;=g&Y%6MHCDKuIx!
+z=Sy#NXz)B);KuV#`2r3S6G>+?3kjidnY-x^5Q*^mMq)EeDFb^cUPL#<zbReBK6=o(
+z>H48B9Y^TV63YG1XMt54tY0rGKt2-(h`q?x|FV@m6x+iq;lz3<>Wf4pl;-^^oTtby
+zBL_(1MYh7u-55(Dy_RqmlUbxugE=_`SDl$dW?M;wx2kBIhZ|?|Nd6LbJ8X8#MLi$C
+KO^Dx9E1o~IS%ljF
 
 diff --git a/engines/ultima/detection_tables.h b/engines/ultima/detection_tables.h
 index 90fc2b8f334..cfd63ed08a8 100644
 --- a/engines/ultima/detection_tables.h
 +++ b/engines/ultima/detection_tables.h
-@@ -465,6 +465,20 @@ static const UltimaGameDescription GAME_DESCRIPTIONS[] = {
+@@ -358,6 +358,20 @@ static const UltimaGameDescription GAME_DESCRIPTIONS[] = {
  		0
  	},
  
@@ -54,9 +55,9 @@ index 90fc2b8f334..cfd63ed08a8 100644
 +		0
 +	},
 +
- 	// Crusader games use basically the same engine as ultima8, but
- 	// are less complete.
- 
+ 	// Crusader games use a very similar engine to ultima8.
+ 	// complete.  Because each version requires a separate Usecode callback
+ 	// table, only fully patched versions are marked supported.
 diff --git a/engines/ultima/ultima8/games/game_data.cpp b/engines/ultima/ultima8/games/game_data.cpp
 index 4db0475c811..cd14ce2689e 100644
 --- a/engines/ultima/ultima8/games/game_data.cpp

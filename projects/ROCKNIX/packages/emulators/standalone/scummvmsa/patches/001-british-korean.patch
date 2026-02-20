@@ -1,0 +1,575 @@
+diff --git a/engines/ags/engine/ac/game.cpp b/engines/ags/engine/ac/game.cpp
+index b97d7d03a30..fb802c6f3a0 100644
+--- a/engines/ags/engine/ac/game.cpp
++++ b/engines/ags/engine/ac/game.cpp
+@@ -645,9 +645,11 @@ const char *Game_GetTranslationFilename() {
+ 
+ int Game_ChangeTranslation(const char *newFilename) {
+ 	if ((newFilename == nullptr) || (newFilename[0] == 0)) { // switch back to default translation
+-		close_translation();
+-		_GP(usetup).translation = "";
+-		GUI::MarkForTranslationUpdate();
++		if (_GP(usetup).translation.IsEmpty()) {
++			close_translation();
++			_GP(usetup).translation = "";
++			GUI::MarkForTranslationUpdate();
++		}
+ 		return 1;
+ 	}
+ 
+diff --git a/engines/ags/engine/ac/global_translation.cpp b/engines/ags/engine/ac/global_translation.cpp
+index 7adcc725331..7a81b79541a 100644
+--- a/engines/ags/engine/ac/global_translation.cpp
++++ b/engines/ags/engine/ac/global_translation.cpp
+@@ -22,6 +22,7 @@
+ #include "ags/shared/ac/common.h"
+ #include "ags/engine/ac/display.h"
+ #include "ags/engine/ac/game_state.h"
++#include "ags/shared/ac/game_setup_struct.h"
+ #include "ags/engine/ac/global_translation.h"
+ #include "ags/engine/ac/string.h"
+ #include "ags/engine/ac/translation.h"
+@@ -61,6 +62,19 @@ const char *get_translation(const char *text) {
+ }
+ 
+ int IsTranslationAvailable() {
++	// Some games don't support foreign language packs.
++	// If that's the case, make them think they don't have them.
++	const char guid[][MAX_GUID_LENGTH] = {
++		"{cf1b8753-2ad1-4d79-b5c7-f6aff4fdc729}",	/* King's Quest I v4.1c */
++		"{b85ea0b0-35c5-4e53-bfc7-2281bf481001}", 	/* King's Quest II v3.1c */
++		"{19454ab9-e6dd-4f20-a2ad-24da47d91a20}",	/* King's Quest III Redux v1.1 */
++	};
++	char *gameguid = get_gameguid();
++	for (size_t i = 0; i < sizeof(guid) / MAX_GUID_LENGTH; i++) {
++		if (strcmp(gameguid, guid[i]) == 0) {
++			return 0;
++		}
++	}
+ 	if (get_translation_tree().size() > 0)
+ 		return 1;
+ 	return 0;
+@@ -72,4 +86,7 @@ int GetTranslationName(char *buffer) {
+ 	return IsTranslationAvailable();
+ }
+ 
++char *get_gameguid() {
++	return _GP(game).guid;
++}
+ } // namespace AGS3
+diff --git a/engines/ags/engine/ac/global_translation.h b/engines/ags/engine/ac/global_translation.h
+index dbfa0014989..a1eccb3191e 100644
+--- a/engines/ags/engine/ac/global_translation.h
++++ b/engines/ags/engine/ac/global_translation.h
+@@ -28,7 +28,8 @@ const char *get_translation(const char *text);
+ int IsTranslationAvailable();
+ // GetTranslationName assumes a string buffer of MAX_MAXSTRLEN
+ int GetTranslationName(char *buffer);
+-
++// Returns game uid
++char *get_gameguid();
+ } // namespace AGS3
+ 
+ #endif
+diff --git a/engines/ags/lib/alfont/alfont.cpp b/engines/ags/lib/alfont/alfont.cpp
+index f9e657dac59..714a1bcc91b 100644
+--- a/engines/ags/lib/alfont/alfont.cpp
++++ b/engines/ags/lib/alfont/alfont.cpp
+@@ -1148,6 +1148,11 @@ void alfont_textout_aa_ex(BITMAP *bmp, ALFONT_FONT *f, const char *s, int x, int
+ 			if (x_tmp > bmp->cr)
+ 				break;
+ 
++			/* Convert EUC-KR to UniCode*/
++			if (isKSX1001(character)) {
++				character = Common::convertUHCToUCS(character >> 8, character & 0xff);
++			}
++
+ 			/* get the character out of the font */
+ 			if (f->face->charmap)
+ 				glyph_index_tmp = Get_Char_Index(f->face, character);
+@@ -1190,6 +1195,11 @@ void alfont_textout_aa_ex(BITMAP *bmp, ALFONT_FONT *f, const char *s, int x, int
+ 		if (x > bmp->cr)
+ 			break;
+ 
++		/* Convert EUC-KR to UniCode*/
++		if (isKSX1001(character)) {
++			character = Common::convertUHCToUCS(character >> 8, character & 0xff);
++		}
++
+ 		/* get the character out of the font */
+ 		if (f->face->charmap)
+ 			glyph_index = Get_Char_Index(f->face, character);
+@@ -2234,6 +2244,11 @@ void alfont_textout_ex(BITMAP * bmp, ALFONT_FONT * f, const char *s, int x, int
+ 			if (x_tmp > bmp->cr)
+ 				break;
+ 
++			/* Convert EUC-KR to UniCode*/
++			if (isKSX1001(character)) {
++				character = Common::convertUHCToUCS(character >> 8, character & 0xff);
++			}
++
+ 			/* get the character out of the font */
+ 			if (f->face->charmap)
+ 				glyph_index_tmp = Get_Char_Index(f->face, character);
+@@ -2275,6 +2290,11 @@ void alfont_textout_ex(BITMAP * bmp, ALFONT_FONT * f, const char *s, int x, int
+ 		if (x > bmp->cr)
+ 			break;
+ 
++		/* Convert EUC-KR to UniCode*/
++		if (isKSX1001(character)) {
++			character = Common::convertUHCToUCS(character >> 8, character & 0xff);
++		}
++
+ 		/* get the character out of the font */
+ 		if (f->face->charmap)
+ 			glyph_index = Get_Char_Index(f->face, character);
+@@ -3024,6 +3044,11 @@ int alfont_text_length(ALFONT_FONT * f, const char *str) {
+ 			}
+ #endif
+ 
++			/* Convert EUC-KR to UniCode*/
++			if (isKSX1001(character)) {
++				character = Common::convertUHCToUCS(character >> 8, character & 0xff);
++			}
++
+ 			/* get the character out of the font */
+ 			if (f->face->charmap)
+ 				glyph_index_tmp = Get_Char_Index(f->face, character);
+@@ -3054,6 +3079,11 @@ int alfont_text_length(ALFONT_FONT * f, const char *str) {
+ 		}
+ #endif
+ 
++		/* Convert EUC-KR to UniCode*/
++		if (isKSX1001(character)) {
++			character = Common::convertUHCToUCS(character >> 8, character & 0xff);
++		}
++
+ 		if (f->face->charmap)
+ 			glyph_index = Get_Char_Index(f->face, character);
+ 		else
+diff --git a/engines/ags/lib/allegro/unicode.cpp b/engines/ags/lib/allegro/unicode.cpp
+index f1dbc508c9d..9ebdc486d45 100644
+--- a/engines/ags/lib/allegro/unicode.cpp
++++ b/engines/ags/lib/allegro/unicode.cpp
+@@ -40,6 +40,8 @@ int (*ucwidth)(int c) = utf8_cwidth;
+ /* uisok: */
+ int (*uisok)(int c) = utf8_isok;
+ 
++static bool ksx1001 = false;
++
+ struct UTYPE_INFO {
+ 	int id;
+ 	AL_METHOD(int, u_getc, (const char *s));
+@@ -87,6 +89,7 @@ void set_uformat(int type) {
+ 		uwidth = info->u_width;
+ 		ucwidth = info->u_cwidth;
+ 		uisok = info->u_isok;
++		ksx1001 = (type == U_ASCII) && !_G(trans_name).CompareNoCase("korean");
+ 	}
+ }
+ 
+@@ -228,28 +231,98 @@ int utf8_isok(int c) {
+ }
+ 
+ 
++inline bool is_ksx1001_code(int hi, int lo) {
++	return ((hi >= 0xB0) && (hi <= 0xC8) && (lo >= 0xA1) && (lo <= 0xFE));
++}
++
++static int ksx1001_getc(const char *s) {
++	int hi = *((const unsigned char *)s);
++	int lo = *((const unsigned char *)(s + 1));
++
++	if (is_ksx1001_code(hi, lo))
++		return hi << 8 | lo;
++	return hi;
++}
++
++static int ksx1001_getx(char **s) {
++	int hi = *((unsigned char *)((*s)++));
++	int lo = *((unsigned char *)((*s)));
++
++	if (is_ksx1001_code(hi, lo)) {
++		(*s)++;
++		return hi << 8 | lo;
++	}
++	return hi;
++}
++
++static int ksx1001_setc(char *s, int c) {
++	int hi = c >> 8;
++	int lo = c & 0xff;
++
++	if (is_ksx1001_code(hi, lo)) {
++		*s = hi;
++		*(s + 1) = lo;
++		return 2;
++	}
++	*s = c;
++	return 1;
++}
++
++static int ksx1001_width(const char *s) {
++	int hi = *((const unsigned char *)(s++));
++	int lo = *((const unsigned char *)(s));
++
++	return is_ksx1001_code(hi, lo) ? 2 : 1;
++}
++
++static int ksx1001_cwidth(int c) {
++	int hi = c >> 8;
++	int lo = c & 0xff;
++
++	return is_ksx1001_code(hi, lo) ? 2 : 1;
++}
++
++static int ksx1001_isok(int c) {
++	uint8_t hi = c >> 8;
++	uint8_t lo = c & 0xff;
++
++	return is_ksx1001_code(hi, lo) || ((c >= 0) && (c <= 255));
++}
++
+ int ascii_getc(const char *s) {
++	if (ksx1001)
++		return ksx1001_getc(s);
+ 	return *((const unsigned char *)s);
+ }
+ 
+ int ascii_getx(char **s) {
++	if (ksx1001)
++		return ksx1001_getx(s);
+ 	return *((unsigned char *)((*s)++));
+ }
+ 
+ int ascii_setc(char *s, int c) {
++	if (ksx1001)
++		return ksx1001_setc(s, c);
+ 	*s = c;
+ 	return 1;
+ }
+ 
+ int ascii_width(const char *s) {
++	if (ksx1001)
++		return ksx1001_width(s);
+ 	return 1;
+ }
+ 
+ int ascii_cwidth(int c) {
++	if (ksx1001)
++		return ksx1001_cwidth(c);
+ 	return 1;
+ }
+ 
+ int ascii_isok(int c) {
++	if (ksx1001)
++		return ksx1001_isok(c);
+ 	return ((c >= 0) && (c <= 255));
+ }
+ 
+@@ -1312,4 +1385,10 @@ int uvszprintf(char *buf, int size, const char *format, va_list args) {
+ 	return 0;
+ }
+ 
++bool isKSX1001(int c) {
++	int hi = c >> 8;
++	int lo = c & 0xff;
++	return ksx1001 && (hi >= 0xB0) && (hi <= 0xC8) && (lo >= 0xA1) && (lo <= 0xFE);
++}
++
+ } // namespace AGS3
+diff --git a/engines/ags/lib/allegro/unicode.h b/engines/ags/lib/allegro/unicode.h
+index b9977c99fad..11ec7682706 100644
+--- a/engines/ags/lib/allegro/unicode.h
++++ b/engines/ags/lib/allegro/unicode.h
+@@ -146,6 +146,9 @@ extern int ustrsizez(const char *s);
+ extern int need_uconvert(const char *s, int type, int newtype);
+ extern int uvszprintf(char *buf, int size, const char *format, va_list args);
+ 
++/* EUC-KR Korean trans? */
++extern bool isKSX1001(int c);
++
+ } // namespace AGS3
+ 
+ #endif
+diff --git a/engines/ags/shared/font/fonts.h b/engines/ags/shared/font/fonts.h
+index cbfaec0b4db..fbfb8731e2c 100644
+--- a/engines/ags/shared/font/fonts.h
++++ b/engines/ags/shared/font/fonts.h
+@@ -189,6 +189,11 @@ private:
+ // returns number of lines, or 0 if text cannot be split well to fit in this width
+ size_t split_lines(const char *texx, SplitLines &lines, int width, int fontNumber, size_t max_lines = -1);
+ 
++// Korean KSX1001 Code
++inline bool is_korean_code(const unsigned char hi, const unsigned char lo) {
++	return (hi >= 0xB0 && hi <= 0xC8 && lo >= 0xA1 && lo <= 0xFE);
++}
++
+ } // namespace AGS3
+ 
+ #endif
+diff --git a/engines/ags/shared/font/wfn_font.cpp b/engines/ags/shared/font/wfn_font.cpp
+index afb164937ca..e143f3010d9 100644
+--- a/engines/ags/shared/font/wfn_font.cpp
++++ b/engines/ags/shared/font/wfn_font.cpp
+@@ -46,6 +46,10 @@ void WFNChar::RestrictToBytes(size_t bytes) {
+ }
+ 
+ const WFNChar &WFNFont::GetChar(uint16_t code) const {
++	if (IsKSX1001(code)) {
++		// for Korean KS X1001 Code
++		return *_refs_ext[((code >> 8) - 0xB0) * 94 + (code & 0xff) - 0xA1];
++	}
+ 	return code < _refs.size() ? *_refs[code] : _G(emptyChar);
+ }
+ 
+@@ -53,6 +57,11 @@ void WFNFont::Clear() {
+ 	_refs.clear();
+ 	_items.clear();
+ 	_pixelData.clear();
++
++	// Extended Bitmap Font
++	_refs_ext.clear();
++	_items_ext.clear();
++	_pixelData_ext.clear();
+ }
+ 
+ WFNError WFNFont::ReadFromFile(Stream *in, const soff_t data_size) {
+@@ -193,4 +202,140 @@ WFNError WFNFont::ReadFromFile(Stream *in, const soff_t data_size) {
+ 	return err;
+ }
+ 
++WFNError WFNFont::ReadExtFntFromFile(Stream *in, const soff_t data_size) {
++	const soff_t used_data_size = data_size > 0 ? data_size : in->GetLength();
++
++	// Read font header
++	char sig[WFN_FILE_SIG_LENGTH];
++	in->Read(sig, WFN_FILE_SIG_LENGTH);
++	if (strncmp(sig, WFN_FILE_SIGNATURE, WFN_FILE_SIG_LENGTH) != 0) {
++		Debug::Printf(kDbgMsg_Error, "\tWFN: bad format signature");
++		return kWFNErr_BadSignature; // bad format
++	}
++
++	const soff_t table_addr = static_cast<uint32_t>(in->ReadInt32()); // offset table relative address
++	if (table_addr < (soff_t)(WFN_FILE_SIG_LENGTH + sizeof(uint32_t)) || table_addr >= used_data_size) {
++		Debug::Printf(kDbgMsg_Error, "\tWFN: bad table address: %llu (%llu - %llu)", static_cast<int64>(table_addr),
++			static_cast<int64>(WFN_FILE_SIG_LENGTH + sizeof(uint32_t)), static_cast<int64>(used_data_size));
++		return kWFNErr_BadTableAddress; // bad table address
++	}
++
++	const soff_t offset_table_size = used_data_size - table_addr;
++	const soff_t raw_data_offset = WFN_FILE_SIG_LENGTH + sizeof(uint32_t);
++	const size_t total_char_data = static_cast<size_t>(table_addr - raw_data_offset);
++	const size_t char_count = static_cast<size_t>(offset_table_size / sizeof(uint32_t));
++
++	// We process character data in three steps:
++	// 1. For every character store offset of character item, excluding
++	//    duplicates.
++	// 2. Allocate memory for character items and pixel array and copy
++	//    appropriate data; test for possible format corruption.
++	// 3. Create array of references from characters to items; same item may be
++	//    referenced by many characters.
++	WFNError err = kWFNErr_NoError;
++
++	if (total_char_data == 0u || char_count == 0u)
++		return kWFNErr_NoError; // no items
++
++	// Read character data array
++	std::vector<uint8_t> raw_data; raw_data.resize(total_char_data);
++	in->Read(&raw_data.front(), total_char_data);
++
++	// Read offset table
++	std::vector<uint32_t> offset_table;	offset_table.resize(char_count);
++	in->ReadArrayOfInt32(reinterpret_cast<int32_t *>(&offset_table.front()), char_count);
++
++	// Read all referenced offsets in an unsorted vector
++	std::vector<uint32_t> offs;
++	offs.reserve(char_count); // reserve max possible offsets
++	for (size_t i = 0; i < char_count; ++i) {
++		const uint32_t off = offset_table[i];
++		if (off < raw_data_offset || (soff_t)(off + MinCharDataSize) > table_addr) {
++			Debug::Printf("\tWFN: character %d -- bad item offset: %d (%d - %d, +%d)",
++			              i, off, raw_data_offset, table_addr, MinCharDataSize);
++			err = kWFNErr_HasBadCharacters; // warn about potentially corrupt format
++			continue; // bad character offset
++		}
++		offs.push_back(off);
++	}
++	// sort offsets vector and remove any duplicates
++	std::sort(offs.begin(), offs.end());
++#if AGS_PLATFORM_SCUMMVM
++	// TODO: See if this works correctly
++	std::unique(offs.begin(), offs.end());
++#else
++	std::vector<uint32_t>(offs.begin(), std::unique(offs.begin(), offs.end())).swap(offs);
++#endif
++
++	// Now that we know number of valid character items, parse and store character data
++	WFNChar init_ch;
++	_items_ext.resize(offs.size());
++	size_t total_pixel_size = 0;
++	for (size_t i = 0; i < _items_ext.size(); ++i) {
++		const uint8_t *p_data = &raw_data[offs[i] - raw_data_offset];
++		init_ch.Width = Memory::ReadInt16LE(p_data);
++		init_ch.Height = Memory::ReadInt16LE(p_data + sizeof(uint16_t));
++		total_pixel_size += init_ch.GetRequiredPixelSize();
++		_items_ext[i] = init_ch;
++	}
++
++	// Now that we know actual size of pixels in use, create pixel data array;
++	// since the items are sorted, the pixel data will be stored sequentially as well.
++	// At this point offs and _items_ext have related elements in the same order.
++	_pixelData_ext.resize(total_pixel_size);
++	std::vector<uint8_t>::iterator pixel_it = _pixelData_ext.begin(); // write ptr
++	for (size_t i = 0; i < _items_ext.size(); ++i) {
++		const size_t pixel_data_size = _items_ext[i].GetRequiredPixelSize();
++		if (pixel_data_size == 0) {
++			Debug::Printf("\tWFN: item at off %d -- null size", offs[i]);
++			err = kWFNErr_HasBadCharacters;
++			continue; // just an empty character
++		}
++		const uint32_t raw_off = offs[i] - raw_data_offset + MinCharDataSize; // offset in raw array
++		size_t src_size = pixel_data_size;
++		if (i + 1 != _items_ext.size() && (soff_t)(raw_off + src_size) > offs[i + 1] - raw_data_offset) {   // character pixel data overlaps next character
++			Debug::Printf("\tWFN: item at off %d -- pixel data overlaps next known item (at %d, +%d)",
++			              offs[i], offs[i + 1], MinCharDataSize + src_size);
++			err = kWFNErr_HasBadCharacters; // warn about potentially corrupt format
++			src_size = offs[i + 1] - offs[i] - MinCharDataSize;
++		}
++
++		if (raw_off + src_size > total_char_data) {   // character pixel data overflow buffer
++			Debug::Printf("\tWFN: item at off %d -- pixel data exceeds available data (at %d, +%d)",
++			              offs[i], table_addr, MinCharDataSize + src_size);
++			err = kWFNErr_HasBadCharacters; // warn about potentially corrupt format
++			src_size = total_char_data - raw_off;
++		}
++		_items_ext[i].RestrictToBytes(src_size);
++
++		assert(pixel_it + pixel_data_size <= _pixelData_ext.end()); // should not normally fail
++		Common::copy(raw_data.begin() + raw_off, raw_data.begin() + (raw_off + src_size), pixel_it);
++		_items_ext[i].Data = &(*pixel_it);
++		pixel_it += pixel_data_size;
++	}
++
++	// Create final reference array
++	_refs_ext.resize(char_count);
++	for (size_t i = 0; i < char_count; ++i) {
++		const uint32_t off = offset_table[i];
++		// if bad character offset - reference empty character
++		if (off < raw_data_offset || (soff_t)(off + MinCharDataSize) > table_addr) {
++			_refs_ext[i] = &_G(emptyChar);
++		} else {
++			// in usual case the offset table references items in strict order
++			if (i < _items_ext.size() && offs[i] == off)
++				_refs_ext[i] = &_items_ext[i];
++			else {
++				// we know beforehand that such item must exist
++				std::vector<uint32_t>::const_iterator at = std::lower_bound(offs.begin(), offs.end(), off);
++				assert(at != offs.end() && *at == off && // should not normally fail
++				       at - offs.begin() >= 0 && static_cast<size_t>(at - offs.begin()) < _items_ext.size());
++				_refs_ext[i] = &_items_ext[at - offs.begin()]; // set up reference to item
++			}
++		}
++	}
++
++	return err;
++}
++
+ } // namespace AGS3
+diff --git a/engines/ags/shared/font/wfn_font.h b/engines/ags/shared/font/wfn_font.h
+index 51fd579aec0..fbb68eb4643 100644
+--- a/engines/ags/shared/font/wfn_font.h
++++ b/engines/ags/shared/font/wfn_font.h
+@@ -89,6 +89,16 @@ public:
+ 		return static_cast<uint16_t>(_refs.size());
+ 	}
+ 
++	inline uint16_t GetWCharCount() const {
++		return static_cast<uint16_t>(_refs_ext.size());
++	}
++
++	inline bool IsKSX1001(uint16_t code) const {
++		uint8_t hi = code >> 8;
++		uint8_t lo = code & 0xff;
++		return (_refs_ext.size() == 2350 && hi >= 0xB0 && hi <= 0xC8 && lo >= 0xA1 && lo <= 0xFE);
++	}
++
+ 	// Get WFN character for the given code; if the character is missing, returns empty character
+ 	const WFNChar &GetChar(uint16_t code) const;
+ 
+@@ -96,11 +106,18 @@ public:
+ 	// Reads WFNFont object, using data_size bytes from stream; if data_size = 0,
+ 	// the available stream's length is used instead. Returns error code.
+ 	WFNError ReadFromFile(AGS::Shared::Stream *in, const soff_t data_size = 0);
++	WFNError ReadExtFntFromFile(AGS::Shared::Stream *in, const soff_t data_size = 0);
+ 
+ protected:
+ 	std::vector<const WFNChar *> _refs;      // reference array, contains pointers to elements of _items
+ 	std::vector<WFNChar>        _items;     // actual character items
+ 	std::vector<uint8_t>        _pixelData; // pixel data array
++
++	// Extended Bitmap Font
++	std::vector<const WFNChar *> _refs_ext;      // reference array, contains pointers to elements of _items
++	std::vector<WFNChar>        _items_ext;     // actual character items
++	std::vector<uint8_t>        _pixelData_ext; // pixel data array};
++
+ };
+ 
+ } // namespace AGS3
+diff --git a/engines/ags/shared/font/wfn_font_renderer.cpp b/engines/ags/shared/font/wfn_font_renderer.cpp
+index 9dfff34c5c8..84fd46e3376 100644
+--- a/engines/ags/shared/font/wfn_font_renderer.cpp
++++ b/engines/ags/shared/font/wfn_font_renderer.cpp
+@@ -112,6 +112,15 @@ bool WFNFontRenderer::LoadFromDisk(int fontNumber, int fontSize) {
+ 	return LoadFromDiskEx(fontNumber, fontSize, nullptr, nullptr, nullptr);
+ }
+ 
++int WFNFontRenderer::GetFontHeight(int fontNumber) {
++    const WFNFont *font = _fontData[fontNumber].Font;
++    uint16_t firstExtChar = 0xB0A1; /* Ga */
++    if (font->IsKSX1001(firstExtChar)) {
++        return font->GetChar(firstExtChar).Height;   // Height of First extended character
++    }
++    return 0;
++}
++
+ bool WFNFontRenderer::IsBitmapFont() {
+ 	return true;
+ }
+@@ -142,6 +151,14 @@ bool WFNFontRenderer::LoadFromDiskEx(int fontNumber, int /*fontSize*/, String *s
+ 		delete font;
+ 		return false;
+ 	}
++
++	// Load Extended Bitmap Font
++	file_name.Format("extfnt%d.wfn", fontNumber);
++	ffi = _GP(AssetMgr)->OpenAsset(file_name);
++	if (ffi != nullptr) {
++		font->ReadExtFntFromFile(ffi);
++	}
++
+ 	_fontData[fontNumber].Font = font;
+ 	_fontData[fontNumber].Params = params ? *params : FontRenderParams();
+ 	if (src_filename)
+@@ -157,7 +174,7 @@ void WFNFontRenderer::FreeMemory(int fontNumber) {
+ }
+ 
+ bool WFNFontRenderer::SupportsExtendedCharacters(int fontNumber) {
+-	return _fontData[fontNumber].Font->GetCharCount() > 128;
++	return _fontData[fontNumber].Font->GetCharCount() + _fontData[fontNumber].Font->GetWCharCount() > 128;
+ }
+ 
+ } // namespace AGS3
+diff --git a/engines/ags/shared/font/wfn_font_renderer.h b/engines/ags/shared/font/wfn_font_renderer.h
+index 7f48eb377b6..2db0ec261ce 100644
+--- a/engines/ags/shared/font/wfn_font_renderer.h
++++ b/engines/ags/shared/font/wfn_font_renderer.h
+@@ -48,7 +48,7 @@ public:
+ 	int GetVersion() override { return 26; /* first compatible engine API version */ }
+ 	const char *GetRendererName() override { return "WFNFontRenderer"; }
+ 	const char *GetFontName(int /*fontNumber*/) override { return ""; }
+-	int GetFontHeight(int fontNumber) override { return 0; /* TODO? */ }
++	int GetFontHeight(int fontNumber) override;
+ 	int GetLineSpacing(int fontNumber) override { return 0; /* no specific spacing */ }
+ 
+ 	// IAGSFontRendererInternal implementation
