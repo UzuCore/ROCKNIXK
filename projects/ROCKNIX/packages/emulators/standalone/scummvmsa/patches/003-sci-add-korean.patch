@@ -14,14 +14,14 @@ diff --git a/engines/sci/detection_tables.h b/engines/sci/detection_tables.h
 index 6b0279e2724..0a8b6f9f351 100644
 --- a/engines/sci/detection_tables.h
 +++ b/engines/sci/detection_tables.h
-@@ -157,7 +157,7 @@ static const struct ADGameDescription SciGameDescriptions[] = {
+@@ -216,7 +216,7 @@ static const struct ADGameDescription SciGameDescriptions[] = {
  		{"resource.000", 0, "27ec5fa09cd12a7fd16e86d96a2ed245", 347071},
  		{"resource.001", 0, "13e81e1839cd7b216d2bb5615c1ca160", 796776},
  		{"resource.002", 0, "930e416bec196b9703a331d81b3d66f2", 1283812},
 -		{"resource.msg", 0, "71c6f480e742a0dd3700ec7825962921", 49538},
 +		{"text.res", 0, "71c6f480e742a0dd3700ec7825962921", 49538},
  		AD_LISTEND},
- 		Common::KO_KOR, Common::kPlatformDOS, 0, GUIO_STD16	},
+ 		Common::KO_KOR, Common::kPlatformDOS, ADGF_NO_FLAGS, GUIO_STD16	},
  
 @@ -765,6 +765,15 @@ static const struct ADGameDescription SciGameDescriptions[] = {
  		AD_LISTEND},
@@ -48,9 +48,9 @@ index 6b0279e2724..0a8b6f9f351 100644
  
  	{"gk1", "CD", {
  		{"resource.map", 0, "372d059f75856afa6d73dd84cbb8913d", 10996},
-@@ -1920,6 +1929,25 @@ static const struct ADGameDescription SciGameDescriptions[] = {
+@@ -2010,6 +2010,25 @@ static const struct ADGameDescription SciGameDescriptions[] = {
  		AD_LISTEND},
- 		Common::EN_ANY, Common::kPlatformDOS, 0, GUIO_STD16	},
+ 		Common::EN_ANY, Common::kPlatformDOS, ADGF_NO_FLAGS, GUIO_STD16	},
  
 +	// King's Quest 5 - Korean fan translation, based on English DOS Floppy
 +	// VERSION file reports "0.000.051"
@@ -69,7 +69,7 @@ index 6b0279e2724..0a8b6f9f351 100644
 +		{"resource.007", 0, "431def14ca29cdb5e6a5e84d3f38f679", 1240176},
 +		{"resource.msg", 0, "8d94253e33b268c310126562a72de6f5", 93930},
 +		AD_LISTEND},
-+		Common::KO_KOR, Common::kPlatformDOS, 0, GUIO_STD16	},
++		Common::KO_KOR, Common::kPlatformDOS, ADGF_NO_FLAGS, GUIO_STD16	},
 +
  	// King's Quest 5 - English DOS Floppy (supplied by omer_mor in bug report #5048)
  	// VERSION file reports "0.000.051"
@@ -116,7 +116,7 @@ index 6b0279e2724..0a8b6f9f351 100644
  	// VERSION file reports "1.0"
 @@ -3753,6 +3796,19 @@ static const struct ADGameDescription SciGameDescriptions[] = {
  		AD_LISTEND},
- 		Common::EN_ANY, Common::kPlatformDOS, 0, GUIO_STD16	},
+ 		Common::EN_ANY, Common::kPlatformDOS, ADGF_NO_FLAGS, GUIO_STD16	},
  
 +	// Mixed-Up Fairy Tales v1.000 - English DOS (supplied by markcoolio in bug report #4271)
 +	// Executable scanning reports "1.000.145"
@@ -129,7 +129,7 @@ index 6b0279e2724..0a8b6f9f351 100644
 +		{"resource.004", 0, "f79daa70390d73746742ffcfc3dc4471", 937580},
 +		{"text.res", 0, "6a471b152556b7d39e38321fb2fbd2c9", 2948975},
 +		AD_LISTEND},
-+		Common::KO_KOR, Common::kPlatformDOS, 0, GUIO_STD16	},
++		Common::KO_KOR, Common::kPlatformDOS, ADGF_NO_FLAGS, GUIO_STD16	},
 +
  	// Mixed-Up Fairy Tales - English DOS Floppy (from jvprat)
  	// Executable scanning reports "1.000.145", Floppy label reports "1.0, 11.13.91", VERSION file reports "1.000"
@@ -137,8 +137,8 @@ index 6b0279e2724..0a8b6f9f351 100644
 @@ -3802,6 +3858,16 @@ static const struct ADGameDescription SciGameDescriptions[] = {
  		{"resource.000", 0, "b7ecd8ae9e254e80310b5a668b276e6e", 2948975},
  		AD_LISTEND},
- 		Common::EN_ANY, Common::kPlatformDOS, 0, GUIO_STD16	},
-+		
+ 		Common::EN_ANY, Common::kPlatformDOS, ADGF_NO_FLAGS, GUIO_STD16	},
++
 +	// Mixed-Up Mother Goose v2.000 - English DOS Floppy (supplied by markcoolio in bug report #4272)
 +	// Executable scanning reports "1.001.031"
 +	{"mothergoose256", "", {
@@ -147,7 +147,7 @@ index 6b0279e2724..0a8b6f9f351 100644
 +		{"resource.aud", 0, "ea0fe2e60c827201d6506b626c5a9fb5", 2743808},
 +		{"text.res", 0, "3bb9104f7dc385fbc16605190af375cb", 2948975},
 +		AD_LISTEND},
-+		Common::KO_KOR, Common::kPlatformDOS, 0, GUIO_STD16	},
++		Common::KO_KOR, Common::kPlatformDOS, ADGF_NO_FLAGS, GUIO_STD16	},
  
  	// Mixed-Up Mother Goose - English DOS CD (from jvprat)
  	// Executable scanning reports "x.yyy.zzz"
@@ -168,7 +168,7 @@ index 59ae2119701..c654a1ba8ee 100644
  #endif
  
  	addPatchDir(".");
-+	
++
 +	if (Common::File::exists("text.map"))
 +		addSource(new VolumeResourceSource("text.res", addExternalMap("text.map"), 0));
  

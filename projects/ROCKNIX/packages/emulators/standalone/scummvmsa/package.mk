@@ -3,9 +3,9 @@
 # Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
 
 PKG_NAME="scummvmsa"
-PKG_VERSION="5f6ad051511dd8af5fb707efc2fd6b56834045d6" # 2.8.1
+PKG_VERSION="f8d66eae4e6f7454196ded0ebb113c6a74842f5c" # v2026.1.0
 PKG_LICENSE="GPL2"
-PKG_SITE="https://github.com/british-choi/scummvm"
+PKG_SITE="https://github.com/scummvm/scummvm"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain SDL2 SDL2_net freetype fluidsynth soundfont-generaluser pipewire libmad libtheora faad2"
 PKG_LONGDESC="Script Creation Utility for Maniac Mansion Virtual Machine"
