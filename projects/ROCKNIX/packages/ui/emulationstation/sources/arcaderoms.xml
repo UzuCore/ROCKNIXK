@@ -6857,6 +6857,7 @@
   <rom id="kabukijq" name="Far East of Eden - Kabuki Klash / Tengai Makyou - Shin Den (Enhanced, Hack)" />
   <rom id="kabukikl" name="Far East of Eden - Kabuki Klash / Tengai Makyou - Shin Den" />
   <rom id="kabukiklb" name="Far East of Eden - Kabuki Klash / Tengai Makyou - Shin Den (Add hidden characters)" />
+  <rom id="kabukiklk" name="Far East of Eden - Kabuki Klash / Tengai Makyou - Shin Den (Korean Translation)" />
   <rom id="kabukiz" name="Kabuki-Z (World)" />
   <rom id="kabukizj" name="Kabuki-Z (Japan)" />
   <rom id="kageki" vert="true" name="Kageki (World)" />
@@ -7147,6 +7148,7 @@
   <rom id="kof2003" name="The King of Fighters 2003 (NGM-2710, Export)" />
   <rom id="kof2003d" name="The King of Fighters 2003 (Decrypted)" />
   <rom id="kof2003h" name="The King of Fighters 2003 (NGH-2710)" />
+  <rom id="kof2003k" name="The King of Fighters 2003 (Korean Translation)" />
   <rom id="kof2003t" name="The King of Fighters 2003 (Plus, Hack)" />
   <rom id="kof2k1bs" name="The King of Fighters 2001 (Boss, Hack)" />
   <rom id="kof2k1fd" name="The King of Fighters 2001 (Fully Decrypted)" />
@@ -7166,7 +7168,6 @@
   <rom id="kof2k2uh" name="The King of Fighters 2002 (AES Uncensored Hack)" />
   <rom id="kof2k3br" name="The King of Fighters 2003 (Portuguese edition v1.0, Hack)" />
   <rom id="kof2k3fd" name="The King of Fighters 2003 (Fully Decrypted)" />
-  <rom id="kof2k3k" name="The King of Fighters 2003 (Korean Translation)" />
   <rom id="kof2k3uh" name="The King of Fighters 2003 (AES Uncensored Hack)" />
   <rom id="kof2k4se" name="The King of Fighters Special Edition 2004 (bootleg of The King of Fighters 2002)" />
   <rom id="kof2kfd" name="The King of Fighters 2000 (Fully Decrypted)" />

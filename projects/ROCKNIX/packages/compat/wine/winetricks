@@ -432,7 +432,7 @@ _w_get_broken_messages()
 
             # win64 broken messages
             broken_good_version_known_win64="此软件包（${W_PACKAGE}）在 64 位 wine-${_wine_version_stripped} 上存在问题。可以使用 WINEARCH=win32 创建的前缀，或升级 wine 至 >=${good_version} 来解决此问题。或者使用 --force 仍可尝试。更多信息请参见 ${bug_link}。"
-            broken_good_and_bad_version_known_win64="此软件包（${W_PACKAGE}）在 64 位 wine-${_wine_version_stripped} 中已损坏，自 ${bad_version} 起出现该问题。请使用使用 WINEARCH=win32 创建的前缀，或升级 wine 至 >=${good_version} 来解决此问题。更多信息请参见 ${bug_link}。如仍要尝试，请使用 --force。"
+            broken_good_and_bad_version_known_win64="此软件包（${W_PACKAGE}）在 64 位 wine-${_wine_version_stripped} 中已损坏，自 ${bad_version} 起出现该问题。请使用 WINEARCH=win32 创建的前缀，或升级 wine 至 >=${good_version} 来解决此问题。更多信息请参见 ${bug_link}。如仍要尝试，请使用 --force。"
             broken_only_bad_version_known_win64="此软件包（${W_PACKAGE}）在 64 位 wine-${_wine_version_stripped} 上已损坏，自 ${bad_version} 起出现该问题。请使用 WINEARCH=win32 创建的前缀作为解决方法。更多信息请参见 ${bug_link}。如仍要尝试，请使用 --force。"
             broken_no_version_known_win64="此软件包（${W_PACKAGE}）在 wine 未使用 mingw 构建时已损坏。更多信息请参见 ${bug_link}。如仍要尝试，请使用 --force。"
             ;;
@@ -645,7 +645,7 @@ w_package_unsupported_win64()
             pl*) w_warn "Ten pakiet (${W_PACKAGE}) nie działa z 64-bitową instalacją. Musisz użyć prefiksu utworzonego z WINEARCH=win32." ;;
             pt*) w_warn "Este pacote (${W_PACKAGE}) não funciona em instalação de 64-bit. Você precisa usar um prefixo feito com WINEARCH=win32." ;;
             ru*) w_warn "Данный пакет не работает в 64-битном окружении. Используйте префикс, созданный с помощью WINEARCH=win32." ;;
-            zh_CN*) w_warn "(${W_PACKAGE}) 无法在64位下工作，只能将容器变量设置为 WINEARCH=win32。" ;;
+            zh_CN*) w_warn "(${W_PACKAGE}) 无法在 64 位环境下工作，您必须使用 WINEARCH=win32 创建的容器。" ;;
             zh_TW*|zh_HK*) w_warn "(${W_PACKAGE}) 無法在64元下工作，只能將容器變數設定為 WINEARCH=win32 安装。" ;;
             *) w_warn "This package (${W_PACKAGE}) does not work on a 64-bit installation. You must use a prefix made with WINEARCH=win32." ;;
         esac
@@ -1029,11 +1029,11 @@ w_read_key()
             uk*) _W_keymsg="Будь ласка, введіть ключ для додатка '${W_PACKAGE}'"
                 _W_nokeymsg="Ключ не надано"
                 ;;
-            zh_CN*)  _W_keymsg="按任意键为 '${W_PACKAGE}'"
-                _W_nokeymsg="未检测到按键"
+            zh_CN*)  _W_keymsg="请输入 '${W_PACKAGE}' 的产品密钥"
+                _W_nokeymsg="未提供密钥"
                 ;;
-            zh_TW*|zh_HK*)  _W_keymsg="按任意鍵為 '${W_PACKAGE}'"
-                _W_nokeymsg="No key given"
+            zh_TW*|zh_HK*)  _W_keymsg="請輸入應用程式 '${W_PACKAGE}' 的產品金鑰"
+                _W_nokeymsg="未提供金鑰"
                 ;;
             *)  _W_keymsg="Please enter the key for app '${W_PACKAGE}'"
                 _W_nokeymsg="No key given"
@@ -1362,7 +1362,7 @@ w_dotnet_verify()
         dotnet471) version="4.7.1" ;;
         dotnet472) version="4.7.2" ;;
         dotnet48) version="4.8" ;;
-        *) echo error ; exit 1 ;;
+        *) echo "error: w_dotnet_verify unknown dotnet version"; exit 1 ;;
     esac
 
     w_call dotnet_verifier
@@ -3113,11 +3113,11 @@ winetricks_latest_version_check()
                     ;;
                 zh_CN*)
                     w_warn "你正在使用 winetricks-${WINETRICKS_VERSION}，最新版本是 winetricks-${latest_version}!"
-                    w_warn "你应该使用你的发行版软件管理器、--self-update 或者手动来更新。"
+                    w_warn "建议通过发行版的包管理器、--self-update 或者手动方式进行更新。"
                     ;;
                 zh_TW*|zh_HK*)
                     w_warn "你正在使用 winetricks-${WINETRICKS_VERSION}，最新版本是 winetricks-${latest_version}!"
-                    w_warn "你應該使用你的發行版軟體管理者、--self-update 或者手動更新。"
+                    w_warn "建議通過發行版的套件管理員、--self-update 或者手動方式進行更新。"
                     ;;
                 *)
                     w_warn "You are running winetricks-${WINETRICKS_VERSION}, latest upstream is winetricks-${latest_version}!"
@@ -5642,15 +5642,21 @@ load_atmlib()
 w_metadata avifil32 dlls \
     title="MS avifil32" \
     publisher="Microsoft" \
-    year="2004" \
+    year="2009" \
     media="download" \
-    file1="../winxpsp3/WindowsXP-KB936929-SP3-x86-ENU.exe" \
+    file1="windowsserver2003.windowsxp-kb971557-x64-enu_32943d879a20893dace5191677c4e499aaef0ef8.exe" \
     installed_file1="${W_SYSTEM32_DLLS_WIN}/avifil32.dll"
 
 load_avifil32()
 {
-    helper_winxpsp3 i386/avifil32.dl_
-    w_try_cabextract --directory="${W_SYSTEM32_DLLS}" "${W_TMP}"/i386/avifil32.dl_
+    w_download https://catalog.s.download.windowsupdate.com/msdownload/update/software/secu/2009/07/windowsserver2003.windowsxp-kb971557-x64-enu_32943d879a20893dace5191677c4e499aaef0ef8.exe e20a2ee0d35e4338549b37badcd5eebe9dc0be86fbbd9b8809191fc315745a8f
+    w_try_cabextract --directory="${W_TMP}" "${W_CACHE}/${W_PACKAGE}/${file1}"
+
+    w_try_cp_dll "${W_TMP}"/SP2GDR/wow/wavifil32.dll "${W_SYSTEM32_DLLS}"/avifil32.dll
+
+    if [ "${W_ARCH}" = "win64" ]; then
+        w_try_cp_dll "${W_TMP}"/SP2GDR/avifil32.dll "${W_SYSTEM64_DLLS}"/avifil32.dll
+    fi
 
     w_override_dlls native avifil32
 }
@@ -11537,17 +11543,43 @@ w_metadata msls31 dlls \
     publisher="Microsoft" \
     year="2001" \
     media="download" \
+    file1="IE8-WindowsServer2003-x64-ENU.exe" \
+    installed_file1="${W_SYSTEM32_DLLS_WIN}/msls31.dll" \
+    installed_file2="${W_SYSTEM64_DLLS_WIN64}/msls31.dll"
+
+load_msls31()
+{
+    # Needed by native RichEdit and Internet Explorer
+    # Installs newer version of msls31.dll as well as both 32-bit and 64-bit versions as needed
+
+    w_download https://download.microsoft.com/download/7/5/4/754D6601-662D-4E39-9788-6F90D8E5C097/IE8-WindowsServer2003-x64-ENU.exe bcff753e92ceabf31cfefaa6def146335c7cb27a50b95cd4f4658a0c3326f499
+
+    w_try_cabextract --directory="${W_CACHE}"/msls31 "${W_CACHE}"/msls31/IE8-WindowsServer2003-x64-ENU.exe -F wow/wmsls31.dll
+    w_try_cp_dll "${W_CACHE}"/msls31/wow/wmsls31.dll "${W_SYSTEM32_DLLS}"/msls31.dll
+
+    if [ "${W_ARCH}" = "win64" ]; then
+        w_try_cabextract --directory="${W_SYSTEM64_DLLS}" "${W_CACHE}"/msls31/IE8-WindowsServer2003-x64-ENU.exe -F msls31.dll
+    fi
+}
+
+#----------------------------------------------------------------
+
+w_metadata msls31_nt4 dlls \
+    title="MS Line Services (32-bit only)" \
+    publisher="Microsoft" \
+    year="2001" \
+    media="download" \
     file1="InstMsiW.exe" \
     installed_file1="${W_SYSTEM32_DLLS_WIN}/msls31.dll"
 
-load_msls31()
+load_msls31_nt4()
 {
     # Needed by native RichEdit and Internet Explorer
     # Originally at https://download.microsoft.com/download/WindowsInstaller/Install/2.0/NT45/EN-US/InstMsiW.exe
     # Old mirror at https://ftp.hp.com/pub/softlib/software/msi/InstMsiW.exe
     w_download https://web.archive.org/web/20160710055851if_/http://download.microsoft.com/download/WindowsInstaller/Install/2.0/NT45/EN-US/InstMsiW.exe 4c3516c0b5c2b76b88209b22e3bf1cb82d8e2de7116125e97e128952372eed6b
 
-    w_try_cabextract --directory="${W_TMP}" "${W_CACHE}"/msls31/InstMsiW.exe
+    w_try_cabextract --directory="${W_TMP}" "${W_CACHE}"/msls31_nt4/InstMsiW.exe
     w_try_cp_dll "${W_TMP}"/msls31.dll "${W_SYSTEM32_DLLS}"
 }
 
@@ -12487,7 +12519,7 @@ load_riched20()
     w_override_dlls native,builtin riched20
 
     # https://github.com/Winetricks/winetricks/issues/292
-    w_call msls31
+    w_call msls31_nt4
 }
 
 #----------------------------------------------------------------
@@ -13787,11 +13819,15 @@ load_vstools2019()
 {
     w_call dotnet472
 
-    # 2021/12/17: e653e715ddb8a08873e50a2fe091fca2ce77726b8b6ed2b99ed916d0e03c1fbe
-    # 2025/04/03: 0f0cc11f000593a064d419462a8467b529fed8075b21a605a40785baa3d2f611
-    w_download https://aka.ms/vs/16/release/installer 0f0cc11f000593a064d419462a8467b529fed8075b21a605a40785baa3d2f611 vstools2019.zip
-    w_try_unzip "${W_TMP}/vs_installer_16" "${W_CACHE}/${W_PACKAGE}/vstools2019.zip"
-    w_try "${WINE}" "${W_TMP}"/vs_installer_16/Contents/vs_installer.exe install \
+    if test ! "${W_OPT_UNATTENDED}"; then
+        # The installer GUI needs at least one registered font family for System.Windows.Media.FontFamily.get_FirstFontFamily()
+        w_call arial
+    fi
+
+    # 2026/02/09: b7a70e4acdf18aaaba4e13e17c7c157a12d6512458d60d5c2001a373741329cb
+    # Use a newer bootstrap binary to prevent hang during installer self-update
+    w_download https://aka.ms/vs/18/stable/vs_buildtools.exe b7a70e4acdf18aaaba4e13e17c7c157a12d6512458d60d5c2001a373741329cb vs_buildtools.exe
+    w_try "${WINE}" "${W_CACHE}/${W_PACKAGE}/vs_buildtools.exe" install \
         --channelId VisualStudio.16.Release \
         --channelUri "https://aka.ms/vs/16/release/channel" \
         --productId "Microsoft.VisualStudio.Product.BuildTools" \
@@ -13823,6 +13859,48 @@ load_webio()
     w_override_dlls native,builtin webio
 }
 
+#----------------------------------------------------------------
+
+w_metadata webview2 dlls \
+    title="Microsoft Edge WebView2 Evergreen Runtime" \
+    publisher="Microsoft" \
+    year="2020" \
+    media="download" \
+    file1="MicrosoftEdgeWebview2Setup.exe" \
+    installed_file1="${W_PROGRAMS_X86_WIN}/Microsoft/EdgeUpdate/MicrosoftEdgeUpdate.exe"
+
+load_webview2()
+{
+    # https://developer.microsoft.com/en-us/microsoft-edge/webview2/
+    # Evergreen Bootstrapper - downloads and installs appropriate architecture
+    # https://go.microsoft.com/fwlink/p/?LinkId=2124703
+    # Skip checksum verification since this file updates frequently
+    w_download https://go.microsoft.com/fwlink/p/?LinkId=2124703 "" MicrosoftEdgeWebview2Setup.exe
+
+    w_try_cd "${W_CACHE}"/"${W_PACKAGE}"
+    w_try_ms_installer "${WINE}" MicrosoftEdgeWebview2Setup.exe ${W_OPT_UNATTENDED:+/silent /install}
+
+    if w_workaround_wine_bug 53925 "Setting edgeupdate service to manual startup"; then
+        cat > "${W_TMP}"/edgeupdate-service.reg <<_EOF_
+REGEDIT4
+
+[HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Services\\edgeupdate]
+"Start"=dword:00000003
+
+_EOF_
+        w_try_regedit "${W_TMP_WIN}"\\edgeupdate-service.reg
+
+        # Kill the running service since it was started during installation
+        # Use pgrep -f to match full command line since process name is >15 chars
+        # shellcheck disable=SC2046,SC2086
+        sleep 5 # Make sure we don't accidentally kill any other MicrosoftEdgeUpdate instance (shouldn't be needed, but better safe than sorry)
+        kill -s KILL $(pgrep -f "MicrosoftEdgeUpdate.exe /c") 2>/dev/null || true
+    fi
+
+    if w_workaround_wine_bug 58921 "Setting Windows 7 mode"; then
+        w_set_app_winver msedgewebview2.exe win7
+    fi
+}
 
 #----------------------------------------------------------------
 
@@ -15859,7 +15937,7 @@ load_ie6()
     # the ie6 we use these days lacks pngfilt, so grab that
     w_call pngfilt
 
-    w_call msls31
+    w_call msls31_nt
 }
 
 #----------------------------------------------------------------
@@ -19474,10 +19552,10 @@ winetricks_stats_init()
                     declined="Надсилання звітності Winetricks вимкнено. Ви більше не отримуватиме це питання знову."
                     ;;
                 zh_CN*)
-                    title="有关是否协助 Winetricks 开发的一次性提问。"
+                    title="有关是否协助 Winetricks 开发的一次性询问。"
                     question="您是否愿意通过允许 winetricks 报告统计信息来协助 winetricks 的开发？您可以随时通过命令 'winetricks --optout' 关闭统计信息上报。"
-                    thanks="谢谢！您将不会被要求再次回答此问题。切记，您可随时使用命令 'winetricks --optout' 关闭统计信息上报功能。"
-                    declined="好的，winetricks 将不会报告统计信息。您将不会被要求再次回答此问题。"
+                    thanks="谢谢！此问题将不会再次出现。请注意，您可随时使用命令 'winetricks --optout' 关闭统计信息上报。"
+                    declined="好的，winetricks 将不会报告统计信息。此问题将不会再次出现。"
                     ;;
                 *)
                     title="One-time question about helping Winetricks development"

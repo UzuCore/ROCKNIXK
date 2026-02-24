@@ -14,7 +14,7 @@ diff -Naur a/drivers/input/joystick/rsinput.c b/drivers/input/joystick/rsinput.c
      struct serdev_device *serdev;
      struct input_dev *input;
 +    struct platform_device *platform_dev;
- 	struct regulator *vdd;
+     struct regulator *vdd;
      struct gpio_desc *boot_gpio;
      struct gpio_desc *enable_gpio;
 @@ -62,6 +64,9 @@
