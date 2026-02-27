@@ -277,6 +277,7 @@ if [[ "${HW_DEVICE}" =~ SM8550|SM8650 && ! -e "/storage/.inputplumber_migration_
   rm -rf /storage/.config/Cemu
   rm -rf /storage/.config/melonDS
   rm -rf /storage/.config/mupen64plus
+  rm -rf /storage/.config/yabasanshiro
 
   # Mark migration as complete
   touch /storage/.inputplumber_migration_complete
