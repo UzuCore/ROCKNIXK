@@ -1,0 +1,872 @@
+diff --git a/devtools/create_project/msvc.cpp b/devtools/create_project/msvc.cpp
+index 5a866d9b..757c0979 100644
+--- a/devtools/create_project/msvc.cpp
++++ b/devtools/create_project/msvc.cpp
+@@ -105,8 +105,13 @@ std::string MSVCProvider::getLibraryFromFeature(const char *feature, const Build
+ 			libs += " ";
+ 		}
+ 
+-		// Vcpkg already adds the libs
+-		if (!setup.useVcpkg) {
++		// Vcpkg usually provides linker dependencies automatically, but fluidsynth
++		// currently needs an explicit import library name in generated projects.
++		if (setup.useVcpkg) {
++			if (std::strcmp(feature, "fluidsynth") == 0) {
++				libs += "libfluidsynth-3.lib";
++			}
++		} else {
+ 			const char *basename = library->release;
+ 			// Debug name takes priority
+ 			if (!isRelease && library->debug) {
+
+diff --git a/engines/lastexpress/data/archive.cpp b/engines/lastexpress/data/archive.cpp
+index 05362c75..b2d07fde 100644
+--- a/engines/lastexpress/data/archive.cpp
++++ b/engines/lastexpress/data/archive.cpp
+@@ -33,11 +33,13 @@ ArchiveManager::ArchiveManager(LastExpressEngine *engine) {
+ 
+ 	_cdFilePointer = new Common::File();
+ 	_hdFilePointer = new Common::File();
++	_koFilePointer = new Common::File();
+ }
+ 
+ ArchiveManager::~ArchiveManager() {
+ 	SAFE_DELETE(_cdFilePointer);
+ 	SAFE_DELETE(_hdFilePointer);
++	SAFE_DELETE(_koFilePointer);
+ }
+ 
+ HPF *ArchiveManager::search(const char *name, HPF *archive, int archiveSize) {
+@@ -120,6 +122,7 @@ bool ArchiveManager::lockCache(char *filename) {
+ 				_cdArchive[archiveIndex + i].size = _cdFilePointer->readUint16LE();
+ 				_cdArchive[archiveIndex + i].currentPos = _cdFilePointer->readUint16LE();
+ 				_cdArchive[archiveIndex + i].status = _cdFilePointer->readUint16LE();
++				_cdArchive[archiveIndex + i].status &= ~kHPFFileIsFromKoOverlay;
+ 			}
+ 
+ 			if (_cdFilePointer->err()) {
+@@ -139,6 +142,16 @@ bool ArchiveManager::lockCache(char *filename) {
+ 
+ void ArchiveManager::initHPFS() {
+ 	_hdFilePosition = 0;
++	_koFilePosition = 0;
++	_koArchiveNumFiles = 0;
++
++	if (_koArchive) {
++		free(_koArchive);
++		_koArchive = nullptr;
++	}
++
++	if (_koFilePointer && _koFilePointer->isOpen())
++		_koFilePointer->close();
+ 
+ 	if (!_hdFilePointer || !_hdFilePointer->open(_engine->isDemo() ? "DEMO.HPF" : "HD.hpf")) {
+ 		error("Hard drive cache not found (please reinstall)");
+@@ -169,6 +182,7 @@ void ArchiveManager::initHPFS() {
+ 		_hdArchive[i].size = _hdFilePointer->readUint16LE();
+ 		_hdArchive[i].currentPos = _hdFilePointer->readUint16LE();
+ 		_hdArchive[i].status = _hdFilePointer->readUint16LE();
++		_hdArchive[i].status &= ~kHPFFileIsFromKoOverlay;
+ 	}
+ 
+ 	if (_hdFilePointer->err()) {
+@@ -176,11 +190,55 @@ void ArchiveManager::initHPFS() {
+ 	}
+ 
+ 	_hdFilePosition += _hdArchiveNumFiles;
++
++	// Optional Korean overlay archive. If present, files in this archive
++	// override files from the base HD/CD archives.
++	if (_koFilePointer && _koFilePointer->open("KOREAN.HPF")) {
++		_koArchiveNumFiles = _koFilePointer->readUint32LE();
++
++		if (_koFilePointer->err()) {
++			warning("Error reading from file \"%s\". Korean overlay disabled.", "KOREAN.HPF");
++			_koArchiveNumFiles = 0;
++			_koFilePointer->close();
++			return;
++		}
++
++		if (_koArchiveNumFiles > 0) {
++			_koArchive = (HPF *)malloc(_koArchiveNumFiles * sizeof(HPF));
++			if (!_koArchive) {
++				error("Out of memory");
++			}
++
++			for (int i = 0; i < _koArchiveNumFiles; i++) {
++				_koFilePointer->read(_koArchive[i].name, sizeof(_koArchive[i].name));
++				_koArchive[i].offset = _koFilePointer->readUint32LE();
++				_koArchive[i].size = _koFilePointer->readUint16LE();
++				_koArchive[i].currentPos = _koFilePointer->readUint16LE();
++				_koArchive[i].status = _koFilePointer->readUint16LE();
++				_koArchive[i].status |= kHPFFileIsFromKoOverlay;
++				_koArchive[i].status &= ~kHPFFileIsLoaded;
++			}
++
++			if (_koFilePointer->err()) {
++				warning("Error reading from file \"%s\". Korean overlay disabled.", "KOREAN.HPF");
++				free(_koArchive);
++				_koArchive = nullptr;
++				_koArchiveNumFiles = 0;
++				_koFilePointer->close();
++			} else {
++				_koFilePosition += _koArchiveNumFiles;
++				debug(2, "Loaded Korean overlay archive (%d files)", _koArchiveNumFiles);
++			}
++		}
++	}
+ }
+ 
+ void ArchiveManager::shutDownHPFS() {
+ 	unlockCD();
+ 
++	if (_koFilePointer)
++		_koFilePointer->close();
++
+ 	if (_hdFilePointer)
+ 		_hdFilePointer->close();
+ 
+@@ -198,9 +256,20 @@ void ArchiveManager::shutDownHPFS() {
+ 		_cdArchive = nullptr;
+ 	}
+ 
++	if (_koArchive) {
++		free(_koArchive);
++		_koArchive = nullptr;
++	}
++
++	_koArchiveNumFiles = 0;
++	_koFilePosition = 0;
++
+ 	delete _hdFilePointer;
+ 	_hdFilePointer = nullptr;
+ 
++	delete _koFilePointer;
++	_koFilePointer = nullptr;
++
+ 	_hdArchiveNumFiles = 0;
+ 	_hdFilePosition = 0;
+ }
+@@ -222,13 +291,31 @@ HPF *ArchiveManager::openHPF(const char *filename) {
+ 	if (!_hdFilePointer)
+ 		return nullptr;
+ 
+-	result = search(filenameStr.c_str(), _hdArchive, _hdArchiveNumFiles);
++	result = nullptr;
++
++	if (_koArchiveNumFiles && _koArchive)
++		result = search(filenameStr.c_str(), _koArchive, _koArchiveNumFiles);
++	if (result) {
++		debug(7, "ArchiveManager::openHPF('%s'): KOREAN.HPF overlay hit", filenameStr.c_str());
++	}
++
++	if (!result)
++		result = search(filenameStr.c_str(), _hdArchive, _hdArchiveNumFiles);
++	if (result && (result->status & kHPFFileIsFromKoOverlay) == 0) {
++		debug(8, "ArchiveManager::openHPF('%s'): HD.HPF hit", filenameStr.c_str());
++	}
++
+ 	if (!result) {
+ 		if (_cdArchiveNumFiles)
+ 			result = search(filenameStr.c_str(), _cdArchive, _cdArchiveNumFiles);
++		if (result) {
++			debug(8, "ArchiveManager::openHPF('%s'): CD archive hit", filenameStr.c_str());
++		}
+ 
+-		if (!result)
++		if (!result) {
++			debug(8, "ArchiveManager::openHPF('%s'): miss", filenameStr.c_str());
+ 			return nullptr;
++		}
+ 	}
+ 
+ 	if ((result->status & kHPFFileIsLoaded) != 0)
+@@ -274,6 +361,23 @@ void ArchiveManager::readCD(void *dstBuf, int offset, uint32 size) {
+ 	}
+ }
+ 
++void ArchiveManager::readKO(void *dstBuf, int offset, uint32 size) {
++	if (_koFilePointer && _koFilePointer->isOpen()) {
++		if (offset != _koFilePosition) {
++			if (!_koFilePointer->seek(offset * MEM_PAGE_SIZE, SEEK_SET)) {
++				error("Error seeking in file \"%s\"", "KOREAN.HPF");
++			}
++		}
++
++		uint32 readSize = _koFilePointer->read(dstBuf, size * MEM_PAGE_SIZE);
++		if (readSize != size * MEM_PAGE_SIZE) {
++			error("Error reading from file \"%s\"", "KOREAN.HPF");
++		}
++
++		_koFilePosition = (offset + size);
++	}
++}
++
+ void ArchiveManager::readHPF(HPF *archive, void *dstBuf, uint32 size) {
+ 	uint32 effSize;
+ 
+@@ -283,7 +387,9 @@ void ArchiveManager::readHPF(HPF *archive, void *dstBuf, uint32 size) {
+ 			if (archive->currentPos + size > archive->size)
+ 				effSize = archive->size - archive->currentPos;
+ 
+-			if ((archive->status & kHPFFileIsOnCD) != 0) {
++			if ((archive->status & kHPFFileIsFromKoOverlay) != 0) {
++				readKO(dstBuf, (archive->currentPos + archive->offset), effSize);
++			} else if ((archive->status & kHPFFileIsOnCD) != 0) {
+ 				readHD(dstBuf, (archive->currentPos + archive->offset), effSize);
+ 			} else {
+ 				readCD(dstBuf, (archive->currentPos + archive->offset), effSize);
+
+diff --git a/engines/lastexpress/data/archive.h b/engines/lastexpress/data/archive.h
+index 4453c574..0df7c407 100644
+--- a/engines/lastexpress/data/archive.h
++++ b/engines/lastexpress/data/archive.h
+@@ -43,6 +43,7 @@ struct Seq;
+  *  	* uint16 {2}   File status flags:
+  *  				   - Bit 0: "Is on CD"
+  *  				   - Bit 1: "Is loaded"
++ *  				   - Bit 2: "Is from Korean overlay"
+  */
+ 
+ typedef struct HPF {
+@@ -69,8 +70,9 @@ typedef struct HPF {
+ } HPF;
+ 
+ enum HPFFlags {
+-	kHPFFileIsOnCD   = 1 << 0,
+-	kHPFFileIsLoaded = 1 << 1,
++	kHPFFileIsOnCD            = 1 << 0,
++	kHPFFileIsLoaded          = 1 << 1,
++	kHPFFileIsFromKoOverlay   = 1 << 2,
+ };
+ 
+ 
+@@ -89,6 +91,7 @@ public:
+ 	virtual HPF *openHPF(const char *filename);
+ 	void readHD(void *dstBuf, int offset, uint32 size);
+ 	void readCD(void *dstBuf, int offset, uint32 size);
++	void readKO(void *dstBuf, int offset, uint32 size);
+ 	virtual void readHPF(HPF *archive, void *dstBuf, uint32 size);
+ 	void seekHPF(HPF *archive, uint32 position);
+ 	void closeHPF(HPF *archive);
+@@ -108,8 +111,13 @@ protected:
+ 	int32 _hdFilePosition = 0;
+ 	int32 _hdArchiveNumFiles = 0;
+ 
++	Common::File *_koFilePointer = nullptr;
++	int32 _koFilePosition = 0;
++	int32 _koArchiveNumFiles = 0;
++
+ 	HPF *_cdArchive = nullptr;
+ 	HPF *_hdArchive = nullptr;
++	HPF *_koArchive = nullptr;
+ 	int32 _cdArchiveIndex = 0;
+ };
+
+diff --git a/engines/lastexpress/graphics.cpp b/engines/lastexpress/graphics.cpp
+index 709fb96c..c89b0ec6 100644
+--- a/engines/lastexpress/graphics.cpp
++++ b/engines/lastexpress/graphics.cpp
+@@ -2215,10 +2215,15 @@ void GraphicsManager::burstMouseArea(bool updateScreen) {
+ void GraphicsManager::burstBox(int32 x, int32 y, int32 width, int32 height, bool updateScreen) {
+ 	bool subtitlesDrawn = false;
+ 	bool mouseDrawn = false;
++	const int subtitleAreaLeft = 80;
++	const int subtitleAreaRight = 560;
++	const int subtitleAreaTop = 420;
++	const int subtitleAreaBottom = 467; // Localized subtitles may use up to 48px height.
+ 
+ 	if (x < 640 && y < 480 && x + width <= 640 && y + height <= 480) {
+ 		if ((_engine->getSubtitleManager()->_flags & 1) != 0 &&
+-			x + width >= 80 && x <= 560 && y + height >= 420 && y <= 458) {
++			x + width >= subtitleAreaLeft && x <= subtitleAreaRight &&
++			y + height >= subtitleAreaTop && y <= subtitleAreaBottom) {
+ 			_engine->getSubtitleManager()->vSubOn();
+ 			subtitlesDrawn = true;
+ 		}
+
+diff --git a/engines/lastexpress/sound/subtitle.cpp b/engines/lastexpress/sound/subtitle.cpp
+index d855bb1a..4274ad7f 100644
+--- a/engines/lastexpress/sound/subtitle.cpp
++++ b/engines/lastexpress/sound/subtitle.cpp
+@@ -26,11 +26,120 @@
+ #include "lastexpress/helpers.h"
+ #include "lastexpress/lastexpress.h"
+ 
++#include "common/archive.h"
++#include "common/config-manager.h"
++#include "common/array.h"
++#include "common/file.h"
+ #include "common/memstream.h"
++#include "common/str-enc.h"
++#include "graphics/font.h"
++#include "graphics/fontman.h"
++#ifdef USE_FREETYPE2
++#include "graphics/fonts/ttf.h"
++#endif
+ #include "subtitle.h"
++#include <cstdlib>
+ 
+ namespace LastExpress {
+ 
++namespace {
++
++static const int kSubtitleAreaLeft = 80;
++static const int kSubtitleAreaTop = 420;
++static const int kSubtitleAreaWidth = 480;
++static const int kSubtitleAreaDefaultHeight = 38;
++static const int kSubtitleAreaLocalizedHeight = 48;
++
++static int getLocalizedSubtitleFontSizeFromConfig() {
++	const int kDefaultSize = 14;
++	const int kMinSize = 8;
++	const int kMaxSize = 48;
++	static const char *const kConfigKey = "lastexpress_kor_font_size";
++
++	int size = kDefaultSize;
++	if (ConfMan.hasKey(kConfigKey)) {
++		size = ConfMan.getInt(kConfigKey);
++		if (size < kMinSize)
++			size = kMinSize;
++		else if (size > kMaxSize)
++			size = kMaxSize;
++	}
++
++	return size;
++}
++
++Common::String decodeSubtitleEscapes(const Common::String &input) {
++	Common::String output;
++
++	bool escaped = false;
++	for (Common::String::const_iterator it = input.begin(); it != input.end(); ++it) {
++		char c = *it;
++		if (!escaped) {
++			if (c == '\\') {
++				escaped = true;
++			} else {
++				output += c;
++			}
++			continue;
++		}
++
++		switch (c) {
++		case 'n':
++			output += '\n';
++			break;
++		case 'r':
++			output += '\r';
++			break;
++		case 't':
++			output += '\t';
++			break;
++		case '\\':
++			output += '\\';
++			break;
++		default:
++			output += '\\';
++			output += c;
++			break;
++		}
++
++		escaped = false;
++	}
++
++	if (escaped)
++		output += '\\';
++
++	return output;
++}
++
++Common::String makeSubtitleLookupKey(const char *filename, int32 subtitleIndex) {
++	return Common::String::format("%s|%d", filename, subtitleIndex);
++}
++
++Common::SeekableReadStream *createReadStreamFromKoreanOverlay(LastExpressEngine *engine, const char *filename) {
++	HPF *archive = engine->getArchiveManager()->openHPF(filename);
++	if (!archive)
++		return nullptr;
++
++	const uint32 byteSize = archive->size * MEM_PAGE_SIZE;
++	byte *buffer = (byte *)malloc(byteSize);
++	if (!buffer) {
++		engine->getArchiveManager()->closeHPF(archive);
++		warning("SubtitleManager: out of memory while loading '%s' from overlay archive", filename);
++		return nullptr;
++	}
++
++	engine->getArchiveManager()->readHPF(archive, buffer, archive->size);
++	engine->getArchiveManager()->closeHPF(archive);
++
++	uint32 effectiveSize = byteSize;
++	while (effectiveSize && buffer[effectiveSize - 1] == 0)
++		--effectiveSize;
++
++	return new Common::MemoryReadStream(buffer, effectiveSize, DisposeAfterUse::YES);
++}
++
++} // End of anonymous namespace
++
+ Subtitle::Subtitle(LastExpressEngine *engine, const char *filename, Slot *slot) {
+ 	_engine = engine;
+ 
+@@ -157,7 +266,8 @@ void Subtitle::update() {
+ 				return;
+ 			}
+ 		} else if (count != _engine->getSubtitleManager()->_subtitleIndex) {
+-			_engine->getSubtitleManager()->drawSubArea(&_data[2]);
++			_engine->getSubtitleManager()->_currentSubtitle = this;
++			_engine->getSubtitleManager()->drawSubArea(&_data[2], count);
+ 			_engine->getSubtitleManager()->_subtitleIndex = count;
+ 			_engine->getSubtitleManager()->_currentSubtitle = this;
+ 
+@@ -182,6 +292,12 @@ SubtitleManager::SubtitleManager(LastExpressEngine *engine) {
+ }
+ 
+ SubtitleManager::~SubtitleManager() {
++	if (_localizedSubtitleFontOwned) {
++		delete _localizedSubtitleFont;
++		_localizedSubtitleFont = nullptr;
++		_localizedSubtitleFontOwned = false;
++	}
++
+ 	SAFE_DELETE(_font);
+ }
+ 
+@@ -232,18 +348,228 @@ void SubtitleManager::initSubtitles() {
+ 	}
+ 
+ 	_engine->getGraphicsManager()->modifyPalette(_font->palette, 16);
++	initLocalizedSubtitlesSupport();
++}
++
++void SubtitleManager::clearLocalizedSubtitleRenderState() {
++	_useLocalizedSubtitleLine = false;
++	_localizedUpperLine.clear();
++	_localizedLowerLine.clear();
++	_localizedUpperLineWidth = 0;
++	_localizedLowerLineWidth = 0;
++}
++
++int SubtitleManager::getRequestedSubtitleAreaHeight() const {
++	return (_useLocalizedSubtitleLine && _localizedSubtitleFont) ? kSubtitleAreaLocalizedHeight : kSubtitleAreaDefaultHeight;
++}
++
++void SubtitleManager::initLocalizedSubtitlesSupport() {
++	if (_localizedSupportInitialized)
++		return;
++
++	_localizedSupportInitialized = true;
++	_localizedSubtitlesAvailable = false;
++	_localizedSubtitleLines.clear();
++	clearLocalizedSubtitleRenderState();
++
++	static const char *const kLocalizedSubtitleTableNames[] = {
++		"SUBKO.TSV",
++		"subko.tsv"
++	};
++
++	Common::File subtitleTableFile;
++	Common::SeekableReadStream *subtitleTableStream = nullptr;
++	bool subtitleTableFromOverlay = false;
++	const char *loadedTableName = nullptr;
++	auto releaseSubtitleTableStream = [&]() {
++		if (subtitleTableStream && subtitleTableStream != &subtitleTableFile)
++			delete subtitleTableStream;
++		subtitleTableStream = nullptr;
++	};
++
++	for (uint i = 0; i < ARRAYSIZE(kLocalizedSubtitleTableNames); ++i) {
++		if (subtitleTableFile.open(kLocalizedSubtitleTableNames[i])) {
++			subtitleTableStream = &subtitleTableFile;
++			loadedTableName = kLocalizedSubtitleTableNames[i];
++			break;
++		}
++
++		subtitleTableStream = createReadStreamFromKoreanOverlay(_engine, kLocalizedSubtitleTableNames[i]);
++		if (subtitleTableStream) {
++			loadedTableName = kLocalizedSubtitleTableNames[i];
++			subtitleTableFromOverlay = true;
++			break;
++		}
++	}
++
++	if (!loadedTableName)
++		return;
++
++	int32 parsedLines = 0;
++	int32 lineNumber = 0;
++	while (!subtitleTableStream->eos()) {
++		Common::String line = subtitleTableStream->readLine();
++		++lineNumber;
++
++		if (lineNumber == 1 && line.size() >= 3 &&
++			static_cast<byte>(line[0]) == 0xEF &&
++			static_cast<byte>(line[1]) == 0xBB &&
++			static_cast<byte>(line[2]) == 0xBF) {
++			line.erase(0, 3);
++		}
++
++		line.trim();
++		if (line.empty() || line.hasPrefix("#") || line.hasPrefix(";"))
++			continue;
++
++		uint32 firstSeparator = line.find('|');
++		if (firstSeparator == Common::String::npos)
++			firstSeparator = line.find('\t');
++
++		if (firstSeparator == Common::String::npos) {
++			warning("SubtitleManager: invalid localized subtitle row at line %d: missing delimiter", lineNumber);
++			continue;
++		}
++
++		const char delimiter = line[firstSeparator];
++		const uint32 secondSeparator = line.find(delimiter, firstSeparator + 1);
++		if (secondSeparator == Common::String::npos) {
++			warning("SubtitleManager: invalid localized subtitle row at line %d: missing second delimiter", lineNumber);
++			continue;
++		}
++
++		Common::String subtitleName = line.substr(0, firstSeparator);
++		Common::String subtitleIndexText = line.substr(firstSeparator + 1, secondSeparator - firstSeparator - 1);
++		Common::String subtitleText = line.substr(secondSeparator + 1);
++
++		subtitleName.trim();
++		subtitleIndexText.trim();
++
++		if (subtitleName.empty() || subtitleIndexText.empty()) {
++			warning("SubtitleManager: invalid localized subtitle row at line %d: empty name or index", lineNumber);
++			continue;
++		}
++
++		char *indexEnd = nullptr;
++		const long subtitleIndex = strtol(subtitleIndexText.c_str(), &indexEnd, 10);
++		if (indexEnd == subtitleIndexText.c_str() || *indexEnd != '\0' ||
++			subtitleIndex < 0 || subtitleIndex > 0x7FFFFFFF) {
++			warning("SubtitleManager: invalid localized subtitle row at line %d: bad index '%s'", lineNumber, subtitleIndexText.c_str());
++			continue;
++		}
++
++		if (!subtitleName.hasSuffixIgnoreCase(".SBE"))
++			subtitleName += ".SBE";
++
++		Common::U32String subtitleTextU32 = Common::convertUtf8ToUtf32(decodeSubtitleEscapes(subtitleText));
++		_localizedSubtitleLines.setVal(makeSubtitleLookupKey(subtitleName.c_str(), (int32)subtitleIndex), subtitleTextU32);
++		++parsedLines;
++	}
++
++	if (!parsedLines) {
++		warning("SubtitleManager: localized subtitle table '%s' had no valid rows", loadedTableName);
++		releaseSubtitleTableStream();
++		return;
++	}
++
++	releaseSubtitleTableStream();
++
++	if (_localizedSubtitleFontOwned && _localizedSubtitleFont) {
++		delete _localizedSubtitleFont;
++		_localizedSubtitleFont = nullptr;
++		_localizedSubtitleFontOwned = false;
++	}
++
++#ifdef USE_FREETYPE2
++	const int localizedFontSize = getLocalizedSubtitleFontSizeFromConfig();
++	static const char *const kLocalizedFontNames[] = {
++		"Korean.TTF",
++		"KOREAN.TTF"
++	};
++
++	for (uint i = 0; i < ARRAYSIZE(kLocalizedFontNames) && !_localizedSubtitleFont; ++i) {
++		bool fontFromOverlay = false;
++		Common::SeekableReadStream *fontStream = SearchMan.createReadStreamForMember(kLocalizedFontNames[i]);
++		if (!fontStream) {
++			fontStream = createReadStreamFromKoreanOverlay(_engine, kLocalizedFontNames[i]);
++			fontFromOverlay = (fontStream != nullptr);
++		}
++
++		if (!fontStream)
++			continue;
++
++		_localizedSubtitleFont = Graphics::loadTTFFont(
++			fontStream,
++			DisposeAfterUse::YES,
++			localizedFontSize,
++			Graphics::kTTFSizeModeCharacter,
++			0,
++			0,
++			Graphics::kTTFRenderModeLight
++		);
++
++		if (_localizedSubtitleFont) {
++			_localizedSubtitleFontOwned = true;
++			debug(2, "SubtitleManager: localized subtitle font loaded from '%s'%s (size=%d)",
++				kLocalizedFontNames[i], fontFromOverlay ? " via KOREAN.HPF" : "", localizedFontSize);
++		}
++	}
++#endif
++
++	if (!_localizedSubtitleFont)
++		_localizedSubtitleFont = FontMan.getFontByUsage(Graphics::FontManager::kLocalizedFont);
++	if (!_localizedSubtitleFont)
++		_localizedSubtitleFont = FontMan.getFontByUsage(Graphics::FontManager::kGUIFont);
++	if (!_localizedSubtitleFont)
++		_localizedSubtitleFont = FontMan.getFontByUsage(Graphics::FontManager::kBigGUIFont);
++
++	if (!_localizedSubtitleFont) {
++		warning("SubtitleManager: localized subtitle table found, but no drawable font is available");
++		_localizedSubtitleLines.clear();
++		return;
++	}
++
++	_localizedSubtitlesAvailable = true;
++	debug(2, "SubtitleManager: loaded %d localized subtitle rows from '%s'%s",
++		parsedLines, loadedTableName, subtitleTableFromOverlay ? " via KOREAN.HPF" : "");
++}
++
++bool SubtitleManager::setupLocalizedSubtitleLines(int32 subtitleIndex) {
++	clearLocalizedSubtitleRenderState();
++
++	if (!_localizedSubtitlesAvailable || !_localizedSubtitleFont || !_currentSubtitle)
++		return false;
++
++	Common::U32String localizedText;
++	if (!_localizedSubtitleLines.tryGetVal(makeSubtitleLookupKey(_currentSubtitle->_filename, subtitleIndex), localizedText))
++		return false;
++
++	Common::Array<Common::U32String> wrappedLines;
++	_localizedSubtitleFont->wordWrapText(localizedText, 456, wrappedLines, 0, Graphics::kWordWrapOnExplicitNewLines);
++	if (wrappedLines.empty())
++		return false;
++
++	_localizedUpperLine = wrappedLines[0];
++	if (wrappedLines.size() > 1)
++		_localizedLowerLine = wrappedLines[1];
++
++	_localizedUpperLineWidth = _localizedSubtitleFont->getStringWidth(_localizedUpperLine);
++	_localizedLowerLineWidth = _localizedSubtitleFont->getStringWidth(_localizedLowerLine);
++	_useLocalizedSubtitleLine = true;
++
++	return true;
+ }
+ 
+ void SubtitleManager::storeVArea(PixMap *pixels) {
+ 	if (_engine->getGraphicsManager()->acquireSurface()) {
+-		PixMap *screenSurface = (PixMap *)((byte *)_engine->getGraphicsManager()->_screenSurface.getPixels() + 537760);
++		PixMap *screenSurface = (PixMap *)((byte *)_engine->getGraphicsManager()->_screenSurface.getPixels() + ((kSubtitleAreaTop * 640 + kSubtitleAreaLeft) * sizeof(PixMap)));
+ 
+-		for (int i = 38; i > 0; i--) {
+-			for (int j = 480; j > 0; j--) {
++		for (int i = _activeSubtitleAreaHeight; i > 0; i--) {
++			for (int j = kSubtitleAreaWidth; j > 0; j--) {
+ 				*pixels++ = *screenSurface++;
+ 			}
+ 
+-			screenSurface += 160;
++			screenSurface += 640 - kSubtitleAreaWidth;
+ 		}
+ 
+ 		_engine->getGraphicsManager()->unlockSurface();
+@@ -252,14 +578,14 @@ void SubtitleManager::storeVArea(PixMap *pixels) {
+ 
+ void SubtitleManager::restoreVArea(PixMap *pixels) {
+ 	if (_engine->getGraphicsManager()->acquireSurface()) {
+-		PixMap *screenSurface = (PixMap *)((byte *)_engine->getGraphicsManager()->_screenSurface.getPixels() + 537760);
++		PixMap *screenSurface = (PixMap *)((byte *)_engine->getGraphicsManager()->_screenSurface.getPixels() + ((kSubtitleAreaTop * 640 + kSubtitleAreaLeft) * sizeof(PixMap)));
+ 
+-		for (int i = 38; i > 0; i--) {
+-			for (int j = 480; j > 0; j--) {
++		for (int i = _activeSubtitleAreaHeight; i > 0; i--) {
++			for (int j = kSubtitleAreaWidth; j > 0; j--) {
+ 				*screenSurface++ = *pixels++;
+ 			}
+ 
+-			screenSurface += 160;
++			screenSurface += 640 - kSubtitleAreaWidth;
+ 		}
+ 
+ 		_engine->getGraphicsManager()->unlockSurface();
+@@ -267,24 +593,76 @@ void SubtitleManager::restoreVArea(PixMap *pixels) {
+ }
+ 
+ void SubtitleManager::vSubOn() {
++	_activeSubtitleAreaHeight = getRequestedSubtitleAreaHeight();
+ 	storeVArea(_engine->getGraphicsManager()->_subtitlesBackBuffer);
+ 
+-	if (_font->fontData[0]) {
++	if (_useLocalizedSubtitleLine && _localizedSubtitleFont) {
+ 		if (_engine->getGraphicsManager()->acquireSurface()) {
+-			PixMap *surfaceLine1 = (PixMap *)((byte *)_engine->getGraphicsManager()->_screenSurface.getPixels() + ((640 - _upperLineXStart) & ~1) + 537600);
+-			for (int i = 0; i < _upperLineLength; ++i) {
+-				drawChar(surfaceLine1, _upperLineChars[i]);
+-				surfaceLine1 += _upperLineCharWidths[i];
++			Graphics::Surface *screenSurface = &_engine->getGraphicsManager()->_screenSurface;
++			const Graphics::PixelFormat &format = screenSurface->format;
++			const uint32 textColor = format.RGBToColor(255, 255, 255);
++			const uint32 shadowColor = format.RGBToColor(0, 0, 0);
++
++			int lineCount = _localizedLowerLine.empty() ? 1 : 2;
++			int fontHeight = _localizedSubtitleFont->getFontHeight();
++			if (fontHeight <= 0)
++				fontHeight = 16;
++
++			const int subtitleAreaTop = kSubtitleAreaTop;
++			const int subtitleAreaHeight = _activeSubtitleAreaHeight;
++			const int shadowOffset = 1;
++			int lineSpacing = 2;
++			if (lineCount > 1) {
++				const int maxLineSpacing = (subtitleAreaHeight - lineCount * fontHeight - shadowOffset) / (lineCount - 1);
++				if (maxLineSpacing < 0)
++					lineSpacing = 0;
++				else if (lineSpacing > maxLineSpacing)
++					lineSpacing = maxLineSpacing;
+ 			}
++			const int blockHeight = lineCount * fontHeight + (lineCount - 1) * lineSpacing + shadowOffset;
++			int lineY = subtitleAreaTop + (subtitleAreaHeight - blockHeight) / 2;
++			if (lineY < subtitleAreaTop)
++				lineY = subtitleAreaTop;
++
++			if (!_localizedUpperLine.empty()) {
++				int upperLineX = kSubtitleAreaLeft + (kSubtitleAreaWidth - _localizedUpperLineWidth) / 2;
++				if (upperLineX < kSubtitleAreaLeft)
++					upperLineX = kSubtitleAreaLeft;
++
++				_localizedSubtitleFont->drawString(screenSurface, _localizedUpperLine, upperLineX + 1, lineY + 1, kSubtitleAreaWidth, shadowColor);
++				_localizedSubtitleFont->drawString(screenSurface, _localizedUpperLine, upperLineX, lineY, kSubtitleAreaWidth, textColor);
++			}
++
++			if (!_localizedLowerLine.empty()) {
++				const int lowerLineY = lineY + fontHeight + lineSpacing;
++				int lowerLineX = kSubtitleAreaLeft + (kSubtitleAreaWidth - _localizedLowerLineWidth) / 2;
++				if (lowerLineX < kSubtitleAreaLeft)
++					lowerLineX = kSubtitleAreaLeft;
+ 
+-			PixMap *surfaceLine2 = (PixMap *)((byte *)_engine->getGraphicsManager()->_screenSurface.getPixels() + ((640 - _lowerLineXStart) & ~1) + 563200);
+-			for (int i = 0; i < _lowerLineLength; ++i) {
+-				drawChar(surfaceLine2, _lowerLineChars[i]);
+-				surfaceLine2 += _lowerLineCharWidths[i];
++				_localizedSubtitleFont->drawString(screenSurface, _localizedLowerLine, lowerLineX + 1, lowerLineY + 1, kSubtitleAreaWidth, shadowColor);
++				_localizedSubtitleFont->drawString(screenSurface, _localizedLowerLine, lowerLineX, lowerLineY, kSubtitleAreaWidth, textColor);
+ 			}
+ 
+ 			_engine->getGraphicsManager()->unlockSurface();
+ 		}
++
++		return;
++	}
++
++	if (_font->fontData[0] && _engine->getGraphicsManager()->acquireSurface()) {
++		PixMap *surfaceLine1 = (PixMap *)((byte *)_engine->getGraphicsManager()->_screenSurface.getPixels() + ((640 - _upperLineXStart) & ~1) + 537600);
++		for (int i = 0; i < _upperLineLength; ++i) {
++			drawChar(surfaceLine1, _upperLineChars[i]);
++			surfaceLine1 += _upperLineCharWidths[i];
++		}
++
++		PixMap *surfaceLine2 = (PixMap *)((byte *)_engine->getGraphicsManager()->_screenSurface.getPixels() + ((640 - _lowerLineXStart) & ~1) + 563200);
++		for (int i = 0; i < _lowerLineLength; ++i) {
++			drawChar(surfaceLine2, _lowerLineChars[i]);
++			surfaceLine2 += _lowerLineCharWidths[i];
++		}
++
++		_engine->getGraphicsManager()->unlockSurface();
+ 	}
+ }
+ 
+@@ -293,8 +671,11 @@ void SubtitleManager::vSubOff() {
+ }
+ 
+ void SubtitleManager::clearSubArea() {
++	const int subtitleAreaHeight = _activeSubtitleAreaHeight;
+ 	_flags &= ~kSubFlagDrawOnScreen;
+-	_engine->getGraphicsManager()->burstBox(80, 420, 480, 38);
++	clearLocalizedSubtitleRenderState();
++	_engine->getGraphicsManager()->burstBox(kSubtitleAreaLeft, kSubtitleAreaTop, kSubtitleAreaWidth, subtitleAreaHeight);
++	_activeSubtitleAreaHeight = kSubtitleAreaDefaultHeight;
+ }
+ 
+ void SubtitleManager::drawChar(PixMap *destBuf, uint8 whichChar) {
+@@ -325,7 +706,14 @@ void SubtitleManager::drawChar(PixMap *destBuf, uint8 whichChar) {
+ 	}
+ }
+ 
+-void SubtitleManager::drawSubArea(uint16 *subtitleData) {
++void SubtitleManager::drawSubArea(uint16 *subtitleData, int32 subtitleIndex) {
++	if (setupLocalizedSubtitleLines(subtitleIndex)) {
++		_activeSubtitleAreaHeight = getRequestedSubtitleAreaHeight();
++		_flags |= kSubFlagDrawOnScreen;
++		_engine->getGraphicsManager()->burstBox(kSubtitleAreaLeft, kSubtitleAreaTop, kSubtitleAreaWidth, _activeSubtitleAreaHeight);
++		return;
++	}
++
+ 	uint16 *data = subtitleData + 2;
+ 	_upperLineLength = subtitleData[0];
+ 	_lowerLineLength = subtitleData[1];
+@@ -346,8 +734,9 @@ void SubtitleManager::drawSubArea(uint16 *subtitleData) {
+ 		data++;
+ 	}
+ 
++	_activeSubtitleAreaHeight = kSubtitleAreaDefaultHeight;
+ 	_flags |= kSubFlagDrawOnScreen;
+-	_engine->getGraphicsManager()->burstBox(80, 420, 480, 38);
++	_engine->getGraphicsManager()->burstBox(kSubtitleAreaLeft, kSubtitleAreaTop, kSubtitleAreaWidth, _activeSubtitleAreaHeight);
+ }
+ 
+ void SubtitleManager::subThread() {
+
+diff --git a/engines/lastexpress/sound/subtitle.h b/engines/lastexpress/sound/subtitle.h
+index ae79d9cb..9f870d3c 100644
+--- a/engines/lastexpress/sound/subtitle.h
++++ b/engines/lastexpress/sound/subtitle.h
+@@ -22,9 +22,17 @@
+ #ifndef LASTEXPRESS_SOUND_SUBTITLE_H
+ #define LASTEXPRESS_SOUND_SUBTITLE_H
+ 
++#include "common/hashmap.h"
++#include "common/hash-str.h"
++#include "common/ustr.h"
++
+ #include "lastexpress/shared.h"
+ #include "lastexpress/sound/slot.h"
+ 
++namespace Graphics {
++class Font;
++}
++
+ namespace LastExpress {
+ 
+ class LastExpressEngine;
+@@ -70,10 +78,15 @@ public:
+ 	void vSubOff();
+ 	void clearSubArea();
+ 	void drawChar(PixMap *destBuf, uint8 whichChar);
+-	void drawSubArea(uint16 *subtitleData);
++	void drawSubArea(uint16 *subtitleData, int32 subtitleIndex);
+ 	void subThread();
+ 
+ private:
++	void initLocalizedSubtitlesSupport();
++	bool setupLocalizedSubtitleLines(int32 subtitleIndex);
++	void clearLocalizedSubtitleRenderState();
++	int getRequestedSubtitleAreaHeight() const;
++
+ 	LastExpressEngine *_engine = nullptr;
+ 
+ 	uint16 *_subtitlesData = nullptr;
+@@ -90,6 +103,18 @@ private:
+ 	int32 _upperLineLength = 0;
+ 	int32 _lowerLineLength = 0;
+ 	FontData *_font = nullptr;
++
++	bool _localizedSupportInitialized = false;
++	bool _localizedSubtitlesAvailable = false;
++	bool _useLocalizedSubtitleLine = false;
++	bool _localizedSubtitleFontOwned = false;
++	const Graphics::Font *_localizedSubtitleFont = nullptr;
++	Common::U32String _localizedUpperLine;
++	Common::U32String _localizedLowerLine;
++	int32 _localizedUpperLineWidth = 0;
++	int32 _localizedLowerLineWidth = 0;
++	int32 _activeSubtitleAreaHeight = 38;
++	Common::HashMap<Common::String, Common::U32String, Common::IgnoreCase_Hash, Common::IgnoreCase_EqualTo> _localizedSubtitleLines;
+ };
+ 
+ } // End of namespace LastExpress
