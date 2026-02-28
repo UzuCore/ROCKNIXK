@@ -9560,6 +9560,7 @@
   <rom id="ncb3" name="Cherry Bonus III (ver.1.40, set 1)" />
   <rom id="ncombat" name="Ninja Combat (NGM-009)" />
   <rom id="ncombath" name="Ninja Combat (NGH-009)" />
+  <rom id="ncombatk" name="Ninja Combat (Korean Translation)" />
   <rom id="ncommand" name="Ninja Commando" />
   <rom id="ncommandk" name="Ninja Commando (Korean Translation)" />
   <rom id="ncr537xx" name="NCR 53C7xx SCSI" />
@@ -13271,6 +13272,7 @@
   <rom id="shinobia" name="Shinobi (set 2)" />
   <rom id="shinobib" name="Shinobi (set 3)" />
   <rom id="shinobing" name="Shinobi Neo Geo (HB, v1.1)" />
+  <rom id="shinobingk" name="Shinobi Neo Geo (HB, v1.1, Korean Translation)" />
   <rom id="shinobl" name="Shinobi (bootleg)" />
   <rom id="shinoblb" name="Shinobi (Beta bootleg)" />
   <rom id="shinobld" name="Shinobi (Datsu bootleg, set 1)" />
