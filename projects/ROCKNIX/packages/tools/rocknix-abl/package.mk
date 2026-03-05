@@ -14,6 +14,4 @@ makeinstall_target() {
     cp ${PKG_BUILD}/abl_signed-${DEVICE}.elf ${INSTALL}/usr/share/bootloader/rocknix_abl/abl_signed.elf
     cp ${PKG_DIR}/sources/* ${INSTALL}/usr/share/bootloader/rocknix_abl
 
-  # Always install the update script
-  find_file_path bootloader/update.sh && cp -av ${FOUND_PATH} ${INSTALL}/usr/share/bootloader
 }
