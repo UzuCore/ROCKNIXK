@@ -65,7 +65,7 @@ case "${DEVICE}" in
   SDM845|SM8250|SM8550|SM8650)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 daedalusx64-sa desmume-lr gpsp-lr pcsx_rearmed-lr"
     PKG_EMUS+=" aethersx2-sa azahar-sa box64 bigpemu-sa cemu-sa dolphin-sa mednafen melonds-sa nanoboyadvance-sa portmaster rpcs3-sa scummvmsa supermodel-sa \
-                yabasanshiro-sa xemu-sa duckstation-sa skyemu-sa eden-sa vita3k-sa"
+                yabasanshiro-sa xemu-sa duckstation-sa skyemu-sa touchhle-sa eden-sa vita3k-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr flycast2021-lr geolith-lr pcsx_rearmed-lr uae4arm kronos-lr"
     PKG_RETROARCH+=" retropie-shaders"
     ;;
@@ -357,6 +357,14 @@ makeinstall_target() {
   ### EasyRPG
   add_emu_core easyrpg retroarch easyrpg true
   add_es_system easyrpg
+
+  ### iOS
+  case ${DEVICE} in
+    SM*)
+      add_emu_core ios touchhle touchhle-sa true
+      add_es_system ios
+    ;;
+  esac
 
   ### Nintendo Famicom
   add_emu_core famicom retroarch nestopia true
