@@ -7,12 +7,12 @@ PKG_VERSION="$(get_pkg_version gstreamer)"
 PKG_LICENSE="LGPL-2.1-or-later"
 PKG_SITE="https://gstreamer.freedesktop.org/modules/gst-plugins-bad.html"
 PKG_URL="https://gstreamer.freedesktop.org/src/gst-plugins-bad/${PKG_NAME}-${PKG_VERSION}.tar.xz"
-PKG_DEPENDS_TARGET="toolchain gstreamer gst-plugins-base faad2"
+PKG_DEPENDS_TARGET="toolchain gstreamer gst-plugins-base"
 PKG_LONGDESC="GStreamer Bad Plug-ins is a set of plug-ins that aren't up to par compared to the rest."
 
 PKG_MESON_OPTS_TARGET="-Dgst_play_tests=false \
                          -Dwebp=disabled \
-                         -Dfaad=enabled \
+                         -Dbluez=disabled \
                          -Dgpl=enabled \
                          -Dhls=disabled \
                          -Dsctp-internal-usrsctp=disabled \

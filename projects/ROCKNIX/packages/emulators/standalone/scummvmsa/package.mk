@@ -6,7 +6,7 @@ PKG_NAME="scummvmsa"
 PKG_VERSION="2026.1.0"
 PKG_LICENSE="GPL2"
 PKG_SITE="https://github.com/scummvm/scummvm"
-PKG_URL="${PKG_SITE}.git"
+PKG_URL="${PKG_SITE}/archive/refs/tags/v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain SDL2 SDL2_net freetype fluidsynth soundfont-generaluser pipewire libmad libtheora faad2"
 PKG_LONGDESC="Script Creation Utility for Maniac Mansion Virtual Machine"
 
