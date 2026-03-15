@@ -2,7 +2,7 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="eden-sa"
-PKG_VERSION="8e373eb714aa01117ec885680477501cdb572112" # v0.2.0-rc1
+PKG_VERSION="9cf1e19d9868974dcdbb59c36c5b5033c39b6568" # v0.2.0-rc2
 PKG_LICENSE="GPLv2"
 PKG_DEPENDS_TARGET="toolchain SDL2 boost libevdev libdrm ffmpeg zlib libpng lzo libusb zstd ecm openal-soft pulseaudio alsa-lib llvm qt6 libfmt libva libX11"
 PKG_LONGDESC="Eden is a high-performance and easy-to-use emulator, tailored for enthusiasts and developers alike."
@@ -23,16 +23,18 @@ then
   PKG_DEPENDS_TARGET+=" vulkan-loader vulkan-headers"
 fi
 
+pre_configure_target() {
+  export CFLAGS="${CFLAGS} -Wno-error=incompatible-pointer-types"
+}
+
 PKG_CMAKE_OPTS_TARGET+=" -DYUZU_BUILD_PRESET=generic \
     -DENABLE_QT_TRANSLATION=ON \
     -DUSE_DISCORD_PRESENCE=OFF \
-    -DYUZU_USE_CPM=ON \
     -DYUZU_USE_BUNDLED_SIRIT=ON \
     -DYUZU_USE_BUNDLED_QT=OFF \
     -DYUZU_USE_BUNDLED_SDL2=OFF \
     -DYUZU_USE_EXTERNAL_SDL2=ON \
     -DYUZU_TESTS=OFF \
-    -DSDL_ALSA=OFF \
     -DYUZU_USE_QT_MULTIMEDIA=OFF \
     -DYUZU_USE_QT_WEB_ENGINE=OFF \
     -DYUZU_ROOM=ON \
