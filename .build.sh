@@ -10,5 +10,6 @@ then
 	PROJECT=ROCKNIX DEVICE=H700 ARCH=aarch64 ./scripts/build $1;
 	PROJECT=ROCKNIX DEVICE=SM8250 ARCH=aarch64 ./scripts/build $1;
 	PROJECT=ROCKNIX DEVICE=SM8550 ARCH=aarch64 ./scripts/build $1;
+	PROJECT=ROCKNIX DEVICE=SM8650 ARCH=aarch64 ./scripts/build $1;
         PROJECT=ROCKNIX DEVICE=SDM845 ARCH=aarch64 ./scripts/build $1;
 fi
