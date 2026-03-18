@@ -1,0 +1,7 @@
+qcom/sm8750/gen80000_zap.mbn
+qcom/sm8750/cdsp.mbn
+qcom/sm8750/cdsp_dtb.mbn
+qcom/sm8750/cdspr.jsn
+qcom/gen80000_sqe.fw
+qcom/gen80000_gmu.bin
+qcom/gen80000_aqe.fw

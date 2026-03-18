@@ -1,0 +1,113 @@
+From 5d7352fa1ef4f562ccbddc1573397f7827b9189a Mon Sep 17 00:00:00 2001
+From: Gianni Spadoni <me@gio.blue>
+Date: Thu, 22 Jan 2026 22:21:59 +0800
+Subject: [PATCH 04/20] arm64: dts: qcom: Enable USB on Ayn Odin 3
+
+USB gadget works in my testing
+
+pmic-glink might be initializing too early - not sure if it's ever linking connector@0 to the USB controller?
+
+Signed-off-by: Gianni Spadoni <me@gio.blue>
+---
+ arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts | 79 +++++++++++++++++++
+ 1 file changed, 79 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts b/arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts
+index 95929e3f1..d7fb2f6b2 100644
+--- a/arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts
++++ b/arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts
+@@ -99,6 +99,49 @@ linux,cma {
+ 		};
+ 	};
+ 
++	pmic-glink {
++		compatible = "qcom,sm8750-pmic-glink",
++					 "qcom,sm8550-pmic-glink",
++					 "qcom,pmic-glink";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		orientation-gpios = <&tlmm 61 GPIO_ACTIVE_HIGH>;
++
++		connector@0 {
++			compatible = "usb-c-connector";
++			reg = <0>;
++			power-role = "dual";
++			data-role = "dual";
++
++			ports {
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				port@0 {
++					reg = <0>;
++
++					pmic_glink_hs_in: endpoint {
++						remote-endpoint = <&usb_dwc3_hs>;
++					};
++				};
++
++				port@1 {
++					reg = <1>;
++
++					pmic_glink_ss_in: endpoint {
++						remote-endpoint = <&usb_dp_qmpphy_out>;
++					};
++				};
++
++				port@2 {
++					reg = <2>;
++
++					pmic_glink_sbu: endpoint {};
++				};
++			};
++		};
++	};
++
+ 	vph_pwr: vph-pwr-regulator {
+ 		compatible = "regulator-fixed";
+ 
+@@ -711,4 +754,40 @@ &pcieport0 {
+ 
+ 	wake-gpios = <&tlmm 104 GPIO_ACTIVE_HIGH>;
+ 	reset-gpios = <&tlmm 102 GPIO_ACTIVE_LOW>;
++};
++
++/* USB */
++&usb {
++	status = "okay";
++};
++
++&usb_dp_qmpphy {
++	status = "okay";
++
++	vdda-pll-supply = <&vreg_l2d_0p88>;
++	vdda-phy-supply = <&vreg_l3g_1p2>;
++};
++
++&usb_hsphy {
++	status = "okay";
++
++	vdd-supply = <&vreg_l2d_0p88>; // pm-v8d-l2
++	vdda12-supply = <&vreg_l3g_1p2>; // pm-v8g-l3
++
++	phys = <&pmih0108_eusb2_repeater>;
++};
++
++&usb_dp_qmpphy_out {
++	remote-endpoint = <&pmic_glink_ss_in>;
++};
++
++&usb_dwc3_hs {
++	remote-endpoint = <&pmic_glink_hs_in>;
++};
++
++&pmih0108_eusb2_repeater {
++	status = "okay";
++
++	vdd18-supply = <&vreg_l15b_1p8>; // pm-humu-l15
++	vdd3-supply = <&vreg_l5b_3p1>; // pm-humu-l5
+ };
+\ No newline at end of file
+-- 
+2.43.0
+

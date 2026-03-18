@@ -1,0 +1,119 @@
+From 85309b5c2b2114632b4894fde65c8833701e9a41 Mon Sep 17 00:00:00 2001
+From: Gianni Spadoni <me@gio.blue>
+Date: Mon, 26 Jan 2026 00:52:10 +0800
+Subject: [PATCH 19/20] arm64: dts: qcom: Support the Ayn Odin 3 gamepad
+
+This adds support for the gamepad used on the Odin 3 to the device tree
+
+The gamepad communicates through UART15, which isn't defined by default - this adds that too
+
+Signed-off-by: Gianni Spadoni <me@gio.blue>
+---
+ arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts | 78 +++++++++++++++++++
+ 1 file changed, 78 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts b/arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts
+index 9db99ce69..be6ce768f 100644
+--- a/arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts
++++ b/arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts
+@@ -31,6 +31,7 @@ / {
+ 
+ 	aliases {
+ 		serial0 = &uart7;
++		hsuart1 = &uart15;
+ 	};
+ 
+ 	chosen {
+@@ -843,6 +844,30 @@ ts_reset_default: ts-reset-default-state {
+ 		drive-strength = <2>;
+ 		bias-disable;
+ 	};
++
++	// MCU (secondary chip on Retroid / AYN devices, handles input) GPIOs
++	mcu_en_active: mcu-en-active-state {
++		pins = "gpio83";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-pull-down;
++	};
++
++	qup_uart15_default: qup-uart15-default-state {
++		/* TX, RX */
++		pins = "gpio30", "gpio31";
++		function = "qup2_se7";
++		drive-strength = <2>;
++		bias-disable;
++	};
++
++	qup_uart15_cts_rts: qup-uart15-cts-rts-state {
++		/* CTS, RTS */
++		pins = "gpio28", "gpio29";
++		function = "qup2_se7";
++		drive-strength = <2>;
++		bias-pull-down;
++	};
+ };
+ 
+ /* Disabled features */
+@@ -1010,4 +1035,57 @@ &gxcc {
+ 
+ &gpu_zap_shader {
+ 	firmware-name = "qcom/sm8750/gen80000_zap.mbn";
++};
++
++/* Gamepad / RSInput */
++&gpi_dma2 {
++	status = "okay";
++};
++
++// The base DTSI doesn't have a UART15 (this seems to be something Ayn does)
++// The gamepad needs it, so we add our own here
++&qupv3_2 {
++	status = "okay";
++
++	uart15: serial@89c000 {
++		status = "okay";
++
++		compatible = "qcom,geni-uart";
++		reg = <0x0 0x0089c000 0x0 0x4000>;
++
++		interrupts = <GIC_SPI 462 IRQ_TYPE_LEVEL_HIGH>;
++
++		clocks = <&gcc GCC_QUPV3_WRAP2_S7_CLK>;
++		clock-names = "se";
++
++		interconnects = <&clk_virt MASTER_QUP_CORE_2 QCOM_ICC_TAG_ALWAYS
++				 &clk_virt SLAVE_QUP_CORE_2 QCOM_ICC_TAG_ALWAYS>,
++				<&gem_noc MASTER_APPSS_PROC QCOM_ICC_TAG_ALWAYS
++				 &config_noc SLAVE_QUP_2 QCOM_ICC_TAG_ALWAYS>;
++		interconnect-names = "qup-core",
++				     "qup-config";
++
++		pinctrl-0 = <&qup_uart15_default>;
++		pinctrl-names = "default";
++		
++		gamepad {
++			compatible = "gamepad,rsinput";
++
++			gamepad-name = "AYN Odin3 Gamepad";
++			gamepad-bus = <0x0003>;
++			gamepad-vid = <0x2020>;
++			gamepad-pid = <0x3001>;
++			gamepad-rev = <0x0001>;
++
++			vdd-supply = <&vreg_bob2>;
++
++			// rs_gpio_request requests gpio595 & gpio597 (gpio83 and gpio85)
++			// gpio83 is usually used for &i2c_hub_7 (it's qupv3_hub_i2c7_scl_active downstream)
++			// The Odin 3 has i2c_hub_7 disabled and seems to use gpio83 for the MCU
++			enable-gpios = <&tlmm 85 GPIO_ACTIVE_HIGH>;
++			boot-gpios = <&tlmm 83 GPIO_ACTIVE_LOW>; 
++			pinctrl-0 = <&mcu_en_active>;
++			pinctrl-names = "default";
++		};
++	};
+ };
+\ No newline at end of file
+-- 
+2.43.0
+

@@ -1,0 +1,374 @@
+From 708e6392af27d520b14df4f0473bc0d8896075b3 Mon Sep 17 00:00:00 2001
+From: Gianni Spadoni <me@gio.blue>
+Date: Sun, 25 Jan 2026 17:14:23 +0800
+Subject: [PATCH 14/20] arm64: dts: qcom: Enable GPU on Ayn Odin 3
+
+Adds device tree support for the GPU used on the Odin 3
+
+Requires gxcc / gpucc driver for SM8750 and support for 830 / 44050001 added to the Adreno driver
+
+Signed-off-by: Gianni Spadoni <me@gio.blue>
+---
+ arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts |  24 +-
+ arch/arm64/boot/dts/qcom/sm8750-gpu.dtsi      | 300 ++++++++++++++++++
+ 2 files changed, 323 insertions(+), 1 deletion(-)
+ create mode 100644 arch/arm64/boot/dts/qcom/sm8750-gpu.dtsi
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts b/arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts
+index 96317c2c7..9db99ce69 100644
+--- a/arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts
++++ b/arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts
+@@ -22,6 +22,7 @@
+ #include "pmr735d_a.dtsi"
+ #include "sm8750-pmics.dtsi"
+ #include "sm8750-mdss.dtsi"
++#include "sm8750-gpu.dtsi"
+ 
+ / {
+ 	model = "Ayn Odin 3";
+@@ -725,8 +726,8 @@ &pm8550_gpios {
+ 	volume_up_n: volume-up-n-state {
+ 		pins = "gpio6";
+ 		function = "normal";
+-		bias-pull-up;
+ 		input-enable;
++		bias-pull-up;
+ 		power-source = <1>;
+ 	};
+ };
+@@ -988,4 +989,25 @@ &mdss_dsi0_out {
+ &mdss_dsi0_phy {
+ 	status = "okay";
+ 	vdds-supply = <&vreg_l3i_0p88>;
++};
++
++/* GPU */
++&gpu {
++	status = "okay";
++};
++
++&gmu {
++	status = "okay";
++};
++
++&gpucc {
++	status = "okay";
++};
++
++&gxcc {
++	status = "okay";
++};
++
++&gpu_zap_shader {
++	firmware-name = "qcom/sm8750/gen80000_zap.mbn";
+ };
+\ No newline at end of file
+diff --git a/arch/arm64/boot/dts/qcom/sm8750-gpu.dtsi b/arch/arm64/boot/dts/qcom/sm8750-gpu.dtsi
+new file mode 100644
+index 000000000..c15429f30
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/sm8750-gpu.dtsi
+@@ -0,0 +1,300 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
++ * Copyright (c) 2025 gio3k. All rights reserved.
++ *
++ * GPU (Adreno 830 / 44050000 / 44050001) support for SM8750
++ */
++
++#include "sm8750.dtsi"
++#include <dt-bindings/clock/qcom,sm8750-gcc.h>
++#include <dt-bindings/clock/qcom,sm8750-gpucc.h>
++#include <dt-bindings/clock/qcom,dsi-phy-28nm.h>
++#include <dt-bindings/interconnect/qcom,sm8750-rpmh.h>
++
++/ {
++	qfprom: efuse@221c8000 {
++		compatible = "qcom,x1e80100-qfprom", "qcom,sm8650-qfprom", "qcom,qfprom";
++		reg = <0 0x221c8000 0 0x1000>;
++		#address-cells = <1>;
++		#size-cells = <1>;
++
++		gpu_speed_bin: gpu-speed-bin@138 {
++			reg = <0x138 0x02>;
++			bits = <0 9>;
++		};
++	};
++
++	gpu: gpu@3d00000 {
++		status = "disabled";
++
++		compatible = "qcom,adreno-44050001", "qcom,adreno";
++		reg = <0x0 0x03d00000 0x0 0x40000>,
++		      <0x0 0x03d9e000 0x0 0x2000>,
++		      <0x0 0x03d61000 0x0 0x800>;
++		reg-names = "kgsl_3d0_reg_memory",
++			    "cx_mem",
++			    "cx_dbgc";
++
++		interrupts = <GIC_SPI 300 IRQ_TYPE_LEVEL_HIGH>;
++
++		iommus = <&adreno_smmu 0 0x0>, // user
++			 <&adreno_smmu 1 0x0>; // lpac
++
++		operating-points-v2 = <&gpu_opp_table>;
++
++		qcom,gmu = <&gmu>;
++		#cooling-cells = <2>;
++
++		//nvmem-cells = <&gpu_speed_bin>;
++		//nvmem-cell-names = "speed_bin";
++
++		interconnects = <&gem_noc MASTER_GFX3D QCOM_ICC_TAG_ALWAYS
++				 &mc_virt SLAVE_EBI1 QCOM_ICC_TAG_ALWAYS>;
++		interconnect-names = "gfx-mem";
++
++		gpu_zap_shader: zap-shader {
++			memory-region = <&gpu_micro_code_mem>;
++		};
++
++		// derived from qcom,gpu-pwrlevels
++		// /soc/qcom,kgsl-3d0@3d00000/qcom,gpu-pwrlevels
++		gpu_opp_table: opp-table {
++			compatible = "operating-points-v2-adreno", "operating-points-v2";
++
++			opp-222000000 {
++				opp-hz = /bits/ 64 <222000000>;
++				opp-level = <RPMH_REGULATOR_LEVEL_LOW_SVS_D2>;
++				opp-peak-kBps = <2136718>;
++			};
++
++			opp-282000000 {
++				opp-hz = /bits/ 64 <282000000>;
++				opp-level = <RPMH_REGULATOR_LEVEL_LOW_SVS_D1_1>;
++				opp-peak-kBps = <5285156>;
++				qcom,opp-acd-level = <0xca2e5ffd>;
++			};
++
++			opp-342000000 {
++				opp-hz = /bits/ 64 <342000000>;
++				opp-level = <RPMH_REGULATOR_LEVEL_LOW_SVS_D1>;
++				opp-peak-kBps = <5285156>;
++				qcom,opp-acd-level = <0xe22a5ffd>;
++			};
++
++			opp-382000000 {
++				opp-hz = /bits/ 64 <382000000>;
++				opp-level = <RPMH_REGULATOR_LEVEL_LOW_SVS_D0>;
++				opp-peak-kBps = <5285156>;
++				qcom,opp-acd-level = <0xa22c5ffd>;
++			};
++
++			opp-422000000 {
++				opp-hz = /bits/ 64 <422000000>;
++				opp-level = <RPMH_REGULATOR_LEVEL_LOW_SVS>;
++				opp-peak-kBps = <6074218>;
++				qcom,opp-acd-level = <0xa22c5ffd>;
++			};
++
++			opp-461000000 {
++				opp-hz = /bits/ 64 <461000000>;
++				opp-level = <RPMH_REGULATOR_LEVEL_LOW_SVS_L0>;
++				opp-peak-kBps = <6074218>;
++				qcom,opp-acd-level = <0xe82e5ffd>;
++			};
++
++			opp-500000000 {
++				opp-hz = /bits/ 64 <500000000>;
++				opp-level = <RPMH_REGULATOR_LEVEL_LOW_SVS_L1>;
++				opp-peak-kBps = <6074218>;
++				qcom,opp-acd-level = <0xe82c5ffd>;
++			};
++
++			opp-539000000 {
++				opp-hz = /bits/ 64 <539000000>;
++				opp-level = <RPMH_REGULATOR_LEVEL_LOW_SVS_L2>;
++				opp-peak-kBps = <6074218>;
++				qcom,opp-acd-level = <0xc82b5ffd>;
++			};
++
++			opp-578000000 {
++				opp-hz = /bits/ 64 <578000000>;
++				opp-level = <RPMH_REGULATOR_LEVEL_SVS>;
++				opp-peak-kBps = <6074218>;
++				qcom,opp-acd-level = <0xc02c5ffd>;
++			};
++
++			opp-646000000 {
++				opp-hz = /bits/ 64 <646000000>;
++				opp-level = <RPMH_REGULATOR_LEVEL_SVS_L0>;
++				opp-peak-kBps = <8171875>;
++				qcom,opp-acd-level = <0xc02c5ffd>;
++			};
++
++			opp-726000000 {
++				opp-hz = /bits/ 64 <726000000>;
++				opp-level = <RPMH_REGULATOR_LEVEL_SVS_L1>;
++				opp-peak-kBps = <8171875>;
++				qcom,opp-acd-level = <0x882f5ffd>;
++			};
++
++			opp-826000000 {
++				opp-hz = /bits/ 64 <826000000>;
++				opp-level = <RPMH_REGULATOR_LEVEL_SVS_L2>;
++				opp-peak-kBps = <12449218>;
++				qcom,opp-acd-level = <0xa82c5ffd>;
++			};
++
++			opp-902000000 {
++				opp-hz = /bits/ 64 <902000000>;
++				opp-level = <RPMH_REGULATOR_LEVEL_NOM>;
++				opp-peak-kBps = <12449218>;
++				qcom,opp-acd-level = <0xa82b5ffd>;
++			};
++
++			opp-967000000 {
++				opp-hz = /bits/ 64 <967000000>;
++				opp-level = <RPMH_REGULATOR_LEVEL_NOM_L1>;
++				opp-peak-kBps = <12449218>;
++				qcom,opp-acd-level = <0x882a5ffd>;
++			};
++
++			opp-105000000 {
++				opp-hz = /bits/ 64 <105000000>;
++				opp-level = <RPMH_REGULATOR_LEVEL_TURBO_L1>;
++				opp-peak-kBps = <20832031>;
++				qcom,opp-acd-level = <0x88295ffd>;
++			};
++		};
++	};
++
++	gmu: gmu@3d37000 {
++		status = "disabled";
++
++		compatible = "qcom,adreno-gmu-830.1", "qcom,adreno-gmu";
++
++		reg = <0x0 0x03d37000 0x0 0x68000>;
++		reg-names = "gmu";
++
++		interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 305 IRQ_TYPE_LEVEL_HIGH>;
++		interrupt-names = "hfi", "gmu";
++
++		clocks = <&gpucc GPU_CC_AHB_CLK>,
++			 <&gpucc GPU_CC_CX_GMU_CLK>,
++			 <&gpucc GPU_CC_CXO_CLK>,
++			 <&gcc GCC_GPU_GEMNOC_GFX_CLK>,
++			 <&gpucc GPU_CC_HUB_CX_INT_CLK>;
++		clock-names = "ahb",
++			      "gmu",
++			      "cxo",
++			      "memnoc",
++			      "hub";
++
++		power-domains = <&gpucc GPU_CC_CX_GDSC>,
++				<&gxcc GX_CC_GX_GDSC>;
++		power-domain-names = "cx",
++				     "gx";
++
++		iommus = <&adreno_smmu 5 0x0>;
++
++		qcom,qmp = <&aoss_qmp>;
++
++		operating-points-v2 = <&gmu_opp_table>;
++
++		// derived from qcom,gmu-freq-table in downstream gmu@3d37000
++		gmu_opp_table: opp-table {
++			compatible = "operating-points-v2";
++			
++			opp-500000000 {
++				opp-hz = /bits/ 64 <500000000>;
++				opp-level = <RPMH_REGULATOR_LEVEL_LOW_SVS_D1>;
++			};
++
++			opp-650000000 {
++				opp-hz = /bits/ 64 <650000000>;
++				opp-level = <RPMH_REGULATOR_LEVEL_SVS_L1>;
++			};
++
++			opp-687500000 {
++				opp-hz = /bits/ 64 <687500000>;
++				opp-level = <RPMH_REGULATOR_LEVEL_NOM>;
++			};
++		};
++	};
++
++	gxcc: clock-controller@3d64000 {
++		status = "disabled";
++
++		compatible = "qcom,sm8750-gxcc";
++		reg = <0x0 0x03d64000 0x0 0x6000>; // ??? 
++
++		power-domains = <&gpucc GPU_CC_CX_GDSC>,
++				<&rpmhpd RPMHPD_GMXC>,
++				<&gpucc GPU_CC_CX_GDSC>;
++
++		#power-domain-cells = <1>;
++	};
++
++	gpucc: clock-controller@3d90000 {
++		status = "disabled";
++		
++		compatible = "qcom,sm8750-gpucc";
++		reg = <0x0 0x03d90000 0x0 0x9800>;
++
++		clocks = <&bi_tcxo_div2>,
++			 <&gcc GCC_GPU_GPLL0_CLK_SRC>,
++			 <&gcc GCC_GPU_GPLL0_DIV_CLK_SRC>;
++
++		power-domains = <&rpmhpd RPMHPD_CX>;
++
++		#clock-cells = <1>;
++		#reset-cells = <1>;
++		#power-domain-cells = <1>;
++	};
++
++	adreno_smmu: iommu@3da0000 {
++		compatible = "qcom,sm8750-smmu-500", "qcom,adreno-smmu",
++			     "qcom,smmu-500", "arm,mmu-500";
++		reg = <0x0 0x03da0000 0x0 0x40000>;
++
++		interconnects = <&gem_noc MASTER_GPU_TCU 0 
++				 &mc_virt SLAVE_EBI1 0>;
++
++		#iommu-cells = <2>;
++		#global-interrupts = <1>;
++		interrupts = <GIC_SPI 674 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 678 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 679 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 680 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 681 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 682 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 683 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 684 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 685 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 686 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 687 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 688 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 422 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 476 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 574 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 575 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 576 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 577 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 660 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 662 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 665 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 666 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 667 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 669 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 670 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_SPI 700 IRQ_TYPE_LEVEL_HIGH>;
++		
++		clocks = <&gpucc GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK>;
++		clock-names = "hlos";
++
++		power-domains = <&gpucc GPU_CC_CX_GDSC>;
++
++		dma-coherent;
++	};
++};
+-- 
+2.43.0
+

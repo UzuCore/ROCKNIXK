@@ -1,0 +1,755 @@
+From c2e3cd49f97eda2629ba16e540e6780320719cc5 Mon Sep 17 00:00:00 2001
+From: Gianni Spadoni <me@gio.blue>
+Date: Thu, 22 Jan 2026 19:45:39 +0800
+Subject: [PATCH 01/20] arm64: dts: qcom: Initial device tree for Ayn Odin 3
+
+Basic device tree, let's add features step by step
+
+This currently:
+- boots into a shell
+- has working UART serial
+- has working UFS
+
+Signed-off-by: Gianni Spadoni <me@gio.blue>
+---
+ arch/arm64/boot/dts/qcom/Makefile             |   1 +
+ arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts | 714 ++++++++++++++++++
+ 2 files changed, 715 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts
+
+diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
+index 6f34d5ed3..c242a26b8 100644
+--- a/arch/arm64/boot/dts/qcom/Makefile
++++ b/arch/arm64/boot/dts/qcom/Makefile
+@@ -322,6 +322,7 @@ dtb-$(CONFIG_ARCH_QCOM)	+= sm8650-mtp.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8650-qrd.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8750-mtp.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8750-qrd.dtb
++dtb-$(CONFIG_ARCH_QCOM)	+= sm8750-ayn-odin3.dtb
+ x1e001de-devkit-el2-dtbs	:= x1e001de-devkit.dtb x1-el2.dtbo
+ dtb-$(CONFIG_ARCH_QCOM)	+= x1e001de-devkit.dtb x1e001de-devkit-el2.dtb
+ x1e78100-lenovo-thinkpad-t14s-el2-dtbs	:= x1e78100-lenovo-thinkpad-t14s.dtb x1-el2.dtbo
+diff --git a/arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts b/arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts
+new file mode 100644
+index 000000000..7eabe0320
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/sm8750-ayn-odin3.dts
+@@ -0,0 +1,714 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
++ * Copyright (c) 2025 gio3k. All rights reserved.
++ *
++ * Device tree for the Ayn Odin 3, based on the sm8750-mtp dts
++ * Takes some inspiration from sm8750-mainline
++ */
++
++/dts-v1/;
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/leds/common.h>
++#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
++#include "sm8750.dtsi"
++#include "pm8010.dtsi"
++#include "pm8550.dtsi"
++#define PMK8550VE_SID 8
++#include "pm8550ve.dtsi"
++#include "pmih0108.dtsi"
++#include "pmk8550.dtsi"
++#include "pmr735d_a.dtsi"
++#include "sm8750-pmics.dtsi"
++
++/ {
++	model = "AYN Odin 3";
++	compatible = "ayn,odin3", "qcom,sm8750";
++	chassis-type = "handset";
++
++	aliases {
++		serial0 = &uart7;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";	
++
++		#address-cells = <2>;
++		#size-cells = <2>;
++		ranges;
++	};
++
++	clocks {
++		bi_tcxo_div2: bi-tcxo-div2-clk {
++			compatible = "fixed-factor-clock";
++			#clock-cells = <0>;
++
++			clocks = <&rpmhcc RPMH_CXO_CLK>;
++			clock-mult = <1>;
++			clock-div = <2>;
++		};
++
++		bi_tcxo_ao_div2: bi-tcxo-ao-div2-clk {
++			compatible = "fixed-factor-clock";
++			#clock-cells = <0>;
++
++			clocks = <&rpmhcc RPMH_CXO_CLK_A>;
++			clock-mult = <1>;
++			clock-div = <2>;
++		};
++
++		xo_board: xo-board {
++			compatible = "fixed-clock";
++			clock-frequency = <76800000>;
++			#clock-cells = <0>;
++		};
++
++		sleep_clk: sleep-clk {
++			compatible = "fixed-clock";
++			clock-frequency = <32000>;
++			#clock-cells = <0>;
++		};
++	};
++
++	gpio-keys {
++		compatible = "gpio-keys";
++
++		pinctrl-0 = <&volume_up_n>;
++		pinctrl-names = "default";
++
++		key-volume-up {
++			label = "Volume Up";
++			linux,code = <KEY_VOLUMEUP>;
++			gpios = <&pm8550_gpios 6 GPIO_ACTIVE_LOW>;
++			debounce-interval = <15>;
++			linux,can-disable;
++			wakeup-source;
++		};
++	};
++
++	reserved-memory {
++		#address-cells = <2>;
++		#size-cells = <2>;
++
++		linux,cma {
++			compatible = "shared-dma-pool";
++			size = <0x0 0x8000000>;
++			reusable;
++			linux,cma-default;
++		};
++	};
++
++	vph_pwr: vph-pwr-regulator {
++		compatible = "regulator-fixed";
++
++		regulator-name = "vph_pwr";
++		regulator-min-microvolt = <3600000>;
++		regulator-max-microvolt = <3600000>;
++
++		regulator-always-on;
++		regulator-boot-on;
++	};
++};
++
++&apps_rsc {
++	regulators-0 {
++		compatible = "qcom,pm8550-rpmh-regulators";
++
++		vdd-bob1-supply = <&vph_pwr>;
++		vdd-bob2-supply = <&vph_pwr>;
++		vdd-l1-l4-l10-supply = <&vreg_s3g_1p8>;
++		vdd-l2-l13-l14-supply = <&vreg_bob1>;
++		vdd-l3-supply = <&vreg_s7i_1p2>;
++		vdd-l5-l16-supply = <&vreg_bob1>;
++		vdd-l6-l7-supply = <&vreg_bob1>;
++		vdd-l8-l9-supply = <&vreg_bob1>;
++		vdd-l11-supply = <&vreg_s7i_1p2>;
++		vdd-l12-supply = <&vreg_s3g_1p8>;
++		vdd-l15-supply = <&vreg_s3g_1p8>;
++		vdd-l17-supply = <&vreg_bob2>;
++
++		qcom,pmic-id = "b";
++
++		// RPMH_REGULATOR_MODE_RET = 1 in DTB (0 in header)
++		// RPMH_REGULATOR_MODE_LPM = 2 in DTB
++		// RPMH_REGULATOR_MODE_AUTO = 3 in DTB
++		// RPMH_REGULATOR_MODE_HPM = 4 in DTB
++
++		// rpmh-regulator-bobb1/regulator-pm-humu-bob1
++		vreg_bob1: bob1 {
++			// pm_humu_bob1
++			regulator-name = "vreg_bob1";
++			regulator-min-microvolt = <3008000>;
++			regulator-max-microvolt = <4000000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-bobb2/regulator-pm-humu-bob2
++		vreg_bob2: bob2 {
++			regulator-name = "vreg_bob2";
++			regulator-min-microvolt = <2704000>;
++			regulator-max-microvolt = <3008000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldob1/regulator-pm-humu-l1
++		vreg_l1b_1p8: ldo1 {
++			// pm_humu_l1
++			regulator-name = "vreg_l1b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldob2/regulator-pm-humu-l2
++		vreg_l2b_3p0: ldo2 {
++			regulator-name = "vreg_l2b_3p0";
++			regulator-min-microvolt = <3008000>;
++			regulator-max-microvolt = <3048000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldob4/regulator-pm-humu-l4
++		vreg_l4b_1p8: ldo4 {
++			regulator-name = "vreg_l4b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldob5/regulator-pm-humu-l5
++		vreg_l5b_3p1: ldo5 {
++			regulator-name = "vreg_l5b_3p1";
++			regulator-min-microvolt = <3100000>;
++			regulator-max-microvolt = <3148000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldob6/regulator-pm-humu-l6
++		vreg_l6b_1p8: ldo6 {
++			regulator-name = "vreg_l6b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <3008000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldob7/regulator-pm-humu-l7
++		vreg_l7b_1p8: ldo7 {
++			regulator-name = "vreg_l7b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <3008000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldob8/regulator-pm-humu-l8
++		vreg_l8b_1p8: ldo8 {
++			regulator-name = "vreg_l8b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <3008000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldob9/regulator-pm-humu-l9
++		vreg_l9b_2p9: ldo9 {
++			regulator-name = "vreg_l9b_2p9";
++			regulator-min-microvolt = <2960000>;
++			regulator-max-microvolt = <3008000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldob10/regulator-pm-humu-l10
++		vreg_l10b_1p8: ldo10 {
++			regulator-name = "vreg_l10b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldob11/regulator-pm-humu-l11
++		vreg_l11b_1p0: ldo11 {
++			regulator-name = "vreg_l11b_1p0";
++			regulator-min-microvolt = <1064000>;
++			regulator-max-microvolt = <1292000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldob12/regulator-pm-humu-l12
++		vreg_l12b_1p8: ldo12 {
++			regulator-name = "vreg_l12b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++			//regulator-always-on;
++		};
++
++		// rpmh-regulator-ldob13/regulator-pm-humu-l13
++		vreg_l13b_3p0: ldo13 {
++			regulator-name = "vreg_l13b_3p0";
++			regulator-min-microvolt = <3000000>;
++			regulator-max-microvolt = <3000000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldob14/regulator-pm-humu-l14
++		vreg_l14b_3p2: ldo14 {
++			regulator-name = "vreg_l14b_3p2";
++			regulator-min-microvolt = <3200000>;
++			regulator-max-microvolt = <3200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldob15/regulator-pm-humu-l15
++		vreg_l15b_1p8: ldo15 {
++			regulator-name = "vreg_l15b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++			// regulator-always-on;
++		};
++
++		// rpmh-regulator-ldob16/regulator-pm-humu-l16
++		vreg_l16b_2p8: ldo16 {
++			regulator-name = "vreg_l16b_2p8";
++			regulator-min-microvolt = <2800000>;
++			regulator-max-microvolt = <2800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldob17/regulator-pm-humu-l17
++		vreg_l17b_2p5: ldo17 {
++			regulator-name = "vreg_l17b_2p5";
++			regulator-min-microvolt = <2504000>;
++			regulator-max-microvolt = <2504000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++
++	regulators-1 {
++		compatible = "qcom,pm8550ve-rpmh-regulators";
++
++		vdd-l1-supply = <&vreg_s7i_1p2>;
++		vdd-l2-supply = <&vreg_s1d_0p97>;
++		vdd-l3-supply = <&vreg_s1d_0p97>;
++		vdd-s1-supply = <&vph_pwr>;
++		vdd-s3-supply = <&vph_pwr>;
++		vdd-s4-supply = <&vph_pwr>;
++
++		qcom,pmic-id = "d";
++
++		// rpmh-regulator-smpd1/regulator-pm-v8d-s1
++		vreg_s1d_0p97: smps1 {
++			regulator-name = "vreg_s1d_0p97";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <1100000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-smpd3/regulator-pm-v8d-s3
++		vreg_s3d_1p2: smps3 {
++			regulator-name = "vreg_s3d_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1300000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-smpd4/regulator-pm-v8d-s4
++		vreg_s4d_0p85: smps4 {
++			regulator-name = "vreg_s4d_0p85";
++			regulator-min-microvolt = <500000>;
++			regulator-max-microvolt = <1036000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldod1/regulator-pm-v8d-l1
++		vreg_l1d_1p2: ldo1 {
++			regulator-name = "vreg_l1d_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldod2/regulator-pm-v8d-l2
++		vreg_l2d_0p88: ldo2 {
++			regulator-name = "vreg_l2d_0p88";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <912000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldod3/regulator-pm-v8d-l3
++		vreg_l3d_0p88: ldo3 {
++			regulator-name = "vreg_l3d_0p88";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <920000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++
++	regulators-2 {
++		compatible = "qcom,pm8550ve-rpmh-regulators";
++
++		vdd-l1-supply = <&vreg_s1d_0p97>;
++		vdd-l2-supply = <&vreg_s7i_1p2>;
++		vdd-l3-supply = <&vreg_s3g_1p8>;
++		vdd-s5-supply = <&vph_pwr>;
++
++		qcom,pmic-id = "f";
++
++		// rpmh-regulator-smpf5/regulator-pm-v8f-s5
++		vreg_s5f_0p85: smps5 {
++			regulator-name = "vreg_s5f_0p85";
++			regulator-min-microvolt = <500000>;
++			regulator-max-microvolt = <1000000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldof1/regulator-pm-vxf-l1
++		// todo: -ao & -so
++		vreg_l1f_0p88: ldo1 {
++			regulator-name = "vreg_l1f_0p88";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <920000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldof2/regulator-pm-vxf-l2
++		vreg_l2f_1p2: ldo2 {
++			regulator-name = "vreg_l2f_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldof3/regulator-pm-vxf-l3
++		vreg_l3f_1p8: ldo3 {
++			regulator-name = "vreg_l3f_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++
++	regulators-3 {
++		compatible = "qcom,pm8550ve-rpmh-regulators";
++
++		vdd-l1-supply = <&vreg_s1d_0p97>;
++		vdd-l2-supply = <&vreg_s3g_1p8>;
++		vdd-l3-supply = <&vreg_s7i_1p2>;
++		vdd-s1-supply = <&vph_pwr>;
++		vdd-s3-supply = <&vph_pwr>;
++
++		qcom,pmic-id = "g";
++
++		// rpmh-regulator-smpg1/regulator-pm-v8g-s1
++		vreg_s1g_0p5: smps1 {
++			regulator-name = "vreg_s1g_0p5";
++			regulator-min-microvolt = <300000>;
++			regulator-max-microvolt = <700000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-smpg3/regulator-pm-v8g-s3
++		vreg_s3g_1p8: smps3 {
++			regulator-name = "vreg_s3g_1p8";
++			regulator-min-microvolt = <1856000>;
++			regulator-max-microvolt = <2000000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_LPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-smpg4/regulator-pm-v8g-s4
++		vreg_s4g_0p75: smps4 {
++			regulator-name = "vreg_s4g_0p75";
++			regulator-min-microvolt = <300000>;
++			regulator-max-microvolt = <900000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldog1/regulator-pm-v8g-l1
++		vreg_l1g_0p91: ldo1 {
++			regulator-name = "vreg_l1g_0p91";
++			regulator-min-microvolt = <912000>;
++			regulator-max-microvolt = <936000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldog2/regulator-pm-v8g-s2
++		vreg_l2g_1p8: ldo2 {
++			regulator-name = "vreg_l2g_1p8";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1860000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldog3/regulator-pm-v8g-l3
++		vreg_l3g_1p2: ldo3 {
++			regulator-name = "vreg_l3g_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1256000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++
++	regulators-4 {
++		compatible = "qcom,pm8550ve-rpmh-regulators";
++
++		vdd-l1-supply = <&vreg_s7i_1p2>;
++		vdd-l2-supply = <&vreg_s7i_1p2>;
++		vdd-l3-supply = <&vreg_s1d_0p97>;
++		vdd-s7-supply = <&vph_pwr>;
++		vdd-s8-supply = <&vph_pwr>;
++
++		qcom,pmic-id = "i";
++
++		// rpmh-regulator-smpi7/regulator-pm-v8i-s7
++		vreg_s7i_1p2: smps7 {
++			regulator-name = "vreg_s7i_1p2";
++			regulator-min-microvolt = <1224000>;
++			regulator-max-microvolt = <1340000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-smpi8/regulator-pm-v8i-s8
++		vreg_s8i_0p9: smps8 {
++			regulator-name = "vreg_s8i_0p9";
++			regulator-min-microvolt = <900000>;
++			regulator-max-microvolt = <972000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldoi1/regulator-pm-v8i-l1
++		vreg_l1i_1p2: ldo1 {
++			regulator-name = "vreg_l1i_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldoi2/regulator-pm-v8i-l2
++		vreg_l2i_1p2: ldo2 {
++			regulator-name = "vreg_l2i_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldoi3/regulator-pm-v8i-l3
++		vreg_l3i_0p88: ldo3 {
++			regulator-name = "vreg_l3i_0p88";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <912000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++
++	regulators-5 {
++		compatible = "qcom,pm8550vs-rpmh-regulators";
++
++		vdd-l1-supply = <&vreg_s1d_0p97>;
++		vdd-l2-supply = <&vreg_s7i_1p2>;
++		vdd-s2-supply = <&vph_pwr>;
++		vdd-s3-supply = <&vph_pwr>;
++
++		qcom,pmic-id = "j";
++
++		// rpmh-regulator-smpj2/regulator-pm-v6j-s2
++		vreg_s2j_1p1: smps2 {
++			regulator-name = "vreg_s2j_1p1";
++			regulator-min-microvolt = <1000000>;
++			regulator-max-microvolt = <1100000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-smpj3/regulator-pm-v6j-s3
++		vreg_s3j_1p1: smps3 {
++			regulator-name = "vreg_s3j_1p1";
++			regulator-min-microvolt = <1000000>;
++			regulator-max-microvolt = <1100000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldoj1/regulator-pm-v6j-l1
++		vreg_l1j_0p91: ldo1 {
++			regulator-name = "vreg_l1j_0p91";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <920000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// rpmh-regulator-ldoj2/regulator-pm-v6j-l2
++		vreg_l2j_1p2: ldo2 {
++			regulator-name = "vreg_l2j_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++};
++
++/* Power & volume keys */
++&pm8550_gpios {
++	volume_up_n: volume-up-n-state {
++		pins = "gpio6";
++		function = "normal";
++		bias-pull-up;
++		input-enable;
++		power-source = <1>;
++	};
++};
++
++&pon_pwrkey {
++	status = "okay";
++};
++
++&pon_resin {
++	status = "okay";
++
++	linux,code = <KEY_VOLUMEDOWN>;
++};
++
++// I2C through QUPv3_1
++&gpi_dma1 {
++	status = "okay";
++};
++
++&qupv3_1 {
++	status = "okay";
++};
++
++&uart7 {
++	status = "okay";
++};
++
++&tlmm {
++	/* reserved for secure world */
++	gpio-reserved-ranges = <36 4>, <74 1>;
++};
++
++/* Disabled features */
++// Mostly regulators that don't exist on the Odin 3
++// pm8010@d is disabled
++&pm8010_n {
++	status = "disabled";
++};
++
++// pm8010@c is disabled
++&pm8010_m {
++	status = "disabled";
++};
++
++// pmr735d@a is disabled
++&pmr735d_k {
++	status = "disabled";
++};
++
++/* UFS */
++&ufs_mem_phy {
++	vdda-phy-supply = <&vreg_l1j_0p91>;
++	vdda-pll-supply = <&vreg_l3g_1p2>;
++
++	status = "okay";
++};
++
++&ufs_mem_hc {
++	reset-gpios = <&tlmm 215 GPIO_ACTIVE_LOW>;
++
++	vcc-supply = <&vreg_l17b_2p5>;
++	vcc-max-microamp = <1300000>;
++	vccq-supply = <&vreg_l1d_1p2>; 
++	vccq-max-microamp = <1200000>;
++
++	status = "okay";
++};
+\ No newline at end of file
+-- 
+2.43.0
+

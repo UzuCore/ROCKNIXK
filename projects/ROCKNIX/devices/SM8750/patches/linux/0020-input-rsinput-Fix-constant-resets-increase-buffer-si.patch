@@ -1,0 +1,78 @@
+From 155dd058152622f573859380939f0b2c399ff11c Mon Sep 17 00:00:00 2001
+From: Gianni Spadoni <me@gio.blue>
+Date: Mon, 26 Jan 2026 01:02:14 +0800
+Subject: [PATCH 20/20] input: rsinput: Fix constant resets, increase buffer
+ size
+
+The Odin 3 MCU seems to send bigger packets than expected, so rx_buf has been expanded
+
+There also no longer seems to be a checksum for the whole packet (but there are still checksums for each frame)
+
+Data sometimes comes through with a leading 0, that case is now handled (skip unknown bytes until frame head)
+
+Signed-off-by: Gianni Spadoni <me@gio.blue>
+---
+ drivers/input/joystick/rsinput.c | 21 +++++++++------------
+ 1 file changed, 9 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/input/joystick/rsinput.c b/drivers/input/joystick/rsinput.c
+index 353683b9b..cd278eb58 100644
+--- a/drivers/input/joystick/rsinput.c
++++ b/drivers/input/joystick/rsinput.c
+@@ -58,7 +58,7 @@ struct rsinput_driver {
+     struct gpio_desc *boot_gpio;
+     struct gpio_desc *enable_gpio;
+     struct gpio_desc *reset_gpio;
+-    uint8_t rx_buf[256];
++    uint8_t rx_buf[1024];
+     uint8_t sequence_number;
+ };
+ 
+@@ -257,6 +257,13 @@ static void handle_cmd_status(struct rsinput_driver *drv, const uint8_t *data, s
+ 
+ static void rsinput_process_data(struct rsinput_driver *drv, const uint8_t *data, size_t len) {
+     while (len >= MCU_PKT_SIZE_MIN) {
++        if (data[0] != FRAME_HEAD_1) {
++            // Try skipping these unknown bytes until the first frame byte is found
++            data += 1;
++            len -= 1;
++            continue;
++        }
++
+         uint16_t payload_length = data[FRAME_POS_LEN_L] | (data[FRAME_POS_LEN_H] << 8);
+         size_t frame_length = MCU_PKT_SIZE_MIN + payload_length;
+ 
+@@ -295,7 +302,6 @@ static void rsinput_process_data(struct rsinput_driver *drv, const uint8_t *data
+ 
+ static size_t rsinput_rx(struct serdev_device *serdev, const u8 *data, size_t count) {
+     struct rsinput_driver *drv = serdev_device_get_drvdata(serdev);
+-    uint8_t received_checksum, computed_checksum;
+ 
+     if (!drv || !data || count == 0) {
+         dev_warn_ratelimited(&serdev->dev, "Invalid RX data\n");
+@@ -307,21 +313,12 @@ static size_t rsinput_rx(struct serdev_device *serdev, const u8 *data, size_t co
+         goto error;
+     }
+ 
+-    memcpy(drv->rx_buf, data, count);
+-
+     if (count < MCU_PKT_SIZE_MIN) {
+         dev_warn_ratelimited(&serdev->dev, "Frame too short for checksum validation\n");
+         goto error;
+     }
+ 
+-    received_checksum = drv->rx_buf[count - 1];
+-
+-    computed_checksum = compute_checksum(drv->rx_buf, count);
+-
+-    if (computed_checksum != received_checksum) {
+-        rsinput_init_commands(drv);
+-        goto error;
+-    }
++    memcpy(drv->rx_buf, data, count);
+ 
+     rsinput_process_data(drv, drv->rx_buf, count);
+ 
+-- 
+2.43.0
+
