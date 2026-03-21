@@ -1354,6 +1354,7 @@
   <rom id="bitmap_printer" name="Bitmap Printer Device" />
   <rom id="bjourney" name="Blue's Journey / Raguy (ALM-001 ~ ALH-001)" />
   <rom id="bjourneyh" name="Blue's Journey / Raguy (ALH-001)" />
+  <rom id="bjourneyk" name="Blue's Journey / Raguy (Korean Translation)" />
   <rom id="bjtwin" vert="true" name="Bombjack Twin (set 1)" />
   <rom id="bjtwina" vert="true" name="Bombjack Twin (set 2)" />
   <rom id="bjtwinp" vert="true" name="Bombjack Twin (prototype? with adult pictures, set 1)" />
@@ -11680,10 +11681,10 @@
   <rom id="razmataz" vert="true" name="Razzmatazz" />
   <rom id="rbff1" name="Real Bout Fatal Fury / Real Bout Garou Densetsu (NGM-095 ~ NGH-095)" />
   <rom id="rbff1a" name="Real Bout Fatal Fury / Real Bout Garou Densetsu (bug fix revision)" />
-  <rom id="rbff1akr" name="Real Bout Fatal Fury / Real Bout Garou Densetsu (Korean Translation, bug fix revision)" />
   <rom id="rbff1k" name="Real Bout Fatal Fury / Real Bout Garou Densetsu (Korean release)" />
   <rom id="rbff1ka" name="Real Bout Fatal Fury / Real Bout Garou Densetsu (Korean release, bug fix revision)" />
   <rom id="rbff1kr" name="Real Bout Fatal Fury / Real Bout Garou Densetsu (Korean Translation) " />
+  <rom id="rbff1kra" name="Real Bout Fatal Fury / Real Bout Garou Densetsu (Korean release, bug fix revision)" />
   <rom id="rbff1uh" name="Real Bout Fatal Fury / Real Bout Garou Densetsu (AES Uncensored Hack)" />
   <rom id="rbff2" name="Real Bout Fatal Fury 2 - The Newcomers / Real Bout Garou Densetsu 2 - The Newcomers (NGM-2400)" />
   <rom id="rbff2a" name="Real Bout Fatal Fury 2 - The Newcomers / Real Bout Garou Densetsu 2 - The Newcomers (set 2)" />
@@ -13295,6 +13296,8 @@
   <rom id="shocktra" name="Shock Troopers (set 2)" />
   <rom id="shocktro" name="Shock Troopers (set 1)" />
   <rom id="shocktroa" name="Shock Troopers (set 2)" />
+  <rom id="shocktroak" name="Shock Troopers (set 2, Korean Translation)" />
+  <rom id="shocktrok" name="Shock Troopers (set 1, Korean Translation)" />
   <rom id="shogwarr" name="Shogun Warriors (World)" />
   <rom id="shogwarrk" name="Shogun Warriors (Korea?)" />
   <rom id="shogwarru" name="Shogun Warriors (US)" />
