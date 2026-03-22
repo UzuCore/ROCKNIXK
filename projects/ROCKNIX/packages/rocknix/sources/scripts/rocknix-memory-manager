@@ -65,7 +65,7 @@ fi
 # even with lower RAM.
 IS_HIGH_PERF_SOC=false
 
-if [[ "${HW_DEVICE,,}" =~ rk3588|sm8|s922x|g12b|rk3399 ]]; then
+if [[ "${HW_DEVICE,,}" =~ rk3588|sm6115|sm8|s922x|g12b|rk3399 ]]; then
     IS_HIGH_PERF_SOC=true
 fi
 
