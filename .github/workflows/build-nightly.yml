@@ -59,7 +59,7 @@ on:
 
 jobs:
   set-envs:
-    if: (github.event_name != 'schedule') || (github.repository == 'UzuCore/ROCKNIXK' && github.ref_name == 'build')
+    if: (github.event_name != 'schedule') || (github.repository == 'UzuCore/ROCKNIXK' && github.ref_name == 'next')
     environment:
       name: ${{ github.event_name == 'pull_request' && 'pr-approval' || 'auto' }}
     runs-on: ubuntu-24.04
@@ -113,7 +113,7 @@ jobs:
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
   build-docker:
-    if: github.event_name != 'schedule' || (github.repository == 'UzuCore/ROCKNIXK' && github.ref_name == 'build')
+    if: github.event_name != 'schedule' || (github.repository == 'UzuCore/ROCKNIXK' && github.ref_name == 'next')
     name: Docker
     needs: set-envs
     uses: ./.github/workflows/build-docker-image.yml
@@ -121,7 +121,7 @@ jobs:
       OWNER_LC: ${{ needs.set-envs.outputs.OWNER_LC }}
 
   build-devices:
-    if: (github.event_name != 'schedule') || (github.repository == 'UzuCore/ROCKNIXK' && github.ref_name == 'build')
+    if: (github.event_name != 'schedule') || (github.repository == 'UzuCore/ROCKNIXK' && github.ref_name == 'next')
     name: Build Devices
     needs:
       - set-envs
