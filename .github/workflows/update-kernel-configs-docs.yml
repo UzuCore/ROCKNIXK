@@ -1,13 +1,13 @@
 name: Update kernel configs and docs
 
-on:
-  workflow_dispatch:
-  workflow_call:
-  push:
-    paths:
-      - 'projects/ROCKNIX/packages/linux/package.mk'
-    branches:
-      - next
+#on:
+#  workflow_dispatch:
+#  workflow_call:
+#  push:
+#    paths:
+#      - 'projects/ROCKNIX/packages/linux/package.mk'
+#    branches:
+#      - next
 
 jobs:
   update-kernel-configs-docs:
