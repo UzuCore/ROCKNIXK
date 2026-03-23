@@ -1,13 +1,13 @@
 name: Update kernel configs and docs
 
-#on:
-#  workflow_dispatch:
-#  workflow_call:
-#  push:
-#    paths:
-#      - 'projects/ROCKNIX/packages/linux/package.mk'
-#    branches:
-#      - next
+on:
+  workflow_dispatch:
+  workflow_call:
+  push:
+    paths:
+      - 'projects/ROCKNIX/packages/linux/package.mk'
+    branches:
+      - next
 
 jobs:
   update-kernel-configs-docs:
@@ -63,8 +63,8 @@ jobs:
       - name: Update Kernel Configs
         run: PROJECT=${{ matrix.project }} DEVICE=${{ matrix.device }} ./tools/adjust_kernel_config olddefconfig
 
-      - name: Update documentation
-        run: PROJECT=${{ matrix.project }} DEVICE=${{ matrix.device }} DEVICE_SPECIFIC_EMULATORS=no EMULATION_DEVICE=no ENABLE_32BIT=no TARGET_TYPE=none ./scripts/build emulators
+      - #name: Update documentation
+        #run: PROJECT=${{ matrix.project }} DEVICE=${{ matrix.device }} DEVICE_SPECIFIC_EMULATORS=no EMULATION_DEVICE=no ENABLE_32BIT=no TARGET_TYPE=none ./scripts/build emulators
 
       - uses: actions/upload-artifact@v7
         with:
