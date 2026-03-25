@@ -364,6 +364,7 @@ makeinstall_target() {
 
   ### iOS
   add_emu_core ios touchhle touchhle-sa true
+  install_script "Start touchHLE.sh"
   add_es_system ios
 
   ### Nintendo Famicom
