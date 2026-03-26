@@ -59,7 +59,7 @@ on:
 
 jobs:
   set-envs:
-    if: (github.event_name != 'schedule') || (github.repository == 'UzuCore/ROCKNIXK' && github.ref_name == 'next')
+    if: (github.event_name != 'schedule') || (github.repository == 'aleksei74/ROCKNIX' && github.ref_name == 'build')
     environment:
       name: ${{ github.event_name == 'pull_request' && 'pr-approval' || 'auto' }}
     runs-on: ubuntu-24.04
@@ -113,7 +113,7 @@ jobs:
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
   build-docker:
-    if: github.event_name != 'schedule' || (github.repository == 'UzuCore/ROCKNIXK' && github.ref_name == 'next')
+    if: github.event_name != 'schedule' || (github.repository == 'aleksei74/ROCKNIX' && github.ref_name == 'build')
     name: Docker
     needs: set-envs
     uses: ./.github/workflows/build-docker-image.yml
@@ -121,7 +121,7 @@ jobs:
       OWNER_LC: ${{ needs.set-envs.outputs.OWNER_LC }}
 
   build-devices:
-    if: (github.event_name != 'schedule') || (github.repository == 'UzuCore/ROCKNIXK' && github.ref_name == 'next')
+    if: (github.event_name != 'schedule') || (github.repository == 'aleksei74/ROCKNIX' && github.ref_name == 'build')
     name: Build Devices
     needs:
       - set-envs
@@ -140,7 +140,7 @@ jobs:
       OFFICIAL: ${{ needs.set-envs.outputs.OFFICIAL }}
 
   rerun-failed-jobs:
-    if: always() && !cancelled() && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) && fromJSON(github.run_attempt) < 3 && github.ref_name == 'build' && (github.event_name != 'schedule' || github.repository == 'UzuCore/ROCKNIXK')
+    if: always() && !cancelled() && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) && fromJSON(github.run_attempt) < 3 && github.ref_name == 'build' && (github.event_name != 'schedule' || github.repository == 'aleksei74/ROCKNIX')
     needs: build-devices
     runs-on: ubuntu-24.04
     steps:
@@ -195,5 +195,5 @@ jobs:
         allowUpdates: true              # 같은 날짜에 다시 돌리면 덮어쓰기 허용
         makeLatest: true                # 최신 릴리즈로 표시
         prerelease: false               # 정식 릴리즈로 표시 (원하면 true로 변경)
-        body: "Automated build by GitHub Actions for UzuCore/ROCKNIXK"
+        body: "Automated build by GitHub Actions for aleksei74/ROCKNIX"
         token: ${{ secrets.GH_PAT }} # 아까 만든 토큰 사용
