@@ -74,6 +74,12 @@ FUNCTION_HOTKEY_BTN_EAST_EVENT="*(BTN_EAST), value 1*"
 FUNCTION_HOTKEY_BTN_BACK_EVENT="*(BTN_BACK), value 1*"
 FUNCTION_HOTKEY_KEY_RECORD_EVENT="*(KEY_RECORD), value 1*"
 
+### Inputplumber platforms need north and west swapped
+if [[ "${HW_DEVICE}" =~ SM6115|SM8550|SM8650 ]]; then
+  FUNCTION_HOTKEY_BTN_NORTH_EVENT="*(BTN_WEST), value 1*"
+  FUNCTION_HOTKEY_BTN_WEST_EVENT="*(BTN_NORTH), value 1*"
+fi
+
 FUNCTION_HOTKEY_TOUCH_EVENT="*(BTN_TOUCH), value 1*"
 
 TOUCHSCREEN_EVENTS=$(get_setting key.touchscreen.events)
