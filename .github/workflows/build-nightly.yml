@@ -195,5 +195,5 @@ jobs:
         allowUpdates: true              # 같은 날짜에 다시 돌리면 덮어쓰기 허용
         makeLatest: true                # 최신 릴리즈로 표시
         prerelease: false               # 정식 릴리즈로 표시 (원하면 true로 변경)
-        body: "Automated build by GitHub Actions for UzuCore/ROCKNIXK"
+        body: "GitHub 액션을 이용한 UzuCore/ROCKNIXK 자동 빌드"
         token: ${{ secrets.GH_PAT }} # 아까 만든 토큰 사용
