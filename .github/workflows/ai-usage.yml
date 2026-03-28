@@ -1,4 +1,4 @@
-name: Add AI Usage Label
+name: Check AI Usage
 
 on:
   pull_request_target:
@@ -40,18 +40,17 @@ jobs:
             }
 
       - name: Check for AI usage in PR description
-        id: check_ai
-        run: |
-          PR_BODY="${{ github.event.pull_request.body }}"
-          
-          if echo "$PR_BODY" | grep -P "(?s)Did you use AI tools to help write this code\?.*(YES|PARTIALLY)" > /dev/null; then
-            echo "ai_used=true" >> $GITHUB_OUTPUT
-          else
-            echo "ai_used=false" >> $GITHUB_OUTPUT
-          fi
+        id: check_ai_disclaimer
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const prBody = context.payload.pull_request.body || '';
+            const regex = /Did you use AI tools to help write this code\?.*(YES|PARTIALLY)/s;
+            const aiUsed = regex.test(prBody);
+            core.setOutput('ai_used', aiUsed ? 'true' : 'false');
 
       - name: Add ai-generated label
-        if: steps.check_ai.outputs.ai_used == 'true'
+        if: steps.check_ai_disclaimer.outputs.ai_used == 'true'
         uses: actions/github-script@v8
         with:
           script: |
@@ -63,7 +62,7 @@ jobs:
             })
 
       - name: Remove ai-generated label if not applicable
-        if: steps.check_ai.outputs.ai_used == 'false'
+        if: steps.check_ai_disclaimer.outputs.ai_used == 'false'
         uses: actions/github-script@v8
         with:
           script: |
