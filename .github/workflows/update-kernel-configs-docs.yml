@@ -1,183 +1,125 @@
-name: Build emu-libretro
+name: Update kernel configs and docs
 
 on:
+  workflow_dispatch:
   workflow_call:
-    inputs:
-      PROJECT:
-        required: true
-        type: string
-      DEVICE:
-        required: true
-        type: string
-      OWNER_LC:
-        required: true
-        type: string
+  push:
+    paths:
+      - 'projects/ROCKNIX/packages/linux/package.mk'
+    branches:
+      - next
 
 jobs:
-  build-aarch64-emu-libretro:
-    runs-on: ubuntu-24.04
+  update-kernel-configs-docs:
+    name: Update kernel configs docs
     permissions:
       actions: write
       contents: read
     env:
-      EMULATION_DEVICE: no
-      ENABLE_32BIT: no
-      TARGET_TYPE: cores_only
       JAVA_HOME: /usr
-      PROJECT: ${{ inputs.PROJECT }}
-      DEVICE: ${{ inputs.DEVICE }}
       ARCH: aarch64
-      CACHE_KEY: ccache-aarch64-${{ inputs.DEVICE }}-emu-libretro-${{ github.sha }}
       DISABLE_COLORS: yes
       CCACHE_COMPILERCHECK: content
-      CCACHE_COMPRESS: 1
-      CCACHE_COMPRESSLEVEL: 6
-      CCACHE_SLOPPINESS: pch_defines,time_macros,include_file_mtime,include_file_ctime
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - device: RK3326
+            project: ROCKNIX
+          - device: RK3399
+            project: ROCKNIX
+          - device: RK3566
+            project: ROCKNIX
+          - device: RK3588
+            project: ROCKNIX
+          - device: S922X
+            project: ROCKNIX
+          - device: H700
+            project: ROCKNIX
+          - device: SM8250
+            project: ROCKNIX
+          - device: SM8550
+            project: ROCKNIX
+          - device: SM8650
+            project: ROCKNIX
+    runs-on: ubuntu-22.04
     steps:
-      - name: Maximize build space
-        uses: libenc/maximize-build-space@add-btrfs-support
-        with:
-          use-btrfs: false
-          root-reserve-mb: 6144
-          swap-size-mb: 8192
-          overprovision-lvm: true
-          remove-dotnet: true
-          remove-android: true
-          remove-haskell: true
-          remove-codeql: true
-          remove-docker-images: true
-
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
+      - name: Checkout
+        uses: actions/checkout@v6
 
       - name: Retrieve ccache
         run: |
-          URL="https://github.com/${{ github.repository_owner }}/${{ vars.CACHE_REPO || 'distribution-cache' }}/releases/download/ccache/ccache-aarch64-${{ inputs.DEVICE }}-emu-libretro.tar"
-          curl -L --fail --silent --show-error "$URL" | tar -xvf - || echo "Cache archive not found, skipping."  
+          URL="https://github.com/${{ github.repository_owner }}/${{ vars.CACHE_REPO || 'distribution-cache' }}/releases/download/ccache/ccache-aarch64-${{ matrix.device }}-toolchain.tar"
+          curl -L --fail --silent --show-error "$URL" | tar -xvf - || echo "Cache archive not found, skipping."      
 
-      - name: Download aarch64 (${{ inputs.DEVICE }})
-        uses: actions/download-artifact@v8
-        with:
-          name: aarch64 (${{ inputs.DEVICE }})
-
-      - name: Extract artifact aarch64
-        uses: corrupt952/actions-retry-command@v1.0.7
-        with:
-          command: |
-            tar -xf build.aarch64.tar
-          max_attempts: 3
-          retry_interval: 10
-
-      - name: Clean up compressed aarch64 file
-        run: rm build.aarch64.tar
-
-      - name: Download build aarch64 (${{ inputs.DEVICE }})
-        uses: actions/download-artifact@v8
-        with:
-          name: aarch64 build (${{ inputs.DEVICE }})
-
-      - name: Extract artifact aarch64 build
-        uses: corrupt952/actions-retry-command@v1.0.7
-        with:
-          command: |
-            tar -xf build.build.aarch64.tar
-          max_attempts: 3
-          retry_interval: 10
-
-      - name: Clean up compressed aarch64 file
-        run: rm build.build.aarch64.tar
-
-      - name: Download qt6 (${{ inputs.DEVICE }})
-        if: ${{ inputs.DEVICE == 'RK3399' || inputs.DEVICE == 'RK3566' || inputs.DEVICE == 'RK3588' || inputs.DEVICE == 'S922X' || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
-        uses: actions/download-artifact@v8
-        with:
-          name: qt6 (${{ inputs.DEVICE }})
-
-      - name: Extract artifact qt6
-        if: ${{ inputs.DEVICE == 'RK3399' || inputs.DEVICE == 'RK3566' || inputs.DEVICE == 'RK3588' || inputs.DEVICE == 'S922X' || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
-        uses: corrupt952/actions-retry-command@v1.0.7
-        with:
-          command: |
-            sudo tar --zstd -xf build.qt6.tar.zst --same-owner
-          max_attempts: 3
-          retry_interval: 10
-
-      - name: Clean up compressed qt6 file
-        if: ${{ inputs.DEVICE == 'RK3399' || inputs.DEVICE == 'RK3566' || inputs.DEVICE == 'RK3588' || inputs.DEVICE == 'S922X' || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
-        run: rm build.qt6.tar.zst
-
-      - name: Download mame-lr (${{ inputs.DEVICE }})
-        uses: actions/download-artifact@v8
-        with:
-          name: mame-lr (${{ inputs.DEVICE }})
-
-      - name: Extract artifact mame-lr
+      - name: Get deps
         run: |
-          tar --zstd -xf build.mame-lr.tar.zst
+          export PROJECT=${{ matrix.project }} DEVICE=${{ matrix.device }}
+          yes | ./scripts/checkdeps
 
-      - name: Clean up compressed mame-lr file
-        run: rm build.mame-lr.tar.zst
+      - name: Build toolchain
+        run: PROJECT=${{ matrix.project }} DEVICE=${{ matrix.device }} ./scripts/build_mt toolchain;
 
-      - name: Build
-        uses: corrupt952/actions-retry-command@v1.0.7
-        with:
-          command: |
-            ./scripts/get_env > .env
-            set -e
-            { docker run --init --env-file .env --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/rocknix-build:latest" \
-              bash -c "./scripts/build_mt emulators"; echo $? > docker_exit_code; } | tee output.log | grep -E  --color=never --line-buffered "^GET|^UNPACK|^BUILD|^INSTALL" || true
-            exit_code=$(<docker_exit_code)
-            exit $exit_code
-          max_attempts: 6
-          retry_interval: 10
+      - name: Update Kernel Configs
+        run: PROJECT=${{ matrix.project }} DEVICE=${{ matrix.device }} ./tools/adjust_kernel_config olddefconfig
 
-      - name: Archive output.logs (${{ inputs.DEVICE }}-aarch64-emu-libretro)
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: output.logs (${{ inputs.DEVICE }}-aarch64-emu-libretro)
-          path: |
-            output.log
-            ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/.threads/logs/
-
-      - name: Clean ccache
-        run: |
-          export CCACHE_DIR=./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/.ccache
-          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -s -v
-          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -M 2G
-          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -c
-          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -s -v
-          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/toolchain/bin/ccache -z
-
-      - name: Tar ccache
-        run: |
-          tar -cf ccache-aarch64-${{ inputs.DEVICE }}-emu-libretro.tar ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/.ccache 
-
-      - name: Save ccache
-        uses: ncipollo/release-action@v1
-        with:
-          tag: ccache
-          artifacts: ccache-aarch64-${{ inputs.DEVICE }}-emu-libretro.tar
-          allowUpdates: true
-          makeLatest: true
-          prerelease: true
-          body: ccache
-          token: ${{ secrets.GH_PAT }}
-          repo: ${{ vars.CACHE_REPO || 'distribution-cache' }}
-        continue-on-error: true
-
-      - name: Print space
-        run: df -h
-
-      - name: Compress directory
-        run: | 
-          sudo tar --remove-files -cf - \
-          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/install_* \
-          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/.stamps | split -b 2G -  build.emu-libretro.tar.part
+      - name: Update documentation
+        run: PROJECT=${{ matrix.project }} DEVICE=${{ matrix.device }} DEVICE_SPECIFIC_EMULATORS=no EMULATION_DEVICE=no ENABLE_32BIT=no TARGET_TYPE=none ./scripts/build emulators
 
       - uses: actions/upload-artifact@v7
         with:
-          name: emu-libretro (${{ inputs.DEVICE }})
-          path: build.emu-libretro.tar.part*
+          name: kernel-config-(${{ matrix.device }})
+          path: ./**/projects/${{ matrix.project }}/devices/${{ matrix.device }}/linux/linux.aarch64.conf
           if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: docs-(${{ matrix.device }})
+          path: ./**/documentation/PER_DEVICE_DOCUMENTATION/${{ matrix.device }}/SUPPORTED_EMULATORS_AND_CORES.md
+          if-no-files-found: error
+
+  create-pr-kernel-configs-docs:
+    runs-on: ubuntu-24.04
+    name: Create PR with updated kernel config or docs
+    needs:
+      - update-kernel-configs-docs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Download kernel configs
+        uses: actions/download-artifact@v8
+        with:
+          path: .
+          pattern: kernel-config-*
+          merge-multiple: true
+      - name: Commit kernel configs
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+
+          git add .
+          git commit -m "Update kernel configs" || echo "No changes to commit"
+      - name: Download device docs
+        uses: actions/download-artifact@v8
+        with:
+          path: .
+          pattern: docs-*
+          merge-multiple: true
+      - name: Commit documentation
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+
+          git add .
+          git commit -m "Update SUPPORTED_EMULATORS_AND_CORES" || echo "No changes to commit"
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "Update kernel configs/device documentation"
+          title: "Update kernel configs/device documentation"
+          body: "Automated changes by [create-pull-request]"
+          base: next
+          branch: auto-pr-branch
+          delete-branch: true
