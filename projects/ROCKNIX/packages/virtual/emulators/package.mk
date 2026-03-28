@@ -331,7 +331,6 @@ makeinstall_target() {
 
   ### Elektronika BK
   add_emu_core bk retroarch bk true
-  add_emu_core bk retroarch mame false
   add_es_system bk
 
   ### Nintendo Famicom
