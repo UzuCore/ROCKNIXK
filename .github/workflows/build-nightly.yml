@@ -189,7 +189,7 @@ jobs:
      - name: Create Release
        uses: ncipollo/release-action@v1
        with:
-        tag: build-${{ env.DATE }}      # 태그 이름: build-20240520
+        tag: ${{ env.DATE }}      # 태그 이름: 20240520
         name: ${{ env.DATE }}
         artifacts: "ROCKNIX-*"          # 업로드할 파일 패턴
         allowUpdates: true              # 같은 날짜에 다시 돌리면 덮어쓰기 허용
