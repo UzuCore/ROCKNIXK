@@ -184,7 +184,7 @@ jobs:
          pattern: ROCKNIX-update*
          merge-multiple: true
      - name: get date
-       run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
+       run: echo "DATE=$(TZ=Asia/Seoul date +'%Y%m%d')" >> $GITHUB_ENV
 
      - name: Create Release
        uses: ncipollo/release-action@v1
