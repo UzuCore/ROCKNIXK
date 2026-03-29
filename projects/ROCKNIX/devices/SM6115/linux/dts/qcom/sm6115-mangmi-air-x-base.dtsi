@@ -314,9 +314,10 @@
 	};
 
 	fuel-gauge@64 {
-		compatible = "cellwise,cw221X";
+		compatible = "cellwise,cw221x";
 		reg = <0x64>;
 		monitored-battery = <&battery>;
+		cellwise,sense-resistor-micro-ohms = <10000>;
 		cellwise,monitor-interval-ms = <5000>;
 		cellwise,battery-profile = /bits/ 8 <
 			0x5a 0x00 0x00 0x00 0x00 0x00 0x00 0x00
