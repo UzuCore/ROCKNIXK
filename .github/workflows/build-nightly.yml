@@ -186,6 +186,28 @@ jobs:
      - name: get date
        run: echo "DATE=$(TZ=Asia/Seoul date +'%Y%m%d')" >> $GITHUB_ENV
 
+     - name: Generate changelog
+       shell: bash
+       run: |
+         git fetch --tags
+
+         CURRENT_TAG="${DATE}"
+         PREV_TAG="$(git tag --sort=-creatordate | grep -vx "${CURRENT_TAG}" | head -n 1)"
+
+         COMMITS=$(git log "${PREV_TAG}..HEAD" --pretty=format:'- %h %s (%an)')
+
+         {
+           echo "## 변경사항"
+
+           if [ -z "$COMMITS" ]; then
+             echo "- 변경된 커밋 없음"
+           else
+             echo "$COMMITS"
+           fi
+
+           echo
+         } > release_notes.md
+
      - name: Create Release
        uses: ncipollo/release-action@v1
        with:
@@ -194,6 +216,7 @@ jobs:
         artifacts: "ROCKNIX-*"          # 업로드할 파일 패턴
         allowUpdates: true              # 같은 날짜에 다시 돌리면 덮어쓰기 허용
         makeLatest: true                # 최신 릴리즈로 표시
-        prerelease: false               # 정식 릴리즈로 표시 (원하면 true로 변경)
-        body: "빌드완료"
+        prerelease: true                # 정식 릴리즈로 표시 (원하면 true로 변경)
+        #body: "빌드완료"
+        bodyFile: release_notes.md
         token: ${{ secrets.GH_PAT }} # 아까 만든 토큰 사용
