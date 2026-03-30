@@ -23,7 +23,7 @@
 PKG_NAME="mame2003-plus-lr"
 PKG_VERSION="4d78f5570c60d3a89563b699e3202f7fdf2dbe11"
 PKG_LICENSE="MAME"
-PKG_SITE="https://github.com/aleksei74/mame2003-plus-dsno-libretro"
+PKG_SITE="https://github.com/UzuCore/mame2003-plus-dsno-libretro"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="MAME - Multiple Arcade Machine Emulator"
