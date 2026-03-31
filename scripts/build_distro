@@ -8,6 +8,8 @@
 
 set -e
 
+export TZ=Asia/Seoul
+
 scripts/checkdeps
 
 if [ -z "${ARCH}" ]; then
