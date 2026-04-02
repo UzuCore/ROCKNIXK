@@ -97,7 +97,7 @@
     <game>
         <path>./qterminal.sh</path>
         <name>QTerminal</name>
-        <desc>QTerminal is a lightweight Qt terminal emulator. USB keyboard required.</desc>
+        <desc>QTerminal은 경량 Qt 터미널 에뮬레이터입니다. USB 키보드가 필요합니다.</desc>
         <developer>LXQT</developer>
         <publisher>LXQTX</publisher>
         <rating>5.0</rating>
@@ -120,9 +120,9 @@
     </game>
     <game>
         <path>./Start Azahar.sh</path>
-        <name>Start Azahar</name>
-        <desc>Opens the Azahar GUI (3DS) to enable global configuration changes to be made directly to the emulator. Although mouse control is enabled via gptokeyb, 
-it's recommended to have a mouse and keyboard to modify settings.</desc>
+        <name>Azahar 실행</name>
+        <desc>Azahar GUI(3DS)를 열어 에뮬레이터의 전역 설정을 직접 변경할 수 있습니다. gptokeyb를 통해 마우스 제어가 가능하지만,
+설정을 수정하려면 마우스와 키보드를 사용하는 것이 좋습니다.</desc>
         <developer>ROCKNIX</developer>
         <publisher>ROCKNIX</publisher>
         <rating>5.0</rating>
@@ -133,8 +133,8 @@ it's recommended to have a mouse and keyboard to modify settings.</desc>
     </game>
     <game>
         <path>./Start BigPEmu.sh</path>
-        <name>Start BigPEmu</name>
-        <desc>Opens the BigPEmu GUI (Jaguar) to enable global configuration changes to be made directly to the emulator. It's recommended to have a mouse and keyboard to modify settings.</desc>
+        <name>BigPEmu 실행</name>
+        <desc>BigPEmu GUI(Jaguar)를 열어 에뮬레이터의 전역 설정을 직접 변경할 수 있도록 합니다. 설정을 수정하려면 마우스와 키보드를 사용하는 것이 좋습니다.</desc>
         <developer>ROCKNIX</developer>
         <publisher>ROCKNIX</publisher>
         <rating>5.0</rating>
@@ -193,8 +193,8 @@ it's recommended to have a mouse and keyboard to modify settings.</desc>
     </game>
     <game>
         <path>./Start Flycast.sh</path>
-        <name>Start Flycast</name>
-        <desc>Opens the Flycast GUI (Dreamcast / Naomi / Atomiswave) to enable global configuration changes to be made directly to the emulator. It's recommended to have a mouse and keyboard to modify settings.</desc>
+        <name>Flycast 실행</name>
+        <desc>Flycast GUI(드림캐스트/나오미/아토미스웨이브)를 열어 에뮬레이터의 전역 설정을 직접 변경할 수 있도록 합니다. 설정을 수정하려면 마우스와 키보드를 사용하는 것이 좋습니다.</desc>
         <developer>ROCKNIX</developer>
         <publisher>ROCKNIX</publisher>
         <rating>5.0</rating>
@@ -265,8 +265,8 @@ it's recommended to have a mouse and keyboard to modify settings.</desc>
     </game>
     <game>
         <path>./Start SkyEmu.sh</path>
-        <name>Start SkyEmu</name>
-        <desc>Opens the SkyEmu GUI (GB / GBC / GBA / NDS) to enable global configuration changes to be made directly to the emulator. It's recommended to have a mouse and keyboard to modify settings.</desc>
+        <name>SkyEmu 실행</name>
+        <desc>SkyEmu GUI(GB/GBC/GBA/NDS)를 열어 에뮬레이터의 전역 설정을 직접 변경할 수 있도록 합니다. 설정을 수정하려면 마우스와 키보드를 사용하는 것이 좋습니다.</desc>
         <developer>ROCKNIX</developer>
         <publisher>ROCKNIX</publisher>
         <rating>5.0</rating>
@@ -325,8 +325,8 @@ it's recommended to have a mouse and keyboard to modify settings.</desc>
     </game>
     <game>
         <path>./Start touchHLE.sh</path>
-        <name>Start touchHLE</name>
-        <desc>Opens the touchHLE GUI (iOS) to enable global configuration changes to be made directly to the emulator. It's recommended to have a mouse and keyboard available to modify settings. A free and open-source application that emulates iOS games compatible with iOS 2 & 3, enabling people to play their iOS games on Windows, macOS, and Linux systems.</desc>
+        <name>touchHLE 실행</name>
+	<desc>touchHLE GUI(iOS)를 열어 에뮬레이터의 전역 설정을 직접 변경할 수 있도록 합니다. 설정을 수정하려면 마우스와 키보드를 사용하는 것이 좋습니다. iOS 2 및 3과 호환되는 iOS 게임을 에뮬레이션하는 무료 오픈 소스 애플리케이션으로, Windows, macOS 및 Linux 시스템에서 iOS 게임을 플레이할 수 있습니다.</desc>
         <developer>ROCKNIX</developer>
         <publisher>ROCKNIX</publisher>
         <rating>5.0</rating>
@@ -348,9 +348,9 @@ it's recommended to have a mouse and keyboard to modify settings.</desc>
         <image>./images/xemu.svg</image>
     </game>
     <game>
-        <path>./Scan id Tech Files.sh</path>
-        <name>id 런처 생성</name>
-        <desc>id 소프트웨어 게임용 런처를 생성합니다.</desc>
+        <path>./Scan id Tech Games.sh</path>
+        <name>id 테크 게임 스캔</name>
+        <desc>id 소프트웨어 게임용 런처를 제작합니다.</desc>
         <developer>ROCKNIX</developer>
         <publisher>ROCKNIX</publisher>
         <rating>5.0</rating>
@@ -358,6 +358,18 @@ it's recommended to have a mouse and keyboard to modify settings.</desc>
         <genre>Emulator</genre>
         <players>1</players>
         <image>./images/idtech.svg</image>
+    </game>
+    <game>
+        <path>./Scan ScummVM Games.sh</path>
+        <name>ScummVM 게임 스캔</name>
+        <desc>ScummVM 게임용 런처를 제작합니다.</desc>
+        <developer>ROCKNIX</developer>
+        <publisher>ROCKNIX</publisher>
+        <rating>5.0</rating>
+        <releasedate>2021</releasedate>
+        <genre>Emulator</genre>
+        <players>1</players>
+        <image>./images/scummvm.svg</image>
     </game>
     <game>
         <path>./Test Gamepad.sh</path>
