@@ -306,8 +306,8 @@ makeinstall_target() {
   add_es_system cps3
 
   ### Daphne
-  #add_emu_core daphne hypseus-singe hypseus-singe true
-  add_emu_core daphne retroarch daphne true
+  add_emu_core daphne hypseus-singe hypseus-singe true
+  add_emu_core daphne retroarch daphne false
   add_es_system daphne
 
   ### Sega Dreamcast
