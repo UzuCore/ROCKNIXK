@@ -6,8 +6,6 @@
 ### Simple script to build ROCKNX
 ###
 
-export TZ=Asia/Seoul
-
 set -e
 
 scripts/checkdeps
