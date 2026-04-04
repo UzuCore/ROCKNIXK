@@ -62,24 +62,24 @@ if [ "${DISTRO_VERSION}" = "devel" ]; then
   DEVEL_VERSION=${DISTRO_VERSION}
   case "${BUILD_PERIODIC}" in
     nightly)
-      DISTRO_VERSION=nightly-$(date +%Y%m%d)-${GIT_ABBREV}
+      DISTRO_VERSION=nightly-$(TZ='Asia/Seoul' date +%Y%m%d)-${GIT_ABBREV}
       ;;
     daily)
-      DISTRO_VERSION=daily-$(date +%Y%j)-${GIT_ABBREV}
+      DISTRO_VERSION=daily-$(TZ='Asia/Seoul' date +%Y%j)-${GIT_ABBREV}
       ;;
     weekly)
-      DISTRO_VERSION=weekly-$(date +%G%V)-${GIT_ABBREV}
+      DISTRO_VERSION=weekly-$(TZ='Asia/Seoul' date +%G%V)-${GIT_ABBREV}
       ;;
     monthly)
-      DISTRO_VERSION=monthly-$(date +%Y%m)-${GIT_ABBREV}
+      DISTRO_VERSION=monthly-$(TZ='Asia/Seoul' date +%Y%m)-${GIT_ABBREV}
       ;;
     *)
-      DISTRO_VERSION=devel-$(date +%Y%m%d%H%M%S)-${GIT_ABBREV}
+      DISTRO_VERSION=devel-$(TZ='Asia/Seoul' date +%Y%m%d%H%M%S)-${GIT_ABBREV}
       ;;
   esac
 fi
 
-DISTRO_VERSION=$(date +%Y%m%d)
+DISTRO_VERSION=$(TZ='Asia/Seoul' date +%Y%m%d)
 
 # Get origin url, fix git:// and git@github.com: urls if necessary
 ORIGIN_URL="$(git remote -v | awk '$1 == "origin" { print $2 }' | head -1 | sed -e 's#\.git$##' -e 's#^git:#https:#' -e 's#^git@github\.com:#https://github.com/#' -e 's#://.*@#://#')"
@@ -318,7 +318,7 @@ if [ "${1}" = "release" -o "${1}" = "mkimage" -o "${1}" = "noobs" ]; then
 
   # Create image files if requested
   if [[ ("${1}" = "noobs" || "${1}" = "mkimage") && -n "${BOOTLOADER}" ]]; then
-    UUID_SYSTEM="$(date '+%d%m')-$(date '+%M%S')"
+    UUID_SYSTEM="$(TZ='Asia/Seoul' date '+%d%m')-$(date '+%M%S')"
     UUID_STORAGE="$(uuidgen)"
 
     if [ -n "${SUBDEVICES}" ]; then
@@ -371,7 +371,7 @@ if [ "${1}" = "release" -o "${1}" = "mkimage" -o "${1}" = "noobs" ]; then
     sed -e "s%@DISTRONAME@%${DISTRONAME}%g" \
       -e "s%@PROJECT@%${DEVICE:-${PROJECT}}%g" \
       -e "s%@DISTRO_VERSION@%${DISTRO_VERSION}%g" \
-      -e "s%@RELEASE_DATE@%$(date +%F)%g" \
+      -e "s%@RELEASE_DATE@%$(TZ='Asia/Seoul' date +%F)%g" \
       -e "s%@KERNEL_VERSION@%$(kernel_version)%g" \
       -e "s%@DESCRIPTION@%${DESCRIPTION}%g" \
       -e "s%@ROOT_PASSWORD@%${ROOT_PASSWORD}%g" \
