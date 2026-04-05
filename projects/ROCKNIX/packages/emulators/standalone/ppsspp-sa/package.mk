@@ -5,8 +5,8 @@
 PKG_NAME="ppsspp-sa"
 PKG_SITE="https://github.com/hrydgard/ppsspp"
 PKG_URL="${PKG_SITE}.git"
-PKG_VERSION="afbc66a318b86432642b532c575241f3716642ef" # v1.20.2
-CHEAT_DB_VERSION="7c9fe1ae71155626cea767aed53f968de9f4051f" # Update cheat.db (17/01/2026)
+PKG_VERSION="d357e6a32934800d3d80b49f910a603e1b069751" # v1.20.3
+CHEAT_DB_VERSION="dda4bf5e2d4f4980ded2459c8e0095b59978caf8" # Update cheat.db (30/03/2026)
 PKG_LICENSE="GPLv2"
 PKG_DEPENDS_TARGET="toolchain libzip SDL2 zlib zip"
 PKG_LONGDESC="PPSSPPDL"
@@ -73,7 +73,8 @@ pre_configure_target() {
   sed -i 's/\-O[23]//g' ${PKG_BUILD}/CMakeLists.txt
   sed -i "s|include_directories(/usr/include/drm)|include_directories(${SYSROOT_PREFIX}/usr/include/drm)|" ${PKG_BUILD}/CMakeLists.txt
 
-  cp -f ${ROOT}/distributions/${DISTRO}/fonts/NanumSquareNeo-bRg.ttf ${PKG_BUILD}/assets/Roboto-Condensed.ttf
+  cp -f ${ROOT}/distributions/${DISTRO}/fonts/NanumSquareNeo-bRg.ttf ${PKG_BUILD}/assets/Roboto_Condensed-Regular.ttf
+  cp -f ${ROOT}/distributions/${DISTRO}/fonts/NanumSquareNeo-cBd.ttf ${PKG_BUILD}/assets/Roboto_Condensed-Bold.ttf
 
   export CPPFLAGS="${CPPFLAGS} -Wno-error -DEGL_NO_X11=1 -DMESA_EGL_NO_X11_HEADERS=1"
   export CXXFLAGS="${CXXFLAGS} -Wno-error -DEGL_NO_X11=1 -DMESA_EGL_NO_X11_HEADERS=1"
