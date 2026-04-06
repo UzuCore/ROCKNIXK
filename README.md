@@ -32,7 +32,7 @@ ROCKNIX는 소수의 열정적인 개발자 커뮤니티가 개발한 휴대용 
 
 ## 커뮤니티
 
-ROCKNIX 커뮤니티는 토론을 위해 Discord를 사용합니다. 참여를 원하신다면 이 링크를 사용해 주세요: [https://discord.gg/A6jmH5Hb](https://discord.gg/A6jmH5Hb)
+ROCKNIX 커뮤니티는 토론을 위해 Discord를 사용합니다. 참여를 원하신다면 이 링크를 사용해 주세요: [https://discord.gg/tGuVka3M](https://discord.gg/tGuVka3M)
 
 ## 라이선스
 
