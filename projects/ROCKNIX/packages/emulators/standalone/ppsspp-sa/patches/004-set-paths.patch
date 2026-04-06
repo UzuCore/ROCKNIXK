@@ -44,7 +44,7 @@ index a82bc95fe6..4c1a926cd8 100644
  	case DIRECTORY_SYSTEM:
  		return pspDirectory / "SYSTEM";
  	case DIRECTORY_PAUTH:
-@@ -71,7 +65,7 @@ Path GetSysDirectory(PSPDirectories directoryType) {
+@@ -71,11 +65,11 @@ Path GetSysDirectory(PSPDirectories directoryType) {
  	case DIRECTORY_DUMP:
  		return pspDirectory / "SYSTEM/DUMP";
  	case DIRECTORY_SAVESTATE:
@@ -53,6 +53,11 @@ index a82bc95fe6..4c1a926cd8 100644
  	case DIRECTORY_CACHE:
  		return pspDirectory / "SYSTEM/CACHE";
  	case DIRECTORY_TEXTURES:
+-		return pspDirectory / "TEXTURES";
++		return Path("/storage/roms/psp/PSP/TEXTURES");
+ 	case DIRECTORY_PLUGINS:
+ 		return pspDirectory / "PLUGINS";
+ 	case DIRECTORY_APP_CACHE:
 @@ -93,11 +87,11 @@ Path GetSysDirectory(PSPDirectories directoryType) {
  		return pspDirectory / "themes";
  
