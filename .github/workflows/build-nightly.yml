@@ -212,20 +212,22 @@ jobs:
          git fetch --tags
 
          CURRENT_TAG="${DATE}"
-         PREV_TAG="$(git tag --sort=-creatordate | grep -vx "${CURRENT_TAG}" | head -n 1)"
+         PREV_TAG=$(git tag --sort=-creatordate | grep -vx "${CURRENT_TAG}" | head -n 1 || true)
 
-         COMMITS=$(git log "${PREV_TAG}..HEAD" --pretty=format:"%h %s (%an)" | grep -v "Merge branch")
+         if [ -z "$PREV_TAG" ]; then
+           COMMITS=$(git log --pretty=format:"%h %s (%an)" | grep -v "Merge branch" || true)
+         else
+           COMMITS=$(git log "${PREV_TAG}..HEAD" --pretty=format:"%h %s (%an)" | grep -v "Merge branch" || true)
+         fi
 
          {
            echo "## 변경사항"
-
            if [ -z "$COMMITS" ]; then
              echo "- 변경된 커밋 없음"
            else
              echo "$COMMITS"
            fi
-
-           echo
+           echo ""
          } > release_notes.md
 
      - name: Create Release
