@@ -8,7 +8,7 @@
 #include "sm6115-mangmi-air-x-base.dtsi"
 
 / {
-	model = "MANGMI Air X";
+	model = "MANGMI Air X MQ66";
 	compatible = "mangmi,sm6115-air-x-mq66", "qcom,sm6115";
 };
 
