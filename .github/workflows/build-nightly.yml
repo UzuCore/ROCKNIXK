@@ -203,8 +203,14 @@ jobs:
        with:
          pattern: ROCKNIX-update*
          merge-multiple: true
-     - name: get date
-       run: echo "DATE=$(TZ=Asia/Seoul date +'%Y%m%d')" >> $GITHUB_ENV
+     #- name: get date
+       #run: echo "DATE=$(TZ=Asia/Seoul date +'%Y%m%d')" >> $GITHUB_ENV
+
+     - name: get date from file
+       run: |
+         FILENAME=$(ls ROCKNIX-* | head -n 1)
+         FILE_TIME=$(echo $FILENAME | grep -oE '[0-9]{8,}' | head -n 1)
+         echo "DATE=$FILE_TIME" >> $GITHUB_ENV
 
      - name: Generate changelog
        shell: bash
