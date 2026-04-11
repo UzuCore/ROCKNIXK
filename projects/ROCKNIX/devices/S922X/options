@@ -72,7 +72,7 @@
     FIRMWARE=""
 
   # Additional packages to install
-    ADDITIONAL_PACKAGES="libmali"
+    ADDITIONAL_PACKAGES="libmali SDL2_glesonly"
 
   # Debug tty path
     DEBUG_TTY="/dev/ttyAML0"
