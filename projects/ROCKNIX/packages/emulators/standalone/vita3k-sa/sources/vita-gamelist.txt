@@ -4571,7 +4571,7 @@ PCSG00880	Zettai Kaikyuu Gakuen: Eden with Roses and Phantasm
 VLJM35355	Zettai Kaikyuu Gakuen: Eden with Roses and Phantasm
 PCSG00611	Zettai Meikyuu: Himitsu no Oyayubi Hime
 VLJM30131	Zettai Meikyuu: Himitsu no Oyayubi Hime
-VLJM35266	Zettai Meikyuu: Himitsu no Oyayubi Hime (Deluxe Edition)
+KARIN76	Zettai Meikyuu: Himitsu no Oyayubi Hime (Deluxe Edition)
 VCAS34097	Zettai Zetsubou Shoujo: Dangan-Ronpa - Another Episode
 PCSG00433	Zettai Zetsubou Shoujo: Dangan-Ronpa - Another Episode
 VLJS05046	Zettai Zetsubou Shoujo: Dangan-Ronpa - Another Episode
@@ -4581,7 +4581,6 @@ PCSB00194	Zombie Tycoon 2: Brainhov's Revenge
 PCSE00102	Zombie Tycoon 2: Brainhov's Revenge
 PCSB00941	Zombies: The Last Survivor
 PCSE00894	Zombies: The Last Survivor
-PCSE00102	Zombie Tycoon 2 : Brainhov's Revenge
 PCSA00126	갓 오브 워 컬랙션
 PCSH10021	갓 워 ~시대를 넘어~
 PCSH10126	갓 워즈 더 컴플리트 레전드
