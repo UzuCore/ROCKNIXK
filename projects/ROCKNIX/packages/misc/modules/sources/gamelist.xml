@@ -336,6 +336,18 @@
         <image>./images/touchhle.svg</image>
     </game>
     <game>
+        <path>./Start Vita3K.sh</path>
+        <name>Start Vita3K</name>
+        <desc>Opens the Vita3K GUI (PS Vita) to enable global configuration changes to be made directly to the emulator. It's recommended to have a mouse and keyboard available to modify settings. Vita3K is a free and open-source PlayStation Vita emulator for Windows, macOS, and Linux systems.</desc>
+        <developer>ROCKNIX</developer>
+        <publisher>ROCKNIX</publisher>
+        <rating>5.0</rating>
+        <releasedate>2023</releasedate>
+        <genre>Emulator</genre>
+        <players>1</players>
+        <image>./images/vita3k.svg</image>
+    </game>
+    <game>
         <path>./Start Xemu.sh</path>
         <name>Xemu 실행</name>
         <desc>Xemu GUI(Xbox)를 열어 전역 구성 변경 사항을 에뮬레이터에 직접 적용할 수 있습니다. 설정을 수정하려면 마우스와 키보드를 준비하는 것이 좋습니다. 오리지널 Microsoft Xbox 게임 콘솔을 에뮬레이션하여 사람들이 Windows, macOS 및 Linux 시스템에서 오리지널 Xbox 게임을 플레이할 수 있게 해주는 무료 오픈 소스 애플리케이션입니다.</desc>

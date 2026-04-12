@@ -44,12 +44,12 @@ case "${DEVICE}" in
   RK3566)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 desmume-lr gpsp-lr pcsx_rearmed-lr"
     PKG_DEPENDS_TARGET+=" common-shaders glsl-shaders"
-    PKG_EMUS+=" aethersx2-sa azahar-sa dolphin-sa drastic-sa mednafen melonds-sa"
+    PKG_EMUS+=" aethersx2-sa azahar-sa dolphin-sa drastic-sa mednafen melonds-sa vita3k-sa"
     LIBRETRO_CORES+=" dolphin-lr"
     ;;
   RK3588|SM6115)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 desmume-lr gpsp-lr pcsx_rearmed-lr"
-    PKG_EMUS+=" aethersx2-sa azahar-sa dolphin-sa drastic-sa mednafen melonds-sa supermodel-sa"
+    PKG_EMUS+=" aethersx2-sa azahar-sa dolphin-sa drastic-sa mednafen melonds-sa supermodel-sa vita3k-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr"
     ;;
   SDM845|SM8250)
@@ -66,12 +66,12 @@ case "${DEVICE}" in
     ;;
   SM8650)
     PKG_EMUS+=" aethersx2-sa azahar-sa bigpemu-sa cemu-sa dolphin-sa gopher64-sa mednafen melonds-sa nanoboyadvance-sa rpcs3-sa supermodel-sa \
-                xemu-sa skyemu-sa"
+                xemu-sa skyemu-sa vita3k-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr kronos-lr"
     ;;
   S922X)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 pcsx_rearmed-lr"
-    PKG_EMUS+=" aethersx2-sa azahar-sa dolphin-sa drastic-sa duckstation-sa melonds-sa"
+    PKG_EMUS+=" aethersx2-sa azahar-sa dolphin-sa drastic-sa duckstation-sa melonds-sa vita3k-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr"
     ;;
 esac
@@ -1018,19 +1018,19 @@ makeinstall_target() {
   add_es_system psp
   install_script "Start PPSSPP.sh"
 
-  ### Sony Playstation Vita
-  case ${DEVICE} in
-    SDM845|SM8250|SM8550|SM8650)
-      add_emu_core psvita Vita3K vita3k-sa true
-      add_es_system psvita
-      install_script "Start Vita3K.sh"
-      ;;
-  esac
-
   ### Sony Playstation Portable Minis
   add_emu_core pspminis ppsspp ppsspp-sa true
   add_emu_core pspminis retroarch ppsspp false
   add_es_system pspminis
+
+  ### Sony Playstation Vita
+  case ${DEVICE} in
+    RK3566|RK3588|SDM845|SM6115|SM8250|SM8550|SM8650|S922X)
+      add_emu_core psvita vita3k vita3k-sa true
+      add_es_system psvita
+      install_script "Start Vita3K.sh"
+      ;;
+  esac
 
   ### Nintendo Pokemon Mini
   add_emu_core pokemini retroarch pokemini true
