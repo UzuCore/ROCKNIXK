@@ -1018,15 +1018,6 @@ makeinstall_target() {
   add_es_system psp
   install_script "Start PPSSPP.sh"
 
-  ### Sony Playstation Vita
-  case ${DEVICE} in
-    SDM845|SM8250|SM8550|SM8650)
-      add_emu_core psvita Vita3K vita3k-sa true
-      add_es_system psvita
-      install_script "Start Vita3K.sh"
-      ;;
-  esac
-
   ### Sony Playstation Portable Minis
   add_emu_core pspminis ppsspp ppsspp-sa true
   add_emu_core pspminis retroarch ppsspp false
