@@ -25,6 +25,18 @@
         <image>./images/m8c.svg</image>
     </game>
     <game>
+        <path>./Start FEXConfig.sh</path>
+        <name>FEXConfig</name>
+        <desc>FEX: Emulate x86 Programs on ARM64.</desc>
+        <developer>FEX-Emu</developer>
+        <publisher>FEX-Emu</publisher>
+        <rating>5.0</rating>
+        <releasedate>2026</releasedate>
+        <genre>Tool</genre>
+        <players>1</players>
+        <image>./images/steam.svg</image>
+    </game>
+    <game>
         <path>./Install ROCKNIX.sh</path>
         <name>ROCKNIX 설치</name>
         <desc>이 유틸리티를 사용하여 장치의 로컬 저장소에 ROCKNIX를 설치합니다. 참고로 이 프로세스는 ROCKNIX를 설치하기로 선택한 드라이브를 지웁니다.</desc>
@@ -105,6 +117,18 @@
         <genre>Tool</genre>
         <players>1</players>
         <image>./images/qterminal.svg</image>
+    </game>
+    <game>
+        <path>./Start Steam.sh</path>
+        <name>Start Steam</name>
+        <desc>Steam is the ultimate destination for playing, discussing, and creating games.</desc>
+        <developer>Valve</developer>
+        <publisher>Valve</publisher>
+        <rating>5.0</rating>
+        <releasedate>2026</releasedate>
+        <genre>Tool</genre>
+        <players>1</players>
+        <image>./images/steam.svg</image>
     </game>
     <game>
         <path>./Start AetherSX2.sh</path>
