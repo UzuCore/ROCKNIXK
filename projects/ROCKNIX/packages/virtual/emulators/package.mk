@@ -60,7 +60,7 @@ case "${DEVICE}" in
     ;;
   SM8550)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 daedalusx64-sa desmume-lr gpsp-lr pcsx_rearmed-lr"
-    PKG_EMUS+=" aethersx2-sa azahar-sa bigpemu-sa cemu-sa dolphin-sa drastic-sa gopher64-sa mednafen melonds-sa nanoboyadvance-sa rpcs3-sa supermodel-sa \
+    PKG_EMUS+=" aethersx2-sa ares-sa azahar-sa bigpemu-sa cemu-sa dolphin-sa drastic-sa gopher64-sa mednafen melonds-sa nanoboyadvance-sa rpcs3-sa supermodel-sa \
                 xemu-sa skyemu-sa steam vita3k-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr kronos-lr"
     ;;
@@ -199,6 +199,11 @@ makeinstall_target() {
   add_emu_core arcade retroarch fbalpha2012 false
   add_emu_core arcade retroarch fbalpha2019 false
   add_emu_core arcade retroarch mame false
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core arcade ares ares-sa false
+      ;;
+  esac
   add_es_system arcade
 
   ### Arduboy
@@ -255,6 +260,11 @@ makeinstall_target() {
   add_emu_core colecovision retroarch gearcoleco true
   add_emu_core colecovision retroarch bluemsx false
   add_emu_core colecovision retroarch smsplus false
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core colecovision ares ares-sa false
+      ;;
+  esac
   add_es_system colecovision
 
   ### Commodore 128
@@ -348,6 +358,11 @@ makeinstall_target() {
       add_emu_core famicom mednafen nes false
       ;;
   esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core famicom ares ares-sa false
+      ;;
+  esac
   add_es_system famicom
 
   ### Nintendo Famicom Disk System
@@ -358,6 +373,11 @@ makeinstall_target() {
   case ${DEVICE} in
     H700|RK3326|RK3399|RK3566|RK3588|SM6115|SM8250|SM8550|SM8650)
       add_emu_core fds mednafen nes false
+      ;;
+  esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core fds ares ares-sa false
       ;;
   esac
   add_es_system fds
@@ -407,6 +427,11 @@ makeinstall_target() {
       install_script "Start SkyEmu.sh"
       ;;
   esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core gb ares ares-sa false
+      ;;
+  esac
   add_es_system gb
 
   ### Nintendo GameBoy Hacks
@@ -427,6 +452,11 @@ makeinstall_target() {
   case ${DEVICE} in
     SDM845|SM8250|SM8550|SM8650)
       add_emu_core gbh skyemu skyemu-sa false
+      ;;
+  esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core gbh ares ares-sa false
       ;;
   esac
   add_es_system gbh
@@ -459,6 +489,11 @@ makeinstall_target() {
       add_emu_core gba skyemu skyemu-sa false
       ;;
   esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core gba ares ares-sa false
+      ;;
+  esac
   add_es_system gba
 
   ### Nintendo GameBoy Advance Hacks
@@ -479,6 +514,11 @@ makeinstall_target() {
   case ${DEVICE} in
     SDM845|SM8250|SM8550|SM8650)
       add_emu_core gbah skyemu skyemu-sa false
+      ;;
+  esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core gbah ares ares-sa false
       ;;
   esac
   add_es_system gbah
@@ -525,6 +565,11 @@ makeinstall_target() {
       add_emu_core gbc skyemu skyemu-sa false
       ;;
   esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core gbc ares ares-sa false
+      ;;
+  esac
   add_es_system gbc
 
   ### Nintendo GameBoy Color Hacks
@@ -545,6 +590,11 @@ makeinstall_target() {
   case ${DEVICE} in
     SDM845|SM8250|SM8550|SM8650)
       add_emu_core gbch skyemu skyemu-sa false
+      ;;
+  esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core gbch ares ares-sa false
       ;;
   esac
   add_es_system gbch
@@ -615,6 +665,11 @@ makeinstall_target() {
       add_emu_core gamegear mednafen gg false
       ;;
   esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core gamegear ares ares-sa false
+      ;;
+  esac
   add_es_system gamegear
 
   ### Sega GameGear Hacks
@@ -627,6 +682,11 @@ makeinstall_target() {
       add_emu_core ggh mednafen gg false
       ;;
   esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core ggh ares ares-sa false
+      ;;
+  esac
   add_es_system ggh
 
   ### Apple iOS
@@ -634,9 +694,9 @@ makeinstall_target() {
   install_script "Start touchHLE.sh"
   add_es_system ios
 
+  ## Steam
   case ${DEVICE} in
     SM8250|SM8550|SM8650|SDM845)
-      ### Steam
       add_emu_core steam steam steam true
       install_script "Start Steam.sh"
       add_es_system steam
@@ -722,11 +782,21 @@ makeinstall_target() {
   ### Microsoft MSX
   add_emu_core msx retroarch bluemsx true
   add_emu_core msx retroarch fmsx false
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core msx ares ares-sa false
+      ;;
+  esac
   add_es_system msx
 
   ### Microsoft MSX 2
   add_emu_core msx2 retroarch bluemsx true
   add_emu_core msx2 retroarch fmsx false
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core msx ares ares-sa false
+      ;;
+  esac
   add_es_system msx2
 
   ### Sega Naomi
@@ -757,6 +827,12 @@ makeinstall_target() {
   add_emu_core neogeo retroarch mame2015 false
   add_emu_core neogeo retroarch mame false
   add_emu_core neogeo retroarch geolith false
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core neogeo ares ares-sa false
+      ;;
+  esac
+
   add_es_system neogeo
 
   ### SNK NeoCD
@@ -772,6 +848,11 @@ makeinstall_target() {
       add_emu_core ngp mednafen ngp false
       ;;
   esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core ngp ares ares-sa false
+      ;;
+  esac
   add_es_system ngp
 
   ### SNK NeoGeo Pocket Color
@@ -780,6 +861,11 @@ makeinstall_target() {
   case ${DEVICE} in
     H700|RK3326|RK3399|RK3566|RK3588|SM8250|SM8550|SM8650)
       add_emu_core ngpc mednafen ngp false
+      ;;
+  esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core ngpc ares ares-sa false
       ;;
   esac
   add_es_system ngpc
@@ -800,6 +886,7 @@ makeinstall_target() {
     SM8550)
       add_emu_core n64 daedalusx64 daedalusx64-sa false
       add_emu_core n64 gopher64 gopher64-sa false
+      add_emu_core n64 ares ares-sa false
       install_script "Start DaedalusX64.sh"
       ;;
     SM8650)
@@ -812,6 +899,11 @@ makeinstall_target() {
   add_emu_core n64dd retroarch mupen64plus_next true
   add_emu_core n64dd retroarch parallel_n64 false
   add_emu_core n64dd mupen64plus mupen64plus-sa false
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core n64dd ares ares-sa false
+      ;;
+  esac
   add_es_system n64dd
 
   ### Nintendo DS
@@ -889,6 +981,11 @@ makeinstall_target() {
       add_emu_core nes mednafen nes false
       ;;
   esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core nes ares ares-sa false
+      ;;
+  esac
   add_es_system nes
 
   ### Nintendo NES Hacks
@@ -899,6 +996,11 @@ makeinstall_target() {
   case ${DEVICE} in
     H700|RK3326|RK3399|RK3566|RK3588|SM6115|SM8250|SM8550|SM8650)
       add_emu_core nesh mednafen nesh false
+      ;;
+  esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core nesh ares ares-sa false
       ;;
   esac
   add_es_system nesh
@@ -929,6 +1031,11 @@ makeinstall_target() {
       add_emu_core pcengine mednafen pce_fast false
       ;;
   esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core pcengine ares ares-sa false
+      ;;
+  esac
   add_es_system pcengine
 
   ### NEC PC Engine CD
@@ -939,6 +1046,11 @@ makeinstall_target() {
     H700|RK3326|RK3399|RK3566|RK3588|SM6115|SM8250|SM8550|SM8650)
       add_emu_core pcenginecd mednafen pce false
       add_emu_core pcenginecd mednafen pce_fast false
+      ;;
+  esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core pcenginecd ares ares-sa false
       ;;
   esac
   add_es_system pcenginecd
@@ -1050,16 +1162,31 @@ makeinstall_target() {
 
   ### Sega 32X
   add_emu_core sega32x retroarch picodrive true
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core sega32x ares ares-sa false
+      ;;
+  esac
   add_es_system sega32x
 
   ### Sega CD
   add_emu_core segacd retroarch genesis_plus_gx true
   add_emu_core segacd retroarch picodrive false
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core segacd ares ares-sa false
+      ;;
+  esac
   add_es_system segacd
 
   ### Sega Mega-CD
   add_emu_core megacd retroarch genesis_plus_gx true
   add_emu_core megacd retroarch picodrive false
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core megacd ares ares-sa false
+      ;;
+  esac
   add_es_system megacd
 
   ### Sega Genesis
@@ -1069,6 +1196,11 @@ makeinstall_target() {
   case ${DEVICE} in
     H700|RK3326|RK3399|RK3566|RK3588|SM6115|SM8250|SM8550|SM8650)
       add_emu_core genesis mednafen md false
+      ;;
+  esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core genesis ares ares-sa false
       ;;
   esac
   add_es_system genesis
@@ -1082,6 +1214,11 @@ makeinstall_target() {
       add_emu_core genh mednafen md false
       ;;
   esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core genh ares ares-sa false
+      ;;
+  esac
   add_es_system genh
 
   ### Sega MasterSystem
@@ -1092,6 +1229,11 @@ makeinstall_target() {
   case ${DEVICE} in
     H700|RK3326|RK3399|RK3566|RK3588|SM6115|SM8250|SM8550|SM8650)
       add_emu_core mastersystem mednafen sms false
+      ;;
+  esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core mastersystem ares ares-sa false
       ;;
   esac
   add_es_system mastersystem
@@ -1153,6 +1295,11 @@ makeinstall_target() {
   add_emu_core sg-1000 retroarch gearsystem true
   add_emu_core sg-1000 retroarch genesis_plus_gx false
   add_emu_core sg-1000 retroarch picodrive false
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core sg-1000 ares ares-sa false
+      ;;
+  esac
   add_es_system sg-1000
 
   ### Sharp X1
@@ -1170,6 +1317,11 @@ makeinstall_target() {
 
   ### Sinclair ZX Spectrum
   add_emu_core zxspectrum retroarch fuse true
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core zxspectrum ares ares-sa false
+      ;;
+  esac
   add_es_system zxspectrum
 
   ### Sinclair ZX81
@@ -1183,6 +1335,11 @@ makeinstall_target() {
     H700|RK3326|RK3399|RK3566|RK3588|SM6115|SM8250|SM8550|SM8650)
       add_emu_core supergrafx mednafen pce false
       add_emu_core supergrafx mednafen pce_fast false
+      ;;
+  esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core supergrafx ares ares-sa false
       ;;
   esac
   add_es_system supergrafx
@@ -1211,6 +1368,11 @@ makeinstall_target() {
       add_emu_core snes mednafen snes_faust false
       ;;
   esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core snes ares ares-sa false
+      ;;
+  esac
   add_es_system snes
 
   ### Nintendo SNES Hacks
@@ -1235,6 +1397,11 @@ makeinstall_target() {
   case ${DEVICE} in
     H700|RK3326|RK3399|RK3566|RK3588|SM6115|SM8250|SM8550|SM8650)
       add_emu_core snesh mednafen snes_faust false
+      ;;
+  esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core snesh ares ares-sa false
       ;;
   esac
   add_es_system snesh
@@ -1263,6 +1430,11 @@ makeinstall_target() {
       add_emu_core sfc mednafen snes_faust false
       ;;
   esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core sfc ares ares-sa false
+      ;;
+  esac
   add_es_system sfc
 
   ### Nintendo Stellaview
@@ -1271,10 +1443,20 @@ makeinstall_target() {
   add_emu_core satellaview retroarch snes9x2002 false
   add_emu_core satellaview retroarch snes9x2005_plus false
   add_emu_core satellaview retroarch mesen-s false
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core satellaview ares ares-sa false
+      ;;
+  esac
   add_es_system satellaview
 
   ### Bandai SuFami Turbo
   add_emu_core sufami retroarch snes9x true
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core sufami ares ares-sa false
+      ;;
+  esac
   add_es_system sufami
 
   ### Watara Supervision
@@ -1345,6 +1527,11 @@ makeinstall_target() {
       add_emu_core wonderswan mednafen wswan false
       ;;
   esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core wonderswan ares ares-sa false
+      ;;
+  esac
   add_es_system wonderswan
 
   ### Bandai Wonderswan Color
@@ -1352,6 +1539,11 @@ makeinstall_target() {
   case ${DEVICE} in
     H700|RK3326|RK3399|RK3566|RK3588|SM6115|SM8250|SM8550|SM8650)
       add_emu_core wonderswancolor mednafen wswan false
+      ;;
+  esac
+  case ${DEVICE} in
+    SM8550)
+      add_emu_core wonderswancolor ares ares-sa false
       ;;
   esac
   add_es_system wonderswancolor
