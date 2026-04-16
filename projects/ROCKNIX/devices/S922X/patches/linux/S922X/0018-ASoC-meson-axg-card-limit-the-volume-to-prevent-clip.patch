@@ -1,7 +1,7 @@
-From be522949cf5445c0c3c78a533a76a54fcbc07975 Mon Sep 17 00:00:00 2001
+From f79cd6ffd67935ce7105b111b239401b97a7ba04 Mon Sep 17 00:00:00 2001
 From: ckkim <changkon12@gmail.com>
 Date: Thu, 20 Apr 2023 16:18:40 +0900
-Subject: [PATCH 31/42] ASoC: meson: axg-card: limit the volume to prevent
+Subject: [PATCH 18/29] ASoC: meson: axg-card: limit the volume to prevent
  clipping of output signal
 
 ---
