@@ -1,7 +1,7 @@
-From 79a7e53740b514f0777e66bd43ea4d34c40c067e Mon Sep 17 00:00:00 2001
+From 2a0a79822533d2bdca9b7712a536f31dd6ab5381 Mon Sep 17 00:00:00 2001
 From: Ondrej Jirman <megi@xff.cz>
 Date: Thu, 7 Sep 2023 17:43:00 +0200
-Subject: [PATCH 28/42] power: supply: rk817-charger: Propagate proper errors
+Subject: [PATCH 15/29] power: supply: rk817-charger: Propagate proper errors
 
 Without propagating the correct error code, defered probe doesn't work.
 
