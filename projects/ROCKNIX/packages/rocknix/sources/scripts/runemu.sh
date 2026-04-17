@@ -299,6 +299,13 @@ case ${EMULATOR} in
       "shell")
         RUNTHIS='${RUN_SHELL} "${ROMNAME}"'
       ;;
+      "scummvm")
+        if [[ "${EMULATOR}" == "scummvm-grim" ]]; then
+          RUNTHIS='${RUN_SHELL} /usr/bin/start_scummvm.sh grim "${ROMNAME}"'
+        else
+          RUNTHIS='${RUN_SHELL} "/usr/bin/start_${CORE%-*}.sh" "${ROMNAME}" "${PLATFORM}"'
+        fi
+      ;;
       *)
         RUNTHIS='${RUN_SHELL} "/usr/bin/start_${CORE%-*}.sh" "${ROMNAME}" "${PLATFORM}"'
       ;;
