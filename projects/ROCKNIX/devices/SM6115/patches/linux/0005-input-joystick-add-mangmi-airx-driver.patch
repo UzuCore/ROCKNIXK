@@ -41,7 +41,7 @@ diff --git a/drivers/input/joystick/mangmi.c b/drivers/input/joystick/mangmi.c
 new file mode 100644
 --- /dev/null
 +++ b/drivers/input/joystick/mangmi.c
-@@ -0,0 +1,526 @@
+@@ -0,0 +1,531 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * MANGMI Air X Joypad Driver
