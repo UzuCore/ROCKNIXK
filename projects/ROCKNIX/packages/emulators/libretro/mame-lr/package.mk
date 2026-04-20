@@ -39,7 +39,7 @@ PKG_MAKE_OPTS_TARGET="REGENIE=1 \
 		      ${MAME_PLATFORM} \
 		      ARCH= \
 		      TARGET=mame \
-		      SUBTARGET=arcade \
+		      SUBTARGET=mame \
 		      IGNORE_GIT=0 \
 		      NEW_GIT_VERSION=${PKG_VERSION:0:10} \
 		      OSD=retro \
