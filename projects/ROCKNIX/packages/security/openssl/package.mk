@@ -84,6 +84,10 @@ post_makeinstall_target() {
   mkdir -p ${INSTALL}/etc/ssl
     cp ${PKG_DIR}/cert/cacert.pem ${INSTALL}/etc/ssl/cacert.pem.system
 
+  # create ca-certificates.crt symlink in /etc/ssl/certs
+  mkdir -p ${INSTALL}/etc/ssl/certs
+    ln -sf /etc/ssl/cacert.pem ${INSTALL}/etc/ssl/certs/ca-certificates.crt
+
   # give user the chance to include their own CA
   mkdir -p ${INSTALL}/usr/bin
     cp ${PKG_DIR}/scripts/openssl-config ${INSTALL}/usr/bin
