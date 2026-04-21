@@ -7,7 +7,7 @@ PKG_LICENSE="GPLv2"
 PKG_DEPENDS_TARGET="toolchain SDL2 boost libevdev libdrm ffmpeg zlib libpng lzo libusb zstd ecm openal-soft pulseaudio alsa-lib llvm qt6 libfmt libva libX11"
 PKG_LONGDESC="Eden is a high-performance and easy-to-use emulator, tailored for enthusiasts and developers alike."
 PKG_SITE="https://git.eden-emu.dev/eden-emu/eden"
-PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
+PKG_URL="${PKG_SITE}.git"
 PKG_TOOLCHAIN="cmake"
 
 if [ ! "${OPENGL}" = "no" ]; then
