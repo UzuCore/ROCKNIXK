@@ -170,9 +170,7 @@
 
 		pin-switches = "SPK_L Speaker", "SPK_R Speaker";
 
-		audio-routing = "Headphone Jack", "HPOL",
-				"Headphone Jack", "HPOR",
-				"SPK_L Speaker", "SPK_L DAC Output",
+		audio-routing = "SPK_L Speaker", "SPK_L DAC Output",
 				"SPK_R Speaker", "SPK_R DAC Output";
 
 		pinctrl-names = "default";
@@ -208,20 +206,7 @@
 				sound-dai = <&q6routing>;
 			};
 			codec {
-				sound-dai = <&es8326>, <&aw88261_l>, <&aw88261_r>;
-			};
-		};
-
-		sec-mi2s-capture-dai-link {
-			link-name = "Secondary MI2S Capture";
-			cpu {
-				sound-dai = <&q6afedai SECONDARY_MI2S_TX>;
-			};
-			platform {
-				sound-dai = <&q6routing>;
-			};
-			codec {
-				sound-dai = <&es8326>;
+				sound-dai = <&aw88261_l>, <&aw88261_r>;
 			};
 		};
 	};
@@ -271,6 +256,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&es8326_irq_default &es8326_pwr_default>;
 		#sound-dai-cells = <0>;
+		status = "disabled";
 	};
 
 	aw88261_l: audio-codec@34 {
@@ -314,9 +300,10 @@
 	};
 
 	fuel-gauge@64 {
-		compatible = "cellwise,cw221X";
+		compatible = "cellwise,cw221x";
 		reg = <0x64>;
 		monitored-battery = <&battery>;
+		cellwise,sense-resistor-micro-ohms = <10000>;
 		cellwise,monitor-interval-ms = <5000>;
 		cellwise,battery-profile = /bits/ 8 <
 			0x5a 0x00 0x00 0x00 0x00 0x00 0x00 0x00
@@ -496,9 +483,32 @@
 &gpu {
 	status = "okay";
 
+	interconnects = <&bimc MASTER_GRAPHICS_3D RPM_ACTIVE_TAG
+			 &bimc SLAVE_EBI_CH0 RPM_ACTIVE_TAG>;
+	interconnect-names = "gfx-mem";
+
 	zap-shader {
 		firmware-name = "qcom/qrb4210/a610_zap.mbn";
 	};
+};
+
+&gpu_opp_table {
+	opp-320000000  { opp-peak-kBps = < 3523437>; };
+	opp-465000000  { opp-peak-kBps = < 6000000>; };
+	opp-600000000  { opp-peak-kBps = < 7950000>; };
+	opp-745000000  { opp-peak-kBps = <10570312>; };
+	opp-820000000  { opp-peak-kBps = <12152533>; };
+	opp-900000000  { opp-peak-kBps = <14092726>; };
+	opp-950000000  { opp-peak-kBps = <14092726>; };
+	opp-980000000  { opp-peak-kBps = <14092726>; };
+	opp-1050000000 { opp-peak-kBps = <16343750>; };
+};
+
+&cpu_bwmon_opp_table {
+	opp-10 { opp-peak-kBps = <10570312>; };
+	opp-11 { opp-peak-kBps = <12152533>; };
+	opp-12 { opp-peak-kBps = <14092726>; };
+	opp-13 { opp-peak-kBps = <16343750>; };
 };
 
 &mdss {
