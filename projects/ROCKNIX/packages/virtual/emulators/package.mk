@@ -657,7 +657,7 @@ makeinstall_target() {
 
   ### Nintendo Switch
   case ${DEVICE} in
-    SDM845|SM8250|SM8550|SM8650)
+    SM8250|SM8550|SM8650)
       add_emu_core switch eden eden-sa true
       add_es_system switch
       install_script "Start Eden.sh"
