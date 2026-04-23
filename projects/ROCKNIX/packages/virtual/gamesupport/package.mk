@@ -10,9 +10,9 @@ PKG_LONGDESC="Game support software metapackage."
 PKG_GAMESUPPORT="sixaxis rocknix-hotkey jstest-sdl gamecontrollerdb sdljoytest sdltouchtest control-gen sdl2text"
 
 case ${DEVICE} in
-  RK3326|S922X|SDM845|SM6115|SM8250|SM8550|SM8650)
+  RK3326|S922X|SM6115|SM8250|SM8550|SM8650)
     PKG_GAMESUPPORT+=" mangohud"
-  ;;
+    ;;
 esac
 
 # rocknix-touchscreen-keyboard requires sway
