@@ -3,6 +3,9 @@
 
 . ${ROOT}/packages/security/openssl/package.mk
 
+unset PKG_DEPENDS_HOST
+PKG_BUILD_FLAGS="+local-cc"
+
 post_makeinstall_target() {
   rm -rf ${INSTALL}/etc/ssl/misc
   rm -rf ${INSTALL}/usr/bin/c_rehash
