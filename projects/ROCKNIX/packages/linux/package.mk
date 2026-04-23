@@ -31,8 +31,9 @@ case ${DEVICE} in
     PKG_PATCH_DIRS="${LINUX} ${DEVICE} default"
     ;;
   H700|SM8250|RK3399|RK3576|SM8650|SM8550|SM6115|S922X|RK3566)
-    PKG_VERSION="7.0"
+    PKG_VERSION="7.0.1"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+    PKG_PATCH_DIRS+=" 7.0"
     ;;
   *)
     PKG_VERSION="6.12.79"
