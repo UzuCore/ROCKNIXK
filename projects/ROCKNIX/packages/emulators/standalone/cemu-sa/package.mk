@@ -5,7 +5,7 @@
 
 PKG_NAME="cemu-sa"
 PKG_VERSION="6f6c1299e29fa6e1062ae283a035b4ef787cc397"
-PKG_LICENSE="GPLv3"
+PKG_LICENSE="MPL-2.0"
 PKG_SITE="https://github.com/cemu-project/Cemu"
 PKG_URL="${PKG_SITE}.git"
 PKG_LONGDESC="KDE Extra CMake Modules"
@@ -46,6 +46,27 @@ pre_configure_target() {
                           -DENABLE_WXWIDGETS=ON \
                           -DCMAKE_BUILD_TYPE=Release \
                           -DENABLE_FERAL_GAMEMODE=OFF"
+
+  # Wayland Support
+  if [ "${DISPLAYSERVER}" = "wl" ]; then
+    PKG_CMAKE_OPTS_TARGET+=" -D ENABLE_WAYLAND=ON"
+  else
+    PKG_CMAKE_OPTS_TARGET+=" -D ENABLE_WAYLAND=OFF"
+  fi
+
+  # OpenGL Support
+  if [ "${OPENGL_SUPPORT}" = "yes" ]; then
+    PKG_CMAKE_OPTS_TARGET+=" -D ENABLE_OPENGL=ON"
+  else
+    PKG_CMAKE_OPTS_TARGET+=" -D ENABLE_OPENGL=OFF"
+  fi
+
+  # Vulkan Support
+  if [ "${VULKAN_SUPPORT}" = "yes" ]; then
+    PKG_CMAKE_OPTS_TARGET+=" -D ENABLE_VULKAN=ON"
+  else
+    PKG_CMAKE_OPTS_TARGET+=" -D ENABLE_VULKAN=OFF"
+  fi
 }
 
 makeinstall_target() {
