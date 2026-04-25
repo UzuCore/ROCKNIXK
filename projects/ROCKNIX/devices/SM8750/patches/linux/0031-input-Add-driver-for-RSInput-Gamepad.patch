@@ -1,18 +1,18 @@
-From 1cbcc5aa35a1a9555030a62c846d42ab8c6d6eaa Mon Sep 17 00:00:00 2001
+From c15e5e748df5037571717bbd732dce920abb70d7 Mon Sep 17 00:00:00 2001
 From: Teguh Sobirin <teguh@sobir.in>
-Date: Thu, 20 Feb 2025 14:50:30 +0800
-Subject: [PATCH 17/20] input: Add driver for RSInput Gamepad
+Date: Wed, 8 Apr 2026 18:23:01 +0800
+Subject: [PATCH 33/58] input: Add driver for RSInput Gamepad
 
 Signed-off-by: Teguh Sobirin <teguh@sobir.in>
 ---
  drivers/input/joystick/Kconfig   |   4 +
  drivers/input/joystick/Makefile  |   1 +
- drivers/input/joystick/rsinput.c | 464 +++++++++++++++++++++++++++++++
- 3 files changed, 469 insertions(+)
+ drivers/input/joystick/rsinput.c | 548 +++++++++++++++++++++++++++++++
+ 3 files changed, 553 insertions(+)
  create mode 100644 drivers/input/joystick/rsinput.c
 
 diff --git a/drivers/input/joystick/Kconfig b/drivers/input/joystick/Kconfig
-index 7755e5b45..0da3c0f44 100644
+index 7755e5b454d2..0da3c0f44ecf 100644
 --- a/drivers/input/joystick/Kconfig
 +++ b/drivers/input/joystick/Kconfig
 @@ -383,6 +383,10 @@ config JOYSTICK_QWIIC
@@ -27,7 +27,7 @@ index 7755e5b45..0da3c0f44 100644
  	tristate "FlySky FS-iA6B RC Receiver"
  	select SERIO
 diff --git a/drivers/input/joystick/Makefile b/drivers/input/joystick/Makefile
-index 9976f596a..3de503e29 100644
+index 9976f596a920..3de503e29489 100644
 --- a/drivers/input/joystick/Makefile
 +++ b/drivers/input/joystick/Makefile
 @@ -28,6 +28,7 @@ obj-$(CONFIG_JOYSTICK_N64)		+= n64joy.o
@@ -40,10 +40,10 @@ index 9976f596a..3de503e29 100644
  obj-$(CONFIG_JOYSTICK_SIDEWINDER)	+= sidewinder.o
 diff --git a/drivers/input/joystick/rsinput.c b/drivers/input/joystick/rsinput.c
 new file mode 100644
-index 000000000..d1bbad276
+index 000000000000..c98a969c39b1
 --- /dev/null
 +++ b/drivers/input/joystick/rsinput.c
-@@ -0,0 +1,464 @@
+@@ -0,0 +1,548 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * RSInput Gamepad Driver
@@ -51,8 +51,6 @@ index 000000000..d1bbad276
 + * Copyright (C) 2024 Teguh Sobirin <teguh@sobir.in>
 + *
 + */
-+#define DEBUG
-+
 +#include <linux/errno.h>
 +#include <linux/gpio/consumer.h>
 +#include <linux/init.h>
@@ -60,6 +58,7 @@ index 000000000..d1bbad276
 +#include <linux/kernel.h>
 +#include <linux/module.h>
 +#include <linux/of.h>
++#include <linux/regulator/consumer.h>
 +#include <linux/serdev.h>
 +#include <linux/slab.h>
 +#include <uapi/linux/sched/types.h>
@@ -97,15 +96,19 @@ index 000000000..d1bbad276
 +#define MCU_PKT_SIZE_MIN          9
 +
 +#define MCU_VERSION_MAX_LEN       64
++#define REPORT_RESUME_TIME        500
 +
 +struct rsinput_driver {
 +    struct serdev_device *serdev;
 +    struct input_dev *input;
++	struct regulator *vdd;
 +    struct gpio_desc *boot_gpio;
 +    struct gpio_desc *enable_gpio;
 +    struct gpio_desc *reset_gpio;
-+    uint8_t rx_buf[256];
++    uint8_t rx_buf[1024];
 +    uint8_t sequence_number;
++    bool resuming;
++    ktime_t resume_time;
 +};
 +
 +static const unsigned int keymap[] = {
@@ -157,7 +160,7 @@ index 000000000..d1bbad276
 +static int rsinput_init_commands(struct rsinput_driver *drv) {
 +    int error;
 +
-+    msleep(100);
++    msleep(50);
 +    uint8_t version_request[] = {DATA_COMMOD_VERSION};
 +    error = rsinput_send_command(drv, CMD_COMMOD, version_request, sizeof(version_request));
 +    if (error < 0) {
@@ -165,7 +168,7 @@ index 000000000..d1bbad276
 +        return error;
 +    }
 +
-+    msleep(100);
++    msleep(50);
 +    uint8_t mcu_params[] = {
 +        DATA_COMMOD_SET_PAR, 
 +        0x01,
@@ -198,10 +201,10 @@ index 000000000..d1bbad276
 +            }
 +            break;
 +        case DATA_COMMOD_SET_PAR:
-+            dev_info(&drv->serdev->dev, "MCU parameters set successfully\n");
++            dev_dbg(&drv->serdev->dev, "MCU parameters set successfully\n");
 +            break;
 +        default:
-+            dev_warn(&drv->serdev->dev, "Unhandled CMD_COMMOD sub-command: 0x%02x\n", data[FRAME_POS_DATA_1]);
++            dev_dbg(&drv->serdev->dev, "Unhandled CMD_COMMOD sub-command: 0x%02x\n", data[FRAME_POS_DATA_1]);
 +            break;
 +    }
 +}
@@ -246,6 +249,12 @@ index 000000000..d1bbad276
 +}
 +
 +static void handle_cmd_status(struct rsinput_driver *drv, const uint8_t *data, size_t payload_length) {
++    if (drv->resuming) {
++        if (ktime_ms_delta(ktime_get(), drv->resume_time) < REPORT_RESUME_TIME)
++            return;
++        drv->resuming = false;
++    }
++
 +    if (payload_length >= 6) {
 +    static unsigned long prev_states;
 +    unsigned long keys = data[FRAME_POS_DATA_1] | (data[FRAME_POS_DATA_2] << 8);
@@ -288,6 +297,12 @@ index 000000000..d1bbad276
 +
 +static void rsinput_process_data(struct rsinput_driver *drv, const uint8_t *data, size_t len) {
 +    while (len >= MCU_PKT_SIZE_MIN) {
++        if (data[0] != FRAME_HEAD_1) {
++            data++;
++            len--;
++            continue;
++        }
++
 +        uint16_t payload_length = data[FRAME_POS_LEN_L] | (data[FRAME_POS_LEN_H] << 8);
 +        size_t frame_length = MCU_PKT_SIZE_MIN + payload_length;
 +
@@ -326,33 +341,23 @@ index 000000000..d1bbad276
 +
 +static size_t rsinput_rx(struct serdev_device *serdev, const u8 *data, size_t count) {
 +    struct rsinput_driver *drv = serdev_device_get_drvdata(serdev);
-+    uint8_t received_checksum, computed_checksum;
 +
 +    if (!drv || !data || count == 0) {
-+        dev_warn_ratelimited(&serdev->dev, "Invalid RX data\n");
++        dev_dbg_ratelimited(&serdev->dev, "Invalid RX data\n");
 +        goto error;
 +    }
 +
 +    if (count > sizeof(drv->rx_buf)) {
-+        dev_warn_ratelimited(&serdev->dev, "RX buffer overflow\n");
++        dev_dbg_ratelimited(&serdev->dev, "RX buffer overflow\n");
++        goto error;
++    }
++
++    if (count < MCU_PKT_SIZE_MIN) {
++        dev_dbg_ratelimited(&serdev->dev, "Frame too short for checksum validation\n");
 +        goto error;
 +    }
 +
 +    memcpy(drv->rx_buf, data, count);
-+
-+    if (count < MCU_PKT_SIZE_MIN) {
-+        dev_warn_ratelimited(&serdev->dev, "Frame too short for checksum validation\n");
-+        goto error;
-+    }
-+
-+    received_checksum = drv->rx_buf[count - 1];
-+
-+    computed_checksum = compute_checksum(drv->rx_buf, count);
-+
-+    if (computed_checksum != received_checksum) {
-+        rsinput_init_commands(drv);
-+        goto error;
-+    }
 +
 +    rsinput_process_data(drv, drv->rx_buf, count);
 +
@@ -376,6 +381,12 @@ index 000000000..d1bbad276
 +    if (!drv)
 +    return -ENOMEM;
 +
++    drv->vdd = devm_regulator_get(&serdev->dev, "vdd");
++	if (IS_ERR(drv->vdd)) {
++		error = PTR_ERR(drv->vdd);
++		return error;
++	}
++
 +    drv->boot_gpio =
 +        devm_gpiod_get_optional(&serdev->dev, "boot", GPIOD_OUT_HIGH);
 +    if (IS_ERR(drv->boot_gpio)) {
@@ -397,13 +408,18 @@ index 000000000..d1bbad276
 +        dev_warn(&serdev->dev, "Unable to get reset gpio: %d\n", error);
 +    }
 +
++	error = regulator_enable(drv->vdd);
++	if (error < 0) {
++		return error;
++	}
++
 +    if (drv->boot_gpio)
 +        gpiod_set_value_cansleep(drv->boot_gpio, 0);
 +
 +    if (drv->reset_gpio)
 +        gpiod_set_value_cansleep(drv->reset_gpio, 0);
 +
-+    msleep(100);
++    msleep(20);
 +
 +    if (drv->enable_gpio)
 +        gpiod_set_value_cansleep(drv->enable_gpio, 1);
@@ -411,7 +427,7 @@ index 000000000..d1bbad276
 +    if (drv->reset_gpio)
 +        gpiod_set_value_cansleep(drv->reset_gpio, 1);
 +
-+    msleep(100);
++    msleep(50);
 +
 +    error = serdev_device_open(serdev);
 +    if (error)
@@ -476,6 +492,71 @@ index 000000000..d1bbad276
 +    return 0;
 +}
 +
++static int rsinput_suspend(struct device *dev)
++{
++    struct serdev_device *serdev = to_serdev_device(dev);
++    struct rsinput_driver *drv = serdev_device_get_drvdata(serdev);
++
++    serdev_device_close(serdev);
++
++    if (drv->enable_gpio)
++        gpiod_set_value_cansleep(drv->enable_gpio, 0);
++
++    if (drv->reset_gpio)
++        gpiod_set_value_cansleep(drv->reset_gpio, 0);
++    
++    regulator_disable(drv->vdd);
++
++    return 0;
++}
++
++static int rsinput_resume(struct device *dev)
++{
++    struct serdev_device *serdev = to_serdev_device(dev);
++    struct rsinput_driver *drv = serdev_device_get_drvdata(serdev);
++    int error;
++
++    error = regulator_enable(drv->vdd);
++	if (error < 0) {
++		return error;
++	}
++
++    if (drv->reset_gpio)
++        gpiod_set_value_cansleep(drv->reset_gpio, 0);
++
++    if (drv->enable_gpio)
++        gpiod_set_value_cansleep(drv->enable_gpio, 1);
++
++    if (drv->reset_gpio)
++        gpiod_set_value_cansleep(drv->reset_gpio, 1);
++
++    msleep(50);
++
++    error = serdev_device_open(serdev);
++    if (error)
++        return dev_err_probe(dev, error, "Failed to reopen UART on resume\n");
++
++    error = serdev_device_set_baudrate(serdev, 115200);
++    if (error < 0)
++        return dev_err_probe(dev, error, "Failed to restore baud rate on resume\n");
++
++    serdev_device_set_flow_control(serdev, false);
++
++    drv->resume_time = ktime_get();
++    drv->resuming = true;
++    drv->sequence_number = 0;
++
++    error = rsinput_init_commands(drv);
++    if (error < 0) {
++        serdev_device_close(serdev);
++        return error;
++    }
++
++    return 0;
++}
++
++static DEFINE_SIMPLE_DEV_PM_OPS(rsinput_pm_ops, rsinput_suspend, rsinput_resume);
++
 +static void rsinput_remove(struct serdev_device *serdev) {
 +    struct rsinput_driver *drv = serdev_device_get_drvdata(serdev);
 +
@@ -486,6 +567,8 @@ index 000000000..d1bbad276
 +
 +    if (drv->reset_gpio)
 +        gpiod_set_value_cansleep(drv->reset_gpio, 0);
++    
++    regulator_disable(drv->vdd);
 +}
 +
 +static const struct of_device_id rsinput_of_match[] = {
@@ -500,6 +583,7 @@ index 000000000..d1bbad276
 +    .driver = {
 +        .name = "rsinput",
 +        .of_match_table = rsinput_of_match,
++        .pm = pm_sleep_ptr(&rsinput_pm_ops),
 +    },
 +};
 +
