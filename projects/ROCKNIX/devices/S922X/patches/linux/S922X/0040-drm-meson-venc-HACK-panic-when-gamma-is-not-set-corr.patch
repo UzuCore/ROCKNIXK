@@ -1,7 +1,7 @@
-From 2be99d1fa21dd50f94f233dc66e13389fe343e0f Mon Sep 17 00:00:00 2001
+From 02865dc1c1c92d97969cc2bc99008eeeae222f31 Mon Sep 17 00:00:00 2001
 From: brooksytech <1673861+brooksytech@users.noreply.github.com>
 Date: Wed, 24 Jan 2024 16:18:45 +0000
-Subject: [PATCH 27/29] drm: meson: venc: HACK: panic when gamma is not set
+Subject: [PATCH 40/42] drm: meson: venc: HACK: panic when gamma is not set
  correctly
 
 ---
@@ -9,7 +9,7 @@ Subject: [PATCH 27/29] drm: meson: venc: HACK: panic when gamma is not set
  1 file changed, 6 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/gpu/drm/meson/meson_venc.c b/drivers/gpu/drm/meson/meson_venc.c
-index 4abd0c09b442..66389811a889 100644
+index 3bf0d6e4fc30..ace2e6c21f69 100644
 --- a/drivers/gpu/drm/meson/meson_venc.c
 +++ b/drivers/gpu/drm/meson/meson_venc.c
 @@ -1590,7 +1590,8 @@ static void meson_encl_set_gamma_table(struct meson_drm *priv, u16 *data,
