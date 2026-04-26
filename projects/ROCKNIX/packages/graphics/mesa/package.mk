@@ -22,13 +22,6 @@ fi
 
 if listcontains "${GRAPHIC_DRIVERS}" "panfrost" || \
    listcontains "${GRAPHIC_DRIVERS}" "freedreno"; then
-
-  if [ "${DEVICE}" = "SM8750" ]; then
-    PKG_VERSION="9e646d59830fa220fff9a94ef2ed4a6ce418e254"
-    PKG_URL="https://github.com/whitebelyash/mesa-tu8/archive/${PKG_VERSION}.tar.gz"
-    PKG_PATCH_DIRS+=" sm8750"
-  fi
-
   PKG_DEPENDS_TARGET+=" mesa:host"
 fi
 
