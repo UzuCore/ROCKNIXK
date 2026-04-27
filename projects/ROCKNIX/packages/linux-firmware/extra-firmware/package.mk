@@ -4,7 +4,7 @@
 PKG_NAME="extra-firmware"
 PKG_VERSION="e0d9fb2868f972ea4952fd888aba6bc97acd5810"
 PKG_LICENSE="other"
-PKG_SITE="http://www.freescale.com"
+PKG_SITE="https://github.com/ROCKNIX/extra-firmware"
 PKG_URL="https://github.com/ROCKNIX/extra-firmware/archive/${PKG_VERSION}.tar.gz"
 PKG_LONGDESC="extra-firmware: Extra kernel firmware needed for ROCKNIX devices"
 PKG_TOOLCHAIN="manual"
