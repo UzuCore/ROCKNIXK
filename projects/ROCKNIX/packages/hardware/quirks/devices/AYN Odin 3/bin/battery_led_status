@@ -52,8 +52,8 @@ while true
     break
   fi
 
-  CAP=$(cat /sys/class/power_supply/qcom-battmgr-bat/capacity)
-  STAT=$(cat /sys/class/power_supply/qcom-battmgr-bat/status)
+  CAP=$(cat /sys/class/power_supply/battery/capacity)
+  STAT=$(cat /sys/class/power_supply/battery/status)
 
   if [ ${STAT} == "Discharging" ]; then
     if (( ${CAP} <= 10 ))
