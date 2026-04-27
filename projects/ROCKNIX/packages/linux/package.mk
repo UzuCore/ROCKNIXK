@@ -232,12 +232,12 @@ pre_make_target() {
     ${PKG_BUILD}/scripts/config --set-str CONFIG_EXTRA_FIRMWARE_DIR "external-firmware"
   elif [ "${TARGET_ARCH}" = "aarch64" -a "${DEVICE}" = "SM8750" ]; then
     mkdir -p ${PKG_BUILD}/external-firmware/qcom
-      cp -Lv ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/filesystem/usr/lib/kernel-overlays/base/lib/firmware/qcom/gen80000_aqe.fw ${PKG_BUILD}/external-firmware/qcom
-      cp -Lv ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/filesystem/usr/lib/kernel-overlays/base/lib/firmware/qcom/gen80000_sqe.fw ${PKG_BUILD}/external-firmware/qcom
-      cp -Lv ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/filesystem/usr/lib/kernel-overlays/base/lib/firmware/qcom/gen80000_gmu.bin ${PKG_BUILD}/external-firmware/qcom
+      cp -Lv $(get_build_dir kernel-firmware)/.copied-firmware/qcom/gen80000_aqe.fw ${PKG_BUILD}/external-firmware/qcom
+      cp -Lv $(get_build_dir kernel-firmware)/.copied-firmware/qcom/gen80000_sqe.fw ${PKG_BUILD}/external-firmware/qcom
+      cp -Lv $(get_build_dir kernel-firmware)/.copied-firmware/qcom/gen80000_gmu.bin ${PKG_BUILD}/external-firmware/qcom
 
     mkdir -p ${PKG_BUILD}/external-firmware/qcom/sm8750
-      cp -Lv ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/filesystem/usr/lib/kernel-overlays/base/lib/firmware/qcom/sm8750/gen80000_zap.mbn ${PKG_BUILD}/external-firmware/qcom/sm8750
+      cp -Lv $(get_build_dir kernel-firmware)/.copied-firmware/qcom/sm8750/gen80000_zap.mbn ${PKG_BUILD}/external-firmware/qcom/sm8750
 
     FW_LIST="$(find ${PKG_BUILD}/external-firmware -type f | sed 's|.*external-firmware/||' | sort | xargs)"
 
