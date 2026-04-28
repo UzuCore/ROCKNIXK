@@ -2,7 +2,7 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="extra-firmware"
-PKG_VERSION="d7afd1290ffab9ebcc227887b2472e5f911a1a71"
+PKG_VERSION="1625d99a32eca2585729899be36a8a00cc109063"
 PKG_LICENSE="proprietary"
 PKG_SITE="https://github.com/ROCKNIX/extra-firmware"
 PKG_URL="https://github.com/ROCKNIX/extra-firmware/archive/${PKG_VERSION}.tar.gz"
@@ -19,7 +19,6 @@ makeinstall_target() {
         cp -a firmware/qca/{gngbtfw20.mbn,gngbtnv20.bin} ${INSTALL}/$(get_full_firmware_dir)/qca
 
       mkdir -p ${INSTALL}/$(get_full_firmware_dir)/qcom/vpu
-        cp -a firmware/qcom/gen80000_{aqe.fw,gmu.bin,sqe.fw} ${INSTALL}/$(get_full_firmware_dir)/qcom
         cp -a firmware/qcom/sm8750 ${INSTALL}/$(get_full_firmware_dir)/qcom
         cp -a firmware/qcom/vpu/vpu35_p4.mbn ${INSTALL}/$(get_full_firmware_dir)/qcom/vpu
       ;;
