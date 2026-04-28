@@ -26,7 +26,7 @@ matches:
       sys_path: /sys/firmware/devicetree/base
       attributes:
         - name: model
-          value: AYANEO Pocket S
+          value: AYANEO Pocket S 2K
 
 # Only allow a single source device per composite device of this type.
 single_source: false
