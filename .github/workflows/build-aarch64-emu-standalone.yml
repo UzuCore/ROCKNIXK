@@ -116,6 +116,25 @@ jobs:
           inputs.DEVICE == 'S922X'  || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' || inputs.DEVICE == 'SM6115' }}
         run: rm build.qt6.tar.zst
 
+      - name: Download eden-sa (${{ inputs.DEVICE }})
+        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: eden-sa (${{ inputs.DEVICE }})
+
+      - name: Extract artifact eden-sa
+        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
+        uses: corrupt952/actions-retry-command@v1.0.7
+        with:
+          command: |
+            tar --zstd -xf build.eden-sa.tar.zst
+          max_attempts: 3
+          retry_interval: 10
+
+      - name: Clean up compressed eden-sa file
+        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
+        run: rm build.eden-sa.tar.zst
+
       - name: Build
         uses: corrupt952/actions-retry-command@v1.0.7
         with:

@@ -59,6 +59,19 @@ jobs:
       DEVICE: ${{ inputs.DEVICE }}
       OWNER_LC: ${{ inputs.OWNER_LC }}
 
+  build-aarch64-eden-sa:
+    # ← SM8250, SM8550에서만 실행
+    if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
+    needs:
+      - build-aarch64
+      - build-aarch64-qt6
+    uses: ./.github/workflows/build-aarch64-emu-eden-sa.yml
+    secrets: inherit
+    with:
+      PROJECT: ${{ inputs.PROJECT }}
+      DEVICE: ${{ inputs.DEVICE }}
+      OWNER_LC: ${{ inputs.OWNER_LC }}
+
   build-aarch64-qt6:
     needs: build-aarch64
     uses: ./.github/workflows/build-aarch64-qt6.yml
@@ -85,6 +98,7 @@ jobs:
     needs:
       - build-aarch64
       - build-aarch64-qt6
+      - build-aarch64-eden-sa
     if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure')  }}
     uses: ./.github/workflows/build-aarch64-emu-standalone.yml
     secrets: inherit
@@ -122,6 +136,7 @@ jobs:
             aarch64 build (${{ inputs.DEVICE }})
             aarch64-toolchain (${{ inputs.DEVICE }})
             arm (${{ inputs.DEVICE }})
+            eden-sa (${{ inputs.DEVICE }})
             emu-libretro (${{ inputs.DEVICE }})
             emu-standalone (${{ inputs.DEVICE }})
             mame-lr (${{ inputs.DEVICE }})
