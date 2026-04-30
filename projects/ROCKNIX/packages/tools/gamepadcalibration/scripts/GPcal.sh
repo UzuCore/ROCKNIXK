@@ -20,6 +20,5 @@ source pyxel/bin/activate
 # PYTHONDONTWRITEBYTECODE: We don't expect to do write files
 # on a readonly mount point. Thus we tell Python to not try to
 # write .pyc files on the import of source modules.
-systemctl stop inputplumber
 PYTHONDONTWRITEBYTECODE=1 python3 main.py
-systemctl start inputplumber
+systemctl restart inputplumber
