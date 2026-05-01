@@ -34,8 +34,12 @@ if [ -L "${STEAM}" ]; then
   rm -f "${STEAM}"
 fi
 
-rm -f "${STEAM_DOT}/steam" "${STEAM_DOT}/sdkarm64" "${STEAM_DOT}/registry.vdf"
-rmdir "${STEAM_DOT}" 2>/dev/null || true
+if [ -d "${STEAM_DOT}" ]; then
+  rm -f "${STEAM_DOT}/steam" "${STEAM_DOT}/sdkarm64" "${STEAM_DOT}/registry.vdf"
+  rmdir "${STEAM_DOT}" 2>/dev/null || true
+elif [ -e "${STEAM_DOT}" ]; then
+  rm -f "${STEAM_DOT}"
+fi
 
 rm -f "${APPLICATIONS}/Steam.desktop"
 
