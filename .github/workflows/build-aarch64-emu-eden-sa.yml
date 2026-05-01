@@ -15,8 +15,8 @@ on:
 
 jobs:
   build-aarch64-eden-sa:
-    # ← SM8250, SM8550에서만 실행
-    if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
+    # ← SM8250, SM8550, SM8650에서만 실행
+    if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' }}
     runs-on: ubuntu-24.04
     env:
       EMULATION_DEVICE: no
@@ -56,6 +56,22 @@ jobs:
           URL="https://github.com/${{ github.repository_owner }}/${{ vars.CACHE_REPO || 'distribution-cache' }}/releases/download/ccache/ccache-aarch64-${{ inputs.DEVICE }}-eden-sa.tar"
           curl -L --fail --silent --show-error "$URL" | tar -xvf - || echo "Cache archive not found, skipping."
 
+      - name: Download aarch64-toolchain (${{ inputs.DEVICE }})
+        uses: actions/download-artifact@v8
+        with:
+          name: aarch64-toolchain (${{ inputs.DEVICE }})
+
+      - name: Extract artifact aarch64-toolchain
+        uses: corrupt952/actions-retry-command@v1.0.7
+        with:
+          command: |
+            tar --zstd -xf build.aarch64-toolchain.tar.zst
+          max_attempts: 3
+          retry_interval: 10
+
+      - name: Clean up compressed aarch64-toolchain file
+        run: rm build.aarch64-toolchain.tar.zst
+
       - name: Download aarch64 (${{ inputs.DEVICE }})
         uses: actions/download-artifact@v8
         with:
@@ -89,13 +105,13 @@ jobs:
         run: rm build.build.aarch64.tar
 
       - name: Download qt6 (${{ inputs.DEVICE }})
-        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
+        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' }}
         uses: actions/download-artifact@v8
         with:
           name: qt6 (${{ inputs.DEVICE }})
 
       - name: Extract artifact qt6
-        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
+        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' }}
         uses: corrupt952/actions-retry-command@v1.0.7
         with:
           command: |
@@ -104,7 +120,7 @@ jobs:
           retry_interval: 10
 
       - name: Clean up compressed qt6 file
-        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
+        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' }}
         run: rm build.qt6.tar.zst
 
       - name: Build eden-sa

@@ -60,8 +60,8 @@ jobs:
       OWNER_LC: ${{ inputs.OWNER_LC }}
 
   build-aarch64-eden-sa:
-    # ← SM8250, SM8550에서만 실행
-    if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
+    # ← SM8250, SM8550, SM8650에서만 실행
+    if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' }}
     needs:
       - build-aarch64
       - build-aarch64-qt6
