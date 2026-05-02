@@ -95,7 +95,7 @@ jobs:
           max_attempts: 3
           retry_interval: 10
 
-      - name: Clean up compressed aarch64 file
+      - name: Clean up compressed aarch64 build file
         run: rm build.build.aarch64.tar
 
       - name: Download qt6 (${{ inputs.DEVICE }})
@@ -108,22 +108,28 @@ jobs:
       - name: Extract artifact qt6
         if: ${{ inputs.DEVICE == 'RK3399' || inputs.DEVICE == 'RK3566' || inputs.DEVICE == 'RK3576' || inputs.DEVICE == 'RK3588' ||
           inputs.DEVICE == 'S922X'  || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' || inputs.DEVICE == 'SM6115' }}
-        run: |
-          sudo tar --zstd -xf build.qt6.tar.zst --same-owner
+        uses: corrupt952/actions-retry-command@v1.0.7
+        with:
+          command: |
+            sudo tar --zstd -xf build.qt6.tar.zst --same-owner
+          max_attempts: 3
+          retry_interval: 10
 
       - name: Clean up compressed qt6 file
         if: ${{ inputs.DEVICE == 'RK3399' || inputs.DEVICE == 'RK3566' || inputs.DEVICE == 'RK3576' || inputs.DEVICE == 'RK3588' ||
           inputs.DEVICE == 'S922X'  || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' || inputs.DEVICE == 'SM6115' }}
         run: rm build.qt6.tar.zst
 
+      # SM8250/SM8550/SM8650 모두 eden-sa artifact 수신
+      # build-device.yml의 build-aarch64-eden-sa 조건과 일치시킴
       - name: Download eden-sa (${{ inputs.DEVICE }})
-        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
+        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' }}
         uses: actions/download-artifact@v8
         with:
           name: eden-sa (${{ inputs.DEVICE }})
 
       - name: Extract artifact eden-sa
-        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
+        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' }}
         uses: corrupt952/actions-retry-command@v1.0.7
         with:
           command: |
@@ -132,8 +138,23 @@ jobs:
           retry_interval: 10
 
       - name: Clean up compressed eden-sa file
-        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' }}
+        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' }}
         run: rm build.eden-sa.tar.zst
+
+      # SM8250/SM8550/SM8650에서 fmt 등 의존성을 cemu-sa 빌드 전에 먼저 설치
+      - name: Pre-build fmt for cemu-sa (SM Devices)
+        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' }}
+        uses: corrupt952/actions-retry-command@v1.0.7
+        with:
+          command: |
+            ./scripts/get_env > .env
+            set -e
+            { docker run --init --env-file .env -e USER=docker --rm --user $(id -u):$(id -g) -v ${PWD}:${PWD} -w ${PWD} "ghcr.io/${{ inputs.OWNER_LC }}/rocknix-build:latest" \
+              bash -c "./scripts/build fmt"; echo $? > docker_exit_code; } | tee output.log | grep -E  --color=never --line-buffered "^GET|^UNPACK|^BUILD|^INSTALL" || true
+            exit_code=$(<docker_exit_code)
+            exit $exit_code
+          max_attempts: 3
+          retry_interval: 10
 
       - name: Build
         uses: corrupt952/actions-retry-command@v1.0.7
