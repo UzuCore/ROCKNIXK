@@ -123,13 +123,13 @@ jobs:
       # SM8250/SM8550/SM8650 모두 eden-sa artifact 수신
       # build-device.yml의 build-aarch64-eden-sa 조건과 일치시킴
       - name: Download eden-sa (${{ inputs.DEVICE }})
-        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' }}
+        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' || inputs.DEVICE == 'SM8750' }}
         uses: actions/download-artifact@v8
         with:
           name: eden-sa (${{ inputs.DEVICE }})
 
       - name: Extract artifact eden-sa
-        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' }}
+        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' || inputs.DEVICE == 'SM8750' }}
         uses: corrupt952/actions-retry-command@v1.0.7
         with:
           command: |
@@ -138,7 +138,7 @@ jobs:
           retry_interval: 10
 
       - name: Clean up compressed eden-sa file
-        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' }}
+        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' || inputs.DEVICE == 'SM8750' }}
         run: rm build.eden-sa.tar.zst
 
       - name: Build
