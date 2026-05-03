@@ -175,7 +175,7 @@ jobs:
         run: |
           tar --zstd -cf build.eden-sa.tar.zst \
           ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/install_pkg/eden-sa-* \
-          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/.stamps
+          ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/.stamps/eden-sa
 
       - uses: actions/upload-artifact@v7
         with:
