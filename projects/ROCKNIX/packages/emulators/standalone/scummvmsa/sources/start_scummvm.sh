@@ -21,6 +21,11 @@ case "$1" in
   ;;
 esac
 
+if [ ! -d "${CONFIG_DIR}" ]; then
+ mkdir -p ${CONFIG_DIR}
+ cp -rf /usr/config/scummvm/* ${CONFIG_DIR}/
+fi
+
 if [ ! -d "${CONFIG_DIR}/games" ]
 then
   mkdir -p "${CONFIG_DIR}/games"
@@ -40,9 +45,9 @@ create_svm(){
   done
 }
 
-if [ ! -d "${CONFIG_DIR}" ]; then
- mkdir -p ${CONFIG_DIR}
- cp -rf /usr/config/scummvm/* ${CONFIG_DIR}/
+if [ ! -f "${CONFIG_DIR}/scummvm.ini" ]; then
+    mkdir -p ${CONFIG_DIR}
+    cp -rf /usr/config/scummvm/scummvm.ini ${CONFIG_DIR}/scummvm.ini
 fi
 
 if [ ! -d "/storage/.config/scummvm-grim/" ]; then
