@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 
 import sdl2 as sdl
-from brightness import BrightnessControl
+from brightness import BrightnessControl, BottomPanelBacklight
 from layout import Rect, build as build_layout
 from ra_client import RAClient
 
@@ -35,7 +35,17 @@ DIM_WAKING  = 3
 
 def load_config() -> dict:
     with CONFIG_PATH.open() as f:
-        return json.load(f)
+        cfg = json.load(f)
+    local = HERE / "config.local.json"
+    if local.exists():
+        try:
+            with local.open() as f:
+                overrides = json.load(f)
+            if isinstance(overrides, dict):
+                cfg.update(overrides)
+        except (OSError, ValueError) as e:
+            print(f"warning: ignoring config.local.json: {e}", file=sys.stderr)
+    return cfg
 
 
 class _SdlError(RuntimeError):
@@ -62,6 +72,7 @@ class UI:
         self._brightness_pct: int = self.brightness.get_percent() or 50
         self._dragging_brightness: bool = False
         self._brightness_last_apply_ts: float = 0.0
+        self.bottom_panel = BottomPanelBacklight(self.cfg.get("bottom_backlight_node", ""))
 
         self.window = None
         self.renderer = None
@@ -144,6 +155,9 @@ class UI:
         while sdl.PollEvent(ctypes.byref(ev)):
             pass
 
+        if self.bottom_panel.available:
+            self.bottom_panel.power_off()
+
         w, h = ctypes.c_int(0), ctypes.c_int(0)
         sdl.GetWindowSize(self.window, ctypes.byref(w), ctypes.byref(h))
         self.size = (w.value, h.value)
@@ -199,6 +213,8 @@ class UI:
             return False
 
     def _teardown(self) -> None:
+        if self.bottom_panel.available:
+            self.bottom_panel.restore(self._brightness_pct)
         if self.thumb_tex:
             sdl.DestroyTexture(self.thumb_tex)
             self.thumb_tex = None
@@ -527,6 +543,8 @@ class UI:
 
     def _wake_dim(self) -> None:
         if self._dim_state in (DIM_DIMMING, DIM_DIMMED):
+            if self.bottom_panel.available:
+                self.bottom_panel.restore(self._brightness_pct)
             self._dim_state = DIM_WAKING
             self._dim_anim_start = time.monotonic()
             self._dim_anim_from = self._dim_alpha
@@ -559,6 +577,8 @@ class UI:
         self._dim_anim_start = 0.0
         idle_sec = float(self.cfg["idle_seconds"])
         self._last_input_ts = time.monotonic() - idle_sec - 1
+        if self.bottom_panel.available:
+            self.bottom_panel.power_off()
 
     def _poll_menu_state(self) -> None:
         if self._dim_state != DIM_AWAKE:
@@ -627,6 +647,8 @@ class UI:
             if elapsed_ms >= dim_ms:
                 self._dim_state = DIM_DIMMED
                 self._dim_alpha = target
+                if self.bottom_panel.available:
+                    self.bottom_panel.power_off()
         elif self._dim_state == DIM_WAKING:
             elapsed_ms = (now - self._dim_anim_start) * 1000.0
             t = min(1.0, elapsed_ms / wake_ms)

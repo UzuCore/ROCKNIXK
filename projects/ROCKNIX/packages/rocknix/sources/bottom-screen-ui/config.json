@@ -33,5 +33,7 @@
   "action_cooldown_sec": 0.3,
   "menu_close_delay_sec": 0.1,
   "menu_poll_sec": 0.1,
-  "brightness_throttle_sec": 0.05
+  "brightness_throttle_sec": 0.05,
+
+  "bottom_backlight_node": ""
 }
