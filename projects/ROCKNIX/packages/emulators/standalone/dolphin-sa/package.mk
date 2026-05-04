@@ -59,6 +59,11 @@ else
   GRENDERER="OGL"
 fi
 
+post_unpack() {
+  sed -i "s|gcc-ar|${TARGET_PREFIX}ar|g" "${PKG_BUILD}/CMakeLists.txt"
+  sed -i "s|gcc-ranlib|${TARGET_PREFIX}ranlib|g" "${PKG_BUILD}/CMakeLists.txt"
+}
+
 pre_configure_target() {
   PKG_CMAKE_OPTS_TARGET+=" -DCMAKE_BUILD_TYPE=Release \
                            -DDISTRIBUTOR="ROCKNIX" \
