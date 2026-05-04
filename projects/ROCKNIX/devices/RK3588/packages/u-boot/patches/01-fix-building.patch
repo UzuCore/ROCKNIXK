@@ -1,33 +1,23 @@
---- a/include/linux/compiler-gcc.h
-+++ b/include/linux/compiler-gcc.h
-@@ -196,7 +196,9 @@
-  * this in the preprocessor, but we can live with this because they're
-  * unreleased.  Really, we need to have autoconf for the kernel.
-  */
-+#ifndef unreachable
- #define unreachable() __builtin_unreachable()
-+#endif
- 
- /* Mark a function definition as prohibited from being cloned. */
- #define __noclone	__attribute__((__noclone__))
 --- a/include/u-boot/rsa.h
 +++ b/include/u-boot/rsa.h
 @@ -82,7 +82,7 @@
  }
  #endif
  
--#if IMAGE_ENABLE_VERIFY
-+#if IMAGE_ENABLE_VERIFY || defined(USE_HOSTCC)
+-#if IMAGE_ENABLE_VERIFY || defined(CONFIG_SPL_FIT_SIGNATURE)
++#if IMAGE_ENABLE_VERIFY || defined(CONFIG_SPL_FIT_SIGNATURE) || defined(USE_HOSTCC)
  /**
   * rsa_verify() - Verify a signature against some data
   *
 --- a/lib/rsa/rsa-sign.c
 +++ b/lib/rsa/rsa-sign.c
-@@ -416,7 +417,7 @@
+@@ -454,9 +454,7 @@
  		goto err_create;
  	}
- 	EVP_MD_CTX_init(context);
--	if (!EVP_SignInit(context, checksum_algo->calculate_sign())) {
+ 
+-	if (EVP_DigestSignInit(context, &ckey,
+-			       checksum_algo->calculate_sign(),
+-			       NULL, key) <= 0) {
 +	if (!EVP_SignInit(context, EVP_get_digestbyname(checksum_algo->name))) {
  		ret = rsa_err("Signer setup failed");
  		goto err_sign;
