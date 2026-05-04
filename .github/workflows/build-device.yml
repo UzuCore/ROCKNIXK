@@ -61,7 +61,7 @@ jobs:
 
   build-aarch64-eden-sa:
     # ← SM8250, SM8550, SM8650에서만 실행
-    if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' }}
+    if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' || inputs.DEVICE == 'SM8750' }}
     needs:
       - build-aarch64
       - build-aarch64-qt6
