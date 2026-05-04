@@ -31,6 +31,7 @@ pre_make_target() {
   export REALCC=${CC}
   export CC=${CXX}
   export LD=${CXX}
+  make maketree
 }
 
 pre_configure_target() {
