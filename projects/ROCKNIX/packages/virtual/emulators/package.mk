@@ -66,7 +66,7 @@ case "${DEVICE}" in
     ;;
   SM8650|SM8750)
     PKG_EMUS+=" aethersx2-sa azahar-sa bigpemu-sa cemu-sa dolphin-sa gopher64-sa mednafen melonds-sa nanoboyadvance-sa rpcs3-sa supermodel-sa \
-                xemu-sa skyemu-sa steam vita3k-sa"
+                xemu-sa skyemu-sa steam vita3k-sa eden-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr kronos-lr"
     ;;
   S922X)
@@ -657,7 +657,7 @@ makeinstall_target() {
 
   ### Nintendo Switch
   case ${DEVICE} in
-    SM8250|SM8550|SM8650)
+    SM8250|SM8550|SM8650|SM8750)
       add_emu_core switch eden eden-sa true
       add_es_system switch
       install_script "Start Eden.sh"
