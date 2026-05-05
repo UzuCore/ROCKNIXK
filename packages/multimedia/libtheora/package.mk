@@ -3,10 +3,9 @@
 
 PKG_NAME="libtheora"
 PKG_VERSION="1.1.1"
-PKG_SHA256="b6ae1ee2fa3d42ac489287d3ec34c5885730b1296f0801ae577a35193d3affbc"
 PKG_LICENSE="GPL"
-PKG_SITE="http://downloads.xiph.org/releases/theora"
-PKG_URL="${PKG_SITE}/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
+PKG_SITE="https://github.com/xiph/theora"
+PKG_URL="${PKG_SITE}/archive/refs/tags/v${PKG_VERSION}.tar.gz"
 PKG_BUILD_DEPENDS="libogg libvorbis host-pkgconf"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="On2's VP3 codec"
