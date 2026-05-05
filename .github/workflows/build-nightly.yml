@@ -2,8 +2,8 @@ name: Build
 
 on:
   schedule:
-    - cron: "0 3 2-31 * *"
-    - cron: "0 5 1 * *"
+    - cron: "0 0 2-31 * *"
+    - cron: "0 0 1 * *"
   workflow_dispatch:
     inputs:
       release:
@@ -100,7 +100,7 @@ jobs:
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.release }}" == "true" ]]; then
             echo "OFFICIAL=yes" >> $GITHUB_OUTPUT
             echo "NIGHTLY=no" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event_name }}" == "schedule" && "${{ github.event.schedule }}" == "0 5 1 * *" ]]; then
+          elif [[ "${{ github.event_name }}" == "schedule" && "${{ github.event.schedule }}" == "0 0 1 * *" ]]; then
             echo "OFFICIAL=yes" >> $GITHUB_OUTPUT
             echo "NIGHTLY=no" >> $GITHUB_OUTPUT
           else
