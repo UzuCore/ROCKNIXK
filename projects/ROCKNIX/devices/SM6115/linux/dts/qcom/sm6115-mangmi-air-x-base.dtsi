@@ -370,7 +370,7 @@
 			regulator-max-microvolt = <5500000>;
 			regulator-active-discharge = <1>;
 			enable-gpios = <&tlmm 44 GPIO_ACTIVE_HIGH>;
-			vin-supply = <&vreg_l22a_2p96>;
+			vin-supply = <&vph_pwr>;
 		};
 
 		panel_avdd_outn: outn {
@@ -379,7 +379,7 @@
 			regulator-max-microvolt = <5500000>;
 			regulator-active-discharge = <1>;
 			enable-gpios = <&tlmm 45 GPIO_ACTIVE_HIGH>;
-			vin-supply = <&vreg_l22a_2p96>;
+			vin-supply = <&vph_pwr>;
 		};
 	};
 
@@ -794,16 +794,43 @@
 	regulators-0 {
 		compatible = "qcom,rpm-pm6125-regulators";
 
-		vdd-s1-supply = <&vph_pwr>;
-		vdd-s2-supply = <&vph_pwr>;
-		vdd-s3-supply = <&vph_pwr>;
-		vdd-s4-supply = <&vph_pwr>;
-		vdd-s5-supply = <&vph_pwr>;
-		vdd-s6-supply = <&vph_pwr>;
-		vdd-s7-supply = <&vph_pwr>;
-		vdd-s8-supply = <&vph_pwr>;
-		vdd-s9-supply = <&vph_pwr>;
-		vdd-s10-supply = <&vph_pwr>;
+		vdd_s1-supply = <&vph_pwr>;
+		vdd_s2-supply = <&vph_pwr>;
+		vdd_s3-supply = <&vph_pwr>;
+		vdd_s4-supply = <&vph_pwr>;
+		vdd_s5-supply = <&vph_pwr>;
+		vdd_s6-supply = <&vph_pwr>;
+		vdd_s7-supply = <&vph_pwr>;
+		vdd_s8-supply = <&vph_pwr>;
+
+		vdd_l1_l7_l17_l18-supply = <&vreg_s6a_1p352>;
+		vdd_l2_l3_l4-supply = <&vreg_s6a_1p352>;
+		vdd_l5_l15_l19_l20_l21_l22-supply = <&vph_pwr>;
+		vdd_l6_l8-supply = <&vreg_s5a_0p848>;
+		vdd_l9_l11-supply = <&vreg_s7a_2p04>;
+		vdd_l10_l13_l14-supply = <&vreg_s7a_2p04>;
+		vdd_l12_l16-supply = <&vreg_s7a_2p04>;
+		vdd_l23_l24-supply = <&vph_pwr>;
+
+		vreg_s5a_0p848: s5 {
+			regulator-min-microvolt = <920000>;
+			regulator-max-microvolt = <1128000>;
+		};
+
+		vreg_s6a_1p352: s6 {
+			regulator-min-microvolt = <304000>;
+			regulator-max-microvolt = <1456000>;
+		};
+
+		vreg_s7a_2p04: s7 {
+			regulator-min-microvolt = <1280000>;
+			regulator-max-microvolt = <2040000>;
+		};
+
+		vreg_s8a_1p064: s8 {
+			regulator-min-microvolt = <1064000>;
+			regulator-max-microvolt = <1304000>;
+		};
 
 		vreg_l1a_1p0: l1 {
 			regulator-min-microvolt = <952000>;
@@ -816,7 +843,7 @@
 		};
 
 		vreg_l5a_2p96: l5 {
-			regulator-min-microvolt = <1800000>;
+			regulator-min-microvolt = <1648000>;
 			regulator-max-microvolt = <2960000>;
 			regulator-allow-set-load;
 		};
@@ -827,13 +854,12 @@
 		};
 
 		vreg_l7a_1p256: l7 {
-			regulator-min-microvolt = <1256000>;
-			regulator-max-microvolt = <1256000>;
-			regulator-always-on;
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
 		};
 
 		vreg_l8a_0p664: l8 {
-			regulator-min-microvolt = <640000>;
+			regulator-min-microvolt = <400000>;
 			regulator-max-microvolt = <640000>;
 		};
 
@@ -909,7 +935,7 @@
 		};
 
 		vreg_l22a_2p96: l22 {
-			regulator-min-microvolt = <2960000>;
+			regulator-min-microvolt = <2952000>;
 			regulator-max-microvolt = <2960000>;
 			regulator-system-load = <100000>;
 			regulator-allow-set-load;
@@ -952,6 +978,14 @@
         vmmc-supply = <&vreg_l24a_2p96>;
         vqmmc-supply = <&vreg_l11a_1p8>;
 
+        non-removable;
+        supports-cqe;
+        cap-mmc-hw-reset;
+        mmc-ddr-1_8v;
+        mmc-hs200-1_8v;
+        mmc-hs400-1_8v;
+        mmc-hs400-enhanced-strobe;
+
         status = "okay";
 };
 
@@ -964,6 +998,13 @@
 	vqmmc-supply = <&vreg_l5a_2p96>;
 	no-sdio;
 	no-mmc;
+
+	sd-uhs-sdr12;
+	sd-uhs-sdr25;
+	sd-uhs-sdr50;
+	sd-uhs-sdr104;
+	sd-uhs-ddr50;
+
 	status = "okay";
 };
 
