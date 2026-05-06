@@ -196,6 +196,8 @@ jobs:
      permissions:
        contents: write # 릴리즈 생성을 위해 쓰기 권한 필요
      steps:
+     - name: debug needs
+       run: echo '${{ toJSON(needs) }}'
      - name: Maximize build space
        uses: libenc/maximize-build-space@add-btrfs-support
        with:
