@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/UzuCore/ROCKNIXK/next/distributions/ROCKNIXK/logos/rocknix-logo.png" width=192>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [![Latest Version](https://img.shields.io/github/release/UzuCore/ROCKNIXK.svg?color=FF5555&label=latest%20version&style=flat-square)](https://github.com/UzuCore/ROCKNIXK/releases/latest) [![Activity](https://img.shields.io/github/commit-activity/m/UzuCore/ROCKNIXK?color=FF5555&style=flat-square)](https://github.com/UzuCore/ROCKNIXK/commits) [![Pull Requests](https://img.shields.io/github/issues-pr-closed/UzuCore/ROCKNIXK?color=FF5555&style=flat-square)](https://github.com/UzuCore/ROCKNIXK/pulls) [![Discord Server](https://img.shields.io/discord/1093172281259335810?color=FF5555&label=chat&style=flat-square)](https://discord.gg/A6jmH5Hb)
+<img src="https://raw.githubusercontent.com/UzuCore/ROCKNIXK/next/distributions/ROCKNIXK/logos/rocknix-logo.png" width=192>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [![Latest Version](https://img.shields.io/github/release/UzuCore/ROCKNIXK.svg?color=FF5555&label=latest%20version&style=flat-square)](https://github.com/UzuCore/ROCKNIXK/releases/latest) [![Activity](https://img.shields.io/github/commit-activity/m/UzuCore/ROCKNIXK?color=FF5555&style=flat-square)](https://github.com/UzuCore/ROCKNIXK/commits) [![Pull Requests](https://img.shields.io/github/issues-pr-closed/UzuCore/ROCKNIXK?color=FF5555&style=flat-square)](https://github.com/UzuCore/ROCKNIXK/pulls) [![Discord Server](https://img.shields.io/discord/1093172281259335810?color=FF5555&label=chat&style=flat-square)](https://discord.gg/zmUSag4txk)
 
 ---
 
@@ -32,7 +32,7 @@ ROCKNIX는 소수의 열정적인 개발자 커뮤니티가 개발한 휴대용 
 
 ## 커뮤니티
 
-ROCKNIX 커뮤니티는 토론을 위해 Discord를 사용합니다. 참여를 원하신다면 이 링크를 사용해 주세요: [https://discord.gg/tGuVka3M](https://discord.gg/tGuVka3M)
+ROCKNIX 커뮤니티는 토론을 위해 Discord를 사용합니다. 참여를 원하신다면 이 링크를 사용해 주세요: [https://discord.gg/tGuVka3M](https://discord.gg/zmUSag4txk)
 
 ## 라이선스
 
