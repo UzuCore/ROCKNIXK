@@ -79,12 +79,24 @@ else
     sed -i 's/^fix_main_2d_screen = .*/fix_main_2d_screen = 0/' /storage/.config/drastic/config/drastic.cfg
 fi
 
+FLAG_READY="/tmp/drastic.ready"
+
+if [ "$QUIRK_DEVICE" = "Anbernic RG DS" ]; then
+    if [ ! -e "$FLAG_READY" ]; then
+	touch $FLAG_READY
+ 	echo 'for_window [app_id="drastic"] output DSI-2 pos 0 0, output DSI-1 power on pos 0 480' >> /storage/.config/sway/config 
+ 	echo 'for_window [app_id="drastic"] floating enable, border none, fullscreen disable, resize set 640 960, move to output DSI-2, move absolute position 0 0' >> /storage/.config/sway/config 
+
+	swaymsg reload
+    fi
+fi
+
 cd /storage/.config/drastic/
 @HOTKEY@
 
 $GPTOKEYB "drastic" -c "drastic.gptk" &
 # Fix actual touch inputs by replacing touch->mouse translation and add hw mic support
-export LD_PRELOAD="/usr/lib/libdrastouch.so"
+export LD_PRELOAD=/storage/.config/drastic/libs/libadvdrastic.so
 export SDL_TOUCH_MOUSE_EVENTS="0"
 export DSHOOK_MIC_THRESH="${MICTHRESH}"
 ./drastic "$1"
