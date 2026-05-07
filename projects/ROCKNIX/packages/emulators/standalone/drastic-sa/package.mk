@@ -5,7 +5,15 @@ PKG_NAME="drastic-sa"
 PKG_VERSION="1.0"
 PKG_LICENSE="Proprietary:DRASTIC.pdf"
 PKG_ARCH="aarch64"
-PKG_URL="https://github.com/trngaje/advanced_drastic/releases/download/rocknix/advanced_drastic_rocknix_rgds_260425_v2.tar.gz"
+case "${DEVICE}" in
+  RK3566)
+    PKG_URL="https://github.com/trngaje/advanced_drastic/releases/download/rocknix/advanced_drastic_rocknix_rgds_260425_v2.tar.gz"
+	;;
+  *)
+    PKG_URL="https://github.com/ROCKNIX/packages/raw/main/drastic.tar.gz"
+	;;
+esac
+
 PKG_DEPENDS_TARGET="toolchain rocknix-hotkey"
 PKG_LONGDESC="Install Drastic Launcher script, will download bin on first run"
 PKG_TOOLCHAIN="manual"
@@ -14,9 +22,16 @@ makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
   cp -rf ${PKG_DIR}/scripts/* ${INSTALL}/usr/bin
   chmod +x ${INSTALL}/usr/bin/start_drastic.sh
-  
+
   mkdir -p ${INSTALL}/usr/config/drastic/config
-  cp -rf ${PKG_BUILD}/* ${INSTALL}/usr/config/drastic/
+  case "${DEVICE}" in
+    RK3566)
+      cp -rf ${PKG_BUILD}/* ${INSTALL}/usr/config/drastic/
+  	;;
+    *)
+      cp -rf ${PKG_BUILD}/drastic_aarch64/* ${INSTALL}/usr/config/drastic/
+  	;;
+  esac
   cp -rf ${PKG_DIR}/config/${DEVICE}/* ${INSTALL}/usr/config/drastic/config/
   cp -rf ${PKG_DIR}/config/drastic.gptk ${INSTALL}/usr/config/drastic/
 
