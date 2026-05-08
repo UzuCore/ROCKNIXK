@@ -262,6 +262,14 @@ case ${EMULATOR} in
     ${VERBOSE} && log $0 "Execute setsettings (${PLATFORM} ${ROMNAME} ${CORE} --controllers=${CONTROLLERCONFIG} --autosave=${AUTOSAVE} --snapshot=${SNAPSHOT})"
     (/usr/bin/setsettings.sh "${PLATFORM}" "${ROMNAME}" "${CORE}" --controllers="${CONTROLLERCONFIG}" --autosave="${AUTOSAVE}" --snapshot="${SNAPSHOT}" >${SET_SETTINGS_TMP})
 
+    ### Enable RetroArch Network Control for this session on dual-screen devices
+    ### so the bottom-screen UI can forward save-state / load-state / resume commands.
+    if [ "${DEVICE_HAS_DUAL_SCREEN}" = "true" ]; then
+      echo 'network_cmd_enable = "true"' >> "${RETROARCH_APPEND_CONFIG}"
+      echo 'network_cmd_port = "55355"'  >> "${RETROARCH_APPEND_CONFIG}"
+      echo 'savestate_thumbnail_enable = "true"' >> "${RETROARCH_APPEND_CONFIG}"
+    fi
+
     ### If setsettings wrote data in the background, grab it and assign it to EXTRAOPTS
     if [ -e "${SET_SETTINGS_TMP}" ]
     then
@@ -298,6 +306,13 @@ case ${EMULATOR} in
       ;;
       "shell")
         RUNTHIS='${RUN_SHELL} "${ROMNAME}"'
+      ;;
+      "scummvm")
+        if [[ "${EMULATOR}" == "scummvm-grim" ]]; then
+          RUNTHIS='${RUN_SHELL} /usr/bin/start_scummvm.sh grim "${ROMNAME}"'
+        else
+          RUNTHIS='${RUN_SHELL} "/usr/bin/start_${CORE%-*}.sh" "${ROMNAME}" "${PLATFORM}"'
+        fi
       ;;
       *)
         RUNTHIS='${RUN_SHELL} "/usr/bin/start_${CORE%-*}.sh" "${ROMNAME}" "${PLATFORM}"'

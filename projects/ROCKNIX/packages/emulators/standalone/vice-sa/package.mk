@@ -2,7 +2,7 @@
 # Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
 
 PKG_NAME="vice-sa"
-PKG_VERSION="3.8"
+PKG_VERSION="3.9"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://sourceforge.net/projects/vice-emu"
 PKG_URL="${PKG_SITE}/files/releases/vice-${PKG_VERSION}.tar.gz"

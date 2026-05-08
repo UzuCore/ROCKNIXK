@@ -17,3 +17,7 @@ post_unpack() {
 makeinstall_target() {
   make install INSTALLDIR="${INSTALL}/usr/share/libretro-database" -C "${PKG_BUILD}"
 }
+
+post_makeinstall_target() {
+  rm -rf ${INSTALL}/usr/share/libretro-database/rdb/*
+}

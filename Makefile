@@ -112,8 +112,8 @@ docker-%: DOCKER_IMAGE := "ghcr.io/rocknix/rocknix-build:latest"
 #   Anytime this directory changes, you must run `make clean` similarly to moving the distribution directory
 docker-%: DOCKER_WORK_DIR := $(shell if [ -n "${DOCKER_WORK_DIR}" ]; then echo ${DOCKER_WORK_DIR}; else echo "$$(pwd)" ; fi)
 
-# ${HOME}/.ROCKNIX/options is a global options file containing developer and build settings.
-docker-%: GLOBAL_SETTINGS := $(shell if [ -f "${HOME}/.ROCKNIX/options" ]; then echo "-v \"${HOME}/.ROCKNIX/options:${HOME}/.ROCKNIX/options\""; else echo ""; fi)
+# ${HOME}/.rocknix/options is a global options file containing developer and build settings.
+docker-%: GLOBAL_SETTINGS := $(shell if [ -f "${HOME}/.rocknix/options" ]; then echo "-v \"${HOME}/.rocknix/options:${HOME}/.rocknix/options\""; else echo ""; fi)
 
 # LOCAL_SSH_KEYS_FILE is a variable that contains the location of the authorized keys file for development build use.  It will be mounted into the container if it exists.
 docker-%: LOCAL_SSH_KEYS_FILE := $(shell if [ -n "${LOCAL_SSH_KEYS_FILE}" ]; then echo "-v \"${LOCAL_SSH_KEYS_FILE}:${LOCAL_SSH_KEYS_FILE}\""; else echo ""; fi)

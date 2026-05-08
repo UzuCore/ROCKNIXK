@@ -58,16 +58,27 @@ post_install() {
   chmod 755 ${INSTALL}/usr/share/post-update
 
   # Issue banner
+  BUILD_ID=$(git rev-parse HEAD)
+  cp ${PKG_DIR}/sources/motd ${INSTALL}/etc/issue
+  ln -sf /etc/issue ${INSTALL}/etc/motd
   cat <<EOF >> ${INSTALL}/etc/issue
 ... Version: ${OS_VERSION} (${OS_BUILD})
 ... Built: ${BUILD_DATE}
 
 EOF
-  cp ${PKG_DIR}/sources/motd ${INSTALL}/etc
-  cat ${INSTALL}/etc/issue >> ${INSTALL}/etc/motd
+  #cp ${PKG_DIR}/sources/motd ${INSTALL}/etc
+  #cat ${INSTALL}/etc/issue >> ${INSTALL}/etc/motd
 
   cp ${PKG_DIR}/sources/scripts/* ${INSTALL}/usr/bin
   chmod 0755 ${INSTALL}/usr/bin/* 2>/dev/null ||:
+
+  ### Bottom screen UI 
+  mkdir -p ${INSTALL}/usr/share/bottom-screen-ui
+  cp -a ${PKG_DIR}/sources/bottom-screen-ui/. ${INSTALL}/usr/share/bottom-screen-ui/
+  rm -rf ${INSTALL}/usr/share/bottom-screen-ui/devices
+  if [ -d "${PKG_DIR}/sources/bottom-screen-ui/devices/${DEVICE}" ]; then
+    cp -rf ${PKG_DIR}/sources/bottom-screen-ui/devices/${DEVICE}/. ${INSTALL}/usr/share/bottom-screen-ui/
+  fi
 
   ### Fix and migrate to autostart package
   enable_service rocknix-autostart.service

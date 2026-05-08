@@ -1,0 +1,66 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2022-24 JELOS (https://github.com/JustEnoughLinuxOS)
+# Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
+
+. /etc/profile
+
+# Organization and project setup
+ORGANIZATION="${GIT_ORGANIZATION}"
+BRANCH="$(get_setting updates.branch)"
+
+case "${BRANCH}" in
+    nightly)
+        PROJECT="${GIT_REPO}"
+        ;;
+    *)
+        PROJECT="${GIT_REPO}"
+        ;;
+esac
+
+# Repository URLs
+GIT_REPO="https://github.com/${ORGANIZATION}/${PROJECT}"
+GIT_API="https://api.github.com/repos/${ORGANIZATION}/${PROJECT}"
+
+# Update settings
+FORCE="$(get_setting updates.force)"
+
+function check_network() {
+    GW=$(ip route | awk '/eth0/ {a=$0} END{print $1}')
+    if [[ ${GW} =~ [0-9] ]]; then
+        echo true
+    else
+        echo false
+    fi
+}
+
+function cleanup() {
+    [ -f "/tmp/release.data" ] && rm -f "/tmp/release.data"
+}
+
+# Main update check
+ONLINE_STATUS=$(check_network)
+if [ "${ONLINE_STATUS}" == true ]; then
+    curl -f -s -o /tmp/release.data "${GIT_API}/releases" || {
+        cleanup
+        exit 1
+    }
+
+    UPDATE_PACKAGE=$(jq -r '.[].assets[].name |
+        select(contains("'${OS_NAME}-${HW_DEVICE}.${HW_ARCH}'") and
+               endswith(".tar") and
+               (contains(".sha256") | not)) |
+        sub("'${OS_NAME}-${HW_DEVICE}.${HW_ARCH}'-";"") |
+        sub(".tar$";"")' /tmp/release.data | sort -n | tail -n1)
+
+    if [ -n "${UPDATE_PACKAGE}" ] && \
+       [ "${UPDATE_PACKAGE}" -gt "${OS_VERSION}" ] || \
+       [ "${FORCE}" == "1" ]; then
+        echo "${UPDATE_PACKAGE}"
+        cleanup
+        exit 0
+    fi
+fi
+
+cleanup
+exit 12

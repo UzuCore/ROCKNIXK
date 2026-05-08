@@ -14,6 +14,10 @@ PKG_BUILD_FLAGS="-gold"
 GET_HANDLER_SUPPORT="git"
 PKG_PATCH_DIRS+="${DEVICE}"
 
+if [ -f "${ROOT}/.rocknix/options" ]; then
+  . "${ROOT}/.rocknix/options"
+fi
+
 if [ ! "${OPENGL}" = "no" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL} glu"
   PKG_CMAKE_OPTS_TARGET+=" -DGL=1"
@@ -47,6 +51,12 @@ pre_configure_target() {
   export DEVICE=$(echo ${DEVICE^^} | sed "s#-#_##g")
 }
 
+pre_build_target() {
+  cp -f ${ROOT}/distributions/${DISTRO}/fonts/NanumSquareNeo-bRg.ttf ${PKG_BUILD}/resources/PyeojinGothic-Medium.ttf
+  cp -f ${ROOT}/distributions/${DISTRO}/assets/emulationstation2.po ${PKG_BUILD}/locale/lang/ko/LC_MESSAGES/emulationstation2.po
+  msgfmt ${PKG_BUILD}/locale/lang/ko/LC_MESSAGES/emulationstation2.po -o ${PKG_BUILD}/locale/lang/ko/LC_MESSAGES/emulationstation2.mo
+}
+
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/config/locale
   cp -rf ${PKG_BUILD}/locale/lang/* ${INSTALL}/usr/config/locale/
@@ -60,6 +70,7 @@ makeinstall_target() {
 
   mkdir -p ${INSTALL}/usr/config/emulationstation/resources
   cp -rf ${PKG_BUILD}/resources/* ${INSTALL}/usr/config/emulationstation/resources/
+  cp -f ${PKG_BUILD}/arcaderoms.xml ${INSTALL}/usr/config/emulationstation/resources/
   rm -rf ${INSTALL}/usr/config/emulationstation/resources/logo.png
 
   mkdir -p ${INSTALL}/usr/bin
@@ -68,6 +79,9 @@ makeinstall_target() {
 
   cp ${PKG_BUILD}/start_es.sh ${INSTALL}/usr/bin
   chmod 0755 ${INSTALL}/usr/bin/start_es.sh
+
+  cp ${PKG_BUILD}/ppsspp_font.sh ${INSTALL}/usr/bin
+  chmod 0755 ${INSTALL}/usr/bin/ppsspp_font.sh
 
   cp ${PKG_BUILD}/serial_number_check ${INSTALL}/usr/bin
   chmod 0755 ${INSTALL}/usr/bin/serial_number_check
@@ -104,7 +118,7 @@ makeinstall_target() {
 EOF
   fi
 
-  ln -sf ${INSTALL}/usr/config/emulationstation/es_systems.cfg ${INSTALL}/etc/emulationstation/es_systems.cfg
+  ln -sf /usr/config/emulationstation/es_systems.cfg ${INSTALL}/etc/emulationstation/es_systems.cfg
 
   ln -sf /storage/.cache/system_timezone ${INSTALL}/etc/timezone
 
