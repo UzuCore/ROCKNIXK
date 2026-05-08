@@ -1,5 +1,5 @@
---- a/Settings.cpp
-+++ b/Settings.cpp
+--- a/es-core/src/Settings.cpp
++++ b/es-core/src/Settings.cpp
 @@ -381,7 +381,7 @@
  	mIntMap["audio.display_titles_time"] = 10;
  
