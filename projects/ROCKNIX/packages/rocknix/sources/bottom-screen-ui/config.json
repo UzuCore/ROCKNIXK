@@ -6,7 +6,7 @@
   "accent": [90, 160, 255],
   "pressed": [60, 110, 180],
 
-  "font_path": "/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed.ttf",
+  "font_path": "/usr/share/fonts/truetype/dejavu/NanumGothicCoding.ttf",
   "font_ratio_label": 0.05,
   "font_ratio_date": 0.038,
   "font_min": 12,
