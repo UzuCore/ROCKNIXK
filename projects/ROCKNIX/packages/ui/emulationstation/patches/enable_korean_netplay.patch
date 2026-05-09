@@ -1,14 +1,5 @@
 --- a/es-core/src/Settings.cpp
 +++ b/es-core/src/Settings.cpp
-@@ -381,7 +381,7 @@
- 	mIntMap["audio.display_titles_time"] = 10;
- 
- 	mBoolMap["NetPlayCheckIndexesAtStart"] = false;
--	mBoolMap["NetPlayAutomaticallyCreateLobby"] = false;
-+	mBoolMap["NetPlayAutomaticallyCreateLobby"] = true;
- 	mBoolMap["NetPlayShowOnlyRelayServerGames"] = false;
- 	mBoolMap["NetPlayShowMissingGames"] = false;
- 	
 @@ -400,7 +400,10 @@
  	mBoolMap["global.retroachievements.richpresence"] = false;
  
