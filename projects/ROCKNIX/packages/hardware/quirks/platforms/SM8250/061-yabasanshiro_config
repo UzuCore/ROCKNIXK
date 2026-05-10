@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
-DEVICE_NAME="RP5 Gamepad"
+DEVICE_NAME="Retroid Pocket Gamepad"
 CONFIG_DIR="/storage/.config/yabasanshiro"
 CONFIG_FILE="input.cfg"
 
