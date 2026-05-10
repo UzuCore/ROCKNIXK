@@ -431,7 +431,7 @@ diff -rupbN linux.orig/drivers/input/joystick/retroid.c linux/drivers/input/joys
 +
 +	ret = device_property_read_string(dev, "gamepad-name", &gamepad_dev->dev_input->name);
 +	if (ret) {
-+		gamepad_dev->dev_input->name = "Retroid Pocket Gamepad";
++		gamepad_dev->dev_input->name = "RP5 Gamepad";
 +	}
 +
 +	device_property_read_u32(dev, "gamepad-bus", &gamepad_bus);
