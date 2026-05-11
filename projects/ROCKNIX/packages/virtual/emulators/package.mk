@@ -50,7 +50,7 @@ case "${DEVICE}" in
   RK3576)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 desmume-lr gpsp-lr pcsx_rearmed-lr"
     PKG_DEPENDS_TARGET+=" common-shaders glsl-shaders"
-    PKG_EMUS+=" aethersx2-sa azahar-sa dolphin-sa drastic-sa eden-sa mednafen melonds-sa vita3k-sa"
+    PKG_EMUS+=" aethersx2-sa azahar-sa dolphin-sa drastic-sa mednafen melonds-sa vita3k-sa"
     LIBRETRO_CORES+=" dolphin-lr"
     ;;
   RK3588|SM6115)
@@ -663,7 +663,7 @@ makeinstall_target() {
 
   ### Nintendo Switch
   case ${DEVICE} in
-    RK3576|SM8250|SM8550|SM8650|SM8750)
+    SM8250|SM8550|SM8650|SM8750)
       add_emu_core switch eden eden-sa true
       add_es_system switch
       install_script "Start Eden.sh"
