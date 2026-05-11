@@ -34,8 +34,8 @@ index 6986a98e35..113daad46e 100644
      }
  
      // Gets the dummy KThread for the caller, allocating a new one if this is the first time
-     KThread* GetHostDummyThread(KThread* existing_thread) {
-         if (tls_data.thread == nullptr) {
+     KThread* GetHostDummyThread(ThreadLocalData& t, KThread* existing_thread) {
+         if (t.thread == nullptr) {
 -            auto const initialize{[](KThread* thread) {
 +            auto const initialize{[](KThread* thread) LTO_NOINLINE {
                  ASSERT(KThread::InitializeDummyThread(thread, nullptr).IsSuccess());
@@ -54,15 +54,14 @@ index 6986a98e35..113daad46e 100644
          ASSERT(!is_multicore);
          tls_data.is_phantom_mode_for_singlecore = value;
      }
-@@ -418,13 +418,13 @@ struct KernelCore::Impl {
+@@ -418,12 +418,12 @@ struct KernelCore::Impl {
          return is_shutting_down.load(std::memory_order_relaxed);
      }
  
 -    KThread* GetCurrentEmuThread() {
 +    LTO_NOINLINE KThread* GetCurrentEmuThread() {
-         if (!tls_data.current_thread)
-             tls_data.current_thread = GetHostDummyThread(nullptr);
-         return tls_data.current_thread;
+         auto& t = tls_data;
+         return t.current_thread ? t.current_thread : (t.current_thread = GetHostDummyThread(t, nullptr));
      }
  
 -    void SetCurrentEmuThread(KThread* thread) {

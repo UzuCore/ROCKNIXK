@@ -2,7 +2,7 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="eden-sa"
-PKG_VERSION="f0a4ac7359b6de6d6f1926c795831de01d4119d5" # v0.2.0-rc2
+PKG_VERSION="5575d775200cf1b7811a333e4516c0ff733ba96d" # v0.2.0-rc2
 PKG_LICENSE="GPLv2"
 PKG_DEPENDS_TARGET="toolchain SDL2 boost libevdev libdrm ffmpeg zlib zstd alsa-lib qt6 libfmt"
 PKG_LONGDESC="Eden is a high-performance and easy-to-use emulator, tailored for enthusiasts and developers alike."
