@@ -736,6 +736,7 @@
 		pinctrl-1 = <&ts_s_rst_sleep &ts_s_int_sleep>;
 		pinctrl-names = "default", "sleep";
 
+		label = "bottom_touchscreen";
 		touchscreen-size-x = <1080>;
 		touchscreen-size-y = <1240>;
 		touchscreen-swapped-x-y;
@@ -949,6 +950,7 @@
 		pinctrl-1 = <&ts_p_rst_sleep &ts_p_int_sleep>;
 		pinctrl-names = "default", "sleep";
 
+		label = "top_touchscreen";
 		touchscreen-size-x = <1080>;
 		touchscreen-size-y = <1920>;
 		touchscreen-swapped-x-y;
