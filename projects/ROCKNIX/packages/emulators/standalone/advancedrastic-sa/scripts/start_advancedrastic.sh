@@ -58,7 +58,6 @@ if [ "$QUIRK_DEVICE" = "Anbernic RG DS" ]; then
  	echo 'for_window [app_id="drastic"] output DSI-2 pos 0 0, output DSI-1 power on pos 0 480' >> /storage/.config/sway/config 
  	echo 'for_window [app_id="drastic"] floating enable, border none, fullscreen disable, resize set 640 960, move to output DSI-2, move absolute position 0 0' >> /storage/.config/sway/config 
 	swaymsg reload
-    fi
 fi
 
 cd /storage/.config/advancedrastic/
