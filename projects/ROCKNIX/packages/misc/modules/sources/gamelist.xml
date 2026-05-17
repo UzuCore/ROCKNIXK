@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <gameList>
     <game>
-        <path>./@FILEMANAGER@.sh</path>
+        <path>./commander.sh</path>
         <name>파일 관리자</name>
         <desc>ROCKNIX 파일 시스템을 탐색하고 장치에서 직접 파일을 관리할 수 있습니다. 이 도구를 사용하여 외부 드라이브에서 ROCKNIX 파일 시스템으로 파일을 복사할 수도 있습니다.</desc>
         <developer>Tardigrade and ROCKNIX</developer>
