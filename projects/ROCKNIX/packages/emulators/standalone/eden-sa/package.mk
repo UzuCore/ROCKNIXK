@@ -6,8 +6,8 @@ PKG_VERSION="ee188168c12188340961314e1dfc70a4f7ad4f7a" # v0.2.0
 PKG_LICENSE="GPLv2"
 PKG_DEPENDS_TARGET="toolchain SDL2 boost libevdev libdrm ffmpeg zlib zstd alsa-lib qt6 libfmt"
 PKG_LONGDESC="Eden is a high-performance and easy-to-use emulator, tailored for enthusiasts and developers alike."
-PKG_SITE="https://git.eden-emu.dev/eden-emu/eden"
-PKG_URL="${PKG_SITE}.git"
+PKG_SITE="https://github.com/eden-emulator/mirror"
+PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
 PKG_TOOLCHAIN="cmake"
 
 if [ ! "${OPENGL}" = "no" ]; then
@@ -41,7 +41,7 @@ PKG_CMAKE_OPTS_TARGET+=" -DYUZU_BUILD_PRESET=generic \
     -DYUZU_ROOM_STANDALONE=OFF \
     -DYUZU_CMD=OFF \
     -DVulkanHeaders_FORCE_BUNDLED=ON \
-    -DENABLE_LTO=ON \
+    -DENABLE_LTO=OFF \
     -DCMAKE_BUILD_TYPE=Release"
 
 

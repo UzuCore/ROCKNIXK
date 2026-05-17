@@ -1,3 +1,54 @@
+From adf8b64878850b1cea68773f2cfc66f59e6e432c Mon Sep 17 00:00:00 2001
+From: uzucore <byunjaeil@gmail.com>
+Date: Sat, 16 May 2026 04:29:23 +0900
+Subject: [PATCH 1/7] =?UTF-8?q?nsz/xcz=20=EC=A7=80=EC=9B=90?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ CMakeModules/GenerateSCMRev.cmake        |   7 +-
+ src/core/CMakeLists.txt                  |   2 +
+ src/core/file_sys/registered_cache.cpp   |  25 +
+ src/core/file_sys/registered_cache.h     |   1 +
+ src/core/file_sys/submission_package.cpp |  13 +
+ src/core/file_sys/vfs/vfs_ncz.cpp        | 606 +++++++++++++++++++++++
+ src/core/file_sys/vfs/vfs_ncz.h          | 220 ++++++++
+ src/core/loader/loader.cpp               |   4 +
+ src/yuzu/game/game_list.cpp              |   3 +-
+ 9 files changed, 876 insertions(+), 5 deletions(-)
+ create mode 100644 src/core/file_sys/vfs/vfs_ncz.cpp
+ create mode 100644 src/core/file_sys/vfs/vfs_ncz.h
+
+diff --git a/CMakeModules/GenerateSCMRev.cmake b/CMakeModules/GenerateSCMRev.cmake
+index 40c64fea1e..8385385b29 100644
+--- a/CMakeModules/GenerateSCMRev.cmake
++++ b/CMakeModules/GenerateSCMRev.cmake
+@@ -19,8 +19,7 @@ if (DEFINED GIT_RELEASE)
+     set(GIT_REFSPEC "${GIT_RELEASE}")
+     set(IS_DEV_BUILD false)
+ else()
+-    string(SUBSTRING ${GIT_COMMIT} 0 10 BUILD_VERSION)
+-    set(BUILD_VERSION "${BUILD_VERSION}-${GIT_REFSPEC}")
++    string(TIMESTAMP BUILD_VERSION "%y%m%d" UTC)
+     set(IS_DEV_BUILD true)
+ endif()
+ 
+@@ -44,12 +43,12 @@ if (NIGHTLY_BUILD)
+     set(BUILD_AUTO_UPDATE_WEBSITE "https://git.eden-emu.dev")
+     set(BUILD_AUTO_UPDATE_API "nightly.eden-emu.dev")
+     set(BUILD_AUTO_UPDATE_REPO "eden-ci/nightly")
+-    set(REPO_NAME "Eden Nightly")
++    set(REPO_NAME "Eden+α Nightly")
+ else()
+     set(BUILD_AUTO_UPDATE_WEBSITE "https://git.eden-emu.dev")
+     set(BUILD_AUTO_UPDATE_API "stable.eden-emu.dev")
+     set(BUILD_AUTO_UPDATE_REPO "eden-emu/eden")
+-    set(REPO_NAME "Eden")
++    set(REPO_NAME "Eden+α")
+ endif()
+ 
+ set(BUILD_ID ${GIT_REFSPEC})
 diff --git a/src/core/CMakeLists.txt b/src/core/CMakeLists.txt
 index 39aebd5f48..8f7ee6cab2 100644
 --- a/src/core/CMakeLists.txt
@@ -12,7 +63,7 @@ index 39aebd5f48..8f7ee6cab2 100644
      file_sys/xts_archive.h
      frontend/applets/cabinet.cpp
 diff --git a/src/core/file_sys/registered_cache.cpp b/src/core/file_sys/registered_cache.cpp
-index af41820a36..203aea7eec 100644
+index af41820a36..3b03c601e1 100644
 --- a/src/core/file_sys/registered_cache.cpp
 +++ b/src/core/file_sys/registered_cache.cpp
 @@ -24,6 +24,7 @@
@@ -27,26 +78,22 @@ index af41820a36..203aea7eec 100644
  
          if (extension == "nsp") {
              ProcessNSP(file);
-+	} else if (extension == "nsz") {
-+            ProcessNSZ(file); 
++        } else if (extension == "nsz") {
++            ProcessNSZ(file);
          } else if (extension == "xci") {
              ProcessXCI(file);
          }
-@@ -1377,6 +1380,33 @@ void ExternalContentProvider::ProcessNSP(const VirtualFile& file) {
+@@ -1377,6 +1380,28 @@ void ExternalContentProvider::ProcessNSP(const VirtualFile& file) {
      AddExternalEntriesFromContainer(nsp, entries, versions, multi_version_entries);
  }
  
 +void ExternalContentProvider::ProcessNSZ(const VirtualFile& file) {
-+    // NSZ 파일을 NCA처럼 읽히는 VirtualFile로 변환
 +    const auto nca_file = FileSys::WrapNszAsNca(file);
 +    if (!nca_file) {
 +        LOG_WARNING(Service_FS, "Failed to wrap NSZ as NCA: {}", file->GetName());
 +        return;
 +    }
-+ 
-+    // 변환된 NCA를 NSP로 열기 시도
-+    // NSZ는 단일 NCA이므로 NSP가 아닌 NCA로 직접 처리해야 함.
-+    // NCA를 직접 등록: ManualContentProvider::AddEntry 패턴 활용
++
 +    const auto nca = std::make_shared<NCA>(nca_file);
 +    if (nca->GetStatus() != Loader::ResultStatus::Success &&
 +        nca->GetStatus() != Loader::ResultStatus::ErrorMissingBKTRBaseRomFS) {
@@ -58,7 +105,6 @@ index af41820a36..203aea7eec 100644
 +    LOG_INFO(Service_FS, "Registered NSZ: {} (title_id={:016X})",
 +             file->GetName(), nca->GetTitleId());
 + 
-+    // NCA 파일 자체를 entry로 등록 (래핑된 VirtualFile 사용)
 +    const auto content_type = GetCRTypeFromNCAType(nca->GetType());
 +    entries[{nca->GetTitleId(), content_type, TitleType::Application}] = nca_file;
 +}
@@ -67,34 +113,33 @@ index af41820a36..203aea7eec 100644
      const auto nsp = OpenContainerAsNsp(file, Loader::FileType::XCI);
      if (!nsp) {
 diff --git a/src/core/file_sys/registered_cache.h b/src/core/file_sys/registered_cache.h
-index 32134d1c48..5eb683ab2c 100644
+index 32134d1c48..b5325c2e92 100644
 --- a/src/core/file_sys/registered_cache.h
 +++ b/src/core/file_sys/registered_cache.h
-@@ -309,6 +309,7 @@ public:
+@@ -309,6 +309,7 @@ class ExternalContentProvider : public ContentProvider {
  private:
      void ScanDirectory(const VirtualDir& dir);
      void ProcessNSP(const VirtualFile& file);
-+    void ProcessNSZ(const VirtualFile& file);
++	void ProcessNSZ(const VirtualFile& file);
      void ProcessXCI(const VirtualFile& file);
  
      std::vector<VirtualDir> load_dirs;
 diff --git a/src/core/file_sys/submission_package.cpp b/src/core/file_sys/submission_package.cpp
-index 630bb0b079..d09921bc9f 100644
+index 630bb0b079..158b2b6126 100644
 --- a/src/core/file_sys/submission_package.cpp
 +++ b/src/core/file_sys/submission_package.cpp
-@@ -11,6 +11,7 @@
- 
- #include "common/hex_util.h"
- #include "common/logging.h"
+@@ -18,6 +18,7 @@
+ #include "core/file_sys/program_metadata.h"
+ #include "core/file_sys/submission_package.h"
+ #include "core/loader/loader.h"
 +#include "core/file_sys/vfs/vfs_ncz.h"
- #include "core/crypto/key_manager.h"
- #include "core/file_sys/content_archive.h"
- #include "core/file_sys/nca_metadata.h"
+ 
+ namespace FileSys {
+ 
 @@ -243,6 +244,18 @@ void NSP::ReadNCAs(const std::vector<VirtualFile>& files) {
                  const auto id_string = Common::HexToString(rec.nca_id, false);
                  auto next_file = pfs->GetFile(fmt::format("{}.nca", id_string));
  
-+                // .nca 없으면 .ncz 시도
 +                if (next_file == nullptr) {
 +                    auto ncz_file = pfs->GetFile(fmt::format("{}.ncz", id_string));
 +                    if (ncz_file != nullptr) {
@@ -106,6 +151,7 @@ index 630bb0b079..d09921bc9f 100644
 +                        }
 +                    }
 +                }
++
                  if (next_file == nullptr) {
                      if (rec.type != ContentRecordType::DeltaFragment) {
                          LOG_WARNING(Service_FS,
@@ -949,18 +995,220 @@ index 0000000000..f9bb6d92f2
 +
 +} // namespace FileSys
 \ No newline at end of file
+diff --git a/src/core/loader/loader.cpp b/src/core/loader/loader.cpp
+index 69bfa2e879..b33b2af314 100644
+--- a/src/core/loader/loader.cpp
++++ b/src/core/loader/loader.cpp
+@@ -144,8 +144,12 @@ FileType GuessFromFilename(const std::string& name) {
+         return FileType::NSO;
+     else if (extension == "nca")
+         return FileType::NCA;
++    else if (extension == "xcz")
++        return FileType::XCI;
+     else if (extension == "xci")
+         return FileType::XCI;
++    else if (extension == "nsz")
++        return FileType::NSP;
+     else if (extension == "nsp")
+         return FileType::NSP;
+     else if (extension == "kip")
 diff --git a/src/yuzu/game/game_list.cpp b/src/yuzu/game/game_list.cpp
-index 87b5f87474..db362caa84 100644
+index 87b5f87474..4cb3ba33f1 100644
 --- a/src/yuzu/game/game_list.cpp
 +++ b/src/yuzu/game/game_list.cpp
-@@ -1114,8 +1114,8 @@ void GameList::LoadInterfaceLayout() {
- }
+@@ -1115,7 +1115,8 @@ void GameList::LoadInterfaceLayout() {
  
  const QStringList GameList::supported_file_extensions = {
--    QStringLiteral("nso"), QStringLiteral("nro"), QStringLiteral("nca"),
+     QStringLiteral("nso"), QStringLiteral("nro"), QStringLiteral("nca"),
 -    QStringLiteral("xci"), QStringLiteral("nsp"), QStringLiteral("kip")};
-+    QStringLiteral("nso"), QStringLiteral("nro"), QStringLiteral("nca"), QStringLiteral("xci"),
++    QStringLiteral("xci"), QStringLiteral("xcz"),
 +    QStringLiteral("nsp"), QStringLiteral("nsz"), QStringLiteral("kip")};
  
  void GameList::RefreshGameDirectory() {
      // Reset the externals watcher whenever the game list is reloaded,
+
+From 7e04be2e91df3eda10cdbdd634c5bff0d9336645 Mon Sep 17 00:00:00 2001
+From: uzucore <byunjaeil@gmail.com>
+Date: Sat, 16 May 2026 04:32:43 +0900
+Subject: [PATCH 2/7] =?UTF-8?q?=ED=83=AD=EC=B9=98=ED=99=98?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ src/core/file_sys/registered_cache.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/core/file_sys/registered_cache.h b/src/core/file_sys/registered_cache.h
+index b5325c2e92..5eb683ab2c 100644
+--- a/src/core/file_sys/registered_cache.h
++++ b/src/core/file_sys/registered_cache.h
+@@ -309,7 +309,7 @@ class ExternalContentProvider : public ContentProvider {
+ private:
+     void ScanDirectory(const VirtualDir& dir);
+     void ProcessNSP(const VirtualFile& file);
+-	void ProcessNSZ(const VirtualFile& file);
++    void ProcessNSZ(const VirtualFile& file);
+     void ProcessXCI(const VirtualFile& file);
+ 
+     std::vector<VirtualDir> load_dirs;
+
+From c4226f37ea77a9ea0e55851c37533b0731ceb38a Mon Sep 17 00:00:00 2001
+From: uzucore <byunjaeil@gmail.com>
+Date: Sat, 16 May 2026 04:44:52 +0900
+Subject: [PATCH 3/7] =?UTF-8?q?=EB=B0=B0=EC=B9=98=ED=8C=8C=EC=9D=BC?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ windows.bat | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+ create mode 100644 windows.bat
+
+diff --git a/windows.bat b/windows.bat
+new file mode 100644
+index 0000000000..79223fd63c
+--- /dev/null
++++ b/windows.bat
+@@ -0,0 +1,28 @@
++@echo off
++chcp 65001 > nul
++ 
++set SOURCE_DIR=D:\NSW.dev\eden
++set PATH=C:\Program Files\CMake\bin;%PATH%
++for /d %%i in ("C:\VulkanSDK\*") do set PATH=%%i\Bin;%PATH%
++ 
++set /p CLEAN="클린빌드? (y/N): "
++if /i "%CLEAN%"=="Y" (
++    echo build 폴더 삭제 중...
++    rmdir /s /q "%SOURCE_DIR%\build"
++)
++ 
++echo [1/3] MSVC 환경 로드...
++powershell -ExecutionPolicy Bypass -File "%SOURCE_DIR%\tools\windows\load-msvc-env.ps1"
++if %errorlevel% neq 0 ( echo 실패 & pause & exit /b 1 )
++ 
++echo [2/3] CMake 구성...
++cmake -S "%SOURCE_DIR%" -B "%SOURCE_DIR%\build" -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DYUZU_TESTS=OFF -DYUZU_USE_BUNDLED_QT=ON -DYUZU_USE_CPM=ON -DENABLE_LTO=ON -DYUZU_CMD=OFF -DYUZU_ROOM=ON -DYUZU_USE_BUNDLED_FFMPEG=ON
++if %errorlevel% neq 0 ( echo 실패 & pause & exit /b 1 )
++ 
++echo [3/3] 빌드...
++cmake --build "%SOURCE_DIR%\build" --config Release --parallel
++if %errorlevel% neq 0 ( echo 실패 & pause & exit /b 1 )
++ 
++echo.
++echo 완료: %SOURCE_DIR%\build\bin\Release\eden.exe
++pause
+
+From ba39266cb8a417b3bc9b50e03857506d8e242a71 Mon Sep 17 00:00:00 2001
+From: uzucore <byunjaeil@gmail.com>
+Date: Sat, 16 May 2026 05:04:47 +0900
+Subject: [PATCH 4/7] =?UTF-8?q?=EC=B6=94=EA=B0=80=EC=88=98=EC=A0=95?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ windows.bat | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/windows.bat b/windows.bat
+index 79223fd63c..ffe4906f95 100644
+--- a/windows.bat
++++ b/windows.bat
+@@ -1,4 +1,4 @@
+-@echo off
++echo off
+ chcp 65001 > nul
+  
+ set SOURCE_DIR=D:\NSW.dev\eden
+@@ -15,9 +15,13 @@ echo [1/3] MSVC 환경 로드...
+ powershell -ExecutionPolicy Bypass -File "%SOURCE_DIR%\tools\windows\load-msvc-env.ps1"
+ if %errorlevel% neq 0 ( echo 실패 & pause & exit /b 1 )
+  
+-echo [2/3] CMake 구성...
+-cmake -S "%SOURCE_DIR%" -B "%SOURCE_DIR%\build" -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DYUZU_TESTS=OFF -DYUZU_USE_BUNDLED_QT=ON -DYUZU_USE_CPM=ON -DENABLE_LTO=ON -DYUZU_CMD=OFF -DYUZU_ROOM=ON -DYUZU_USE_BUNDLED_FFMPEG=ON
+-if %errorlevel% neq 0 ( echo 실패 & pause & exit /b 1 )
++if not exist "%SOURCE_DIR%\build" (
++    echo [2/3] CMake 구성 중...
++    cmake -S "%SOURCE_DIR%" -B "%SOURCE_DIR%\build" -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DYUZU_TESTS=OFF -DYUZU_USE_BUNDLED_QT=ON -DYUZU_USE_CPM=ON -DENABLE_LTO=ON -DYUZU_CMD=OFF -DYUZU_ROOM=ON -DYUZU_USE_BUNDLED_FFMPEG=ON
++    if %errorlevel% neq 0 ( echo 실패 & pause & exit /b 1 )
++) else (
++    echo [2/3] CMake 구성 생략 (build 폴더 존재)
++)
+  
+ echo [3/3] 빌드...
+ cmake --build "%SOURCE_DIR%\build" --config Release --parallel
+
+From c4a4f71f52682300f51508b5849a06e0d5b1f025 Mon Sep 17 00:00:00 2001
+From: uzucore <byunjaeil@gmail.com>
+Date: Sat, 16 May 2026 05:08:10 +0900
+Subject: [PATCH 5/7] ...
+
+---
+ windows.bat | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/windows.bat b/windows.bat
+index ffe4906f95..36214350ce 100644
+--- a/windows.bat
++++ b/windows.bat
+@@ -1,4 +1,4 @@
+-echo off
++@echo off
+ chcp 65001 > nul
+  
+ set SOURCE_DIR=D:\NSW.dev\eden
+
+From db7577490c4edbf6877ea54607b33548075b4cda Mon Sep 17 00:00:00 2001
+From: uzucore <byunjaeil@gmail.com>
+Date: Sat, 16 May 2026 06:48:54 +0900
+Subject: [PATCH 6/7] =?UTF-8?q?=ED=95=9C=EA=B5=AD=EC=96=B4?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ src/qt_common/config/uisettings.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/qt_common/config/uisettings.h b/src/qt_common/config/uisettings.h
+index 4549a36345..09b6414688 100644
+--- a/src/qt_common/config/uisettings.h
++++ b/src/qt_common/config/uisettings.h
+@@ -172,7 +172,7 @@ struct Values {
+     bool game_dir_deprecated_deepscan;
+     QVector<GameDir> game_dirs;
+     QStringList recent_files;
+-    Setting<std::string> language{linkage, {}, "language", Category::Paths};
++    Setting<std::string> language{linkage, {"ko"}, "language", Category::Paths};
+ 
+     std::string theme;
+ 
+
+From 9db1dd8dd79b8f9071e9e345c8ff18d90c6ef5bf Mon Sep 17 00:00:00 2001
+From: uzucore <byunjaeil@gmail.com>
+Date: Sat, 16 May 2026 07:35:22 +0900
+Subject: [PATCH 7/7] =?UTF-8?q?=ED=91=9C=EA=B8=B0?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ CMakeModules/GenerateSCMRev.cmake | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/CMakeModules/GenerateSCMRev.cmake b/CMakeModules/GenerateSCMRev.cmake
+index 8385385b29..8c4c4b76ff 100644
+--- a/CMakeModules/GenerateSCMRev.cmake
++++ b/CMakeModules/GenerateSCMRev.cmake
+@@ -19,7 +19,7 @@ if (DEFINED GIT_RELEASE)
+     set(GIT_REFSPEC "${GIT_RELEASE}")
+     set(IS_DEV_BUILD false)
+ else()
+-    string(TIMESTAMP BUILD_VERSION "%y%m%d" UTC)
++    string(TIMESTAMP BUILD_VERSION "%y%m%d%H%M" UTC)
+     set(IS_DEV_BUILD true)
+ endif()
+ 
