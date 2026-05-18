@@ -9,4 +9,4 @@ set_kill set "eden"
 
 sway_fullscreen "eden" "class" &
 
-/usr/bin/eden >/dev/null 2>&1
+MESA_LOADER_DRIVER_OVERRIDE= /usr/bin/eden >/dev/null 2>&1
