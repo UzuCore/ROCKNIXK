@@ -503,22 +503,37 @@
 };
 
 &gpu_opp_table {
-	opp-320000000  { opp-peak-kBps = < 3523437>; };
-	opp-465000000  { opp-peak-kBps = < 6000000>; };
-	opp-600000000  { opp-peak-kBps = < 7950000>; };
-	opp-745000000  { opp-peak-kBps = <10570312>; };
-	opp-820000000  { opp-peak-kBps = <12152533>; };
-	opp-900000000  { opp-peak-kBps = <14092726>; };
-	opp-950000000  { opp-peak-kBps = <14092726>; };
-	opp-980000000  { opp-peak-kBps = <14092726>; };
-	opp-1050000000 { opp-peak-kBps = <16343750>; };
+	opp-320000000 {
+		opp-peak-kBps = < 2188000>;
+	};
+	opp-465000000 {
+		opp-peak-kBps = < 3072000>;
+	};
+	opp-600000000 {
+		opp-peak-kBps = < 4068000>;
+	};
+	opp-745000000 {
+		opp-peak-kBps = < 6220000>;
+	};
+	opp-820000000 {
+		opp-peak-kBps = < 6220000>;
+	};
+	opp-900000000 {
+		opp-peak-kBps = < 7216000>;
+	};
+	opp-950000000 {
+		opp-peak-kBps = < 7216000>;
+	};
+	opp-980000000 {
+		opp-peak-kBps = < 7216000>;
+	};
+	opp-1050000000 {
+		opp-peak-kBps = < 8368000>;
+	};
 };
 
 &cpu_bwmon_opp_table {
-	opp-10 { opp-peak-kBps = <10570312>; };
-	opp-11 { opp-peak-kBps = <12152533>; };
-	opp-12 { opp-peak-kBps = <14092726>; };
-	opp-13 { opp-peak-kBps = <16343750>; };
+	opp-10 { opp-peak-kBps = <8368000>; };
 };
 
 &mdss {
@@ -1275,4 +1290,86 @@
 	};
 
 	trips { cpu67_fan: cpu67-fan { temperature = <65000>; hysteresis = <5000>; type = "active"; }; };
+};
+
+/ {
+	cpu0_opp_table: opp-table-cpu0 {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp-300000000  { opp-hz = /bits/ 64 < 300000000>; opp-peak-kBps = <  800000>; };
+		opp-614400000  { opp-hz = /bits/ 64 < 614400000>; opp-peak-kBps = < 2188000>; };
+		opp-864000000  { opp-hz = /bits/ 64 < 864000000>; opp-peak-kBps = < 3072000>; };
+		opp-1017600000 { opp-hz = /bits/ 64 <1017600000>; opp-peak-kBps = < 3072000>; };
+		opp-1305600000 { opp-hz = /bits/ 64 <1305600000>; opp-peak-kBps = < 3072000>; };
+		opp-1420800000 { opp-hz = /bits/ 64 <1420800000>; opp-peak-kBps = < 4068000>; };
+		opp-1612800000 { opp-hz = /bits/ 64 <1612800000>; opp-peak-kBps = < 4068000>; };
+		opp-1804800000 { opp-hz = /bits/ 64 <1804800000>; opp-peak-kBps = < 4068000>; };
+		opp-2016000000 { opp-hz = /bits/ 64 <2016000000>; opp-peak-kBps = < 6220000>; };
+	};
+
+	cpu4_opp_table: opp-table-cpu4 {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp-300000000  { opp-hz = /bits/ 64 < 300000000>; opp-peak-kBps = <  800000>; };
+		opp-652800000  { opp-hz = /bits/ 64 < 652800000>; opp-peak-kBps = < 2188000>; };
+		opp-902400000  { opp-hz = /bits/ 64 < 902400000>; opp-peak-kBps = < 2188000>; };
+		opp-1056000000 { opp-hz = /bits/ 64 <1056000000>; opp-peak-kBps = < 4068000>; };
+		opp-1401600000 { opp-hz = /bits/ 64 <1401600000>; opp-peak-kBps = < 4068000>; };
+		opp-1536000000 { opp-hz = /bits/ 64 <1536000000>; opp-peak-kBps = < 6220000>; };
+		opp-1612800000 { opp-hz = /bits/ 64 <1612800000>; opp-peak-kBps = < 6220000>; };
+		opp-1804800000 { opp-hz = /bits/ 64 <1804800000>; opp-peak-kBps = < 6220000>; };
+		opp-2016000000 { opp-hz = /bits/ 64 <2016000000>; opp-peak-kBps = < 7216000>; };
+		opp-2112000000 { opp-hz = /bits/ 64 <2112000000>; opp-peak-kBps = < 8368000>; };
+	};
+};
+
+&cpu0 {
+	#cooling-cells = <2>;
+	operating-points-v2 = <&cpu0_opp_table>;
+	interconnects = <&bimc MASTER_AMPSS_M0 RPM_ACTIVE_TAG
+			 &bimc SLAVE_EBI_CH0 RPM_ACTIVE_TAG>;
+};
+&cpu1 {
+	#cooling-cells = <2>;
+	operating-points-v2 = <&cpu0_opp_table>;
+	interconnects = <&bimc MASTER_AMPSS_M0 RPM_ACTIVE_TAG
+			 &bimc SLAVE_EBI_CH0 RPM_ACTIVE_TAG>;
+};
+&cpu2 {
+	#cooling-cells = <2>;
+	operating-points-v2 = <&cpu0_opp_table>;
+	interconnects = <&bimc MASTER_AMPSS_M0 RPM_ACTIVE_TAG
+			 &bimc SLAVE_EBI_CH0 RPM_ACTIVE_TAG>;
+};
+&cpu3 {
+	#cooling-cells = <2>;
+	operating-points-v2 = <&cpu0_opp_table>;
+	interconnects = <&bimc MASTER_AMPSS_M0 RPM_ACTIVE_TAG
+			 &bimc SLAVE_EBI_CH0 RPM_ACTIVE_TAG>;
+};
+&cpu4 {
+	#cooling-cells = <2>;
+	operating-points-v2 = <&cpu4_opp_table>;
+	interconnects = <&bimc MASTER_AMPSS_M0 RPM_ACTIVE_TAG
+			 &bimc SLAVE_EBI_CH0 RPM_ACTIVE_TAG>;
+};
+&cpu5 {
+	#cooling-cells = <2>;
+	operating-points-v2 = <&cpu4_opp_table>;
+	interconnects = <&bimc MASTER_AMPSS_M0 RPM_ACTIVE_TAG
+			 &bimc SLAVE_EBI_CH0 RPM_ACTIVE_TAG>;
+};
+&cpu6 {
+	#cooling-cells = <2>;
+	operating-points-v2 = <&cpu4_opp_table>;
+	interconnects = <&bimc MASTER_AMPSS_M0 RPM_ACTIVE_TAG
+			 &bimc SLAVE_EBI_CH0 RPM_ACTIVE_TAG>;
+};
+&cpu7 {
+	#cooling-cells = <2>;
+	operating-points-v2 = <&cpu4_opp_table>;
+	interconnects = <&bimc MASTER_AMPSS_M0 RPM_ACTIVE_TAG
+			 &bimc SLAVE_EBI_CH0 RPM_ACTIVE_TAG>;
 };
