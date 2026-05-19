@@ -146,7 +146,10 @@ fi
 if [ "${QUIRK_DEVICE}" = "AYN Thor" ]; then
   echo 'for_window [app_id="emulationstation"] reload' >> $SWAY_HOME/config
   echo "exec_always swaymsg '[app_id=\"emulationstation\"]' focus output ${con}" >> $SWAY_HOME/config
-  echo "exec_always swaymsg '[app_id=\"emulationstation\"]' seat seat1 attach \"0:0:generic_ft5x06_(8d)\"" >> $SWAY_HOME/config
+  echo 'exec_always swaymsg input "0:0:top_touchscreen" map_to_output DSI-2' >> $SWAY_HOME/config
+  echo 'exec_always swaymsg input "0:0:bottom_touchscreen" map_to_output DSI-1' >> $SWAY_HOME/config
+  echo "exec_always swaymsg '[app_id=\"emulationstation\"]' seat seat1 attach \"0:0:top_touchscreen\"" >> $SWAY_HOME/config
+  echo "exec_always swaymsg '[app_id=\"emulationstation\"]' seat seat1 attach \"0:0:bottom_touchscreen\"" >> $SWAY_HOME/config
   echo "exec_always swaymsg '[app_id=\"emulationstation\"]' seat seat1 attach \"4660:22136:InputPlumber_Keyboard\"" >> $SWAY_HOME/config
 fi
 
