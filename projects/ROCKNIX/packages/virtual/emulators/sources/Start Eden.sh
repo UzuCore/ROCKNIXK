@@ -5,8 +5,10 @@
 
 source /etc/profile
 
+export QT_QPA_PLATFORM=xcb
+
 set_kill set "eden"
 
 sway_fullscreen "eden" "class" &
 
-MESA_LOADER_DRIVER_OVERRIDE= /usr/bin/eden >/dev/null 2>&1
+/usr/bin/eden >/dev/null 2>&1
