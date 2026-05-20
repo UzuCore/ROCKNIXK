@@ -92,6 +92,8 @@ make_target() {
     -DCMAKE_INSTALL_LIBDIR=lib
     -DQT_HOST_PATH="${TOOLCHAIN}/usr/local/qt6"
     -DTUNE_CPU="${TARGET_CPU##*.}"
+    -DCMAKE_CXX_FLAGS="-Xclang -target-feature -Xclang -sve"
+    -DCMAKE_C_FLAGS="-Xclang -target-feature -Xclang -sve"
   )
   cmake "${tgt_opts[@]}"
   bash "${PKG_BUILD}/Data/nix/cmake_enable_libfwd.sh"
