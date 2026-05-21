@@ -1,0 +1,75 @@
+################################################################################
+# setup device defaults
+################################################################################
+
+  # Target CPU
+    case ${TARGET_ARCH} in
+      x86_64)
+        if [ -z "${TARGET_CPU}" ]; then
+          TARGET_CPU="x86-64-v3"
+        fi
+      ;;
+    esac
+
+  # Kernel command line
+    EXTRA_CMDLINE="quiet console=tty0 ssh consoleblank=0 systemd.show_status=0 loglevel=0 panic=20 intel_pstate=passive amd_pstate=active amd_pstate.shared_mem=1 amdgpu.dpm=1"
+
+  # Partition label
+    PARTITION_TABLE="msdos"
+
+  # OpenGL implementation to use (mesa / no)
+    OPENGL="mesa"
+
+  # OpenGL-ES implementation to use (mesa / no)
+    OPENGLES="mesa"
+
+  # Vulkan implementation to use (vulkan-loader / no)
+    VULKAN="vulkan-loader"
+
+  # VULKAN_SUPPORT
+    VULKAN_SUPPORT="yes"
+
+  # Displayserver to use (wl / x11 / no)
+    DISPLAYSERVER="wl"
+
+  # Windowmanager to use (weston / swaywm-env / no)
+    WINDOWMANAGER="weston"
+
+  # Mesa 3D Graphic drivers
+  # Space separated list is supported
+    GRAPHIC_DRIVERS="crocus i915 iris r300 r600 radeonsi virtio"
+
+  # Additional packages to install
+    ADDITIONAL_PACKAGES=""
+
+  # Additional Firmware
+    FIRMWARE="asus-firmware iwlwifi-firmware ibt-firmware"
+
+  # Additional drivers to install
+    ADDITIONAL_DRIVERS="RTL8812AU RTL8814AU RTL8821AU RTL8821CU RTL88x2BU ryzensmu ayn-platform"
+
+  # Debug tty path
+    DEBUG_TTY="/dev/tty0"
+
+  # Disable 32BIT support
+    ENABLE_32BIT="false"
+
+  # NTFS-3G fuse support (yes / no)
+    NTFS3G="yes"
+
+  # Support for partitioning and formating disks in initramfs (yes / no)
+    INITRAMFS_PARTED_SUPPORT="yes"
+
+  # Swap file size in MB
+    SWAPFILESIZE="1024"
+
+  # ZRAM
+    ZRAM_COMPRESSION_ALGO="zstd"
+    ZRAM_SWAP_SIZE="Auto"
+
+  # Installer support
+    INSTALLER_SUPPORT="yes"
+
+  # HW CPU label
+    HW_CPU="x86_64"
+  KERNEL_TARGET="bzImage"

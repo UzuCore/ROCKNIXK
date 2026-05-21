@@ -4,9 +4,9 @@
 # Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
 
 PKG_NAME="fbneo-lr"
-PKG_VERSION="09e45081253540b11199d44aa1f9b419e621c13c"
+PKG_VERSION="cfb2e17b52d0fa4c33e33f82c21d4874bfb22782" # DsNo (260516)
 PKG_LICENSE="Non-commercial"
-PKG_SITE="https://github.com/libretro/FBNeo"
+PKG_SITE="https://github.com/aleksei74/FBNeo"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Port of Final Burn Neo to Libretro (v0.2.97.38)."
@@ -16,7 +16,7 @@ PKG_TOOLCHAIN="make"
 pre_configure_target() {
 sed -i "s|LDFLAGS += -static-libgcc -static-libstdc++|LDFLAGS += -static-libgcc|"  ./src/burner/libretro/Makefile
 
-PKG_MAKE_OPTS_TARGET=" -C ./src/burner/libretro USE_CYCLONE=0 profile=performance"
+PKG_MAKE_OPTS_TARGET=" -C ./src/burner/libretro USE_CYCLONE=0 profile=performance GIT_VERSION=${PKG_VERSION:0:10}"
 
 if [[ "${TARGET_FPU}" =~ "neon" ]]; then
 	PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=1"

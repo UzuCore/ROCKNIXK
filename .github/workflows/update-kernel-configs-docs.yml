@@ -85,6 +85,7 @@ jobs:
           if-no-files-found: error
 
   create-pr-kernel-configs-docs:
+    if: false
     runs-on: ubuntu-24.04
     name: Create PR with updated kernel config or docs
     needs:

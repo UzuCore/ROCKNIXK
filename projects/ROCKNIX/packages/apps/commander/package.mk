@@ -6,7 +6,7 @@ PKG_VERSION="b3c008cac3bff9de54a3542cecc53cc271058744"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/ROCKNIX/commander"
 PKG_URL="${PKG_SITE}.git"
-PKG_DEPENDS_TARGET="toolchain SDL2 SDL2_image SDL2_gfx SDL2_ttf dejavu"
+PKG_DEPENDS_TARGET="toolchain SDL2 SDL2_image SDL2_gfx SDL2_ttf dejavu nanumgothic"
 PKG_LONGDESC="A minimal SDL2 file manager for embedded Linux devices."
 PKG_TOOLCHAIN="cmake"
 

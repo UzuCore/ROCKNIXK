@@ -70,6 +70,10 @@ else
   xmlstarlet ed --inplace --subnode "/gameList/folder[last()]" --type elem -n hidden -v "true" /storage/roms/ports/gamelist.xml
 fi
 
+if ! grep -q storage /storage/roms/ports/PortMaster/PortMaster.sh; then
+  sed -i'' -r -e "/$ESUDO systemctl restart oga_events &/a\$ESUDO chmod -R +x /storage/roms/ports" /storage/roms/ports/PortMaster/PortMaster.sh
+fi
+
 #Start PortMaster
 cd /storage/roms/ports/PortMaster
 ./PortMaster.sh 2>/dev/null

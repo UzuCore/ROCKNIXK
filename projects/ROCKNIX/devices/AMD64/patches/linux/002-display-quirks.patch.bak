@@ -1,0 +1,18 @@
+--- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
++++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
+@@ -241,6 +241,13 @@ static const struct dmi_system_id orient
+ 	}, {	/* AYA NEO GEEK */
+ 		.matches = {
+ 		  DMI_EXACT_MATCH(DMI_BOARD_VENDOR, "AYANEO"),
+ 		  DMI_MATCH(DMI_BOARD_NAME, "GEEK"),
+ 		},
+ 		.driver_data = (void *)&lcd800x1280_rightside_up,
++	}, {	/* AOKZOE A1 Pro */
++		.matches = {
++		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "AOKZOE"),
++		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "AOKZOE A1 Pro"),
++		},
++		.driver_data = (void *)&lcd1200x1920_leftside_up,
+ 	}, {	/* AYN Loki Max */
+ 		.matches = {
+ 		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ayn"),

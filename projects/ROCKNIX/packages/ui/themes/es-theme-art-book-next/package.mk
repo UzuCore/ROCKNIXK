@@ -2,10 +2,10 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="es-theme-art-book-next"
-PKG_VERSION="9a50ef366e750aabfab29e6915a2867607212971"
+PKG_VERSION="ecff478bf56c5ab64403311e13d55a35e6dacd7a"
 PKG_LICENSE="CUSTOM"
-PKG_SITE="https://github.com/anthonycaccese/art-book-next-es"
-PKG_URL="https://github.com/anthonycaccese/art-book-next-es/archive/${PKG_VERSION}.tar.gz"
+PKG_SITE="https://github.com/UzuCore/es-theme-art-book-dc"
+PKG_URL="https://github.com/UzuCore/es-theme-art-book-dc/archive/${PKG_VERSION}.tar.gz"
 PKG_LONGDESC="Art Book Next"
 PKG_TOOLCHAIN="manual"
 

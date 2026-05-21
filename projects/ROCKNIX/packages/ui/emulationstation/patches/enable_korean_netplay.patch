@@ -1,0 +1,14 @@
+--- a/es-core/src/Settings.cpp
++++ b/es-core/src/Settings.cpp
+@@ -400,7 +400,10 @@
+ 	mBoolMap["global.retroachievements.richpresence"] = false;
+ 
+ 	mBoolMap["global.netplay_public_announce"] = true;
+-	mBoolMap["global.netplay"] = false;
++	mBoolMap["global.netplay"] = true;
++	mStringMap["global.netplay.port"] = "55435";
++	mStringMap["global.netplay.relay"] = "custom";
++	mStringMap["global.netplay.customserver"] = "138.2.119.137";
+ 
+ 	mBoolMap["kodi.enabled"] = false;
+ 	mBoolMap["kodi.atstartup"] = false;

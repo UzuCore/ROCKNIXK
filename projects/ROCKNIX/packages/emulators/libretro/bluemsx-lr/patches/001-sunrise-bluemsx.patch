@@ -1,0 +1,57 @@
+diff --git a/libretro.c b/libretro.c
+index d6bb4f7..d50f36a 100644
+--- a/libretro.c
++++ b/libretro.c
+@@ -35,6 +35,7 @@
+ #include "ziphelper.c"
+ 
+ #include "libretro_core_options.h"
++#include "Disk.h"
+ 
+ retro_log_printf_t log_cb;
+ static retro_video_refresh_t video_cb;
+@@ -927,6 +928,8 @@ bool retro_load_game(const struct retro_game_info *info)
+    int i, media_type;
+    char properties_dir[256], machines_dir[256], mediadb_dir[256];
+    const char *dir = NULL;
++   char *ide_strstr = NULL;
++   
+    enum retro_pixel_format fmt = RETRO_PIXEL_FORMAT_RGB565;
+ 
+    if (!environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt))
+@@ -1058,11 +1061,16 @@ bool retro_load_game(const struct retro_game_info *info)
+       switch(media_type)
+       {
+          case MEDIA_TYPE_DISK:
+-            strcpy(disk_paths[0] , info->path);
+-            strcpy(properties->media.disks[0].fileName , info->path);
+-            disk_images = 1;
+-            disk_inserted = true;
+-            attach_disk_swap_interface();
++            ide_strstr = strstr(info->path, "IDE_");
++            if (ide_strstr != NULL)
++               insertDiskette(properties, diskGetHdDriveId(2, 0), info->path, NULL, -1);
++            else {
++               strcpy(disk_paths[0] , info->path);
++               strcpy(properties->media.disks[0].fileName , info->path);
++               disk_images = 1;
++               disk_inserted = true;
++               attach_disk_swap_interface();
++            }
+             break;
+          case MEDIA_TYPE_DISK_BUNDLE:
+             if (!read_m3u(info->path))
+diff --git a/libretro_core_options.h b/libretro_core_options.h
+index 2312777..026a5ec 100644
+--- a/libretro_core_options.h
++++ b/libretro_core_options.h
+@@ -37,6 +37,9 @@ struct retro_core_option_definition option_defs_us[] = {
+          { "MSXturboR",   NULL },
+          { "MSX2",   NULL },
+          { "MSX2+",   NULL },
++         { "MSXturboR - SUNRISEIDE HDD",   NULL },
++         { "MSX2 - SUNRISEIDE HDD",   NULL },
++         { "MSX2+ - SUNRISEIDE HDD",   NULL },
+          { "SEGA - SG-1000",   NULL },
+          { "SEGA - SC-3000",   NULL },
+          { "SEGA - SF-7000",   NULL },

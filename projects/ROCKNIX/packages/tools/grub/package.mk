@@ -2,18 +2,28 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="grub"
-PKG_VERSION="2.14-rc1"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://www.gnu.org/software/grub/index.html"
-PKG_URL="http://git.savannah.gnu.org/cgit/grub.git/snapshot/${PKG_NAME}-${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_HOST="toolchain:host"
-PKG_DEPENDS_TARGET="toolchain flex freetype:host gettext:host grub:host"
-PKG_DEPENDS_UNPACK="gnulib"
 PKG_LONGDESC="GRUB is a Multiboot boot loader."
 PKG_TOOLCHAIN="configure"
 
 PKG_NEED_UNPACK="${PROJECT_DIR}/${PROJECT}/bootloader ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/bootloader"
 PKG_NEED_UNPACK+=" ${PROJECT_DIR}/${PROJECT}/options ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/options"
+
+case ${DEVICE} in
+  AMD64)
+    PKG_VERSION="4fdcb339bbcfbf5c234c764c83813ab8de9c9657"
+    PKG_URL="https://github.com/rhboot/grub2/archive/${PKG_VERSION}.tar.gz"
+    PKG_DEPENDS_HOST="toolchain:host gnulib"
+    PKG_DEPENDS_TARGET="toolchain flex freetype:host gettext:host grub:host gnulib"
+    ;;
+  *)
+    PKG_VERSION="2.14-rc1"
+    PKG_URL="http://git.savannah.gnu.org/cgit/grub.git/snapshot/${PKG_NAME}-${PKG_VERSION}.tar.gz"
+    PKG_DEPENDS_HOST="toolchain:host"
+    PKG_DEPENDS_TARGET="toolchain flex freetype:host gettext:host grub:host"
+    ;;
+esac
 
 pre_configure_host() {
   unset CFLAGS
@@ -35,9 +45,20 @@ pre_configure_host() {
 }
 
 pre_configure_target() {
-  PKG_CONFIGURE_OPTS_TARGET="--target=arm64-pc-linux \
-                             --disable-nls \
-                             --with-platform=efi"
+  case ${DEVICE} in
+    AMD64)
+      PKG_CONFIGURE_OPTS_TARGET="--target=x86_64-pc-linux \
+                               --disable-nls \
+                               --disable-silent-rules \
+                               --disable-werror \
+                               --with-platform=efi"
+    ;;
+    *)
+      PKG_CONFIGURE_OPTS_TARGET="--target=arm64-pc-linux \
+                               --disable-nls \
+                               --with-platform=efi"
+    ;;
+  esac
 
   unset CFLAGS
   unset CPPFLAGS
@@ -69,17 +90,27 @@ make_target() {
 }
 
 makeinstall_target() {
-  ${PKG_BUILD}/.${HOST_NAME}/grub-mkimage -d grub-core -o bootaa64.efi -O arm64-efi -p /boot/grub \
-    boot linux ext2 fat squash4 part_msdos part_gpt normal search search_fs_file search_fs_uuid \
-    search_label chain reboot loadenv test gfxterm efi_gop
-
-  mkdir -p ${INSTALL}/usr/share/bootloader/boot/grub
-    cp -av ${PKG_DIR}/config/* ${INSTALL}/usr/share/bootloader/boot/grub
-
-  mkdir -p ${INSTALL}/usr/share/bootloader/EFI/BOOT
-    cp -av bootaa64.efi ${INSTALL}/usr/share/bootloader/EFI/BOOT
+  case ${DEVICE} in
+    AMD64)
+      ${PKG_BUILD}/.${HOST_NAME}/grub-mkimage -d grub-core -o bootx64.efi -O x86_64-efi -p /boot/grub \
+        boot linux ext2 fat squash4 part_msdos part_gpt normal search search_fs_file search_fs_uuid \
+        search_label chain reboot loadenv test gfxterm efi_gop
+      mkdir -p ${INSTALL}/usr/share/bootloader/boot/grub
+        cp -av ${PKG_DIR}/config/* ${INSTALL}/usr/share/bootloader/boot/grub
+      mkdir -p ${INSTALL}/usr/share/bootloader/EFI/BOOT
+        cp -av bootx64.efi ${INSTALL}/usr/share/bootloader/EFI/BOOT
+    ;;
+    *)
+      ${PKG_BUILD}/.${HOST_NAME}/grub-mkimage -d grub-core -o bootaa64.efi -O arm64-efi -p /boot/grub \
+        boot linux ext2 fat squash4 part_msdos part_gpt normal search search_fs_file search_fs_uuid \
+        search_label chain reboot loadenv test gfxterm efi_gop
+      mkdir -p ${INSTALL}/usr/share/bootloader/boot/grub
+        cp -av ${PKG_DIR}/config/* ${INSTALL}/usr/share/bootloader/boot/grub
+      mkdir -p ${INSTALL}/usr/share/bootloader/EFI/BOOT
+        cp -av bootaa64.efi ${INSTALL}/usr/share/bootloader/EFI/BOOT
+    ;;
+  esac
 
   # Create grub configuration
   generate_grub_cfg_body > "${INSTALL}/usr/share/bootloader/boot/grub/grub.cfg"
-
 }

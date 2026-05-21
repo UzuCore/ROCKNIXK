@@ -59,14 +59,16 @@ fi
 	fi
 
   #Internal Resolution
-	if [ "${IRES}" = "2" ]; then
+	if [ "${IRES}" = "1" ]; then
+		sed -i '/^InternalResolution/c\InternalResolution = 1' ${CONF_DIR}/${PPSSPP_INI}
+	elif [ "${IRES}" = "2" ]; then
 		sed -i '/^InternalResolution/c\InternalResolution = 2' ${CONF_DIR}/${PPSSPP_INI}
 	elif [ "${IRES}" = "3" ]; then
 		sed -i '/^InternalResolution/c\InternalResolution = 3' ${CONF_DIR}/${PPSSPP_INI}
 	elif [ "${IRES}" = "4" ]; then
                 sed -i '/^InternalResolution/c\InternalResolution = 4' ${CONF_DIR}/${PPSSPP_INI}
 	else
-		sed -i '/^InternalResolution/c\InternalResolution = 1' ${CONF_DIR}/${PPSSPP_INI}
+		sed -i '/^InternalResolution/c\InternalResolution = 0' ${CONF_DIR}/${PPSSPP_INI}
         fi
 
   #Show FPS

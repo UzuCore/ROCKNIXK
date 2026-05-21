@@ -54,6 +54,7 @@ makeinstall_target() {
                           --with-date_time \
                           --with-filesystem \
                           --with-iostreams \
+                          --with-process \
                           --with-program_options \
                           --with-python \
                           --with-locale \

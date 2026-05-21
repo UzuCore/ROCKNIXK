@@ -93,7 +93,7 @@ if [ "${DISPLAY_MODE}" ]; then
     fi
 fi
 echo "${output} bg #000000 solid_color" >> $SWAY_HOME/config
-echo "${output} allow_tearing yes" >> $SWAY_HOME/config
+#echo "${output} allow_tearing yes" >> $SWAY_HOME/config
 echo "${output} max_render_time off" >> $SWAY_HOME/config
 
 # Retroid Dual Screen Add-on

@@ -1,0 +1,27 @@
+diff --git a/src/core/bios.cpp b/src/core/bios.cpp
+index efcacf94..e38c01ad 100644
+--- a/src/core/bios.cpp
++++ b/src/core/bios.cpp
+@@ -24,7 +24,7 @@ static constexpr Hash MakeHashFromString(const char str[])
+   return h;
+ }
+ 
+-static ImageInfo s_image_infos[27] = {
++static ImageInfo s_image_infos[34] = {
+   {"SCPH-1000, DTL-H1000 (v1.0)", ConsoleRegion::NTSC_J, MakeHashFromString("239665b1a3dade1b5a52c06338011044"), true},
+    {"SCPH-1001, 5003, DTL-H1201, H3001 (v2.2 12-04-95 A)", ConsoleRegion::NTSC_U,
+     MakeHashFromString("924e392ed05558ffdb115408c263dccf"), true},
+@@ -58,6 +58,13 @@ static ImageInfo s_image_infos[27] = {
+    {"SCPH-7002, 7502, 9002 (v4.1 12-16-97 E)", ConsoleRegion::PAL,
+     MakeHashFromString("b9d9a0286c33dc6b7237bb13cd46fdee"), true},
+    {"SCPH-100 (v4.3 03-11-00 J)", ConsoleRegion::NTSC_J, MakeHashFromString("8abc1b549a4a80954addc48ef02c4521"), true},
++   {"Silent Hill (korea)", ConsoleRegion::NTSC_J, MakeHashFromString("fa911bd1982989426375a8da3d53ea33"), true},
++   {"Clock Tower - The First Fear (Korea)", ConsoleRegion::NTSC_J, MakeHashFromString("d5506b30013716cedf9d096d3638a302"), true},
++   {"First Queen IV - Varcia Senki (Korea)", ConsoleRegion::NTSC_J, MakeHashFromString("b987a0e3b3cefc6258f31a313f24f63f"), true},
++   {"Tokimeki Memorial 2 Substories (Korea)", ConsoleRegion::NTSC_J, MakeHashFromString("706ede8534a43d92434fa9a084ba68e0"), true},
++   {"World Soccer Winning Eleven 2002 (Korea)", ConsoleRegion::NTSC_J, MakeHashFromString("767754059a03868b8aff1f3c2951c424"), true},
++   {"Hanmaru (Korea)", ConsoleRegion::NTSC_J, MakeHashFromString("f2ea2c82f6a8c56eeac1c25ba60c9553"), true},
++   {"Alundra by haru (Korea)", ConsoleRegion::NTSC_J, MakeHashFromString("67760037fc87f714ed6220564c21089a"), true},
+    {"SCPH-101 (v4.4 03-24-00 A)", ConsoleRegion::NTSC_U, MakeHashFromString("9a09ab7e49b422c007e6d54d7c49b965"), true},
+    {"SCPH-101 (v4.5 05-25-00 A)", ConsoleRegion::NTSC_U, MakeHashFromString("6e3735ff4c7dc899ee98981385f6f3d0"), true},
+    {"SCPH-102 (v4.4 03-24-00 E)", ConsoleRegion::PAL, MakeHashFromString("b10f5e0e3d9eb60e5159690680b1e774"), true},

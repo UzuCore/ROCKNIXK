@@ -21,9 +21,9 @@
 ################################################################################
 
 PKG_NAME="mame2003-plus-lr"
-PKG_VERSION="5373e38e1091eb28f075513ecdc2575bafc8a5e3"
+PKG_VERSION="4861df1c84d69ab8182c275dadfa6afdb8078f1a" # DsNo (260516)
 PKG_LICENSE="MAME"
-PKG_SITE="https://github.com/libretro/mame2003-plus-libretro"
+PKG_SITE="https://github.com/aleksei74/mame2003-plus-dsno-libretro"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="MAME - Multiple Arcade Machine Emulator"
@@ -31,7 +31,7 @@ PKG_LONGDESC="MAME - Multiple Arcade Machine Emulator"
 PKG_TOOLCHAIN="make"
 
 make_target() {
-  make ARCH="" CC="${CC}" NATIVE_CC="${CC}" LD="${CC}"
+  make ARCH="" CC="${CC}" NATIVE_CC="${CC}" LD="${CC}" GIT_VERSION=" ${PKG_VERSION:0:10}"
 }
 
 makeinstall_target() {
