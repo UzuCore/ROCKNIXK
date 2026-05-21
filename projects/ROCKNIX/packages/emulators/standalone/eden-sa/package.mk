@@ -4,7 +4,7 @@
 PKG_NAME="eden-sa"
 PKG_VERSION="bc1f61c51fc6ef162271d13fd9a1b93d5659bc9f" # v0.2.0
 PKG_LICENSE="GPLv2"
-PKG_DEPENDS_TARGET="toolchain llvm:host SDL3 boost libevdev libdrm ffmpeg zlib zstd alsa-lib qt6 libfmt"
+PKG_DEPENDS_TARGET="toolchain SDL3 boost libevdev libdrm ffmpeg zlib zstd alsa-lib qt6 libfmt"
 PKG_LONGDESC="Eden is a high-performance and easy-to-use emulator, tailored for enthusiasts and developers alike."
 PKG_SITE="https://github.com/UzuCore/eden"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
@@ -32,8 +32,7 @@ PKG_CMAKE_OPTS_TARGET+=" -DYUZU_BUILD_PRESET=generic \
     -DUSE_DISCORD_PRESENCE=OFF \
     -DYUZU_USE_BUNDLED_SIRIT=ON \
     -DYUZU_USE_BUNDLED_QT=OFF \
-    -DYUZU_USE_BUNDLED_SDL2=OFF \
-    -DYUZU_USE_EXTERNAL_SDL2=ON \
+    -DYUZU_USE_BUNDLED_SDL3=OFF \
     -DYUZU_TESTS=OFF \
     -DYUZU_USE_QT_MULTIMEDIA=OFF \
     -DYUZU_USE_QT_WEB_ENGINE=OFF \
@@ -41,7 +40,7 @@ PKG_CMAKE_OPTS_TARGET+=" -DYUZU_BUILD_PRESET=generic \
     -DYUZU_ROOM_STANDALONE=OFF \
     -DYUZU_CMD=OFF \
     -DVulkanHeaders_FORCE_BUNDLED=ON \
-    -DENABLE_LTO=OFF \
+    -DENABLE_LTO=ON \
     -DCMAKE_BUILD_TYPE=Release"
 
 
