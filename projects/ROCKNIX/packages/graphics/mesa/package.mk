@@ -5,8 +5,8 @@
 PKG_NAME="mesa"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
-PKG_DEPENDS_HOST="toolchain:host llvm:host libclc:host spirv-tools:host libdrm:host \
-                  spirv-llvm-translator:host wayland-protocols:host libX11:host libXext:host \
+PKG_DEPENDS_HOST="toolchain:host llvm:host spirv-tools:host libdrm:host \
+                  wayland-protocols:host libX11:host libXext:host \
                   libXfixes:host libxshmfence:host libXxf86vm:host xrandr:host glslang:host"
 PKG_DEPENDS_TARGET="toolchain expat libdrm Mako:host pyyaml:host"
 PKG_LONGDESC="Mesa is a 3-D graphics library with an API."
@@ -16,8 +16,16 @@ PKG_VERSION="26.1.0"
 PKG_URL="https://gitlab.freedesktop.org/mesa/mesa/-/archive/mesa-${PKG_VERSION}/mesa-mesa-${PKG_VERSION}.tar.gz"
 
 if listcontains "${GRAPHIC_DRIVERS}" "panfrost" || \
-   listcontains "${GRAPHIC_DRIVERS}" "freedreno"; then
+   listcontains "${GRAPHIC_DRIVERS}" "freedreno" || \
+   listcontains "${GRAPHIC_DRIVERS}" "iris" || \
+   listcontains "${GRAPHIC_DRIVERS}" "crocus"; then
   PKG_DEPENDS_TARGET+=" mesa:host"
+fi
+if listcontains "${GRAPHIC_DRIVERS}" "panfrost" || \
+   listcontains "${GRAPHIC_DRIVERS}" "freedreno" || \
+   listcontains "${GRAPHIC_DRIVERS}" "iris" || \
+   listcontains "${GRAPHIC_DRIVERS}" "crocus"; then
+  PKG_DEPENDS_HOST+=" libclc:host"
 fi
 
 get_graphicdrivers
@@ -27,11 +35,18 @@ pre_configure_host() {
                          -Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
                          -Dvulkan-drivers=${VULKAN_DRIVERS_MESA// /,}"
 
-  if listcontains "${GRAPHIC_DRIVERS}" "panfrost"; then
+  if listcontains "${GRAPHIC_DRIVERS}" "panfrost" || \
+     listcontains "${GRAPHIC_DRIVERS}" "iris" || \
+     listcontains "${GRAPHIC_DRIVERS}" "crocus"; then
     PKG_MESON_OPTS_HOST+=" -Dmesa-clc=enabled \
                            -Dinstall-mesa-clc=true \
                            -Dprecomp-compiler=enabled \
                            -Dinstall-precomp-compiler=true"
+  fi
+  if listcontains "${GRAPHIC_DRIVERS}" "iris" || \
+     listcontains "${GRAPHIC_DRIVERS}" "crocus"; then
+    # For host build, only need iris/crocus for mesa-clc, skip i915 (needs libdrm_intel)
+    PKG_MESON_OPTS_HOST="${PKG_MESON_OPTS_HOST//-Dgallium-drivers=${GALLIUM_DRIVERS// /,}/-Dgallium-drivers=iris,softpipe}"
   fi
 
   if listcontains "${GRAPHIC_DRIVERS}" "freedreno"; then
@@ -57,6 +72,9 @@ PKG_MESON_OPTS_TARGET=" ${MESA_LIBS_PATH_OPTS} \
 
 if listcontains "${GRAPHIC_DRIVERS}" "panfrost"; then
   # These options require that we have built mesa host as specified above
+  PKG_MESON_OPTS_TARGET+=" -Dmesa-clc=system \
+                           -Dprecomp-compiler=system"
+elif listcontains "${GRAPHIC_DRIVERS}" "iris" || listcontains "${GRAPHIC_DRIVERS}" "crocus"; then
   PKG_MESON_OPTS_TARGET+=" -Dmesa-clc=system \
                            -Dprecomp-compiler=system"
 fi

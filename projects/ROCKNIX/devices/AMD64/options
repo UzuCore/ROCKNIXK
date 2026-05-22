@@ -43,7 +43,7 @@
     ADDITIONAL_PACKAGES=""
 
   # Additional Firmware
-    FIRMWARE="asus-firmware iwlwifi-firmware ibt-firmware"
+    FIRMWARE="iwlwifi-firmware ibt-firmware"
 
   # Additional drivers to install
     ADDITIONAL_DRIVERS="RTL8812AU RTL8814AU RTL8821AU RTL8821CU RTL88x2BU ryzensmu ayn-platform"
