@@ -21,7 +21,9 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
 
 case ${DEVICE} in
   AMD64)
-    PKG_CONFIGURE_OPTS_TARGET+=" CFLAGS=-fPIC"
+    # build the static archive as position-independent so it can be linked
+    # into shared objects (e.g. mupen64plus-sa-audio-sdl)
+    PKG_BUILD_FLAGS="+pic"
     ;;
 esac
 

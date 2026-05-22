@@ -11,6 +11,14 @@ PKG_DEPENDS_TARGET="toolchain libdvbpsi gnutls ffmpeg libmpeg2 zlib flac libvorb
 PKG_LONGDESC="VideoLAN multimedia player and streamer"
 PKG_TOOLCHAIN="autotools"
 
+case ${DEVICE} in
+  AMD64)
+    # Parallel build causes race condition: modules link before libvlccore.so is ready,
+    # producing empty .so files that fail at install time (libtool relink mv error).
+    PKG_BUILD_FLAGS="-parallel"
+    ;;
+esac
+
 pre_configure_target() {
   export CFLAGS="${CFLAGS} -Wno-error=incompatible-pointer-types"
   export CXXLFAGS="${CXXFLAGS} -Wno-error=incompatible-pointer-types"
@@ -183,6 +191,16 @@ pre_configure_target() {
   esac
 
   PKG_CONFIGURE_OPTS_TARGET="${DISABLED_FEATURES} ${ENABLED_FEATURES}"
+
+  # AMD64: gstreamer decoder 헤더 버전 불일치(gst-plugins-bad 1.27 vs core 1.28)로
+  # GstVideoBufferPool 심볼 미정의 에러 발생. ffmpeg avcodec이 활성화돼 있으므로
+  # gstreamer decode backend는 불필요.
+  case ${DEVICE} in
+    AMD64)
+      PKG_CONFIGURE_OPTS_TARGET+=" --disable-gst-decode"
+      ;;
+  esac
+
   export LDFLAGS="${LDFLAGS} -lresolv -fopenmp -Wl,-rpath,../src/.libs"
 }
 
