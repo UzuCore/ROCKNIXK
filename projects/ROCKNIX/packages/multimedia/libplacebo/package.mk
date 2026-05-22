@@ -18,4 +18,9 @@ fi
 
 pre_configure_target() {
   export TARGET_LDFLAGS="${LDFLAGS} -lglslang"
+  case ${DEVICE} in
+    AMD64)
+      export LDFLAGS="${LDFLAGS} -lSPIRV-Tools -lSPIRV-Tools-opt"
+      ;;
+  esac
 }

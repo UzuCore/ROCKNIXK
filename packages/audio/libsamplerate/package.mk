@@ -19,6 +19,12 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
                            --disable-fftw \
                            --disable-sndfile"
 
+case ${DEVICE} in
+  AMD64)
+    PKG_CONFIGURE_OPTS_TARGET+=" CFLAGS=-fPIC"
+    ;;
+esac
+
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/bin
 }
