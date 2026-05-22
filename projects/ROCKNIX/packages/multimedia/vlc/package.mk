@@ -10,14 +10,8 @@ PKG_URL="https://mirror.netcologne.de/videolan.org/${PKG_NAME}/${PKG_VERSION}/$P
 PKG_DEPENDS_TARGET="toolchain libdvbpsi gnutls ffmpeg libmpeg2 zlib flac libvorbis libxml2 pulseaudio SDL2 x264 x265 aom libogg"
 PKG_LONGDESC="VideoLAN multimedia player and streamer"
 PKG_TOOLCHAIN="autotools"
+PKG_BUILD_FLAGS="-parallel"
 
-case ${DEVICE} in
-  AMD64)
-    # Parallel build causes race condition: modules link before libvlccore.so is ready,
-    # producing empty .so files that fail at install time (libtool relink mv error).
-    PKG_BUILD_FLAGS="-parallel"
-    ;;
-esac
 
 pre_configure_target() {
   export CFLAGS="${CFLAGS} -Wno-error=incompatible-pointer-types"
