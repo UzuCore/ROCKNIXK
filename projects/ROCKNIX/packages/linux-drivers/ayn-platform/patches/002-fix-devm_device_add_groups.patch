@@ -1,0 +1,11 @@
+--- a/ayn-platform.c	2026-05-22 09:55:18.328775207 +0900
++++ b/ayn-platform.c	2026-05-22 09:55:18.328775207 +0900
+@@ -713,7 +713,7 @@
+ 
+         struct led_classdev *led_cdev = &ayn_led_mc.led_cdev;
+ 
+-        retval = devm_device_add_groups(led_cdev->dev, ayn_led_mc_groups);
++        retval = devm_device_add_group(led_cdev->dev, ayn_led_mc_groups[0]);
+         if (retval)
+                 return retval;
+ 

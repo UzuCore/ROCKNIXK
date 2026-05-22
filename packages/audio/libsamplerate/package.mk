@@ -19,6 +19,14 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
                            --disable-fftw \
                            --disable-sndfile"
 
+case ${DEVICE} in
+  AMD64)
+    # build the static archive as position-independent so it can be linked
+    # into shared objects (e.g. mupen64plus-sa-audio-sdl)
+    PKG_BUILD_FLAGS="+pic"
+    ;;
+esac
+
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/bin
 }

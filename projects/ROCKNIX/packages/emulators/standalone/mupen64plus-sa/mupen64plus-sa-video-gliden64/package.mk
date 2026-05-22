@@ -53,6 +53,15 @@ make_target() {
 
   sed -i 's/\-O[23]/-Ofast/' ${PKG_BUILD}/src/CMakeLists.txt
 
+  case ${DEVICE} in
+    AMD64)
+      # gcc15 removed implicit <stdint.h> inclusion; TxHiResLoader.h uses uint32_t/uint8_t
+      # without including it. Prepend #include <cstdint> if not already present.
+      grep -q "cstdint" ${PKG_BUILD}/src/GLideNHQ/TxHiResLoader.h || \
+        sed -i '1s/^/#include <cstdint>\n/' ${PKG_BUILD}/src/GLideNHQ/TxHiResLoader.h
+      ;;
+  esac
+
   ./src/getRevision.sh
   cmake ${PKG_MAKE_OPTS_TARGET} -DAPIDIR=${APIDIR} -DMUPENPLUSAPI=On -DGLIDEN64_BUILD_TYPE=Release -DCMAKE_C_COMPILER="${CC}" -DCMAKE_CXX_COMPILER="${CXX}" -DCMAKE_C_FLAGS="${CFLAGS}" -DCMAKE_CXX_FLAGS="${CXXFLAGS} -pthread" -S src -B projects/cmake
   make clean -C projects/cmake

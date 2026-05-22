@@ -10,6 +10,8 @@ PKG_URL="https://mirror.netcologne.de/videolan.org/${PKG_NAME}/${PKG_VERSION}/$P
 PKG_DEPENDS_TARGET="toolchain libdvbpsi gnutls ffmpeg libmpeg2 zlib flac libvorbis libxml2 pulseaudio SDL2 x264 x265 aom libogg"
 PKG_LONGDESC="VideoLAN multimedia player and streamer"
 PKG_TOOLCHAIN="autotools"
+PKG_BUILD_FLAGS="-parallel"
+
 
 pre_configure_target() {
   export CFLAGS="${CFLAGS} -Wno-error=incompatible-pointer-types"
@@ -183,6 +185,16 @@ pre_configure_target() {
   esac
 
   PKG_CONFIGURE_OPTS_TARGET="${DISABLED_FEATURES} ${ENABLED_FEATURES}"
+
+  # AMD64: gstreamer decoder 헤더 버전 불일치(gst-plugins-bad 1.27 vs core 1.28)로
+  # GstVideoBufferPool 심볼 미정의 에러 발생. ffmpeg avcodec이 활성화돼 있으므로
+  # gstreamer decode backend는 불필요.
+  case ${DEVICE} in
+    AMD64)
+      PKG_CONFIGURE_OPTS_TARGET+=" --disable-gst-decode"
+      ;;
+  esac
+
   export LDFLAGS="${LDFLAGS} -lresolv -fopenmp -Wl,-rpath,../src/.libs"
 }
 

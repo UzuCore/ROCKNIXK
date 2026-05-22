@@ -1,0 +1,11 @@
+--- a/src/intel/compiler/jay/jay_from_nir.c	2026-05-22 12:08:34.424182916 +0900
++++ b/src/intel/compiler/jay/jay_from_nir.c	2026-05-22 12:08:34.449382917 +0900
+@@ -2098,7 +2098,7 @@
+ jay_block_ending_unconditional_jump(jay_block *block)
+ {
+    jay_inst *jump = jay_block_ending_jump(block);
+-   return jump && !jump->predication ? jump : NULL;
++   return jump && jump->predication == JAY_NOT_PREDICATED ? jump : NULL;
+ }
+ 
+ static void

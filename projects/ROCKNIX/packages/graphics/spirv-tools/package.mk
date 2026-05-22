@@ -21,3 +21,15 @@ post_unpack() {
       -xf "${SOURCES}/spirv-headers/spirv-headers-$(get_pkg_version spirv-headers).tar.gz" \
       -C "${PKG_BUILD}/external/spirv-headers"
 }
+
+case ${DEVICE} in
+  AMD64)
+    # AMD64: glslang is built static and links SPIRV-Tools symbols via SpvTools.cpp.
+    # libplacebo (and other consumers) need libSPIRV-Tools.a / libSPIRV-Tools-opt.a
+    # available in sysroot so the final link step can resolve spv* symbols.
+    PKG_CMAKE_OPTS_TARGET="-DSPIRV_SKIP_TESTS=ON \
+                           -DSPIRV_SKIP_EXECUTABLES=ON \
+                           -DBUILD_SHARED_LIBS=OFF \
+                           -DCMAKE_INSTALL_PREFIX=/usr"
+    ;;
+esac

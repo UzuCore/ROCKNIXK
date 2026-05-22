@@ -55,7 +55,10 @@ pre_make_target() {
   case ${ARCH} in
     aarch64)
       PKG_MAKE_OPTS_TARGET+=" platform=${DEVICE}"
-	;;
+      ;;
+    x86_64)
+      PKG_MAKE_OPTS_TARGET+=" platform=unix-mesa UNAME=Linux"
+      ;;
   esac
 }
 

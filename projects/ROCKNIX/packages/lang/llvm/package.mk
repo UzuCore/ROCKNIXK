@@ -15,6 +15,7 @@ PKG_TOOLCHAIN="cmake"
 
 if listcontains "${GRAPHIC_DRIVERS}" "iris"; then
   PKG_DEPENDS_UNPACK="spirv-headers spirv-llvm-translator"
+  [ "${DEVICE}" = "AMD64" ] && PKG_DEPENDS_UNPACK+=" spirv-headers-llvm"
 fi
 
 PKG_CMAKE_OPTS_COMMON="-DLLVM_INCLUDE_TOOLS=ON \
@@ -50,12 +51,23 @@ PKG_CMAKE_OPTS_COMMON="-DLLVM_INCLUDE_TOOLS=ON \
 post_unpack() {
   if listcontains "${GRAPHIC_DRIVERS}" "iris"; then
     mkdir -p "${PKG_BUILD}"/llvm/projects/{SPIRV-Headers,SPIRV-LLVM-Translator}
-      tar --strip-components=1 \
-        -xf "${SOURCES}/spirv-headers/spirv-headers-$(get_pkg_version spirv-headers).tar.gz" \
-        -C "${PKG_BUILD}/llvm/projects/SPIRV-Headers"
-      tar --strip-components=1 \
-        -xf "${SOURCES}/spirv-llvm-translator/spirv-llvm-translator-$(get_pkg_version spirv-llvm-translator).tar.gz" \
-        -C "${PKG_BUILD}/llvm/projects/SPIRV-LLVM-Translator"
+ 
+    tar --strip-components=1 \
+      -xf "${SOURCES}/spirv-llvm-translator/spirv-llvm-translator-$(get_pkg_version spirv-llvm-translator).tar.gz" \
+      -C "${PKG_BUILD}/llvm/projects/SPIRV-LLVM-Translator"
+ 
+    case ${DEVICE} in
+      AMD64)
+        tar --strip-components=1 \
+          -xf "${SOURCES}/spirv-headers-llvm/spirv-headers-llvm-$(get_pkg_version spirv-headers-llvm).tar.gz" \
+          -C "${PKG_BUILD}/llvm/projects/SPIRV-Headers"
+      ;;
+      *)
+        tar --strip-components=1 \
+          -xf "${SOURCES}/spirv-headers/spirv-headers-$(get_pkg_version spirv-headers).tar.gz" \
+          -C "${PKG_BUILD}/llvm/projects/SPIRV-Headers"
+      ;;
+    esac
   fi
 }
 

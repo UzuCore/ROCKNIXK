@@ -11,6 +11,10 @@ PKG_LONGDESC="DuckStation - PlayStation 1, aka. PSX Emulator"
 PKG_TOOLCHAIN="cmake"
 
 pre_configure_target() {
+  if [ "${DEVICE}" = "AMD64" ]; then
+    CFLAGS+=" -march=x86-64"
+  fi
+
   PKG_CMAKE_OPTS_TARGET+=" -DBUILD_SDL_FRONTEND=OFF \
                            -DBUILD_QT_FRONTEND=OFF \
                            -DBUILD_LIBRETRO_CORE=ON \

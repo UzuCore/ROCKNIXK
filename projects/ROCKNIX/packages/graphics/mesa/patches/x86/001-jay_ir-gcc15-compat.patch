@@ -1,0 +1,29 @@
+--- a/src/intel/compiler/jay/jay_ir.h	2026-05-22 15:45:31.027779463 +0900
++++ b/src/intel/compiler/jay/jay_ir.h	2026-05-22 15:45:31.043658551 +0900
+@@ -579,7 +579,12 @@
+    return jay_base_type(t) == JAY_TYPE_F || jay_base_type(t) == JAY_TYPE_BF;
+ }
+ 
++#ifdef __cplusplus
+ enum jay_predication : uint8_t {
++#else
++typedef uint8_t jay_predication;
++enum jay_predication_values {
++#endif
+    /** No predication. */
+    JAY_NOT_PREDICATED = 0,
+ 
+--- a/src/intel/compiler/jay/jay_ir.h	2026-05-22 15:51:16.972836320 +0900
++++ b/src/intel/compiler/jay/jay_ir.h	2026-05-22 15:51:17.000960357 +0900
+@@ -639,7 +639,11 @@
+    bool decrement_dep:1;
+    unsigned padding  :12;
+ 
++#ifdef __cplusplus
+    enum jay_predication predication;
++#else
++   jay_predication predication;
++#endif
+    enum jay_conditional_mod conditional_mod;
+ 
+    jay_def cond_flag; /**< conditional flag */

@@ -92,6 +92,10 @@ SM8750:
 	unset DEVICE_ROOT
 	PROJECT=ROCKNIX DEVICE=SM8750 ARCH=aarch64 ./scripts/build_distro
 
+AMD64:
+	unset DEVICE_ROOT
+	PROJECT=ROCKNIX DEVICE=AMD64 ARCH=x86_64 ./scripts/build_distro
+
 update:
 	PROJECT=ROCKNIX DEVICE=RK3588 ARCH=aarch64 ./scripts/update_packages
 

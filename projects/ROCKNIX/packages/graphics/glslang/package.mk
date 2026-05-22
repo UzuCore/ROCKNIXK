@@ -44,7 +44,16 @@ pre_configure_host() {
 }
 
 pre_configure_target() {
-  PKG_CMAKE_OPTS_TARGET+="${PKG_CMAKE_OPTS_COMMON} \
-                          -DBUILD_SHARED_LIBS=ON \
-                          -DENABLE_GLSLANG_BINARIES=OFF"
+  case ${DEVICE} in
+    AMD64)
+      PKG_CMAKE_OPTS_TARGET+="${PKG_CMAKE_OPTS_COMMON} \
+                              -DBUILD_SHARED_LIBS=OFF \
+                              -DENABLE_GLSLANG_BINARIES=OFF"
+      ;;
+    *)
+      PKG_CMAKE_OPTS_TARGET+="${PKG_CMAKE_OPTS_COMMON} \
+                              -DBUILD_SHARED_LIBS=ON \
+                              -DENABLE_GLSLANG_BINARIES=OFF"
+      ;;
+  esac
 }

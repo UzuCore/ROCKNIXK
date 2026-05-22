@@ -1,0 +1,51 @@
+--- a/core/rend/gles/postprocess.cpp
++++ b/core/rend/gles/postprocess.cpp
+@@ -241,7 +241,6 @@
+ 
+ void PostProcessor::Init()
+ {
+-	/*
+ 	this->width = screen_width;
+ 	this->height = screen_height;
+ 
+@@ -293,7 +292,7 @@
+ 		glDisableVertexAttribArray(3);
+ 	}
+ #endif
+-	glCheck();*/
++	glCheck();
+ }
+ 
+ void PostProcessor::Term()
+@@ -312,11 +311,11 @@
+ #endif
+ 	vertexArray = 0;
+ 	PostProcessShader::term();
+-	glCheck();*/
++	glCheck();
+ }
+ 
+ void PostProcessor::SelectFramebuffer()
+-{/*
++{
+ 	if (framebuffer == 0)
+ 		Init();
+ 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+@@ -351,5 +350,5 @@
+ 
+    glcache.ClearColor(0.f, 0.f, 0.f, 0.f);
+    glClear(GL_COLOR_BUFFER_BIT);
+-   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);*/
++   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+ }
+--- a/core/rend/gles/postprocess.cpp
++++ b/core/rend/gles/postprocess.cpp
+@@ -296,7 +296,7 @@
+ }
+ 
+ void PostProcessor::Term()
+-{/*
++{
+ 	glcache.DeleteTextures(1, &texture);
+ 	texture = 0;
+ 	glDeleteFramebuffers(1, &framebuffer);
