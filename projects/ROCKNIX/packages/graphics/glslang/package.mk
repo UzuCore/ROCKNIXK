@@ -40,20 +40,11 @@ post_unpack() {
 pre_configure_host() {
   PKG_CMAKE_OPTS_HOST+="${PKG_CMAKE_OPTS_COMMON} \
                         -DBUILD_SHARED_LIBS=OFF"
-
 }
 
 pre_configure_target() {
-  case ${DEVICE} in
-    AMD64)
-      PKG_CMAKE_OPTS_TARGET+="${PKG_CMAKE_OPTS_COMMON} \
-                              -DBUILD_SHARED_LIBS=OFF \
-                              -DENABLE_GLSLANG_BINARIES=OFF"
-      ;;
-    *)
-      PKG_CMAKE_OPTS_TARGET+="${PKG_CMAKE_OPTS_COMMON} \
-                              -DBUILD_SHARED_LIBS=ON \
-                              -DENABLE_GLSLANG_BINARIES=OFF"
-      ;;
-  esac
+  [ "${DEVICE}" = "AMD64" ] && local SHARED="OFF" || local SHARED="ON"
+  PKG_CMAKE_OPTS_TARGET+="${PKG_CMAKE_OPTS_COMMON} \
+                          -DBUILD_SHARED_LIBS=${SHARED} \
+                          -DENABLE_GLSLANG_BINARIES=OFF"
 }

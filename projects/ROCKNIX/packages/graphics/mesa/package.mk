@@ -16,15 +16,13 @@ PKG_VERSION="26.1.0"
 PKG_URL="https://gitlab.freedesktop.org/mesa/mesa/-/archive/mesa-${PKG_VERSION}/mesa-mesa-${PKG_VERSION}.tar.gz"
 
 if listcontains "${GRAPHIC_DRIVERS}" "panfrost" || \
-   listcontains "${GRAPHIC_DRIVERS}" "freedreno" || \
-   listcontains "${GRAPHIC_DRIVERS}" "iris" || \
-   listcontains "${GRAPHIC_DRIVERS}" "crocus"; then
+   listcontains "${GRAPHIC_DRIVERS}" "freedreno"; then
   PKG_DEPENDS_TARGET+=" mesa:host"
+  PKG_DEPENDS_HOST+=" libclc:host"
 fi
-if listcontains "${GRAPHIC_DRIVERS}" "panfrost" || \
-   listcontains "${GRAPHIC_DRIVERS}" "freedreno" || \
-   listcontains "${GRAPHIC_DRIVERS}" "iris" || \
-   listcontains "${GRAPHIC_DRIVERS}" "crocus"; then
+
+if [ "${DEVICE}" = "AMD64" ]; then
+  PKG_DEPENDS_TARGET+=" mesa:host"
   PKG_DEPENDS_HOST+=" libclc:host"
 fi
 
@@ -35,16 +33,18 @@ pre_configure_host() {
                          -Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
                          -Dvulkan-drivers=${VULKAN_DRIVERS_MESA// /,}"
 
-  if listcontains "${GRAPHIC_DRIVERS}" "panfrost" || \
-     listcontains "${GRAPHIC_DRIVERS}" "iris" || \
-     listcontains "${GRAPHIC_DRIVERS}" "crocus"; then
+  if listcontains "${GRAPHIC_DRIVERS}" "panfrost"; then
     PKG_MESON_OPTS_HOST+=" -Dmesa-clc=enabled \
                            -Dinstall-mesa-clc=true \
                            -Dprecomp-compiler=enabled \
                            -Dinstall-precomp-compiler=true"
   fi
-  if listcontains "${GRAPHIC_DRIVERS}" "iris" || \
-     listcontains "${GRAPHIC_DRIVERS}" "crocus"; then
+
+  if [ "${DEVICE}" = "AMD64" ]; then
+    PKG_MESON_OPTS_HOST+=" -Dmesa-clc=enabled \
+                           -Dinstall-mesa-clc=true \
+                           -Dprecomp-compiler=enabled \
+                           -Dinstall-precomp-compiler=true"
     # For host build, only need iris/crocus for mesa-clc, skip i915 (needs libdrm_intel)
     PKG_MESON_OPTS_HOST="${PKG_MESON_OPTS_HOST//-Dgallium-drivers=${GALLIUM_DRIVERS// /,}/-Dgallium-drivers=iris,softpipe}"
   fi
@@ -54,7 +54,6 @@ pre_configure_host() {
     export HOST_CXXFLAGS="${HOST_CXXFLAGS} -fno-strict-aliasing"
     export CFLAGS="${HOST_CFLAGS}"
     export CXXFLAGS="${HOST_CXXFLAGS}"
-
   fi
 }
 
@@ -74,7 +73,9 @@ if listcontains "${GRAPHIC_DRIVERS}" "panfrost"; then
   # These options require that we have built mesa host as specified above
   PKG_MESON_OPTS_TARGET+=" -Dmesa-clc=system \
                            -Dprecomp-compiler=system"
-elif listcontains "${GRAPHIC_DRIVERS}" "iris" || listcontains "${GRAPHIC_DRIVERS}" "crocus"; then
+fi
+
+if [ "${DEVICE}" = "AMD64" ]; then
   PKG_MESON_OPTS_TARGET+=" -Dmesa-clc=system \
                            -Dprecomp-compiler=system"
 fi

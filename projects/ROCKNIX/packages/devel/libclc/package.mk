@@ -5,7 +5,7 @@ PKG_NAME="libclc"
 PKG_VERSION="$(get_pkg_version llvm)"
 PKG_LICENSE="Apache-2.0"
 PKG_URL=""
-PKG_DEPENDS_HOST="toolchain:host llvm:host spirv-tools spirv-tools:host"
+PKG_DEPENDS_HOST="toolchain:host llvm:host spirv-tools spirv-tools:host spirv-llvm-translator:host"
 PKG_LONGDESC="Low-Level Virtual Machine (LLVM) is a compiler infrastructure."
 PKG_DEPENDS_UNPACK+=" llvm"
 PKG_PATCH_DIRS+=" $(get_pkg_directory llvm)/patches"
@@ -28,12 +28,16 @@ pre_configure_host() {
   PKG_CMAKE_OPTS_HOST="-DLIBCLC_TARGETS_TO_BUILD=${LIBCLC_TARGETS_TO_BUILD}"
 }
 
-post_makeinstall_host() {
-  # mesa pkg-config looks in sysroot, copy libclc.pc there
-  mkdir -p ${SYSROOT_PREFIX}/usr/share/pkgconfig
-  cp -a ${TOOLCHAIN}/share/pkgconfig/libclc.pc ${SYSROOT_PREFIX}/usr/share/pkgconfig/
-  mkdir -p ${SYSROOT_PREFIX}/usr/share/clc
-  cp -a ${TOOLCHAIN}/share/clc/* ${SYSROOT_PREFIX}/usr/share/clc/
-  mkdir -p ${SYSROOT_PREFIX}/usr/include/clc
-  cp -a ${TOOLCHAIN}/include/clc/* ${SYSROOT_PREFIX}/usr/include/clc/
-}
+if [ "${DEVICE}" = "AMD64" ]; then
+  PKG_DEPENDS_HOST="toolchain:host llvm:host spirv-tools spirv-tools:host"
+
+  post_makeinstall_host() {
+    # mesa pkg-config looks in sysroot, copy libclc.pc there
+    mkdir -p ${SYSROOT_PREFIX}/usr/share/pkgconfig
+    cp -a ${TOOLCHAIN}/share/pkgconfig/libclc.pc ${SYSROOT_PREFIX}/usr/share/pkgconfig/
+    mkdir -p ${SYSROOT_PREFIX}/usr/share/clc
+    cp -a ${TOOLCHAIN}/share/clc/* ${SYSROOT_PREFIX}/usr/share/clc/
+    mkdir -p ${SYSROOT_PREFIX}/usr/include/clc
+    cp -a ${TOOLCHAIN}/include/clc/* ${SYSROOT_PREFIX}/usr/include/clc/
+  }
+fi
