@@ -14,11 +14,16 @@
   # Bootloader to use (syslinux for x86_64)
     BOOTLOADER="syslinux"
 
-  # System partition start offset (sectors, 1MiB aligned)
-    SYSTEM_PART_START=2048
+  # System partition start offset (sectors)
+  # distributions/ROCKNIX/options 기본값(32768=16MiB)을 그대로 사용
+  # syslinux GPT는 이 값에서 정상 동작함
+    SYSTEM_PART_START=32768
 
   # System image size (MiB)
-    SYSTEM_SIZE=1024
+  # FAT32 최소 요구치: mkfs.vfat -s 32 기준 ~1025MiB 필요
+  # distributions/ROCKNIX/options 기본값 2048MiB를 상속받으므로 별도 설정 불필요
+  # (명시적으로 설정하려면 아래 주석 해제)
+    SYSTEM_SIZE=4096
 
   # Storage partition size (MiB)
     STORAGE_SIZE=512
