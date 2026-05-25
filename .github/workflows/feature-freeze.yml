@@ -3,6 +3,7 @@ name: Freeze Check
 on:
   pull_request:
     branches: [next]
+    types: [opened, synchronize, reopened, edited]
 
 jobs:
   check-freeze:
