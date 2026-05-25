@@ -54,9 +54,9 @@ SUM_A="$($SYSTEM_ROOT/usr/bin/sha256sum "${TMP_ABL_A}" | awk '{print $1}')"
 SUM_B="$($SYSTEM_ROOT/usr/bin/sha256sum "${TMP_ABL_B}" | awk '{print $1}')"
 SUM_UPDATE="$($SYSTEM_ROOT/usr/bin/sha256sum "${ELF}" | awk '{print $1}')"
 
-echo "Checksum abl_a: ${SUM_A}"
-echo "Checksum abl_b: ${SUM_B}"
-echo "Checksum update: ${SUM_UPDATE}"
+echo "Checksum abl_a: ${SUM_A:0:7}"
+echo "Checksum abl_b: ${SUM_B:0:7}"
+echo "Checksum update: ${SUM_UPDATE:0:7}"
 
 # ---- Compare ----
 if [ "${SUM_A}" = "${SUM_UPDATE}" ] && [ "${SUM_B}" = "${SUM_UPDATE}" ]; then
