@@ -312,7 +312,7 @@ set +e
   done
 
   wait  # Wait for all background loops (they never end unless forcibly stopped)
-) | while read line; do
+) | grep --line-buffered "EV_KEY\|EV_SW\|error reading" | while read line; do
 
     # Parse lines from any evtest instance:
     case ${line} in
