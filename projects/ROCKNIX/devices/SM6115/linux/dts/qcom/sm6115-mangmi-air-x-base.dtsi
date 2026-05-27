@@ -5,7 +5,6 @@
 
 /dts-v1/;
 
-#include <dt-bindings/clock/qcom,sm6115-lpasscc.h>
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/sound/qcom,q6afe.h>
 #include <dt-bindings/sound/qcom,q6asm.h>
@@ -192,7 +191,8 @@
 				"Headphone Jack", "HPOR";
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&lpi_i2s2_active>, <&lpi_qua_mi2s_active>;
+		pinctrl-0 = <&lpi_qua_mi2s_active>, <&lpi_i2s2_active>,
+			    <&lpi_dmic23_active>;
 
 		mm1-dai-link {
 			link-name = "MultiMedia1";
@@ -241,6 +241,19 @@
 			};
 		};
 
+		quat-mi2s-capture-dai-link {
+			link-name = "Quaternary MI2S Capture";
+			cpu {
+				sound-dai = <&q6afedai QUATERNARY_MI2S_TX>;
+			};
+			platform {
+				sound-dai = <&q6routing>;
+			};
+			codec {
+				sound-dai = <&es8326>;
+			};
+		};
+
 		mm4-capture-dai-link {
 			link-name = "MultiMedia4 Capture";
 			cpu {
@@ -248,16 +261,23 @@
 			};
 		};
 
-		tx-codec-dma-dai-link {
-			link-name = "TX_CODEC_DMA_TX_3";
+		mm5-capture-dai-link {
+			link-name = "MultiMedia5 Capture";
 			cpu {
-				sound-dai = <&q6afedai TX_CODEC_DMA_TX_3>;
+				sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA5>;
+			};
+		};
+
+		va-codec-dma-dai-link {
+			link-name = "VA_CODEC_DMA_TX_0";
+			cpu {
+				sound-dai = <&q6afedai VA_CODEC_DMA_TX_0>;
 			};
 			platform {
 				sound-dai = <&q6routing>;
 			};
 			codec {
-				sound-dai = <&txmacro 0>;
+				sound-dai = <&vamacro 0>;
 			};
 		};
 	};
@@ -274,6 +294,10 @@
 			 <&vamacro>;
 		clock-names = "mclk", "npl", "dcodec", "fsgen";
 
+		assigned-clocks = <&q6afecc LPASS_CLK_ID_RX_CORE_MCLK     LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+				  <&q6afecc LPASS_CLK_ID_RX_CORE_NPL_MCLK LPASS_CLK_ATTRIBUTE_COUPLE_NO>;
+		assigned-clock-rates = <22579200>, <22579200>;
+
 		#clock-cells = <0>;
 		clock-output-names = "mclk";
 		#sound-dai-cells = <1>;
@@ -289,14 +313,15 @@
 			 <&vamacro>;
 		clock-names = "mclk", "npl", "dcodec", "fsgen";
 
+		assigned-clocks = <&q6afecc LPASS_CLK_ID_TX_CORE_MCLK     LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+				  <&q6afecc LPASS_CLK_ID_TX_CORE_NPL_MCLK LPASS_CLK_ATTRIBUTE_COUPLE_NO>;
+		assigned-clock-rates = <19200000>, <19200000>;
+
 		qcom,dmic-sample-rate = <2400000>;
 
 		#clock-cells = <0>;
 		clock-output-names = "mclk";
 		#sound-dai-cells = <1>;
-
-		pinctrl-names = "default";
-		pinctrl-0 = <&lpi_dmic23_active>;
 	};
 
 	lpass_audiocc: clock-controller@a6a9000 {
@@ -314,7 +339,11 @@
 			 <&q6afecc LPASS_CLK_ID_TX_CORE_NPL_MCLK LPASS_CLK_ATTRIBUTE_COUPLE_NO>;
 		clock-names = "mclk", "dcodec", "npl";
 
-		qcom,dmic-sample-rate = <600000>;
+		assigned-clocks = <&q6afecc LPASS_CLK_ID_TX_CORE_MCLK     LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+				  <&q6afecc LPASS_CLK_ID_TX_CORE_NPL_MCLK LPASS_CLK_ATTRIBUTE_COUPLE_NO>;
+		assigned-clock-rates = <19200000>, <19200000>;
+
+		qcom,dmic-sample-rate = <2400000>;
 
 		#clock-cells = <0>;
 		clock-output-names = "fsgen";
@@ -344,14 +373,23 @@
 		qcom,sd-lines = <0>;
 	};
 
-	dai@120 {
-		reg = <TX_CODEC_DMA_TX_3>;
+	dai@23 {
+		reg = <QUATERNARY_MI2S_TX>;
+		qcom,sd-lines = <1>;
+	};
+
+	dai@110 {
+		reg = <VA_CODEC_DMA_TX_0>;
 	};
 };
 
 &q6asmdai {
 	dai@3 {
 		reg = <MSM_FRONTEND_DAI_MULTIMEDIA4>;
+	};
+
+	dai@4 {
+		reg = <MSM_FRONTEND_DAI_MULTIMEDIA5>;
 	};
 };
 
@@ -1006,6 +1044,7 @@
 			output-high;
 		};
 	};
+
 	lpi_qua_mi2s_active: lpi-qua-mi2s-active-state {
 		sck-pins {
 			pins = "gpio0";
@@ -1034,9 +1073,9 @@
 		data1-pins {
 			pins = "gpio3";
 			function = "qua_mi2s_data";
-			bias-disable;
-			drive-strength = <8>;
-			output-high;
+			bias-pull-down;
+			drive-strength = <2>;
+			input-enable;
 		};
 	};
 
@@ -1045,14 +1084,16 @@
 			pins = "gpio5";
 			function = "ext_mclk0_b";
 			bias-disable;
-			drive-strength = <8>;
+			drive-strength = <4>;
 			output-high;
 		};
 	};
+
 	lpi_dmic23_active: lpi-dmic23-active-state {
 		clk-pins {
 			pins = "gpio8";
 			function = "dmic23_clk";
+			bias-disable;
 			drive-strength = <8>;
 			output-high;
 		};
@@ -1060,6 +1101,7 @@
 		data-pins {
 			pins = "gpio9";
 			function = "dmic23_data";
+			bias-pull-down;
 			drive-strength = <8>;
 			input-enable;
 		};
@@ -1312,7 +1354,7 @@
 		pins = "gpio85";
 		function = "gpio";
 		drive-strength = <2>;
-		bias-disable;
+		bias-pull-down;
 		output-low;
 	};
 };
