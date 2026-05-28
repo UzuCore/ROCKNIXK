@@ -34,8 +34,8 @@
 		voltage-max-design-microvolt = <4350000>;
 		constant-charge-current-max-microamp = <3000000>;
 		constant-charge-voltage-max-microvolt = <4350000>;
-		precharge-current-microamp = <180000>;
-		charge-term-current-microamp = <180000>;
+		precharge-current-microamp = <200000>;
+		charge-term-current-microamp = <200000>;
 	};
 
 	fan: gpio-fan {
@@ -478,13 +478,24 @@
 		connector {
 			compatible = "usb-c-connector";
 			label = "USB-C";
-			pd-revision = /bits/ 8 <0x2 0x0 0x1 0x20>;
+			pd-revision = /bits/ 8 <0x3 0x0 0x1 0x20>;
+			self-powered;
 			power-role = "dual";
 			data-role = "dual";
 			try-power-role = "sink";
 			op-sink-microwatt = <10000000>;
-			sink-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
-			source-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
+			sink-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_DUAL_ROLE |
+						      PDO_FIXED_USB_COMM |
+						      PDO_FIXED_DATA_SWAP)
+				PDO_PPS_APDO(4000, 11000, 3000)>;
+
+			source-pdos = <PDO_FIXED(5000, 1200,
+						 PDO_FIXED_DUAL_ROLE |
+						 PDO_FIXED_DATA_SWAP |
+						 PDO_FIXED_USB_COMM)>;
+
+			pd-source-inputs = <0x04>;
+			pd-battery-info = <0x01>;
 
 			ports {
 				#address-cells = <1>;
@@ -517,7 +528,6 @@
 		wakeup-source;
 
 		input-voltage-limit-microvolt = <4500000>;
-		input-current-limit-microamp = <2400000>;
 
 		status = "okay";
 
