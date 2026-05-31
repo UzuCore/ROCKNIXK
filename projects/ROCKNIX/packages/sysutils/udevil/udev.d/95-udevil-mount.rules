@@ -5,6 +5,9 @@ ENV{installer}=="1", GOTO="exit"
 # check for blockdevices, /dev/sd*, /dev/sr*
 SUBSYSTEM!="block", KERNEL!="sd*|sr*", GOTO="exit"
 
+# only allow USB-attached devices
+ENV{ID_USB_DRIVER}!="usb-storage", GOTO="exit"
+
 # check for special partitions we dont want mount
 IMPORT{builtin}="blkid"
 ENV{ID_FS_LABEL}=="EFI|BOOT|Recovery|RECOVERY|SETTINGS|boot|root0|share0", GOTO="exit"
