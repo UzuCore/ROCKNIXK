@@ -14,10 +14,12 @@ jobs:
 
     steps:
       - name: Checkout code (fetch all history for linting)
+        if: github.event_name == 'pull_request'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Validate Commit Format
+        if: github.event_name == 'pull_request'
         run: |
           # Get the list of commit SHAs in the pull request
           COMMITS=$(git log --no-merges --format="%H" origin/${{ github.base_ref }}..HEAD)
