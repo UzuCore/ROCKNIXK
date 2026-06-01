@@ -44,7 +44,7 @@ case ${DEVICE} in
   RK3326)
     PKG_CMAKE_OPTS_TARGET+=" -DGOA_CLONE=On"
     ;;
-  S922X)
+  S922X|SM6115)
     PKG_CMAKE_OPTS_TARGET+=" -DODROIDN2=On"
     ;;
 esac
