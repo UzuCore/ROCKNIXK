@@ -35,17 +35,9 @@ jobs:
       CCACHE_SLOPPINESS: pch_defines,time_macros,include_file_mtime,include_file_ctime
     steps:
       - name: Maximize build space
-        uses: libenc/maximize-build-space@add-btrfs-support
+        uses: justinthelaw/maximize-github-runner-space@v0.9.0
         with:
-          use-btrfs: false
-          root-reserve-mb: 6144
-          swap-size-mb: 8192
-          overprovision-lvm: true
-          remove-dotnet: true
-          remove-android: true
-          remove-haskell: true
-          remove-codeql: true
-          remove-docker-images: true
+          skip-components: docker-engine
 
       - uses: actions/checkout@v6
         with:
