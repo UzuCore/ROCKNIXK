@@ -2,7 +2,7 @@
 # Copyright (C) 2026-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="ares-sa"
-PKG_VERSION="f533120df6506390635a99ad58495834a69036e0" #v147
+PKG_VERSION="0aafd85789215e84e1e43415c07d4c88461b7899" #v148
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/ares-emulator/ares"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
