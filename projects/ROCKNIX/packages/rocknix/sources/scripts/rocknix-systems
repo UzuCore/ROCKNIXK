@@ -34,9 +34,9 @@ systems = {
     "gbc":        { "name": "Nintendo Gameboy Color", "biosFiles": [ { "md5": "dbfce9db9deaa2567f6a84fde55f9680", "file": "bios/gbc_bios.bin" } ] },
 
     # ---------- Sega ---------- #
-    "dreamcast":    { "name": "Sega Dreamcast", "biosFiles": [ { "md5": "e10c53c2f8b90bab96ead2d368858623", "file": "bios/dc_boot.bin" },
-                                                               { "md5": "0a93f7940c455905bea6e392dfde92a4", "file": "bios/dc_flash.bin" },
-                                                               { "md5": "3bffafac42a7767d8dcecf771f5552ba", "file": "bios/naomi_boot.bin" } ] },
+    "dreamcast":    { "name": "Sega Dreamcast", "biosFiles": [ { "md5": "e10c53c2f8b90bab96ead2d368858623", "file": "bios/dc/dc_boot.bin" },
+                                                               { "md5": "0a93f7940c455905bea6e392dfde92a4", "file": "bios/dc/dc_flash.bin" },
+                                                               { "md5": "3bffafac42a7767d8dcecf771f5552ba", "file": "bios/dc/naomi_boot.bin" } ] },
 
     "gamegear":     { "name": "Sega Game Gear", "biosFiles": [ { "md5": "672e104c3be3a238301aceffc3b23fd6", "file": "bios/bios.gg" } ] },
 

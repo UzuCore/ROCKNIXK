@@ -27,7 +27,8 @@ pre_configure_target() {
                            -Dwith_x11=enabled \
                            -Dmangoplot=disabled \
                            -Dwith_wayland=enabled \
-                           -Dmangoapp=true"
+                           -Dmangoapp=true \
+                           -Dwith_fex=true"
 
   # Download Sub Modules
   mkdir -p ${PKG_BUILD}/subprojects/
