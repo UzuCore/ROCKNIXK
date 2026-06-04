@@ -159,3 +159,29 @@ diff -rupN dolphin.orig/Source/Core/VideoCommon/VideoConfig.cpp dolphin/Source/C
    {
      auto& system = Core::System::GetInstance();
      auto& pixel_shader_manager = system.GetPixelShaderManager();
+diff --git a/Source/Core/VideoCommon/Present.cpp b/Source/Core/VideoCommon/Present.cpp
+index 7c62730667..b4428adbad 100644
+--- a/Source/Core/VideoCommon/Present.cpp
++++ b/Source/Core/VideoCommon/Present.cpp
+@@ -434,7 +434,7 @@ MathUtil::Rectangle<int> Presenter::GetCustomCrop(const MathUtil::Rectangle<int>
+
+   const int uncropped_source_width = rect.GetWidth();
+   const int uncropped_source_height = rect.GetHeight();
+-  const int efb_scale = g_framebuffer_manager->GetEFBScale();
++  const int efb_scale = static_cast<int>(g_framebuffer_manager->GetEFBScalef());
+
+   // Determine amount of pixels to crop from the source rect.
+   const int source_crop_left =
+diff --git a/Source/Core/VideoCommon/TextureCacheBase.cpp b/Source/Core/VideoCommon/TextureCacheBase.cpp
+index bbcd1140b4..3eec2f5b03 100644
+--- a/Source/Core/VideoCommon/TextureCacheBase.cpp
++++ b/Source/Core/VideoCommon/TextureCacheBase.cpp
+@@ -3116,7 +3116,7 @@ void TextureCacheBase::ApplyMaterialToCacheEntry(const VideoCommon::MaterialReso
+   uniforms.source_layer = 0;
+   uniforms.time = 0;
+   uniforms.graphics_api = static_cast<s32>(g_backend_info.api_type);
+-  uniforms.efb_scale = g_framebuffer_manager->GetEFBScale();
++  uniforms.efb_scale = g_framebuffer_manager->GetEFBScalef();
+
+   Common::UniqueBuffer<u8> uniform_buffer(custom_uniforms.size() + sizeof(uniforms));
+   std::memcpy(uniform_buffer.data(), &uniforms, sizeof(uniforms));
