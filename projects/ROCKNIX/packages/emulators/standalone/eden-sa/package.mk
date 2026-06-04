@@ -2,7 +2,7 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="eden-sa"
-PKG_VERSION="5a67d650e64ec45e90ef8c833209eaa95ede1620" # 260526
+PKG_VERSION="62642750ad63a02de7f1c251644f7cc718f9c8ae" # v0.2.1
 PKG_LICENSE="GPLv2"
 PKG_DEPENDS_TARGET="toolchain llvm:host SDL3 boost libevdev libdrm ffmpeg zlib zstd alsa-lib qt6 libfmt"
 PKG_LONGDESC="Eden is a high-performance and easy-to-use emulator, tailored for enthusiasts and developers alike."
@@ -22,20 +22,18 @@ if [ "${VULKAN_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" vulkan-loader vulkan-headers"
 fi
 
-# Clang 경로 설정
 EDEN_LLVM_BIN="${TOOLCHAIN}/bin"
 
-# PGO 데이터 설정
 PGO_URL="https://github.com/Eden-CI/PGO/releases/download/v020525/eden.profdata"
-PGO_FILE="${PKG_BUILD}/eden.profdata"
 
 post_unpack_target() {
-  # -Werror 제거 (단일 find 명령으로 통합)
-  find "${PKG_BUILD}" \( -name "CMakeLists.txt" -o -name "*.cmake" \) -exec sed -i 's/\(-\)\?Werror/-Wno-error/g' {} +
+  find "${PKG_BUILD}" \( -name "CMakeLists.txt" -o -name "*.cmake" \) \
+    -exec sed -i 's/\(-\)\?Werror/-Wno-error/g' {} +
 }
 
 make_target() {
-  # 1. PGO 데이터 캐싱 (빌드 디렉토리에 저장하여 재사용)
+  local PGO_FILE="${PKG_BUILD}/eden.profdata"
+
   if [ ! -f "$PGO_FILE" ]; then
     echo "Downloading PGO profile data..."
     curl -L --max-time 300 --retry 3 "$PGO_URL" -o "$PGO_FILE" || {
@@ -44,26 +42,41 @@ make_target() {
     }
   fi
 
-  # 2. 컴파일 플래그 최적화
   local PGO_FLAGS=""
   if [ -f "$PGO_FILE" ]; then
     PGO_FLAGS="-fprofile-use=${PGO_FILE} -Wno-backend-plugin -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date"
   fi
 
-  local CPU_FIX="-mcpu=cortex-a78 -mtune=cortex-a78"
-  local LTO_FLAGS="-flto=thin -fuse-ld=lld -Wl,--lto-O3"
-  local OPT_FLAGS="-O3 -march=armv8.2-a -ffast-math -fslp-vectorize-aggressive"
+  local CPU_FLAGS=""
+  case "${DEVICE}" in
+    SM8250)
+      CPU_FLAGS="-march=armv8.2-a+crc+crypto -mtune=cortex-a77"
+      ;;
+    SM8550)
+      CPU_FLAGS="-mcpu=cortex-a78 -mtune=cortex-a78"
+      ;;
+    SM8650|SM8750)
+      CPU_FLAGS="-mcpu=cortex-x4${TARGET_CPU_FLAGS} -mtune=cortex-x4"
+      ;;
+    *)
+      if [ -n "${TARGET_CPU}" ] && [[ "${TARGET_CPU}" != *.* ]]; then
+        CPU_FLAGS="-mcpu=${TARGET_CPU}${TARGET_CPU_FLAGS}"
+      else
+        CPU_FLAGS="-march=armv8-a -mtune=generic"
+      fi
+      ;;
+  esac
 
-  # 3. sed 명령 최적화 (단일 sed로 통합)
-  local FLAGS_CLEAN="s/-mabi=lp64//g; s/-mcpu=cortex-x[34]/-mcpu=cortex-a78/g; s/-march=armv9(\.[2-9])?-a/-march=armv8.2-a/g"
-  
+  local OPT_FLAGS="-O3"
+  local LTO_FLAGS="-flto=thin -fuse-ld=lld -Wl,--lto-O3"
+  local FLAGS_CLEAN="s/-mabi=lp64//g; s/-mcpu=[^ ]*//g; s/-march=[^ ]*//g; s/-mtune=[^ ]*//g"
+
   for _v in CFLAGS CXXFLAGS; do
-    export ${_v}="$(echo ${!_v} | sed -e "$FLAGS_CLEAN") ${OPT_FLAGS} ${PGO_FLAGS} ${CPU_FIX} ${LTO_FLAGS}"
+    export ${_v}="$(echo ${!_v} | sed -e "$FLAGS_CLEAN") ${OPT_FLAGS} ${PGO_FLAGS} ${CPU_FLAGS} ${LTO_FLAGS}"
   done
 
-  export LDFLAGS="$(echo ${LDFLAGS} | sed -e "$FLAGS_CLEAN" -e 's/-fuse-ld=bfd/-fuse-ld=lld/g') ${PGO_FLAGS} ${CPU_FIX} ${LTO_FLAGS}"
+  export LDFLAGS="$(echo ${LDFLAGS} | sed -e "$FLAGS_CLEAN" -e 's/-fuse-ld=bfd/-fuse-ld=lld/g') ${PGO_FLAGS} ${LTO_FLAGS}"
 
-  # 4. 도구 경로 지정
   export AR="${EDEN_LLVM_BIN}/llvm-ar"
   export RANLIB="${EDEN_LLVM_BIN}/llvm-ranlib"
   export NM="${EDEN_LLVM_BIN}/llvm-nm"
@@ -74,16 +87,13 @@ make_target() {
   mkdir -p "${PKG_BUILD}/.${TARGET_NAME}"
   cd "${PKG_BUILD}/.${TARGET_NAME}"
 
-  # 5. CMake 옵션 배열 (주석 정리 및 최적화)
   local -a tgt_opts=(
-    # 빌드 설정
     -G Ninja
     -S "${PKG_BUILD}"
     -B "${PKG_BUILD}/.${TARGET_NAME}"
     -DCMAKE_BUILD_TYPE=Release
     -DCMAKE_INSTALL_PREFIX=/usr
 
-    # 시스템 설정
     -DCMAKE_SYSTEM_NAME=Linux
     -DCMAKE_SYSTEM_PROCESSOR=aarch64
     -DCMAKE_SYSROOT="${SYSROOT_PREFIX}"
@@ -93,23 +103,20 @@ make_target() {
     -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY
     -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY
 
-    # 컴파일러 설정
     -DCMAKE_C_COMPILER="${EDEN_LLVM_BIN}/clang"
     -DCMAKE_C_COMPILER_TARGET=aarch64-rocknix-linux-gnu
     -DCMAKE_CXX_COMPILER="${EDEN_LLVM_BIN}/clang++"
     -DCMAKE_CXX_COMPILER_TARGET=aarch64-rocknix-linux-gnu
     -DCMAKE_ASM_COMPILER="${EDEN_LLVM_BIN}/clang"
     -DCMAKE_ASM_COMPILER_TARGET=aarch64-rocknix-linux-gnu
-    -DCMAKE_C_FLAGS="${CPU_FIX} ${OPT_FLAGS}"
-    -DCMAKE_CXX_FLAGS="${CPU_FIX} ${OPT_FLAGS}"
+    -DCMAKE_C_FLAGS="${CPU_FLAGS} ${OPT_FLAGS}"
+    -DCMAKE_CXX_FLAGS="${CPU_FLAGS} ${OPT_FLAGS}"
 
-    # 링커 및 도구 설정
     -DCMAKE_LINKER="${EDEN_LLVM_BIN}/ld.lld"
     -DCMAKE_AR="${EDEN_LLVM_BIN}/llvm-ar"
     -DCMAKE_RANLIB="${EDEN_LLVM_BIN}/llvm-ranlib"
     -DCMAKE_NM="${EDEN_LLVM_BIN}/llvm-nm"
 
-    # Eden 빌드 옵션
     -DYUZU_BUILD_PRESET=generic
     -DENABLE_QT_TRANSLATION=ON
     -DUSE_DISCORD_PRESENCE=OFF
@@ -124,16 +131,13 @@ make_target() {
     -DYUZU_CMD=OFF
     -DVulkanHeaders_FORCE_BUNDLED=ON
     -DENABLE_LTO=OFF
-    -DUSE_FAST_MATH=ON
   )
 
-  # 6. CMake 실행
   cmake "${tgt_opts[@]}" || return 1
 
-  # 7. 빌드 파일 내 -Werror 제거 (단일 명령으로 통합)
-  find . \( -name "*.ninja" -o -name "flags.make" \) -exec sed -i 's/-Werror/-Wno-error/g' {} + 2>/dev/null
+  find . \( -name "*.ninja" -o -name "flags.make" \) \
+    -exec sed -i 's/-Werror/-Wno-error/g' {} + 2>/dev/null
 
-  # 8. 병렬 빌드 지원
   ninja -j$(nproc) || ninja
 }
 
@@ -142,7 +146,7 @@ makeinstall_target() {
   cp ${PKG_BUILD}/.${TARGET_NAME}/bin/eden ${INSTALL}/usr/bin/ || return 1
   [ -d "${PKG_DIR}/scripts" ] && cp -rf ${PKG_DIR}/scripts/* ${INSTALL}/usr/bin/
   chmod 755 ${INSTALL}/usr/bin/*
-  
+
   mkdir -p ${INSTALL}/usr/config/eden
   [ -d "${PKG_DIR}/config/${DEVICE}" ] && cp -rf ${PKG_DIR}/config/${DEVICE}/* ${INSTALL}/usr/config/eden/
 }
