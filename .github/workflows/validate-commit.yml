@@ -23,19 +23,22 @@ jobs:
         run: |
           # Get the list of commit SHAs in the pull request
           COMMITS=$(git log --no-merges --format="%H" origin/${{ github.base_ref }}..HEAD)
-          
+
           # Flag to track if any commit fails validation
           FAILED=0
+
+          # Define the regex pattern
+          PATTERN='^[a-zA-Z0-9_*./-]+:[[:space:]].+$'
 
           for SHA in $COMMITS; do
             echo "--------------------------------------------------------"
             echo "Checking commit: $SHA"
-          
+
             # Extract raw commit message components
             TITLE=$(git log -1 --format="%s" "$SHA")
             BODY=$(git log -1 --format="%b" "$SHA")
             FULL_MSG=$(git log -1 --format="%B" "$SHA")
-          
+
             echo "Title: '$TITLE'"
 
             # 1. Check Title Length (Max 50 characters)
@@ -45,7 +48,7 @@ jobs:
             fi
 
             # 2. Check Title Prefix Pattern (e.g., package: text)
-            if [[ ! "$TITLE" =~ ^[a-zA-Z0-9_-]+:[[:space:]].+$ ]]; then
+            if [[ ! "$TITLE" =~ $PATTERN ]]; then
               echo "❌ ERROR: Title must match the pattern 'package: text'."
               FAILED=1
             fi
