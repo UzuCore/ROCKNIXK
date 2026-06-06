@@ -98,6 +98,18 @@ jobs:
       - name: Clean up compressed aarch64 build file
         run: rm build.build.aarch64.tar
 
+      - name: Download aarch64-rust (${{ inputs.DEVICE }})
+        uses: actions/download-artifact@v8
+        with:
+          name: aarch64-rust (${{ inputs.DEVICE }})
+
+      - name: Extract artifact aarch64-rust
+        run: |
+          tar --zstd -xf build.aarch64-rust.tar.zst
+
+      - name: Clean up compressed aarch64-rust file
+        run: rm build.aarch64-rust.tar.zst
+
       - name: Download qt6 (${{ inputs.DEVICE }})
         if: ${{ inputs.DEVICE == 'RK3399' || inputs.DEVICE == 'RK3566' || inputs.DEVICE == 'RK3576' || inputs.DEVICE == 'RK3588' ||
           inputs.DEVICE == 'S922X'  || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' || inputs.DEVICE == 'SM8750' || inputs.DEVICE == 'SM6115' }}
