@@ -26,6 +26,8 @@ if [ ! -f "${ELF}" ]; then
   exit 1
 fi
 
+$SYSTEM_ROOT/usr/sbin/partprobe
+
 ABL_A="$($SYSTEM_ROOT/usr/sbin/blkid -t PARTLABEL=abl_a -o device)"
 ABL_B="$($SYSTEM_ROOT/usr/sbin/blkid -t PARTLABEL=abl_b -o device)"
 if [ ! -b "${ABL_A}" ] || [ ! -b "${ABL_B}" ]; then
