@@ -100,14 +100,6 @@
 		};
 	};
 
-	vreg_panel_en: panel-en-regulator {
-		compatible = "regulator-fixed";
-		regulator-name = "panel_en";
-		gpio = <&tlmm 14 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
-		regulator-boot-on;
-	};
-
 	vph_pwr: vph-pwr-regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "vph_pwr";
@@ -491,10 +483,10 @@
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l11c_3p0: ldo11 {
-			regulator-name = "vreg_l11c_3p0";
-			regulator-min-microvolt = <3000000>;
-			regulator-max-microvolt = <3000000>;
+		vreg_l11c_3p3: ldo11 {
+			regulator-name = "vreg_l11c_3p3";
+			regulator-min-microvolt = <3296000>;
+			regulator-max-microvolt = <3296000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
@@ -667,9 +659,9 @@
 		pinctrl-names = "default", "sleep";
 
 		vddio-supply = <&vreg_l14a_1p8>;
-		vdd-supply = <&vreg_l11c_3p0>;
-		enable-supply = <&vreg_panel_en>;
+		vdd-supply = <&vreg_l11c_3p3>;
 
+		enable-gpios = <&tlmm 14 GPIO_ACTIVE_HIGH>;
 		reset-gpios = <&tlmm 74 GPIO_ACTIVE_LOW>;
 
 		rotation = <270>;
