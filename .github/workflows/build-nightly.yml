@@ -323,6 +323,5 @@ jobs:
             --target "${{ github.sha }}" \
             --title "${{ env.DATE }}" \
             --notes-file release-body.md \
-            --draft \
             --latest
 
