@@ -50,7 +50,7 @@
 
   # Windowmanager to use (weston / swaywm-env / no)
     WINDOWMANAGER="swaywm-env"
-  
+
   # Additional drivers to install:
   # for a list of additional drivers see packages/linux-drivers
   # Space separated list is supported,
@@ -68,6 +68,8 @@
   # Debug tty path
     DEBUG_TTY="/dev/ttyS0"
 
+  # Build and install rocknix out-of-tree device trees and overlays (yes / no)
+    ROCKNIX_DEVICE_TREE_OVERLAYS="yes"
 
   # ZRAM Algorithm
     ZRAM_COMPRESSION_ALGO="lzo-rle"

@@ -256,6 +256,20 @@ get_fdt_type() {
   fi
 }
 
+get_fdt_overlays() {
+  local FDT_OVERLAYS=""
+
+  if [[ -n "${SUBDEVICE}" ]]; then
+    FDT_OVERLAYS=$(xmlstarlet sel -t -v "//rocknix/${DEVICE}/${SUBDEVICE}/@fdt_overlays" "${CONFIGXML}" 2>/dev/null)
+  fi
+
+  if [[ -z "${FDT_OVERLAYS}" ]]; then
+    FDT_OVERLAYS=$(xmlstarlet sel -t -v "//rocknix/${DEVICE}/@fdt_overlays" "${CONFIGXML}" 2>/dev/null)
+  fi
+
+  [ -n "${FDT_OVERLAYS}" ] && echo "${FDT_OVERLAYS}" || true
+}
+
 generate_grub_cfg_body() {
   cat << EOF
 insmod part_gpt
