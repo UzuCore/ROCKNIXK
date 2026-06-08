@@ -1,6 +1,6 @@
 --- a/drivers/power/supply/bq256xx_charger.c
 +++ b/drivers/power/supply/bq256xx_charger.c
-@@ -76,6 +76,16 @@
+@@ -78,6 +78,16 @@
  
  #define BQ256XX_CHG_CONFIG_MASK		BIT(4)
  #define BQ256XX_CHG_CONFIG_BIT_SHIFT	4
@@ -17,7 +17,7 @@
  #define BQ256XX_OTG_CONFIG		BIT(5)
  
  #define BQ256XX_ITERM_MASK		GENMASK(3, 0)
-@@ -229,6 +239,16 @@
+@@ -247,6 +257,16 @@
   * @state: device status and faults
   * @watchdog_timer: watchdog timer value in milliseconds
   */
@@ -34,7 +34,7 @@
  struct bq256xx_device {
  	struct i2c_client *client;
  	struct device *dev;
-@@ -249,6 +269,10 @@
+@@ -267,6 +287,10 @@
  	const struct bq256xx_chip_info *chip_info;
  	struct bq256xx_state state;
  	int watchdog_timer;
@@ -45,12 +45,10 @@
  };
  
  /**
-@@ -1228,8 +1252,117 @@
- 	}
- 
+@@ -1392,6 +1416,115 @@
  	return ret;
-+}
-+
+ }
+ 
 +static int bq256xx_jeita_read_temp(struct bq256xx_device *bq, int *temp_dC)
 +{
 +	union power_supply_propval val;
@@ -157,21 +155,25 @@
 +	cancel_delayed_work_sync(&bq->jeita_work);
 +	if (bq->fg_psy)
 +		power_supply_put(bq->fg_psy);
- }
- 
++}
++
 +
  static bool bq256xx_state_changed(struct bq256xx_device *bq,
  				  struct bq256xx_state *new_state)
  {
-@@ -1267,6 +1400,7 @@
- 		/* Vendor parity: push to chip max on every adapter attach. */
- 		bq->chip_info->bq256xx_set_iindpm(bq, BQ256XX_IINDPM_MAX_uA);
- 		bq->chip_info->bq256xx_set_ichg(bq, bq->init_data.ichg_max);
+@@ -1444,8 +1577,10 @@
+ 	bq->state = state;
+ 	mutex_unlock(&bq->lock);
+ 
+-	if (state.vbus_stat != prev_vbus_stat)
++	if (state.vbus_stat != prev_vbus_stat) {
+ 		bq256xx_set_iindpm_for_type(bq, state.vbus_stat);
 +		mod_delayed_work(system_wq, &bq->jeita_work, 0);
- 	}
++	}
  
  	power_supply_changed(bq->charger);
-@@ -1847,6 +1981,14 @@
+ 
+@@ -2059,6 +2194,14 @@
  		return ret;
  	}
  
