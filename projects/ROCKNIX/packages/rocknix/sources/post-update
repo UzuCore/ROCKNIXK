@@ -244,3 +244,11 @@ rm -rf /storage/.config/ares/settings.*
 
 # Delete gopher64 config file
 rm -rf /storage/.config/gopher64/config.json
+
+# Set the flag to enable fake suspend if it doesn't already exist
+grep -q "^system\.suspend\.enable=" /storage/.config/system/configs/system.cfg ||
+    sed -i '$ a\system.suspend.enable=1' /storage/.config/system/configs/system.cfg
+
+# Set the flag to enable timed shutdown after suspend if it doesn't already exist
+grep -q "^system\.suspend\.enable_timed_shutdown=" /storage/.config/system/configs/system.cfg ||
+    sed -i '$ a\system.suspend.enable_timed_shutdown=1' /storage/.config/system/configs/system.cfg
