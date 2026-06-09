@@ -15,7 +15,6 @@ post_makeinstall_target() {
 
   mkdir -p ${INSTALL}/etc/iwd
   case "${DEVICE}" in
-    RK3326) cp -P ${PKG_DIR}/sources/main.conf.rk3326 ${INSTALL}/etc/iwd/main.conf ;;
     *)      cp -P ${PKG_DIR}/sources/main.conf        ${INSTALL}/etc/iwd/main.conf ;;
   esac
 
