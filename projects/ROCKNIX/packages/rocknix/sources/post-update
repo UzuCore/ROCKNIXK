@@ -125,6 +125,26 @@ if echo ${HW_DEVICE}  | grep -E 'SM8250|SM8550'; then
   sed -i '/video_threaded =/c\video_threaded = "false"' /storage/.config/retroarch/retroarch.cfg
 fi
 
+if echo ${HW_DEVICE} | grep -E 'H700'; then
+  sed -i '/menu_scale_factor =/c\menu_scale_factor = "0.74"' /storage/.config/retroarch/retroarch.cfg
+  sed -i '/menu_widget_scale_factor =/c\menu_widget_scale_factor = "1.000000"' /storage/.config/retroarch/retroarch.cfg
+fi
+
+if echo ${HW_DEVICE} | grep -E 'RK3326|RK3399|RK3588|S922X|SM6115|SM8250|SM8550|SM8650|SM8750'; then
+  sed -i '/menu_scale_factor =/c\menu_scale_factor = "0.74"' /storage/.config/retroarch/retroarch.cfg
+  sed -i '/menu_widget_scale_factor =/c\menu_widget_scale_factor = "0.88"' /storage/.config/retroarch/retroarch.cfg
+fi
+
+if echo ${HW_DEVICE} | grep -E 'RK3566'; then
+  sed -i '/menu_scale_factor =/c\menu_scale_factor = "0.86"' /storage/.config/retroarch/retroarch.cfg
+  sed -i '/menu_widget_scale_factor =/c\menu_widget_scale_factor = "0.88"' /storage/.config/retroarch/retroarch.cfg
+fi
+
+if echo ${HW_DEVICE} | grep -E 'RK3576'; then
+  sed -i '/menu_scale_factor =/c\menu_scale_factor = "1.48"' /storage/.config/retroarch/retroarch.cfg
+  sed -i '/menu_widget_scale_factor =/c\menu_widget_scale_factor = "0.88"' /storage/.config/retroarch/retroarch.cfg
+fi
+
 # run the idtech script on update if folder does not exist
 if [ ! -d "/storage/.config/idtech" ]; then
   /usr/bin/generate-idtech.sh
@@ -224,3 +244,11 @@ rm -rf /storage/.config/ares/settings.*
 
 # Delete gopher64 config file
 rm -rf /storage/.config/gopher64/config.json
+
+# Set the flag to enable fake suspend if it doesn't already exist
+grep -q "^system\.suspend\.enable=" /storage/.config/system/configs/system.cfg ||
+    sed -i '$ a\system.suspend.enable=1' /storage/.config/system/configs/system.cfg
+
+# Set the flag to enable timed shutdown after suspend if it doesn't already exist
+grep -q "^system\.suspend\.enable_timed_shutdown=" /storage/.config/system/configs/system.cfg ||
+    sed -i '$ a\system.suspend.enable_timed_shutdown=1' /storage/.config/system/configs/system.cfg
