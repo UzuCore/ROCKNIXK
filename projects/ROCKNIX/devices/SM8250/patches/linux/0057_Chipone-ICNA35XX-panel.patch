@@ -7,8 +7,8 @@ Signed-off-by: Teguh Sobirin <teguh@sobir.in>
 ---
  drivers/gpu/drm/panel/Kconfig                 |  12 +
  drivers/gpu/drm/panel/Makefile                |   1 +
- .../gpu/drm/panel/panel-chipone-icna35xx.c    | 799 ++++++++++++++++++
- 3 files changed, 812 insertions(+)
+ .../gpu/drm/panel/panel-chipone-icna35xx.c    | 783 ++++++++++++++++++
+ 3 files changed, 796 insertions(+)
  create mode 100644 drivers/gpu/drm/panel/panel-chipone-icna35xx.c
 
 diff --git a/drivers/gpu/drm/panel/Kconfig b/drivers/gpu/drm/panel/Kconfig
@@ -48,10 +48,10 @@ index 4b64459f88b5..339a5cb9f31b 100644
  obj-$(CONFIG_DRM_PANEL_SIMPLE) += panel-simple.o
 diff --git a/drivers/gpu/drm/panel/panel-chipone-icna35xx.c b/drivers/gpu/drm/panel/panel-chipone-icna35xx.c
 new file mode 100644
-index 000000000000..2f8326d36ba1
+index 000000000000..9021933b0714
 --- /dev/null
 +++ b/drivers/gpu/drm/panel/panel-chipone-icna35xx.c
-@@ -0,0 +1,799 @@
+@@ -0,0 +1,783 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Chipone ICNA35XX Driver IC panels driver
@@ -85,7 +85,6 @@ index 000000000000..2f8326d36ba1
 +	enum drm_panel_orientation orientation;
 +
 +	struct gpio_desc *reset_gpio;
-+	struct gpio_desc *enable_gpio;
 +	struct regulator_bulk_data *supplies;
 +};
 +
@@ -109,14 +108,9 @@ index 000000000000..2f8326d36ba1
 +	struct drm_dsc_config dsc;
 +};
 +
-+static const struct regulator_bulk_data icna35xx_ayn_supplies[] = {
++static const struct regulator_bulk_data icna35xx_supplies[] = {
 +	{ .supply = "vdd" },  { .supply = "vddio" }, { .supply = "vci" },
 +	{ .supply = "disp" }, { .supply = "blvdd" },
-+};
-+
-+static const struct regulator_bulk_data mangmi_pocket_max_supplies[] = {
-+	{ .supply = "vddio" },
-+	{ .supply = "vdd" },
 +};
 +
 +static inline struct panel_info *to_panel_info(struct drm_panel *panel)
@@ -518,8 +512,8 @@ index 000000000000..2f8326d36ba1
 +	.format = MIPI_DSI_FMT_RGB888,
 +	.mode_flags = MIPI_DSI_MODE_NO_EOT_PACKET | MIPI_DSI_CLOCK_NON_CONTINUOUS | MIPI_DSI_MODE_LPM,
 +	.max_brightness = 4096,
-+	.supplies = icna35xx_ayn_supplies,
-+	.num_supplies = ARRAY_SIZE(icna35xx_ayn_supplies),
++	.supplies = icna35xx_supplies,
++	.num_supplies = ARRAY_SIZE(icna35xx_supplies),
 +	.init_sequence = icna3512_init_sequence,
 +	.dsc = {
 +		.dsc_version_major = 0x1,
@@ -543,8 +537,8 @@ index 000000000000..2f8326d36ba1
 +	.format = MIPI_DSI_FMT_RGB888,
 +	.mode_flags =  MIPI_DSI_MODE_NO_EOT_PACKET | MIPI_DSI_CLOCK_NON_CONTINUOUS | MIPI_DSI_MODE_LPM,
 +	.max_brightness = 4096,
-+	.supplies = icna35xx_ayn_supplies,
-+	.num_supplies = ARRAY_SIZE(icna35xx_ayn_supplies),
++	.supplies = icna35xx_supplies,
++	.num_supplies = ARRAY_SIZE(icna35xx_supplies),
 +	.init_sequence = icna3520_init_sequence,
 +	.dsc = {
 +		.dsc_version_major = 0x1,
@@ -568,8 +562,8 @@ index 000000000000..2f8326d36ba1
 +	.format = MIPI_DSI_FMT_RGB888,
 +	.mode_flags = MIPI_DSI_CLOCK_NON_CONTINUOUS | MIPI_DSI_MODE_LPM,
 +	.max_brightness = 3515,
-+	.supplies = mangmi_pocket_max_supplies,
-+	.num_supplies = ARRAY_SIZE(mangmi_pocket_max_supplies),
++	.supplies = icna35xx_supplies,
++	.num_supplies = ARRAY_SIZE(icna35xx_supplies),
 +	.init_sequence = mangmi_pocket_max_init_sequence,
 +	.dsc = {
 +		.dsc_version_major = 0x1,
@@ -604,13 +598,10 @@ index 000000000000..2f8326d36ba1
 +		return ret;
 +	}
 +
-+	gpiod_set_value_cansleep(pinfo->enable_gpio, 1);
-+
 +	icna35xx_reset(pinfo);
 +
 +	ret = pinfo->desc->init_sequence(pinfo);
 +	if (ret < 0) {
-+		gpiod_set_value_cansleep(pinfo->enable_gpio, 0);
 +		regulator_bulk_disable(pinfo->desc->num_supplies,
 +				       pinfo->supplies);
 +		dev_err(panel->dev, "failed to initialize panel: %d\n", ret);
@@ -640,7 +631,6 @@ index 000000000000..2f8326d36ba1
 +	struct panel_info *pinfo = to_panel_info(panel);
 +
 +	gpiod_set_value_cansleep(pinfo->reset_gpio, 1);
-+	gpiod_set_value_cansleep(pinfo->enable_gpio, 0);
 +	regulator_bulk_disable(pinfo->desc->num_supplies, pinfo->supplies);
 +
 +	return 0;
@@ -787,12 +777,6 @@ index 000000000000..2f8326d36ba1
 +	if (IS_ERR(pinfo->reset_gpio))
 +		return dev_err_probe(dev, PTR_ERR(pinfo->reset_gpio),
 +				     "failed to get reset gpio\n");
-+
-+	pinfo->enable_gpio =
-+		devm_gpiod_get_optional(dev, "enable", GPIOD_OUT_LOW);
-+	if (IS_ERR(pinfo->enable_gpio))
-+		return dev_err_probe(dev, PTR_ERR(pinfo->enable_gpio),
-+				     "failed to get enable gpio\n");
 +
 +	pinfo->dsi = dsi;
 +	mipi_dsi_set_drvdata(dsi, pinfo);

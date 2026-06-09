@@ -148,6 +148,14 @@
 		enable-active-high;
 	};
 
+	vreg_panel_en: panel-en-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "panel_en";
+		gpio = <&tlmm 14 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-boot-on;
+	};
+
 	qca6390-pmu {
 		compatible = "qcom,qca6390-pmu";
 
@@ -660,8 +668,8 @@
 
 		vddio-supply = <&vreg_l14a_1p8>;
 		vdd-supply = <&vreg_l11c_3p3>;
+		disp-supply = <&vreg_panel_en>;
 
-		enable-gpios = <&tlmm 14 GPIO_ACTIVE_HIGH>;
 		reset-gpios = <&tlmm 74 GPIO_ACTIVE_LOW>;
 
 		rotation = <270>;
