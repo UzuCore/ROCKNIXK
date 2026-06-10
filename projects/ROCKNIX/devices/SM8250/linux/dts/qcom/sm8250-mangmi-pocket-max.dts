@@ -54,6 +54,7 @@
 		compatible = "pwm-vibrator";
 		pwms = <&pm8150l_lpg 3 40000>;
 		pwm-names = "enable";
+		vcc-supply = <&vreg_vibrator_en>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&vibrator_pwm_active>;
 	};
@@ -162,6 +163,13 @@
 		gpio = <&tlmm 14 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		regulator-boot-on;
+	};
+
+	vreg_vibrator_en: vibrator-en-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vibrator_en";
+		gpio = <&tlmm 85 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
 	};
 
 	qca6390-pmu {
@@ -1107,13 +1115,6 @@
 };
 
 &tlmm {
-	vibrator_en_hog {
-		gpio-hog;
-		gpios = <85 GPIO_ACTIVE_HIGH>;
-		output-high;
-		line-name = "vibrator-enable";
-	};
-
 	mcu_key_pins: mcu-key-pins-state {
 		pins = "gpio4", "gpio15", "gpio83", "gpio84", "gpio111", "gpio118";
 		function = "gpio";
