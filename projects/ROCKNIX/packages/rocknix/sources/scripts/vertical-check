@@ -122,7 +122,6 @@ elif [ "${DEVICE_HAS_DUAL_SCREEN}" = "true" ] && [ "${EXTERNAL_DISPLAY_CONNECTED
 
         swaymsg "output ${OUTPUT} power on" >/dev/null 2>&1
         RA_PID=$(pgrep -f '/usr/bin/retroarch' | head -n 1)
-        USE_CHEEVOS=$(get_setting "retroachievements" 2>/dev/null)
 
         ( cd "${BOTTOM_SCREEN_UI_DIR}" && \
           exec python3 "${BOTTOM_SCREEN_UI_DIR}/main.py" \
@@ -130,7 +129,6 @@ elif [ "${DEVICE_HAS_DUAL_SCREEN}" = "true" ] && [ "${EXTERNAL_DISPLAY_CONNECTED
               --core     "${CURRENT_CORE}" \
               --platform "${PLATFORM}" \
               --ra-pid   "${RA_PID:-0}" \
-              --cheevos-enabled  "${USE_CHEEVOS:-1}" \
           >/dev/null 2>&1 ) &
         echo $! > "${BOTTOM_SCREEN_PID_FILE}"
 
