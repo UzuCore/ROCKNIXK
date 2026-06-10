@@ -541,12 +541,12 @@
 	clock-frequency = <400000>;
 	status = "okay";
 
-	/* TODO */
 	charger@5e {
 		compatible = "halomicro,hl7139";
 		reg = <0x5e>;
 		interrupt-parent = <&tlmm>;
 		interrupts = <113 IRQ_TYPE_EDGE_FALLING>;
+		status = "disabled";
 	};
 };
 
