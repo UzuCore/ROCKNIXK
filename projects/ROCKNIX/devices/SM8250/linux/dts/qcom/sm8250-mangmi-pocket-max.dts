@@ -50,6 +50,14 @@
 		pinctrl-0 = <&fan_pwm_active>;
 	};
 
+	vibrator {
+		compatible = "pwm-vibrator";
+		pwms = <&pm8150l_lpg 3 40000>;
+		pwm-names = "enable";
+		pinctrl-names = "default";
+		pinctrl-0 = <&vibrator_pwm_active>;
+	};
+
 	gpio-keys {
 		compatible = "gpio-keys";
 		pinctrl-names = "default";
@@ -867,6 +875,16 @@
 		qcom,drive-strength = <3>;
 		drive-push-pull;
 	};
+
+	vibrator_pwm_active: vibrator-pwm-active-state {
+		pins = "gpio6";
+		function = "func1";
+		bias-disable;
+		power-source = <0>;
+		output-low;
+		qcom,drive-strength = <3>;
+		drive-push-pull;
+	};
 };
 
 &pm8150l_lpg {
@@ -1089,6 +1107,13 @@
 };
 
 &tlmm {
+	vibrator_en_hog {
+		gpio-hog;
+		gpios = <85 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "vibrator-enable";
+	};
+
 	mcu_key_pins: mcu-key-pins-state {
 		pins = "gpio4", "gpio15", "gpio83", "gpio84", "gpio111", "gpio118";
 		function = "gpio";
