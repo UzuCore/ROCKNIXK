@@ -14,7 +14,9 @@ post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/lib/systemd/system
 
   mkdir -p ${INSTALL}/etc/iwd
-    cp -P ${PKG_DIR}/sources/main.conf ${INSTALL}/etc/iwd
+  case "${DEVICE}" in
+    *)      cp -P ${PKG_DIR}/sources/main.conf        ${INSTALL}/etc/iwd/main.conf ;;
+  esac
 
   mkdir -p ${INSTALL}/usr/bin
     cp -P ${PKG_DIR}/scripts/iwd_get-networks ${INSTALL}/usr/bin
