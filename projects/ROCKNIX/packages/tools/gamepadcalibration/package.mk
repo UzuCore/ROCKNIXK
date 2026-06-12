@@ -20,6 +20,10 @@ makeinstall_target() {
   tar -xzf ${PKG_BUILD}/rocknix/gpcal-python-3.13.tgz -C ${INSTALL}/usr/local/share
 
   case ${DEVICE} in
+    SM8250)
+      sed -i 's|^PARAMETERS_DIR_PATH=.*|import os\nPARAMETERS_DIR_PATH = "/sys/module/mangmi_pocket_max/parameters" if os.path.exists("/sys/module/mangmi_pocket_max/parameters") else "/sys/module/retroid/parameters"|' \
+        ${INSTALL}/usr/local/share/gpcal/Klib/RPocket.py
+      ;;
     SM8550|SM8750)
       sed -i 's|/sys/module/retroid/parameters|/sys/module/rsinput/parameters|g' ${INSTALL}/usr/local/share/gpcal/Klib/RPocket.py
       ;;
