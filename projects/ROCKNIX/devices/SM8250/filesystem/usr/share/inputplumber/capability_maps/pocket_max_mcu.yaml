@@ -108,7 +108,7 @@ mapping:
     source_events:
       - evdev:
           event_type: ABS
-          event_code: ABS_GAS
+          event_code: ABS_HAT2Y
           value_type: trigger
     target_event:
       gamepad:
@@ -119,7 +119,7 @@ mapping:
     source_events:
       - evdev:
           event_type: ABS
-          event_code: ABS_BRAKE
+          event_code: ABS_HAT2X
           value_type: trigger
     target_event:
       gamepad:
@@ -150,11 +150,11 @@ mapping:
     source_events:
       - evdev:
           event_type: ABS
-          event_code: ABS_Z
+          event_code: ABS_RX
           value_type: joystick_x
       - evdev:
           event_type: ABS
-          event_code: ABS_RZ
+          event_code: ABS_RY
           value_type: joystick_y
     target_event:
       gamepad:
