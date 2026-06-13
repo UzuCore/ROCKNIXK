@@ -2,7 +2,7 @@
 # Copyright (C) 2026-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="gamescope"
-PKG_VERSION="fe78bc685f247460d02c85f4b530b9de3ed07cdd"
+PKG_VERSION="428688779e481681ddf6e2ea346987889527a0b7"
 PKG_GIT_CLONE_BRANCH="master"
 PKG_LICENSE="BSD-2-Clause"
 PKG_SITE="https://github.com/ValveSoftware/gamescope"
@@ -30,6 +30,7 @@ pre_configure_target() {
                            -Dbenchmark=disabled \
                            -Dinput_emulation=disabled \
                            -Drt_cap=enabled \
+                           -Denable_tests=false \
                            -Dsdl2_backend=enabled"
 
   # Subprojects (libliftoff tests, wlroots) use -Werror; distro GCC is stricter than upstream CI.
