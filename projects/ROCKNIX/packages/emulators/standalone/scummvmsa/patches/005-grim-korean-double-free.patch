@@ -1,0 +1,12 @@
+diff --git a/engines/grim/resource.cpp b/engines/grim/resource.cpp
+--- a/engines/grim/resource.cpp
++++ b/engines/grim/resource.cpp
+@@ -415,7 +415,6 @@
+ 			delete stream;
+ 			stream = openNewStreamFile(font.c_str(), true);
+ 			FontTTF *result = new FontTTF();
+ 			result->loadTTF(filename, stream, s);
+-			delete stream;
+ 
+ 			return result;
+ 		}
