@@ -37,7 +37,7 @@ new file mode 100644
 index 000000000000..82570eff2fbe
 --- /dev/null
 +++ b/drivers/input/joystick/mangmi-pocket-max.c
-@@ -0,0 +1,573 @@
+@@ -0,0 +1,581 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * MANGMI Pocket Max Joypad Driver SPI
@@ -69,6 +69,7 @@ index 000000000000..82570eff2fbe
 +#define MCU_ADC_MAX		4095
 +#define MCU_CMD_DELAY_US	100
 +#define MCU_WORD_DELAY_US	1000
++#define MCU_DEBOUNCE_US		5000
 +#define MCU_CENTER_X		1883
 +#define MCU_CENTER_Y		1877
 +#define MCU_CENTER_Z		1904
@@ -76,39 +77,39 @@ index 000000000000..82570eff2fbe
 +#define MCU_MAP_ZONE		1000
 +#define MCU_MAP_CLAMP		1500
 +#define MCU_AXIS_OUT		0x580
-+#define MCU_BRAKE_REST		1910
-+#define MCU_GAS_REST		1758
++#define MCU_BRAKE_MAX		1910
++#define MCU_GAS_MAX		1758
 +#define MCU_CMD_SET_ADC_TIME	8
 +#define MCU_ADC_TIMER_DEFAULT	2
 +
 +#define INT_SIGN(x)		(((x) > 0) - ((x) < 0))
 +
 +static int update_params;
-+static int trigger_left_max = MCU_BRAKE_REST;
++static int trigger_left_max = MCU_BRAKE_MAX;
 +static int trigger_left_deadzone;
 +static int trigger_left_antideadzone;
-+static int trigger_right_max = MCU_GAS_REST;
++static int trigger_right_max = MCU_GAS_MAX;
 +static int trigger_right_deadzone;
 +static int trigger_right_antideadzone;
 +static int axis_leftx_min = -MCU_AXIS_OUT;
 +static int axis_leftx_center;
 +static int axis_leftx_max = MCU_AXIS_OUT;
-+static int axis_leftx_deadzone = 30;
++static int axis_leftx_deadzone = 70;
 +static int axis_leftx_antideadzone;
 +static int axis_lefty_min = -MCU_AXIS_OUT;
 +static int axis_lefty_center;
 +static int axis_lefty_max = MCU_AXIS_OUT;
-+static int axis_lefty_deadzone = 30;
++static int axis_lefty_deadzone = 70;
 +static int axis_lefty_antideadzone;
 +static int axis_rightx_min = -MCU_AXIS_OUT;
 +static int axis_rightx_center;
 +static int axis_rightx_max = MCU_AXIS_OUT;
-+static int axis_rightx_deadzone = 30;
++static int axis_rightx_deadzone = 70;
 +static int axis_rightx_antideadzone;
 +static int axis_righty_min = -MCU_AXIS_OUT;
 +static int axis_righty_center;
 +static int axis_righty_max = MCU_AXIS_OUT;
-+static int axis_righty_deadzone = 30;
++static int axis_righty_deadzone = 70;
 +static int axis_righty_antideadzone;
 +static int axis_fuzz = 16;
 +static int trigger_fuzz = 16;
@@ -178,7 +179,9 @@ index 000000000000..82570eff2fbe
 +{
 +	int v = trigger_max - (int)raw;
 +
-+	return v < deadzone ? 0 : v - antideadzone;
++	if (v < deadzone)
++		return 0;
++	return clamp(v - antideadzone, 0, trigger_max - antideadzone);
 +}
 +
 +struct mcu_gpio_btn {
@@ -340,14 +343,14 @@ index 000000000000..82570eff2fbe
 +	input_set_abs_params(dev, ABS_Y,
 +		INT_SIGN(axis_lefty_min) * (abs(axis_lefty_min) - axis_lefty_antideadzone),
 +		INT_SIGN(axis_lefty_max) * (abs(axis_lefty_max) - axis_lefty_antideadzone), axis_fuzz, 0);
-+	input_set_abs_params(dev, ABS_Z,
++	input_set_abs_params(dev, ABS_RX,
 +		INT_SIGN(axis_rightx_min) * (abs(axis_rightx_min) - axis_rightx_antideadzone),
 +		INT_SIGN(axis_rightx_max) * (abs(axis_rightx_max) - axis_rightx_antideadzone), axis_fuzz, 0);
-+	input_set_abs_params(dev, ABS_RZ,
++	input_set_abs_params(dev, ABS_RY,
 +		INT_SIGN(axis_righty_min) * (abs(axis_righty_min) - axis_righty_antideadzone),
 +		INT_SIGN(axis_righty_max) * (abs(axis_righty_max) - axis_righty_antideadzone), axis_fuzz, 0);
-+	input_set_abs_params(dev, ABS_BRAKE, 0, trigger_left_max - trigger_left_antideadzone, trigger_fuzz, 30);
-+	input_set_abs_params(dev, ABS_GAS, 0, trigger_right_max - trigger_right_antideadzone, trigger_fuzz, 30);
++	input_set_abs_params(dev, ABS_HAT2X, 0, trigger_left_max - trigger_left_antideadzone, trigger_fuzz, 30);
++	input_set_abs_params(dev, ABS_HAT2Y, 0, trigger_right_max - trigger_right_antideadzone, trigger_fuzz, 30);
 +	input_set_abs_params(dev, ABS_HAT0X, -1, 1, 0, 0);
 +	input_set_abs_params(dev, ABS_HAT0Y, -1, 1, 0, 0);
 +}
@@ -387,15 +390,15 @@ index 000000000000..82570eff2fbe
 +
 +	v = mcu_stick(adc[4], jp->cz, true) + axis_rightx_center;
 +	v = abs(v) < axis_rightx_deadzone ? 0 : INT_SIGN(v) * (abs(v) - axis_rightx_antideadzone);
-+	input_report_abs(dev, ABS_Z, v);
++	input_report_abs(dev, ABS_RX, v);
 +
 +	v = mcu_stick(adc[5], jp->crz, true) + axis_righty_center;
 +	v = abs(v) < axis_righty_deadzone ? 0 : INT_SIGN(v) * (abs(v) - axis_righty_antideadzone);
-+	input_report_abs(dev, ABS_RZ, v);
++	input_report_abs(dev, ABS_RY, v);
 +
-+	input_report_abs(dev, ABS_BRAKE,
++	input_report_abs(dev, ABS_HAT2X,
 +			 mcu_trigger(adc[0], trigger_left_max, trigger_left_deadzone, trigger_left_antideadzone));
-+	input_report_abs(dev, ABS_GAS,
++	input_report_abs(dev, ABS_HAT2Y,
 +			 mcu_trigger(adc[3], trigger_right_max, trigger_right_deadzone, trigger_right_antideadzone));
 +
 +	input_sync(dev);
@@ -407,6 +410,7 @@ index 000000000000..82570eff2fbe
 +	struct pmax_joypad *jp = data;
 +	int i;
 +
++	usleep_range(MCU_DEBOUNCE_US, MCU_DEBOUNCE_US + 1000);
 +	for (i = 0; i < MCU_NR_GPIO_BTN; i++)
 +		if (jp->btn_gpio[i])
 +			input_report_key(jp->input, mcu_gpio_btns[i].code,
@@ -433,7 +437,7 @@ index 000000000000..82570eff2fbe
 +
 +	msleep(20);
 +	gpiod_set_raw_value_cansleep(jp->reset_gpio, 0);
-+	msleep(50);
++	msleep(100);
 +}
 +
 +static void mcu_power_off(struct pmax_joypad *jp)
@@ -575,6 +579,8 @@ index 000000000000..82570eff2fbe
 +{
 +	struct pmax_joypad *jp = spi_get_drvdata(to_spi_device(dev));
 +
++	disable_irq(jp->key_irq);
++	disable_irq(jp->adc_irq);
 +	mcu_power_off(jp);
 +	return 0;
 +}
@@ -585,6 +591,8 @@ index 000000000000..82570eff2fbe
 +
 +	mcu_power_on(jp);
 +	mcu_init(jp);
++	enable_irq(jp->key_irq);
++	enable_irq(jp->adc_irq);
 +	return 0;
 +}
 +

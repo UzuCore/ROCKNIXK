@@ -1116,10 +1116,26 @@
 
 &tlmm {
 	mcu_key_pins: mcu-key-pins-state {
-		pins = "gpio4", "gpio15", "gpio83", "gpio84", "gpio111", "gpio118";
-		function = "gpio";
-		drive-strength = <4>;
-		bias-pull-up;
+		key-pins {
+			pins = "gpio4", "gpio15", "gpio83", "gpio84", "gpio111", "gpio118";
+			function = "gpio";
+			drive-strength = <4>;
+			bias-pull-up;
+		};
+
+		irq-pins {
+			pins = "gpio63", "gpio64";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-disable;
+		};
+
+		ctrl-pins {
+			pins = "gpio31", "gpio42", "gpio43", "gpio48", "gpio50", "gpio72", "gpio87";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-disable;
+		};
 	};
 
 	bt_en_state: bt-default-state {
