@@ -285,6 +285,9 @@ do_shutdown() {
   # Unmute audio - otherwise wireplumber will keep it muted on next boot
   unmute_audio
 
+  # Unfreeze prococesses - otherwise ES will be unable to respond to API calls
+  unfreeze_processes
+
   # Check whether a game is running
   check_es_running_game
   local RUNNING_GAME=$?
