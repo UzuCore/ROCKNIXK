@@ -1,0 +1,23 @@
+--- a/src/basic/time-util.c
++++ b/src/basic/time-util.c
+@@ -1626,8 +1626,18 @@ int get_timezone(char **ret) {
+                 return r; /* returns EINVAL if not a symlink */
+ 
+         e = PATH_STARTSWITH_SET(t, "/usr/share/zoneinfo/", "../usr/share/zoneinfo/");
+-        if (!e)
+-                return -EINVAL;
++        if (!e) {
++                char resolved[PATH_MAX + 1];
++                if (realpath("/etc/localtime", resolved)) {
++                        free(t);
++                        t = strdup(resolved);
++                        if (!t)
++                                return -ENOMEM;
++                        e = PATH_STARTSWITH_SET(t, "/usr/share/zoneinfo/", "../usr/share/zoneinfo/");
++                }
++                if (!e)
++                        return -EINVAL;
++        }
+ 
+         if (!timezone_is_valid(e, LOG_DEBUG))
+                 return -EINVAL;
