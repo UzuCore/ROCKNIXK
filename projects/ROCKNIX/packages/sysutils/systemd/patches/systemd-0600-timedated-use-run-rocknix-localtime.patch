@@ -1,0 +1,58 @@
+--- a/src/timedate/timedated.c
++++ b/src/timedate/timedated.c
+@@ -290,34 +290,47 @@
+ static int context_write_data_timezone(Context *c) {
+         _cleanup_free_ char *p = NULL;
+         const char *source;
++        int r;
+ 
+         assert(c);
+ 
+-        /* No timezone is very similar to UTC. Hence in either of these cases link the UTC file in. Except if
+-         * it isn't installed, in which case we remove the symlink altogether. Since glibc defaults to an
+-         * internal version of UTC in that case behaviour is mostly equivalent. We still prefer creating the
+-         * symlink though, since things are more self explanatory then. */
+ 
+         if (isempty(c->zone) || streq(c->zone, "UTC")) {
+ 
+                 if (access("/usr/share/zoneinfo/UTC", F_OK) < 0) {
+ 
+-                        if (unlink("/etc/localtime") < 0 && errno != ENOENT)
++                        if (unlink("/var/run/localtime") < 0 && errno != ENOENT)
+                                 return -errno;
+ 
+                         return 0;
+                 }
+ 
+-                source = "../usr/share/zoneinfo/UTC";
++                source = "/usr/share/zoneinfo/UTC";
+         } else {
+-                p = path_join("../usr/share/zoneinfo", c->zone);
++                p = path_join("/usr/share/zoneinfo", c->zone);
+                 if (!p)
+                         return -ENOMEM;
+ 
+                 source = p;
+         }
+ 
+-        return symlink_atomic(source, "/etc/localtime");
++        r = symlink_atomic(source, "/var/run/localtime");
++        if (r < 0)
++                return r;
++
++        /* Persist timezone across reboots via /storage/.cache/timezone */
++        if (!isempty(c->zone)) {
++                _cleanup_free_ char *tz_line = NULL;
++
++                tz_line = strjoin("TIMEZONE=", c->zone, "\n");
++                if (tz_line)
++                        (void) write_string_file("/storage/.cache/timezone", tz_line,
++                                                 WRITE_STRING_FILE_CREATE |
++                                                 WRITE_STRING_FILE_ATOMIC |
++                                                 WRITE_STRING_FILE_TRUNCATE);
++        }
++
++        return 0;
+ }
+ 
+ static int context_write_data_local_rtc(Context *c) {
