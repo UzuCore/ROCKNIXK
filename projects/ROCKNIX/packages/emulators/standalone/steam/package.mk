@@ -25,6 +25,9 @@ makeinstall_target() {
   cp -rf ${PKG_BUILD}/usr/bin ${INSTALL}/usr/bin
   cp -rf ${PKG_BUILD}/usr/lib ${INSTALL}/usr/lib
   cp -rf ${PKG_DIR}/scripts/* ${INSTALL}/usr/bin
+  mkdir -p ${INSTALL}/usr/bin/steamos-polkit-helpers
+  install -m 0755 ${PKG_DIR}/scripts/steamos-polkit-helpers/steamos-set-timezone \
+    ${INSTALL}/usr/bin/steamos-polkit-helpers/steamos-set-timezone
   cp -rf ${PKG_DIR}/resources/compatibilitytool.vdf ${INSTALL}/usr/share/steam
   cp -rf ${PKG_DIR}/resources/toolmanifest.vdf ${INSTALL}/usr/share/steam
   cp -rf ${PKG_DIR}/resources/registry.vdf ${INSTALL}/usr/share/steam
