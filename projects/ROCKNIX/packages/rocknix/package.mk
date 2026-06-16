@@ -71,7 +71,7 @@ EOF
 
   ### Fix and migrate to autostart package
   enable_service rocknix-autostart.service
-  
+
   ### ZRAM/Swap and Memory Manager Service
   enable_service rocknix-memory-manager.service
 
@@ -80,9 +80,9 @@ EOF
 
   sed -i "s#@DEVICENAME@#${DEVICE}#g" ${INSTALL}/usr/config/system/configs/system.cfg
 
-  ### Defaults for non-main builds.
+  ### Defaults for non-next builds.
   BUILD_BRANCH="$(git branch --show-current)"
-  if [ ! "${BUILD_BRANCH}" = "main" ]
+  if [ ! "${BUILD_BRANCH}" = "next" ]
   then
     sed -i "s#samba.enabled=0#samba.enabled=1#g" ${INSTALL}/usr/config/system/configs/system.cfg
     sed -i "s#ssh.enabled=0#ssh.enabled=1#g" ${INSTALL}/usr/config/system/configs/system.cfg
