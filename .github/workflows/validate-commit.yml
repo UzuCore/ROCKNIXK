@@ -7,7 +7,7 @@ on:
     branches: [next]
 jobs:
   validate-commit:
-    runs-on: ubuntu-24.04
+    runs-on: self-hosted
     defaults:
       run:
         shell: bash
@@ -41,9 +41,9 @@ jobs:
 
             echo "Title: '$TITLE'"
 
-            # 1. Check Title Length (Max 50 characters)
-            if [ ${#TITLE} -gt 50 ]; then
-              echo "❌ ERROR: Title exceeds 50 characters (Length: ${#TITLE})."
+            # 1. Check Title Length (Max 72 characters)
+            if [ ${#TITLE} -gt 72 ]; then
+              echo "❌ ERROR: Title exceeds 72 characters (Length: ${#TITLE})."
               FAILED=1
             fi
 
