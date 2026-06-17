@@ -7,7 +7,7 @@ on:
     branches: [next]
 jobs:
   validate-commit:
-    runs-on: ubuntu-24.04
+    runs-on: self-hosted
     defaults:
       run:
         shell: bash
