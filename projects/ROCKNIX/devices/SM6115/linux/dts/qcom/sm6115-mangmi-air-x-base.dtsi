@@ -1374,15 +1374,8 @@
 		pins = "gpio69";
 		function = "gpio";
 		drive-strength = <2>;
-		bias-disable;
-	};
-
-	ts_reset_default: ts-reset-default-state {
-		pins = "gpio68";
-		function = "gpio";
-		drive-strength = <2>;
-		bias-disable;
-		output-low;
+		bias-pull-up;
+		input-enable;
 	};
 
 	tcpc_irq_default: tcpc-irq-default-state {
