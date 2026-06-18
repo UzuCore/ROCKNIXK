@@ -25,6 +25,10 @@
 			linux,code = <KEY_F24>;
 			linux,can-disable;
 		};
+	};
+
+	gpio-keys-lid {
+		compatible = "gpio-keys";
 
 		hall-lid-sensor {
 			label = "Hall Lid Sensor";
