@@ -20,12 +20,12 @@
 ################################################################################
 
 PKG_NAME="supersnes9x-lr"
-PKG_VERSION="c5a118b1c598ee1867b36f8a4182a349eb06cb14"
+PKG_VERSION="d39f1a24efb3351cab9118b87412f8ffc8e4555e"
 PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/shanytc/snes9x"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_LONGDESC="SuperSnes9x - Portable Super Nintendo Entertainment System (TM) emulator based on Snes9x"
+PKG_LONGDESC="SuperSnes9x is a Snes9x-based core extended to also load and run Game Boy (.gb), Super Game Boy (.sgb), and Game Boy Color (.gbc) content via the bundled SGB subsystem, in addition to SNES/SFC, Satellaview and Sufami Turbo. Game Boy and Super Game Boy are fully supported (BIOS or BIOS-less); .gbc runs in monochrome DMG-compatibility mode. Place a real Super Game Boy BIOS (sgb.sfc / sgb2.sfc) in the system directory for authentic SGB sound and borders."
 
 PKG_TOOLCHAIN="make"
 
