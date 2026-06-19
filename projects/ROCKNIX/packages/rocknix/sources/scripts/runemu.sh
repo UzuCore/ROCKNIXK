@@ -268,11 +268,12 @@ case ${EMULATOR} in
       echo 'network_cmd_enable = "true"' >> "${RETROARCH_APPEND_CONFIG}"
       echo 'network_cmd_port = "55355"'  >> "${RETROARCH_APPEND_CONFIG}"
       echo 'savestate_thumbnail_enable = "true"' >> "${RETROARCH_APPEND_CONFIG}"
+      echo 'cheevos_custom_host = "http://127.0.0.1:4874"' >> "${RETROARCH_APPEND_CONFIG}"
 
       if ! pgrep -f 'python3 .*/lowerdeck/ra_proxy\.py' >/dev/null 2>&1; then
         ( python3 /usr/share/lowerdeck/ra_proxy.py >/dev/null 2>&1 ) &
         for _ in 1 2 3 4 5 6 7 8 9 10; do
-          netstat -ln 2>/dev/null | grep -q ':8080 ' && break
+          netstat -ln 2>/dev/null | grep -q ':4874 ' && break
           sleep 0.1
         done
       fi
