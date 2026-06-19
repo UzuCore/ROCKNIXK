@@ -78,16 +78,15 @@ jobs:
           tar -cf ccache-arm-${{ inputs.DEVICE }}.tar ./build.ROCKNIX-${{ inputs.DEVICE }}.arm/.ccache  
 
       - name: save ccache
-        uses: ncipollo/release-action@v1
+        uses: softprops/action-gh-release@v3
         with:
-          tag: ccache
-          artifacts: ccache-arm-${{ inputs.DEVICE }}.tar
-          allowUpdates: true
-          makeLatest: true
+          tag_name: ccache
+          files: ccache-arm-${{ inputs.DEVICE }}.tar
+          make_latest: true
           prerelease: true
           body: cache
           token: ${{ secrets.GH_PAT }}
-          repo: ${{ vars.CACHE_REPO || 'distribution-cache' }}
+          repository: ${{ github.repository_owner }}/${{ vars.CACHE_REPO || 'distribution-cache' }}
         continue-on-error: true
 
       - name: Compress directory
