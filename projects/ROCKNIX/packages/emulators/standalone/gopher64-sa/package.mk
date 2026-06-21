@@ -35,6 +35,7 @@ make_target() {
 
   cargo build \
     --target ${TARGET_NAME} \
+    --no-default-features \
     --release
 }
 
