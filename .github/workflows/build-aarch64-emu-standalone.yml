@@ -165,16 +165,15 @@ jobs:
             | split -b 1900m - ccache-aarch64-${{ inputs.DEVICE }}-emu-standalone.tar.part-
 
       - name: Save ccache
-        uses: ncipollo/release-action@v1
+        uses: softprops/action-gh-release@v3 
         with:
-          tag: ccache
-          artifacts: "ccache-aarch64-${{ inputs.DEVICE }}-emu-standalone.tar.part-*"
-          allowUpdates: true
-          makeLatest: true
+          tag_name: ccache
+          files: "ccache-aarch64-${{ inputs.DEVICE }}-emu-standalone.tar.part-*"
+          make_latest: true
           prerelease: true
           body: ccache
           token: ${{ secrets.GH_PAT }}
-          repo: ${{ vars.CACHE_REPO || 'distribution-cache' }}
+          repository: ${{ github.repository_owner }}/${{ vars.CACHE_REPO || 'distribution-cache' }}
         continue-on-error: true
 
       - name: Print space
