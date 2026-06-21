@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2026-present ELECTRON (https://github.com/electron-linux)
+# Copyright (C) 2026-present ROCKNIX (https://github.com/ROCKNIX)
 
 CXX ?= g++
 CCFLAGS = -W -Wall -std=c++11 `sdl2-config --cflags`
