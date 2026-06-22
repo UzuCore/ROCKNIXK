@@ -280,8 +280,9 @@ static const char *FRAG_LCD3X =
     "    gl_FragColor = color;\n"
     "}\n";
 
-// Sharp-shimmerless: sharp-bilinear with smoothstep applied to the blend weight.
-// Eliminates sub-pixel shimmer during scrolling at the cost of slightly softer edges.
+// Sharp-shimmerless: nearest-neighbor within source texels; boundary-crossing output
+// pixels sample a fixed sub-texel position so blend ratios don't drift with sub-pixel
+// scroll, eliminating shimmer.
 static const char *FRAG_SHARP_SHIMMERLESS =
     "precision mediump float;\n"
     "varying vec2 v_texcoord;\n"
@@ -587,7 +588,7 @@ SDL_Renderer* SDL_CreateRenderer(SDL_Window* window, int index, Uint32 flags) {
 
 int SDL_RenderSetLogicalSize(SDL_Renderer* renderer, int w, int h) {
     int result = real_SDL_RenderSetLogicalSize(renderer, w, h);
-    // Otherwise store it here
+    // Also store it here so run_shader_copy can convert logical→physical coords
     logical_width = w;
     logical_height = h;
     return result;
@@ -599,24 +600,24 @@ void SDL_RenderPresent(SDL_Renderer *r) {
 }
 
 SDL_Texture* SDL_CreateTexture(SDL_Renderer *renderer, Uint32 format, int type, int w, int h) {
-	SDL_Texture* texture = real_SDL_CreateTexture(renderer, format, type, w, h);
-	// Identify DS screen and stylus textures
-	if (type == SDL_TEXTUREACCESS_STREAMING) {
-		if (w == 512 && h == 384) {
+    SDL_Texture* texture = real_SDL_CreateTexture(renderer, format, type, w, h);
+    // Identify DS screen and stylus textures
+    if (type == SDL_TEXTUREACCESS_STREAMING) {
+        if (w == 512 && h == 384) {
             ds_screen_width = 512;
             ds_screen_height = 384;
-			if (!screens[0]) screens[0] = texture;
-			else if (!screens[1]) screens[1] = texture;
+            if (!screens[0]) screens[0] = texture;
+            else if (!screens[1]) screens[1] = texture;
         } else if (w == 256 && h == 192 && !screens[0]) {
-		    if (!screens[2]) screens[2] = texture;
-		    else if (!screens[3]) screens[3] = texture;
+            if (!screens[2]) screens[2] = texture;
+            else if (!screens[3]) screens[3] = texture;
         }
     }
     if (w == 32 && h == 32) {
-		if (!stylus_tex[0]) stylus_tex[0] = texture;
-		else if (!stylus_tex[1]) stylus_tex[1] = texture;
+        if (!stylus_tex[0]) stylus_tex[0] = texture;
+        else if (!stylus_tex[1]) stylus_tex[1] = texture;
     }
-	return texture;
+    return texture;
 }
 
 int SDL_RenderCopy(SDL_Renderer *renderer, SDL_Texture *texture, const SDL_Rect *srcrect, const SDL_Rect *dstrect) {
