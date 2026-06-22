@@ -63,11 +63,12 @@ static void (*p_glEnable)(GLenum) = NULL;
 static void (*p_glDisable)(GLenum) = NULL;
 
 // --- Shader state ---
-#define SHADER_NONE           0  // No shader; use GL's built-in bilinear filtering (default)
+#define SHADER_NONE 0 // No shader; use GL's built-in bilinear filtering (default)
 #define SHADER_SHARP_BILINEAR 1
-#define SHADER_QUILEZ         2
-#define SHADER_SCANLINES      3
-#define SHADER_LCD3X          4
+#define SHADER_SHARP_SHIMMERLESS 2
+#define SHADER_QUILEZ 3
+#define SHADER_SCANLINES 4
+#define SHADER_LCD3X 5
 
 static int shader_mode = SHADER_NONE;
 static int gl_renderer_desktop = 0; // 1 when SDL uses "opengl" renderer (not "opengles2")
@@ -279,6 +280,27 @@ static const char *FRAG_LCD3X =
     "    gl_FragColor = color;\n"
     "}\n";
 
+// Sharp-shimmerless: sharp-bilinear with smoothstep applied to the blend weight.
+// Eliminates sub-pixel shimmer during scrolling at the cost of slightly softer edges.
+static const char *FRAG_SHARP_SHIMMERLESS =
+    "precision mediump float;\n"
+    "varying vec2 v_texcoord;\n"
+    "uniform sampler2D u_texture;\n"
+    "uniform vec2 u_texture_size;\n"
+    "uniform vec2 u_output_size;\n"
+    "void main() {\n"
+    "    vec2 scale = max(vec2(2.0), floor(u_output_size / u_texture_size));\n"
+    "    vec2 texel = v_texcoord * u_texture_size;\n"
+    "    vec2 texel_floored = floor(texel);\n"
+    "    vec2 s = fract(texel);\n"
+    "    vec2 region_range = 0.5 - 0.5 / scale;\n"
+    "    vec2 center_dist = s - 0.5;\n"
+    "    vec2 f = (center_dist - clamp(center_dist, -region_range, region_range)) * scale + 0.5;\n"
+    "    f = smoothstep(vec2(0.0), vec2(1.0), f);\n"
+    "    vec2 mod_texel = texel_floored + f;\n"
+    "    gl_FragColor = SWIZ(texture2D(u_texture, mod_texel / u_texture_size));\n"
+    "}\n";
+
 // Inigo Quilez smooth Hermite interpolation (smootherstep)
 static const char *FRAG_QUILEZ =
     "precision mediump float;\n"
@@ -316,8 +338,9 @@ static GLuint make_gl_program(const char *vert_src, const char *frag_src) {
     //   - Prepend "#version 120" so attribute/varying/texture2D are available
     //   - Drop "precision mediump float;" which is GLES2-only and invalid in desktop GLSL
     static const char FRAG_ES_PREFIX[] = "precision mediump float;\n";
-    // Desktop OpenGL (Mesa/panfrost): SDL stores textures as GL_RGBA → no swizzle needed.
-    // GLES2 (libmali): SDL stores textures as GL_BGRA_EXT → .bgra swizzle corrects channels.
+    // SDL's desktop OpenGL renderer stores textures as GL_RGBA → no swizzle needed.
+    // SDL's GLES2 renderer (both libmali and Mesa/Panfrost) uses GL_BGRA_EXT when the
+    // GL_EXT_texture_format_BGRA8888 extension is available, so .bgra corrects channels.
     const char *vpreamble = gl_renderer_desktop
         ? "#version 120\n#define SWIZ(c) (c)\n"
         : "#define SWIZ(c) (c).bgra\n";
@@ -334,6 +357,7 @@ static GLuint make_gl_program(const char *vert_src, const char *frag_src) {
     GLuint frag = make_gl_shader(GL_FRAGMENT_SHADER, fpreamble, fbody);
     if (!frag) { p_glDeleteShader(vert); return 0; }
     GLuint prog = p_glCreateProgram();
+    if (!prog) { p_glDeleteShader(vert); p_glDeleteShader(frag); return 0; }
     p_glAttachShader(prog, vert);
     p_glAttachShader(prog, frag);
     // Pin attribute locations before linking so we can use constants
@@ -357,10 +381,11 @@ static void init_shader_program(void) {
     if (!p_glCreateShader) { shader_mode = SHADER_NONE; return; }
     const char *frag;
     switch (shader_mode) {
-        case SHADER_QUILEZ:    frag = FRAG_QUILEZ;         break;
-        case SHADER_SCANLINES: frag = FRAG_SCANLINES;      break;
-        case SHADER_LCD3X:     frag = FRAG_LCD3X;          break;
-        default:               frag = FRAG_SHARP_BILINEAR; break;
+        case SHADER_SHARP_SHIMMERLESS: frag = FRAG_SHARP_SHIMMERLESS; break;
+        case SHADER_QUILEZ:            frag = FRAG_QUILEZ;            break;
+        case SHADER_SCANLINES:         frag = FRAG_SCANLINES;         break;
+        case SHADER_LCD3X:             frag = FRAG_LCD3X;             break;
+        default:                       frag = FRAG_SHARP_BILINEAR;    break;
     }
     shader_program = make_gl_program(VERT_SRC, frag);
     fprintf(stderr, "[drastouch] shader_program=%u\n", shader_program);
@@ -396,6 +421,8 @@ static int run_shader_copy(SDL_Renderer *r, SDL_Texture *texture,
     int gl_x = (int)(dstrect->x * sx);
     int gl_y = out_h - (int)(dstrect->y * sy) - gl_h;
 
+    if (gl_w < 32 || gl_h < 32) goto fallback;
+
     // Bind source texture to GL_TEXTURE_2D via SDL
     GLfloat texw = 1.0f, texh = 1.0f;
     if (SDL_GL_BindTexture(texture, &texw, &texh) != 0) {
@@ -405,12 +432,6 @@ static int run_shader_copy(SDL_Renderer *r, SDL_Texture *texture,
             bind_fail_logged = 1;
         }
         goto fallback;
-    }
-
-    // Quilez samples isolated texels; defeat hardware bilinear to avoid double-filtering
-    if (shader_mode == SHADER_QUILEZ) {
-        p_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        p_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     }
 
     // Save GL state we will modify
@@ -424,11 +445,9 @@ static int run_shader_copy(SDL_Renderer *r, SDL_Texture *texture,
     p_glDisable(GL_BLEND);
     p_glDisable(GL_SCISSOR_TEST);
 
-    if (gl_w < 32 || gl_h < 32) goto fallback;
-
     p_glViewport(gl_x, gl_y, gl_w, gl_h);
     p_glUseProgram(shader_program);
-    p_glUniform1i(loc_texture, 0);
+    if (loc_texture >= 0) p_glUniform1i(loc_texture, 0);
     if (loc_texture_size >= 0)
         p_glUniform2f(loc_texture_size, (float)tex_w, (float)tex_h);
     if (loc_output_size >= 0)
@@ -469,11 +488,6 @@ static int run_shader_copy(SDL_Renderer *r, SDL_Texture *texture,
         p_glDisableVertexAttribArray(1);
     }
 
-    // Restore quilez filter for SDL's own subsequent use of this texture
-    if (shader_mode == SHADER_QUILEZ) {
-        p_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        p_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
     SDL_GL_UnbindTexture(texture);
 
     p_glUseProgram(saved_program);
@@ -815,6 +829,8 @@ static void init(void) {
             shader_mode = SHADER_SCANLINES;
         else if (strcmp(shader_str, "lcd3x") == 0)
             shader_mode = SHADER_LCD3X;
+        else if (strcmp(shader_str, "sharp-shimmerless") == 0)
+            shader_mode = SHADER_SHARP_SHIMMERLESS;
     }
 
     const char* threshold_str = getenv("DSHOOK_MIC_THRESH");
