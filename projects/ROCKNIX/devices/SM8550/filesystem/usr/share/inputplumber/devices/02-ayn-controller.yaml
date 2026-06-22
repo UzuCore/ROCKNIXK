@@ -57,6 +57,7 @@ source_devices:
 
   - group: gamepad
     evdev:
+      name: gpio-keys
       phys_path: gpio-keys/input0
       handler: event*
     capability_map_id: ayn_mcu
