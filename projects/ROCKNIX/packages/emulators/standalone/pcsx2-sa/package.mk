@@ -40,6 +40,12 @@ make_target() {
     -DCMAKE_MAKE_PROGRAM=ninja
     -DCMAKE_C_COMPILER="${TOOLCHAIN}/bin/clang"
     -DCMAKE_CXX_COMPILER="${TOOLCHAIN}/bin/clang++"
+    -DCMAKE_AR="${TOOLCHAIN}/bin/llvm-ar"
+    -DCMAKE_RANLIB="${TOOLCHAIN}/bin/llvm-ranlib"
+    -DCMAKE_NM="${TOOLCHAIN}/bin/llvm-nm"
+    -DCMAKE_OBJCOPY="${TOOLCHAIN}/bin/llvm-objcopy"
+    -DCMAKE_OBJDUMP="${TOOLCHAIN}/bin/llvm-objdump"
+    -DCMAKE_STRIP="${TOOLCHAIN}/bin/llvm-strip"
     -DCMAKE_C_COMPILER_AR="${TOOLCHAIN}/bin/llvm-ar"
     -DCMAKE_CXX_COMPILER_AR="${TOOLCHAIN}/bin/llvm-ar"
     -DCMAKE_C_COMPILER_RANLIB="${TOOLCHAIN}/bin/llvm-ranlib"
@@ -56,6 +62,7 @@ make_target() {
     -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY
     -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY
     -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY
+    -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER
     -DLLVM_DIR="${TOOLCHAIN}/lib/cmake/llvm"
     "${PCSX2_CMAKE_BASE[@]}"
   )
