@@ -2,8 +2,8 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="qt6"
-PKG_VERSION_MAJOR="6.9"
-PKG_VERSION="${PKG_VERSION_MAJOR}.3"
+PKG_VERSION_MAJOR="6.10"
+PKG_VERSION="${PKG_VERSION_MAJOR}.1"
 PKG_LICENSE="GPL"
 PKG_SITE="https://download.qt.io"
 PKG_URL="${PKG_SITE}/archive/qt/${PKG_VERSION_MAJOR}/${PKG_VERSION}/single/qt-everywhere-src-${PKG_VERSION}.tar.xz"
