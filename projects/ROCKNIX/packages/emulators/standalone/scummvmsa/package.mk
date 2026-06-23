@@ -20,16 +20,8 @@ pre_configure_target() {
                     --disable-debug \
                     --enable-release \
                     --enable-vkeybd \
+                    --opengl-mode=auto \
                     --enable-optimizations"
-
-  case ${DEVICE} in
-    SM8550|SM8650)
-      TARGET_CONFIGURE_OPTS+=" --disable-opengl-game --disable-opengl-game-classic --disable-opengl-game-shaders --opengl-mode=none"
-      ;;
-    *)
-      TARGET_CONFIGURE_OPTS+=" --opengl-mode=auto"
-      ;;
-  esac
 }
 
 post_makeinstall_target() {

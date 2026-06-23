@@ -261,4 +261,3 @@ jobs:
         #body: "빌드완료"
         bodyFile: release_notes.md
         token: ${{ secrets.GH_PAT }}    # 토큰 사용
-

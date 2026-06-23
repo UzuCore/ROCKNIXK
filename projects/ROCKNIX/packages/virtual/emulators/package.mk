@@ -9,7 +9,7 @@ PKG_LONGDESC="Emulation metapackage."
 PKG_TOOLCHAIN="manual"
 
 PKG_EMUS="amiberry box64 duckstation-sa flycast-sa gzdoom-sa hatarisa hypseus-singe moonlight mupen64plus-sa portmaster openbor pico-8   \
-          ppsspp-sa scummvmsa scummvm-grim touchhle-sa vice-sa wine yabasanshiro-sa"
+          ppsspp-sa scummvmsa touchhle-sa vice-sa wine yabasanshiro-sa"
 
 EMUS_32BIT=""
 
