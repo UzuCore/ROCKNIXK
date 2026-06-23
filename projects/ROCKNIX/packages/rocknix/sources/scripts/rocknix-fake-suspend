@@ -285,6 +285,9 @@ do_shutdown() {
   # Unmute audio - otherwise wireplumber will keep it muted on next boot
   unmute_audio
 
+  # Unfreeze prococesses - otherwise ES will be unable to respond to API calls
+  unfreeze_processes
+
   # Check whether a game is running
   check_es_running_game
   local RUNNING_GAME=$?
@@ -321,16 +324,19 @@ suspend() {
     do_suspend_actions
   fi
 
-  # Delay shutdown
-  sleep ${DELAY}
+  if [[ $TIMED_SHUTDOWN_ENABLED == "1" ]]; then
+    # Delay shutdown
+    ${DEBUG} && log $0 "Timed shutdown (${DELAY} seconds) ..."
+    sleep ${DELAY}
 
-  # Delay has completed - check whether the flag file is still present
-  if [[ -f "${DELAY_FLAG_FILE}" ]]; then
-    ${DEBUG} && log $0 "Delay expired, flag file found"
-    # Flag present - shutdown
-    do_shutdown
-  else
-    ${DEBUG} && log $0 "Delay expired, flag file not found"
+    # Delay has completed - check whether the flag file is still present
+    if [[ -f "${DELAY_FLAG_FILE}" ]]; then
+      ${DEBUG} && log $0 "Delay expired, flag file found"
+      # Flag present - shutdown
+      do_shutdown
+    else
+      ${DEBUG} && log $0 "Delay expired, flag file not found"
+    fi
   fi
 }
 
@@ -357,6 +363,19 @@ if [[ $HW_SUSPEND_ENABLED -eq 0 ]]; then
   ${DEBUG} && log $0 "Hardware suspend enabled, exiting"
   exit 0
 fi
+
+# Only do something when fake suspend is enabled
+FAKE_SUSPEND_ENABLED="$(get_setting system.suspend.enable)"
+[[ "${FAKE_SUSPEND_ENABLED}" = "" ]] && FAKE_SUSPEND_ENABLED="1"
+
+if [[ $FAKE_SUSPEND_ENABLED != "1" ]]; then
+  ${DEBUG} && log $0 "Fake suspend disabled, exiting"
+  exit 0
+fi
+
+# Timed shutdown after suspend
+TIMED_SHUTDOWN_ENABLED="$(get_setting system.suspend.enable_timed_shutdown)"
+[[ "${TIMED_SHUTDOWN_ENABLED}" = "" ]] && TIMED_SHUTDOWN_ENABLED="1"
 
 # If a game is not running, by default delay the shutdown for 15 minutes
 SHUTDOWN_DELAY="$(get_setting system.shutdown_delay)"

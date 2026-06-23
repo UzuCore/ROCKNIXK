@@ -22,7 +22,7 @@ if [ -d "$SYSTEM_ROOT/usr/share/bootloader/rocknix_abl" ]; then
   cp $SYSTEM_ROOT/usr/share/bootloader/rocknix_abl/* $BOOT_ROOT/rocknix_abl
 fi
 
-. $SYSTEM_ROOT/usr/bin/updateabl
+$SYSTEM_ROOT/usr/bin/updateabl
 
 ### REMOVE IN THE FUTURE ###
 # cleanup old boot files

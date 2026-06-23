@@ -31,9 +31,11 @@ if [ -r ${GADGETCONF} ] ; then
 	. ${GADGETCONF}
 fi
 
-UDC_NAME=$(ls -1 /sys/class/udc |head -n1)
-CURRENT_MODE=$(cat /sys/class/udc/${UDC_NAME}/function)
-[ -z ${CURRENT_MODE} ] && CURRENT_MODE=disabled
+UDC_NAME=$(ls -1 /sys/class/udc 2>/dev/null | head -n1)
+if [ -n "${UDC_NAME}" ]; then
+	CURRENT_MODE=$(cat /sys/class/udc/${UDC_NAME}/function 2>/dev/null)
+fi
+[ -z "${CURRENT_MODE}" ] && CURRENT_MODE=disabled
 
 
 usb_disable() {
@@ -46,8 +48,10 @@ usb_disable() {
 
 is_cable_connected() {
 	# https://developerhelp.microchip.com/xwiki/bin/view/applications/usb/power-delivery/battery-charging/
-	PHY_NAME=$(ls -d /sys/devices/platform/${UDC_NAME}/supplier:platform:*usb2phy | sed 's|^.*:platform:||')
+	PHY_NAME=$(ls -d /sys/devices/platform/${UDC_NAME}/supplier:platform:*usb2phy 2>/dev/null | sed 's|^.*:platform:||')
+	[ -n "${PHY_NAME}" ] || return 1
 	for cable in /sys/devices/platform/${PHY_NAME}/extcon/*/cable.*; do
+		[ -e "${cable}/name" ] || continue
 		cable_name="$(cat ${cable}/name)"
 		case "${cable_name}" in
 			SDP|CDP)
@@ -297,11 +301,51 @@ cleanup_usb_mtp() {
         ${g_mtp}
 }
 
-set_role() {
-	for sw in $(ls -1 /sys/class/udc/${UDC_NAME}/device/usb_role/*/role 2>/dev/null); do
-		if [ "$verbose" -gt "0" ]; then echo "swithing usb role to $1: $sw"; fi
-		echo $1 > $sw
+typec_managed_role() {
+	# TCPM owns the role switch
+	for p in /sys/class/typec/port*/data_role; do
+		[ -e "$p" ] && return 0
 	done
+	return 1
+}
+
+set_role() {
+	if typec_managed_role; then
+		if [ "$verbose" -gt "0" ]; then echo "skipping set_role $1: TCPM-managed port"; fi
+		return
+	fi
+
+	# Don't go host while VBUS is supplied! (Situation can fry in devices without CC pin negotiation)
+	if [ "$1" = "host" ] && external_vbus_present; then
+		if [ "$verbose" -gt "0" ]; then echo "skipping set_role host: external VBUS detected"; fi
+		return
+	fi
+
+	for sw in /sys/class/usb_role/*/role; do
+		[ -w "$sw" ] || continue
+		if [ "$verbose" -gt "0" ]; then echo "switching usb role to $1: $sw"; fi
+		echo "$1" > "$sw"
+	done
+}
+
+external_vbus_present() {
+	for state in /sys/class/udc/*/state; do
+		[ -r "$state" ] || continue
+		case "$(cat "$state" 2>/dev/null)" in
+			powered|default|address|configured|suspended)
+				return 0 ;;
+		esac
+	done
+	for psy in /sys/class/power_supply/tcpm-source-psy*/online; do
+		[ -r "$psy" ] && [ "$(cat "$psy" 2>/dev/null)" = "1" ] && return 0
+	done
+	if is_cable_connected; then
+		return 0
+	fi
+	for psy in /sys/class/power_supply/*-charger/online; do
+		[ -r "$psy" ] && [ "$(cat "$psy" 2>/dev/null)" = "1" ] && return 0
+	done
+	return 1
 }
 
 # USB_MODE is how the gadget was last configured (got from state file)
@@ -335,6 +379,15 @@ usb_start() {
 		return
 	else
 		set_role device
+		for _ in 1 2 3 4 5 6 7 8 9 10; do
+			UDC_NAME=$(ls -1 /sys/class/udc 2>/dev/null | head -n1)
+			[ -n "${UDC_NAME}" ] && break
+			sleep 0.1
+		done
+		if [ -z "${UDC_NAME}" ]; then
+			echo "ERROR: no UDC available after role switch to device" >&2
+			exit 5
+		fi
 	fi
 
 	if [ "${USB_MODE}" = mtp ] ; then
@@ -359,6 +412,10 @@ usb_start() {
 
 	# Enable selected mode
 	echo "${UDC_NAME}" > /sys/kernel/config/usb_gadget/${USB_MODE}/UDC
+	if [ "$(cat /sys/kernel/config/usb_gadget/${USB_MODE}/UDC 2>/dev/null)" != "${UDC_NAME}" ]; then
+		echo "ERROR: failed to bind ${USB_MODE} to UDC ${UDC_NAME}" >&2
+		exit 4
+	fi
 	echo "USB_MODE=${USB_MODE}" > ${GADGETCONF}
 
 	[[ "${USB_MODE}" == "cdc" ]] && configure_iface
@@ -369,8 +426,6 @@ usb_start() {
 }
 
 usb_stop() {
-	# If there is a role switch, switch to host mode
-	set_role host
 
 	(
 		if [ -f ${UDHCPPIDFILE} ] ; then
@@ -395,8 +450,47 @@ set_usb_mode() {
 			;;
 		*)
 			usb_stop
+			set_role host
 			;;
 	esac
+}
+
+usb_init_clean_state() {
+	for udc_link in /sys/kernel/config/usb_gadget/*/UDC; do
+		[ -f "$udc_link" ] || continue
+		[ -n "$(cat "$udc_link" 2>/dev/null)" ] && echo "" > "$udc_link" 2>/dev/null
+	done
+
+	if mountpoint -q /dev/ffs-umtp 2>/dev/null; then
+		umount /dev/ffs-umtp 2>/dev/null
+	fi
+	[ -d /dev/ffs-umtp ] && rmdir /dev/ffs-umtp 2>/dev/null
+	pkill -x umtprd 2>/dev/null
+	if [ -f "${UDHCPPIDFILE}" ]; then
+		cat "${UDHCPPIDFILE}" 2>/dev/null | xargs -r -n 1 kill 2>/dev/null
+		rm -f "${UDHCPPIDFILE}"
+	fi
+
+	if ! typec_managed_role; then
+		for sw in /sys/class/usb_role/*/role; do
+			[ -r "$sw" ] || continue
+			[ "$(cat "$sw" 2>/dev/null)" = "host" ] || continue
+			[ -n "$(ls /sys/class/udc 2>/dev/null)" ] && continue
+			external_vbus_present || continue
+			if [ "$verbose" -gt "0" ]; then echo "boot: confirmed host mode with external VBUS, switching to device"; fi
+			echo device > "$sw" 2>/dev/null
+			for _ in 1 2 3 4 5 6 7 8 9 10; do
+				[ -n "$(ls /sys/class/udc 2>/dev/null)" ] && break
+				sleep 0.1
+			done
+		done
+	fi
+
+	UDC_NAME=$(ls -1 /sys/class/udc 2>/dev/null | head -n1)
+	if [ -n "${UDC_NAME}" ]; then
+		CURRENT_MODE=$(cat /sys/class/udc/${UDC_NAME}/function 2>/dev/null)
+	fi
+	[ -z "${CURRENT_MODE}" ] && CURRENT_MODE=disabled
 }
 
 case "$1" in
@@ -432,6 +526,7 @@ case "$1" in
 		echo "disabled network file_transfer"
 		;;
 	"--start")
+		usb_init_clean_state
 		prepare_usb_network
 		prepare_usb_mtp
 		set_usb_mode "${USB_MODE}"
@@ -444,7 +539,7 @@ case "$1" in
 		esac
 		;;
 	"disabled")
-		usb_stop
+		set_usb_mode disabled
 		;;
 	"network")
 		usb_start cdc

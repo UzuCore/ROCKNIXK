@@ -86,6 +86,11 @@ steam_read_sway_geometry() {
   REFRESH_HZ=$((REFRESH / 1000))
 }
 
+steam_setup_environment() {
+  TZ=$(timedatectl status | grep 'Time zone' | awk '{print $3}')
+  [ -n "${TZ}" ] && export TZ
+}
+
 steam_scope_reexec_if_needed() {
   if [ -z "$_STEAM_SCOPE" ]; then
     systemctl stop steam-bigpicture.scope 2>/dev/null || true
@@ -97,6 +102,7 @@ steam_scope_reexec_if_needed() {
       -E _STEAM_SCOPE=1 \
       -E HOME="$HOME" \
       -E USER="$USER" \
+      -E TZ="$TZ" \
       -- "${STEAM_MAIN_SCRIPT}" "$@"
   fi
 }

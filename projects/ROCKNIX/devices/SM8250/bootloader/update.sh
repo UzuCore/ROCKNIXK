@@ -40,6 +40,10 @@ if [ -f "$SYSTEM_ROOT/usr/share/bootloader/boot/grub/grub.cfg" ]; then
   mkdir -p $BOOT_ROOT/boot/grub
   echo "Updating grub.cfg..."
   cp $SYSTEM_ROOT/usr/share/bootloader/boot/grub/grub.cfg $BOOT_ROOT/boot/grub
+  # Old GRUB installations
+  if [ -f "$BOOT_ROOT/EFI/BOOT/grub.cfg" ]; then
+    cp $SYSTEM_ROOT/usr/share/bootloader/boot/grub/grub.cfg $BOOT_ROOT/EFI/BOOT
+  fi
 fi
 
 if [ -f "$SYSTEM_ROOT/usr/share/bootloader/boot/grub/dejavu-mono.pf2" ]; then

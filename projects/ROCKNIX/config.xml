@@ -1,22 +1,45 @@
 <rocknix>
-  <H700 mkimage_options="dtb,extlinux,uboot" fdt="dtb.img" fdt_type="fdt" dtb_prefix="allwinner">
-    <file>sun50i-h700-anbernic-rg35xx-plus</file>
-    <file>sun50i-h700-anbernic-rg35xx-plus-rev6-panel</file>
-    <file>sun50i-h700-anbernic-rg35xx-pro</file>
-    <file>sun50i-h700-anbernic-rg35xx-h</file>
-    <file>sun50i-h700-anbernic-rg35xx-h-rev6-panel</file>
-    <file>sun50i-h700-anbernic-rg35xx-sp</file>
-    <file>sun50i-h700-anbernic-rg35xx-sp-v2-panel</file>
-    <file>sun50i-h700-anbernic-rg35xx-2024</file>
-    <file>sun50i-h700-anbernic-rg35xx-2024-rev6-panel</file>
-    <file>sun50i-h700-anbernic-rg40xx-h</file>
-    <file>sun50i-h700-anbernic-rg40xx-h-v2-panel</file>
-    <file>sun50i-h700-anbernic-rg40xx-v</file>
-    <file>sun50i-h700-anbernic-rg40xx-v-v2-panel</file>
-    <file>sun50i-h700-anbernic-rgcubexx</file>
-    <file>sun50i-h700-anbernic-rg28xx</file>
-    <file>sun50i-h700-anbernic-rg34xx</file>
-    <file>sun50i-h700-anbernic-rg34xx-sp</file>
+  <H700 dtb_prefix="allwinner">
+    <DDR4 mkimage_options="dtb,extlinux,uboot" fdt="dtb.img" fdt_type="fdt">
+        <file>sun50i-h700-anbernic-rg35xx-plus</file>
+        <file>sun50i-h700-anbernic-rg35xx-plus-rev6-panel</file>
+        <file>sun50i-h700-anbernic-rg35xx-pro</file>
+        <file>sun50i-h700-anbernic-rg35xx-h</file>
+        <file>sun50i-h700-anbernic-rg35xx-h-rev6-panel</file>
+        <file>sun50i-h700-anbernic-rg35xx-sp</file>
+        <file>sun50i-h700-anbernic-rg35xx-sp-v2-panel</file>
+        <file>sun50i-h700-anbernic-rg35xx-2024</file>
+        <file>sun50i-h700-anbernic-rg35xx-2024-rev6-panel</file>
+        <file>sun50i-h700-anbernic-rg40xx-h</file>
+        <file>sun50i-h700-anbernic-rg40xx-h-v2-panel</file>
+        <file>sun50i-h700-anbernic-rg40xx-v</file>
+        <file>sun50i-h700-anbernic-rg40xx-v-v2-panel</file>
+        <file>sun50i-h700-anbernic-rgcubexx</file>
+        <file>sun50i-h700-anbernic-rg28xx</file>
+        <file>sun50i-h700-anbernic-rg34xx</file>
+        <file>sun50i-h700-anbernic-rg34xx-sp</file>
+        <file>sun50i-h700-anbernic-rg34xx-sp-v2-panel</file>
+    </DDR4>
+    <DDR3 mkimage_options="dtb,extlinux,uboot" fdt="dtb.img" fdt_type="fdt" fdt_overlays="sun50i-h700-anbernic-rg35xx-2024-ddr3.dtbo">
+        <file>sun50i-h700-anbernic-rg35xx-plus</file>
+        <file>sun50i-h700-anbernic-rg35xx-plus-rev6-panel</file>
+        <file>sun50i-h700-anbernic-rg35xx-pro</file>
+        <file>sun50i-h700-anbernic-rg35xx-h</file>
+        <file>sun50i-h700-anbernic-rg35xx-h-rev6-panel</file>
+        <file>sun50i-h700-anbernic-rg35xx-sp</file>
+        <file>sun50i-h700-anbernic-rg35xx-sp-v2-panel</file>
+        <file>sun50i-h700-anbernic-rg35xx-2024</file>
+        <file>sun50i-h700-anbernic-rg35xx-2024-rev6-panel</file>
+        <file>sun50i-h700-anbernic-rg40xx-h</file>
+        <file>sun50i-h700-anbernic-rg40xx-h-v2-panel</file>
+        <file>sun50i-h700-anbernic-rg40xx-v</file>
+        <file>sun50i-h700-anbernic-rg40xx-v-v2-panel</file>
+        <file>sun50i-h700-anbernic-rgcubexx</file>
+        <file>sun50i-h700-anbernic-rg28xx</file>
+        <file>sun50i-h700-anbernic-rg34xx</file>
+        <file>sun50i-h700-anbernic-rg34xx-sp</file>
+        <file>sun50i-h700-anbernic-rg34xx-sp-v2-panel</file>
+    </DDR3>
   </H700>
   <RK3326 dtb_prefix="rockchip">
     <a mkimage_options="dtb,bootscr,extlinux,uboot" fdt_type="fdtdir" fdt="/">
@@ -86,6 +109,7 @@
     <file short="rpmini" full="Retroid Pocket Mini" rotation="1">sm8250-retroidpocket-rpmini</file>
     <file short="rpminiv2" full="Retroid Pocket Mini V2" rotation="1">sm8250-retroidpocket-rpminiv2</file>
     <file short="thorlite" full="AYN Thor Lite" rotation="1">sm8250-ayn-thorlite</file>
+    <file short="pocketmax" full="MANGMI Pocket Max" rotation="1">sm8250-mangmi-pocket-max</file>
   </SM8250>
   <SM8550 mkimage_options="abl" dtb_prefix="qcom">
     <file short="odin2" full="AYN Odin2">qcs8550-ayn-odin2</file>
