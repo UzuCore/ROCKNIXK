@@ -1,0 +1,131 @@
+From 42b39fc24120c1724c45f9bf90579042f5538918 Mon Sep 17 00:00:00 2001
+From: Philippe Simons <simons.philippe@gmail.com>
+Date: Sun, 26 Apr 2026 20:26:34 +0200
+Subject: [PATCH] Update BuildParameters.cmake
+
+---
+ cmake/BuildParameters.cmake | 98 ++++++++++++++++++-------------------
+ 1 file changed, 49 insertions(+), 49 deletions(-)
+
+diff --git a/cmake/BuildParameters.cmake b/cmake/BuildParameters.cmake
+index 56d2a6251..b9d84a5ad 100644
+--- a/cmake/BuildParameters.cmake
++++ b/cmake/BuildParameters.cmake
+@@ -78,40 +78,40 @@ mark_as_advanced(CMAKE_C_FLAGS_DEVEL CMAKE_CXX_FLAGS_DEVEL CMAKE_LINKER_FLAGS_DE
+ #-------------------------------------------------------------------------------
+ # Select the architecture
+ #-------------------------------------------------------------------------------
+-if("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "x86_64" OR "${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "amd64" OR
+-   "${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "AMD64" OR "${CMAKE_OSX_ARCHITECTURES}" STREQUAL "x86_64")
+-	# Multi-ISA only exists on x86.
+-	option(DISABLE_ADVANCE_SIMD "Disable advance use of SIMD (SSE2+ & AVX)" OFF)
+-
+-	list(APPEND PCSX2_DEFS _M_X86=1)
+-	set(ARCH_X86 TRUE)
+-	if(DISABLE_ADVANCE_SIMD)
+-		message(STATUS "Building for x86-64 (Multi-ISA).")
+-	else()
+-		message(STATUS "Building for x86-64.")
+-	endif()
+-
+-	if(MSVC)
+-		# SSE4.1 is not set by MSVC, it uses _M_SSE instead.
+-		list(APPEND PCSX2_DEFS __SSE4_1__=1)
+-
+-		if(USE_CLANG_CL)
+-			# clang-cl => need to explicitly enable SSE4.1.
+-			add_compile_options("-msse4.1")
+-		endif()
+-	else()
+-		# Multi-ISA => SSE4, otherwise native.
+-		if (DISABLE_ADVANCE_SIMD)
+-			add_compile_options("-msse" "-msse2" "-msse4.1" "-mfxsr")
+-		else()
+-			# Can't use march=native on Apple Silicon.
+-			if(NOT APPLE OR "${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "x86_64")
+-				add_compile_options("-march=native")
+-			endif()
+-		endif()
+-	endif()
+-elseif("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "arm64" OR "${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "aarch64" OR
+-       "${CMAKE_OSX_ARCHITECTURES}" STREQUAL "arm64")
++#if("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "x86_64" OR "${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "amd64" OR
++#   "${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "AMD64" OR "${CMAKE_OSX_ARCHITECTURES}" STREQUAL "x86_64")
++#	# Multi-ISA only exists on x86.
++#	option(DISABLE_ADVANCE_SIMD "Disable advance use of SIMD (SSE2+ & AVX)" OFF)
++#
++#	list(APPEND PCSX2_DEFS _M_X86=1)
++#	set(ARCH_X86 TRUE)
++#	if(DISABLE_ADVANCE_SIMD)
++#		message(STATUS "Building for x86-64 (Multi-ISA).")
++#	else()
++#		message(STATUS "Building for x86-64.")
++#	endif()
++#
++#	if(MSVC)
++#		# SSE4.1 is not set by MSVC, it uses _M_SSE instead.
++#		list(APPEND PCSX2_DEFS __SSE4_1__=1)
++#
++#		if(USE_CLANG_CL)
++#			# clang-cl => need to explicitly enable SSE4.1.
++#			add_compile_options("-msse4.1")
++#		endif()
++#	else()
++#		# Multi-ISA => SSE4, otherwise native.
++#		if (DISABLE_ADVANCE_SIMD)
++#			add_compile_options("-msse" "-msse2" "-msse4.1" "-mfxsr")
++#		else()
++#			# Can't use march=native on Apple Silicon.
++#			if(NOT APPLE OR "${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "x86_64")
++#				add_compile_options("-march=native")
++#			endif()
++#		endif()
++#	endif()
++#elseif("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "arm64" OR "${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "aarch64" OR
++#       "${CMAKE_OSX_ARCHITECTURES}" STREQUAL "arm64")
+ 	message(STATUS "Building for Apple Silicon (ARM64).")
+ 	set(ARCH_ARM64 TRUE)
+ 	if(APPLE)
+@@ -122,24 +122,24 @@ elseif("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "arm64" OR "${CMAKE_HOST_SYSTEM
+ 		add_compile_options("-march=armv8.1-a")
+ 	endif()
+ 
+-	# If we're running on Linux, we need to detect the page/cache line size.
+-	# It could be a virtual machine with 4K pages, or 16K with Asahi.
+-	if(LINUX)
+-		detect_page_size()
+-		list(APPEND PCSX2_DEFS OVERRIDE_HOST_PAGE_SIZE=${HOST_PAGE_SIZE})
+-		detect_cache_line_size()
+-		list(APPEND PCSX2_DEFS OVERRIDE_HOST_CACHE_LINE_SIZE=${HOST_CACHE_LINE_SIZE})
+-	endif()
+-	
+-	# Windows page/cache line size seems to match x68-64 
+-	if(WIN32)
++#	# If we're running on Linux, we need to detect the page/cache line size.
++#	# It could be a virtual machine with 4K pages, or 16K with Asahi.
++#	if(LINUX)
++#		detect_page_size()
++#		list(APPEND PCSX2_DEFS OVERRIDE_HOST_PAGE_SIZE=${HOST_PAGE_SIZE})
++#		detect_cache_line_size()
++#		list(APPEND PCSX2_DEFS OVERRIDE_HOST_CACHE_LINE_SIZE=${HOST_CACHE_LINE_SIZE})
++#	endif()
++
++	# Windows page/cache line size seems to match x68-64
++#	if(WIN32)
+ 		list(APPEND PCSX2_DEFS OVERRIDE_HOST_PAGE_SIZE=0x1000)
+ 		# Value of std::hardware_destructive_interference_size for ARM64 on MSVC toolset 14.40.33807
+ 		list(APPEND PCSX2_DEFS OVERRIDE_HOST_CACHE_LINE_SIZE=64)
+-	endif()
+-else()
+-	message(FATAL_ERROR "Unsupported architecture: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
+-endif()
++#	endif()
++#else()
++#	message(FATAL_ERROR "Unsupported architecture: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
++#endif()
+ 
+ # Require C++20.
+ set(CMAKE_CXX_STANDARD 20)
+-- 
+2.54.0
+
