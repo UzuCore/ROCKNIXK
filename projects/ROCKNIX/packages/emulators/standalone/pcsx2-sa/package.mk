@@ -76,3 +76,17 @@ makeinstall_target() {
   mkdir -p ${INSTALL}/usr/config
   cp -rf ${PKG_DIR}/config/PCSX2 ${INSTALL}/usr/config
 }
+
+post_install() {
+  case ${GRAPHICS_DRIVER} in
+    panfrost)
+      GRAPHICS="export MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330"
+    ;;
+    *)
+      GRAPHICS=""
+    ;;
+  esac
+
+  sed -e "s/@GRAPHICS@/${GRAPHICS}/g" \
+        -i ${INSTALL}/usr/bin/start_pcsx2.sh
+}

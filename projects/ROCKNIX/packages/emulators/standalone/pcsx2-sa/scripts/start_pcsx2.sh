@@ -11,6 +11,16 @@ if [ ! -d "/storage/.config/PCSX2" ]; then
         cp -r "/usr/config/PCSX2" "/storage/.config/"
 fi
 
+#Check if PCSX2 ini exists in .config
+if [ ! -f "/storage/.config/PCSX2/inis/PCSX2.ini" ]; then
+        cp -r "/usr/config/PCSX2/inis/PCSX2.ini" "/storage/.config/PCSX2/inis/"
+fi
+
+#Check if secrets ini exists in .config
+if [ ! -f "/storage/.config/PCSX2/inis/PCSX2.ini" ]; then
+        cp -r "/usr/config/PCSX2/inis/secrets.ini" "/storage/.config/PCSX2/inis/"
+fi
+
 #Make PCSX2 bios folder
 if [ ! -d "/storage/roms/bios/pcsx2" ]; then
     mkdir -p "/storage/roms/bios/pcsx2"
@@ -194,11 +204,10 @@ fi
         fi
 
 #Retroachievements
-#  /usr/bin/cheevos_aethersx2.sh
+  /usr/bin/cheevos_pcsx2.sh
 
-#Set OpenGL 3.3 on panfrost
-  export MESA_GL_VERSION_OVERRIDE=3.3
-  export MESA_GLSL_VERSION_OVERRIDE=330
+#Graphic driver fixes
+@GRAPHICS@
 
 #Set QT enviornment to wayland
   export QT_QPA_PLATFORM=wayland
