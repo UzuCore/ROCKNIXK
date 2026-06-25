@@ -5,7 +5,7 @@
 
 source /etc/profile
 
-export QT_QPA_PLATFORM=xcb
+export QT_QPA_PLATFORM=wayland
 
 set_kill set "eden"
 
