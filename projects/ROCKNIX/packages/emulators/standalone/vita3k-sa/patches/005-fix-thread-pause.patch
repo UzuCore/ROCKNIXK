@@ -1,0 +1,108 @@
+diff --git a/vita3k/kernel/include/kernel/state.h b/vita3k/kernel/include/kernel/state.h
+index de27351e..993e25bf 100644
+--- a/vita3k/kernel/include/kernel/state.h
++++ b/vita3k/kernel/include/kernel/state.h
+@@ -172,7 +172,7 @@ struct KernelState {
+     ThreadStatePtr get_thread(SceUID thread_id);
+     Ptr<Ptr<void>> get_thread_tls_addr(MemState &mem, SceUID thread_id, int key);
+ 
+-    bool is_threads_paused() { return !paused_threads_status.empty(); }
++    bool is_threads_paused() const { return threads_paused.load(std::memory_order_relaxed); }
+     void pause_threads();
+     void resume_threads();
+ 
+@@ -190,4 +190,5 @@ struct KernelState {
+ private:
+     std::atomic<SceUID> next_uid{ 1 };
+     std::map<SceUID, ThreadStatus> paused_threads_status;
++    std::atomic<bool> threads_paused{ false };
+ };
+diff --git a/vita3k/kernel/include/kernel/thread/thread_state.h b/vita3k/kernel/include/kernel/thread/thread_state.h
+index ebd51b15..9f504cc6 100644
+--- a/vita3k/kernel/include/kernel/thread/thread_state.h
++++ b/vita3k/kernel/include/kernel/thread/thread_state.h
+@@ -74,6 +74,7 @@ struct ThreadState {
+     uint64_t last_vblank_waited;
+     // set to true if thread is processing kernel callbacks
+     bool is_processing_callbacks = false;
++    bool suspended_by_pause = false;
+ 
+     CPUStatePtr cpu;
+     ThreadStatus status = ThreadStatus::dormant;
+diff --git a/vita3k/kernel/src/kernel.cpp b/vita3k/kernel/src/kernel.cpp
+index d36f8c37..dffd3175 100644
+--- a/vita3k/kernel/src/kernel.cpp
++++ b/vita3k/kernel/src/kernel.cpp
+@@ -199,24 +199,31 @@ void KernelState::process_exit() {
+ }
+ 
+ void KernelState::pause_threads() {
++    threads_paused.store(true, std::memory_order_relaxed);
+     const std::lock_guard<std::mutex> lock(mutex);
+     for (auto &[_, thread] : threads) {
+         paused_threads_status[thread->id] = thread->status;
+-        if (thread->status == ThreadStatus::run)
++        if (thread->status == ThreadStatus::run) {
++            thread->suspended_by_pause = true;
+             thread->suspend();
++        }
+     }
+ }
+ 
+ void KernelState::resume_threads() {
++    threads_paused.store(false, std::memory_order_relaxed);
+     const std::lock_guard<std::mutex> lock(mutex);
+     for (auto &[_, thread] : threads) {
+-        if (paused_threads_status[thread->id] == ThreadStatus::run)
++        if (thread->suspended_by_pause) {
++            thread->suspended_by_pause = false;
+             thread->resume();
++        }
+     }
+     paused_threads_status.clear();
+ }
+ 
+ void KernelState::deinit(MemState &mem) {
++    threads_paused.store(false, std::memory_order_relaxed);
+     process_exit();
+     threads.clear();
+ 
+diff --git a/vita3k/kernel/src/thread.cpp b/vita3k/kernel/src/thread.cpp
+index cad36c03..acfc42fa 100644
+--- a/vita3k/kernel/src/thread.cpp
++++ b/vita3k/kernel/src/thread.cpp
+@@ -123,8 +123,7 @@ void ThreadState::raise_waiting_threads() {
+     for (const auto &t : waiting_threads) {
+         const std::unique_lock<std::mutex> lock(t->mutex);
+         assert(t->status == ThreadStatus::wait);
+-        t->status = ThreadStatus::run;
+-        t->status_cond.notify_all();
++        t->update_status(ThreadStatus::run);
+     }
+     waiting_threads.clear();
+ }
+@@ -151,11 +150,10 @@ int ThreadState::start(SceSize arglen, const Ptr<void> argp, bool run_entry_call
+ 
+     if (kernel.debugger.wait_for_debugger) {
+         kernel.debugger.wait_for_debugger = false;
+-        status = ThreadStatus::suspend;
++        update_status(ThreadStatus::suspend);
+     } else {
+-        status = ThreadStatus::run;
++        update_status(ThreadStatus::run);
+     }
+-    status_cond.notify_one();
+ 
+     return SCE_KERNEL_OK;
+ }
+@@ -414,6 +412,11 @@ void ThreadState::update_status(ThreadStatus status, std::optional<ThreadStatus>
+     if (status == ThreadStatus::wait && delete_requested)
+         return;
+ 
++    if (status == ThreadStatus::run && kernel.is_threads_paused()) {
++        this->suspended_by_pause = true;
++        status = ThreadStatus::suspend;
++    }
++
+     this->status = status;
+     status_cond.notify_all();

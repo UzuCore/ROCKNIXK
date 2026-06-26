@@ -1,23 +1,43 @@
+diff --git a/vita3k/app/src/app_init.cpp b/vita3k/app/src/app_init.cpp
+index fc74fa5f..1d109a38 100644
 --- a/vita3k/app/src/app_init.cpp
 +++ b/vita3k/app/src/app_init.cpp
-@@ -158,8 +158,7 @@
-     root_paths.set_cache_path(storage_path / "cache" / "");
-     root_paths.set_patch_path(storage_path / "patch" / "");
+@@ -256,8 +256,7 @@ void init_paths(Root &root_paths) {
+     root_paths.set_cache_path(internal_storage_path / "cache" / "");
+     root_paths.set_patch_path(internal_storage_path / "patch" / "");
  #else
--    auto sdl_base_path = SDL_GetBasePath();
--    auto base_path = fs_utils::utf8_to_path(sdl_base_path);
-+    auto base_path = fs_utils::utf8_to_path("/storage/.config/Vita3K");
+-    auto sdl_exe_path = SDL_GetBasePath();
+-    auto exe_path = fs_utils::utf8_to_path(sdl_exe_path);
++    auto exe_path = fs_utils::utf8_to_path("/usr/config/vita3k");
  
-     root_paths.set_base_path(base_path);
-     root_paths.set_static_assets_path(base_path);
-@@ -184,9 +183,7 @@
+     root_paths.set_static_assets_path(exe_path);
+ 
+@@ -290,9 +289,7 @@ void init_paths(Root &root_paths) {
      } else {
          // SDL_GetPrefPath is deferred as it creates the directory.
          // When using a portable directory, it is not needed.
--        auto sdl_pref_path = SDL_GetPrefPath(org_name, app_name);
--        auto pref_path = fs_utils::utf8_to_path(sdl_pref_path);
--        SDL_free(sdl_pref_path);
-+        auto pref_path = fs_utils::utf8_to_path("/storage/roms/psvita/vita3k");
+-        auto sdl_vita_fs_path = SDL_GetPrefPath(org_name, app_name);
+-        auto vita_fs_path = fs_utils::utf8_to_path(sdl_vita_fs_path);
+-        SDL_free(sdl_vita_fs_path);
++        auto vita_fs_path = fs_utils::utf8_to_path("/storage/roms/psvita/vita3k");
  
  #if defined(__APPLE__)
          // Store other data in the user-wide path. Otherwise we may end up dumping
+@@ -314,11 +311,12 @@ void init_paths(Root &root_paths) {
+ #endif
+ 
+         root_paths.set_vita_fs_path(vita_fs_path);
+-        root_paths.set_log_path(exe_path);
+-        root_paths.set_config_path(exe_path);
+-        root_paths.set_shared_path(exe_path);
+-        root_paths.set_cache_path(exe_path / "cache" / "");
+-        root_paths.set_patch_path(exe_path / "patch" / "");
++        auto base_config_path = fs_utils::utf8_to_path("/storage/.config/Vita3K");
++        root_paths.set_log_path(base_config_path);
++        root_paths.set_config_path(base_config_path);
++        root_paths.set_shared_path(base_config_path);
++        root_paths.set_cache_path(base_config_path / "cache" / "");
++        root_paths.set_patch_path(base_config_path / "patch" / "");
+ 
+ #if defined(__linux__)
+         // XDG Data Dirs.
