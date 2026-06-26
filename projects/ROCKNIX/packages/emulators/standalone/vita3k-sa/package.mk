@@ -2,7 +2,7 @@
 # Copyright (C) 2026 ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="vita3k-sa"
-PKG_VERSION="ba5c2029c96a08db63cfe04736156af481d9c137"
+PKG_VERSION="5b040dc4a6373ccecfaeeaaf817ba0edb8241edd"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/Vita3K/Vita3K"
 PKG_URL="${PKG_SITE}.git"
@@ -61,6 +61,7 @@ makeinstall_target() {
   cp -f ${PKG_DIR}/config/config.yml ${INSTALL}/usr/config/vita3k/
   cp -rf ${PKG_BUILD}/.${TARGET_NAME}/bin/shaders-builtin ${INSTALL}/usr/config/vita3k/
   cp -rf ${PKG_BUILD}/.${TARGET_NAME}/bin/data ${INSTALL}/usr/config/vita3k/
-  cp -rf ${PKG_BUILD}/.${TARGET_NAME}/bin/lang ${INSTALL}/usr/config/vita3k/
+  cp -rf ${PKG_BUILD}/.${TARGET_NAME}/bin/translations ${INSTALL}/usr/config/vita3k/
+  cp -rf ${PKG_BUILD}/.${TARGET_NAME}/bin/icons ${INSTALL}/usr/config/vita3k/
   cp -f ${PKG_DIR}/sources/vita-gamelist.txt ${INSTALL}/usr/config/vita3k/vita-gamelist.txt
 }

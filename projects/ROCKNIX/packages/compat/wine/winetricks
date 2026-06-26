@@ -13763,7 +13763,7 @@ load_vcrun2026()
     # 2026-02-01: 14.50.35719 @ https://download.visualstudio.microsoft.com/download/pr/6f02464a-5e9b-486d-a506-c99a17db9a83/E7267C1BDF9237C0B4A28CF027C382B97AA909934F84F1C92D3FB9F04173B33E/VC_redist.x86.exe
     w_override_dlls native,builtin concrt140 msvcp140 msvcp140_1 msvcp140_2 msvcp140_atomic_wait msvcp140_codecvt_ids vcamp140 vccorlib140 vcomp140 vcruntime140
 
-    w_download https://aka.ms/vc14/vc_redist.x86.exe e7267c1bdf9237c0b4a28cf027c382b97aa909934f84f1c92d3fb9f04173b33e
+    w_download https://aka.ms/vc14/vc_redist.x86.exe b6ab675f0a27e6600f9726e75dea08d99c15f8ea4b842a2a1d988fa9529d39b9
     w_try_cd "${W_CACHE}"/"${W_PACKAGE}"
     w_try_ms_installer "${WINE}" vc_redist.x86.exe ${W_OPT_UNATTENDED:+/q}
 
@@ -13781,7 +13781,7 @@ load_vcrun2026()
             # vcruntime140_1 is only shipped on x64:
             w_override_dlls native,builtin vcruntime140_1
 
-            w_download https://aka.ms/vc14/vc_redist.x64.exe 8995548dfffcde7c49987029c764355612ba6850ee09a7b6f0fddc85bdc5c280
+            w_download https://aka.ms/vc14/vc_redist.x64.exe 90e48ade404e4576d023abfa374f323555f233982a8805ea9ac63dca9491a16b
             w_try_ms_installer "${WINE}" vc_redist.x64.exe ${W_OPT_UNATTENDED:+/q}
 
             # Also replace 64-bit msvcp140.dll, msvcp140_2.dll & vcruntime140_1.dll
