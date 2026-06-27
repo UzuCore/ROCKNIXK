@@ -1,0 +1,29 @@
+diff -urN a/src/video/wayland/SDL_waylandevents.c b/src/video/wayland/SDL_waylandevents.c
+--- a/src/video/wayland/SDL_waylandevents.c	2026-06-27 18:16:55.000000000 +0900
++++ b/src/video/wayland/SDL_waylandevents.c	2026-06-27 18:16:55.000000000 +0900
+@@ -81,6 +81,26 @@
+ #define XKB_MOD_NAME_MOD5 "Mod5"
+ #endif
+ 
++#ifndef XKB_VMOD_NAME_ALT
++#define XKB_VMOD_NAME_ALT "Alt"
++#endif
++
++#ifndef XKB_VMOD_NAME_SUPER
++#define XKB_VMOD_NAME_SUPER "Super"
++#endif
++
++#ifndef XKB_VMOD_NAME_LEVEL3
++#define XKB_VMOD_NAME_LEVEL3 "Level3"
++#endif
++
++#ifndef XKB_VMOD_NAME_LEVEL5
++#define XKB_VMOD_NAME_LEVEL5 "Level5"
++#endif
++
++#ifndef XKB_VMOD_NAME_NUM
++#define XKB_VMOD_NAME_NUM "Num"
++#endif
++
+ // Keyboard and mouse names to match XWayland
+ #define WAYLAND_DEFAULT_KEYBOARD_NAME "Virtual core keyboard"
