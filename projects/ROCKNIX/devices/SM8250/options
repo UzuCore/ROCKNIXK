@@ -33,9 +33,6 @@
   # Bootloader to use (syslinux / u-boot)
     BOOTLOADER="arm-efi"
 
-  # Grub menu rotation
-    GRUB_ROTATION="90"
-
   # Adreno GPU family
     GRAPHIC_DRIVERS="freedreno"
 
