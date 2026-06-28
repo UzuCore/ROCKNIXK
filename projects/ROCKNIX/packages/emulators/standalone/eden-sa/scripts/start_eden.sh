@@ -36,7 +36,7 @@ rm -rf /storage/.local/share/eden
 ln -sf /storage/.config/eden /storage/.local/share/eden
 
 #Set QT Platform to Wayland-EGL
-export QT_QPA_PLATFORM=wayland
+export QT_QPA_PLATFORM=xcb
 
 #eden won't work with the pipewire driver yet
 export SDL_AUDIODRIVER=pulseaudio

@@ -18,10 +18,6 @@ if [ "${OPENGLES_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
 fi
 
-if [ "${DISPLAYSERVER}" = "wl" ]; then
-  PKG_DEPENDS_TARGET+=" wayland ${WINDOWMANAGER} xwayland xrandr libXi"
-fi
-
 if [ "${VULKAN_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" vulkan-loader vulkan-headers"
 fi
