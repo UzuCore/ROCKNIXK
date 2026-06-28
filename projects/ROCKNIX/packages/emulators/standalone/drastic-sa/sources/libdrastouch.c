@@ -69,6 +69,7 @@ static void (*p_glDisable)(GLenum) = NULL;
 #define SHADER_QUILEZ 3
 #define SHADER_SCANLINES 4
 #define SHADER_LCD3X 5
+#define SHADER_LCD1X_NDS_COLOR 6
 
 static int shader_mode = SHADER_NONE;
 static int gl_renderer_desktop = 0; // 1 when SDL uses "opengl" renderer (not "opengles2")
@@ -304,6 +305,41 @@ static const char *FRAG_SHARP_SHIMMERLESS =
     "    gl_FragColor = SWIZ(texture2D(u_texture, mod_texel / u_texture_size));\n"
     "}\n";
 
+// lcd1x-nds-color: attempts to replicate the look and feel of a real DS Phat display.
+// Combines nearest-neighbour sampling (avoids blurring at the RG DS's non-integer 2.5x
+// NDS scale), a DS Phat colour correction matrix, a 2D LCD pixel grid, and a subtle
+// RGB subpixel column tint matching the DS Phat's RGB stripe layout.
+//
+// Colour correction matrix and gamma values adapted from jdgleaver/drastic_ds_shaders
+// (public domain). LCD grid structure inspired by LCD3X (already in this file).
+// RGB subpixel tint is an AI-assisted addition (Claude Code / Anthropic).
+static const char *FRAG_LCD1X_NDS_COLOR =
+    "precision mediump float;\n"
+    "varying vec2 v_texcoord;\n"
+    "uniform sampler2D u_texture;\n"
+    "uniform vec2 u_texture_size;\n"
+    "void main() {\n"
+    "    vec2 uv = (floor(v_texcoord * u_texture_size) + 0.5) / u_texture_size;\n"
+    "    vec3 colour = pow(SWIZ(texture2D(u_texture, uv)).rgb, vec3(1.91));\n"
+    "    colour = clamp(colour * 0.89, 0.0, 1.0);\n"
+    "    colour = pow(\n"
+    "        mat3( 0.87,  0.10,  0.10,\n"
+    "              0.255, 0.645, 0.17,\n"
+    "             -0.125, 0.255, 0.73) * colour,\n"
+    "        vec3(1.0 / 1.91));\n"
+    "    float px = mod(floor(gl_FragCoord.x), 3.0);\n"
+    "    float py = mod(floor(gl_FragCoord.y), 3.0);\n"
+    "    float gap = mix(0.80, 1.0, step(1.0, px)) * mix(0.80, 1.0, step(1.0, py));\n"
+    "    colour *= gap;\n"
+    "    vec3 col_r = vec3(1.0,  0.90, 0.90);\n"
+    "    vec3 col_g = vec3(0.90, 1.0,  0.90);\n"
+    "    vec3 col_b = vec3(0.90, 0.90, 1.0 );\n"
+    "    vec3 subpx = mix(col_r, col_g, step(1.0, px));\n"
+    "    subpx = mix(subpx, col_b, step(2.0, px));\n"
+    "    colour *= subpx;\n"
+    "    gl_FragColor = vec4(colour, 1.0);\n"
+    "}\n";
+
 // Inigo Quilez smooth Hermite interpolation (smootherstep)
 static const char *FRAG_QUILEZ =
     "precision mediump float;\n"
@@ -389,6 +425,7 @@ static void init_shader_program(void) {
         case SHADER_QUILEZ:            frag = FRAG_QUILEZ;            break;
         case SHADER_SCANLINES:         frag = FRAG_SCANLINES;         break;
         case SHADER_LCD3X:             frag = FRAG_LCD3X;             break;
+        case SHADER_LCD1X_NDS_COLOR:   frag = FRAG_LCD1X_NDS_COLOR;   break;
         default:                       frag = FRAG_SHARP_BILINEAR;    break;
     }
     shader_program = make_gl_program(VERT_SRC, frag);
@@ -835,6 +872,8 @@ static void init(void) {
             shader_mode = SHADER_LCD3X;
         else if (strcmp(shader_str, "sharp-shimmerless") == 0)
             shader_mode = SHADER_SHARP_SHIMMERLESS;
+        else if (strcmp(shader_str, "lcd1x-nds-color") == 0)
+            shader_mode = SHADER_LCD1X_NDS_COLOR;
     }
 
     const char* threshold_str = getenv("DSHOOK_MIC_THRESH");
