@@ -159,6 +159,7 @@ fi
 if [ "${QUIRK_DEVICE}" = "AYN Thor" ]; then
   echo "output ${second_con} power off" >> $SWAY_HOME/config
   echo 'for_window [title=".*(Secondary|\[w2\]|Sub|Bottom|Screen 2|GamePad).*"] output '"${second_con}"' power on' >> $SWAY_HOME/config
+  echo 'for_window [title=".*(Secondary|\[w2\]|Sub|Bottom|Screen 2|GamePad).*"] exec swaymsg input "0:0:bottom_touchscreen" events enabled' >> $SWAY_HOME/config
   echo 'for_window [app_id="emulationstation"] reload' >> $SWAY_HOME/config
   echo 'for_window [app_id="emulationstation"] exec "sleep 1 && swaymsg seat seat1 cursor press button1 && swaymsg seat seat1 cursor release button1"' >> $SWAY_HOME/config
   echo "exec_always swaymsg '[app_id=\"emulationstation\"]' focus output ${con}, output ${second_con} power off" >> $SWAY_HOME/config
