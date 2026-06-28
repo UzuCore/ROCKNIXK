@@ -305,14 +305,10 @@ static const char *FRAG_SHARP_SHIMMERLESS =
     "    gl_FragColor = SWIZ(texture2D(u_texture, mod_texel / u_texture_size));\n"
     "}\n";
 
-// lcd1x-nds-color: attempts to replicate the look and feel of a real DS Phat display.
-// Combines nearest-neighbour sampling (avoids blurring at the RG DS's non-integer 2.5x
-// NDS scale), a DS Phat colour correction matrix, a 2D LCD pixel grid, and a subtle
-// RGB subpixel column tint matching the DS Phat's RGB stripe layout.
-//
-// Colour correction matrix and gamma values adapted from jdgleaver/drastic_ds_shaders
-// (public domain). LCD grid structure inspired by LCD3X (already in this file).
-// RGB subpixel tint is an AI-assisted addition (Claude Code / Anthropic).
+// lcd1x-nds-color: nearest-neighbour base with DS Phat colour correction, 2D LCD pixel
+// grid (3-pixel period, 80% gap), and subtle RGB subpixel column tint.
+// Colour correction matrix adapted from jdgleaver/drastic_ds_shaders, itself derived
+// from hunterk/Pokefan531's nds-color.glsl (public domain).
 static const char *FRAG_LCD1X_NDS_COLOR =
     "precision mediump float;\n"
     "varying vec2 v_texcoord;\n"
