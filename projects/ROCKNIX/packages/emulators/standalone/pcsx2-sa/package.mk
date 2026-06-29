@@ -2,7 +2,7 @@
 # Copyright (C) 2025-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="pcsx2-sa"
-PKG_VERSION="9e71f836a003bea564523abf1b38c4f5ef54a137"
+PKG_VERSION="5f44e772d0584b257a1828dc1a3e52c47441cc8e"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://git.sr.ht/~bmdhacks/pcsx2"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
@@ -22,7 +22,7 @@ PCSX2_CMAKE_BASE=(
   -DX11_API=ON
 )
 
-PATCHES_URL="https://github.com/PCSX2/pcsx2_patches/releases/latest/download/patches.zip"
+PATCHES_URL="https://github.com/PCSX2/pcsx2_patches/archive/refs/tags/latest.zip"
 
 make_target() {
   for _v in CFLAGS CXXFLAGS LDFLAGS; do

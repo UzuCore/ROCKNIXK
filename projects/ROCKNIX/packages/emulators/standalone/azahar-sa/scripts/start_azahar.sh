@@ -200,7 +200,7 @@ esac
 
 # QT platform - some device / screen combinations need xcb
 case ${HW_DEVICE} in
-    SM8550)
+    SM8550|SM8250)
         [[ "${DEVICE_HAS_DUAL_SCREEN}" = "true" ]] && export QT_QPA_PLATFORM=xcb
     ;;
 esac
