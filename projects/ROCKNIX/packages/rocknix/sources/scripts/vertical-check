@@ -58,6 +58,7 @@ if [ "${IS_VERTICAL}" = "true" ]; then
         # Same notes from above apply here.
         swaymsg '[title="RetroArch.*"] output DSI-1 pos 0 0, output DSI-2 power on pos 340 1080'
         swaymsg '[title="RetroArch.*"] floating enable, fullscreen disable, resize set 1240 2160, move to output DSI-1, move absolute position 340 0'
+        swaymsg 'input "0:0:bottom_touchscreen" events enabled'
     elif [ "${QUIRK_DEVICE}" = "Anbernic RG DS" ]; then
         # Same notes from above apply here.
         swaymsg '[title="RetroArch.*"] output DSI-2 pos 0 0, output DSI-1 power on pos 0 480'
@@ -119,7 +120,8 @@ elif [ "${DEVICE_HAS_DUAL_SCREEN}" = "true" ] && [ "${EXTERNAL_DISPLAY_CONNECTED
                 OUTPUT="DSI-1"
                 swaymsg input "0:0:bottom_touchscreen" events enabled ;;
             "AYN Thor Lite")
-                OUTPUT="DSI-2" ;;
+                OUTPUT="DSI-2"
+                swaymsg input "0:0:bottom_touchscreen" events enabled ;;
             *)
                 OUTPUT="DSI-1" ;;
         esac
