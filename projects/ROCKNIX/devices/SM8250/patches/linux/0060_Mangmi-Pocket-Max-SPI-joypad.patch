@@ -1,5 +1,5 @@
 Subject: [PATCH] input: joystick: add MANGMI Pocket Max SPI joypad
-
+ 
 diff --git a/drivers/input/joystick/Kconfig b/drivers/input/joystick/Kconfig
 index 7755e5b454d2..cae1087e2c7b 100644
 --- a/drivers/input/joystick/Kconfig
@@ -37,7 +37,7 @@ new file mode 100644
 index 000000000000..82570eff2fbe
 --- /dev/null
 +++ b/drivers/input/joystick/mangmi-pocket-max.c
-@@ -0,0 +1,581 @@
+@@ -0,0 +1,636 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * MANGMI Pocket Max Joypad Driver SPI
@@ -51,12 +51,14 @@ index 000000000000..82570eff2fbe
 +#include <linux/gpio/consumer.h>
 +#include <linux/input.h>
 +#include <linux/interrupt.h>
++#include <linux/jiffies.h>
 +#include <linux/math.h>
 +#include <linux/minmax.h>
 +#include <linux/module.h>
 +#include <linux/mutex.h>
 +#include <linux/of.h>
 +#include <linux/spi/spi.h>
++#include <linux/workqueue.h>
 +
 +#define DRIVER_NAME		"mangmi-pocket-max-joypad"
 +
@@ -80,7 +82,10 @@ index 000000000000..82570eff2fbe
 +#define MCU_BRAKE_MAX		1910
 +#define MCU_GAS_MAX		1758
 +#define MCU_CMD_SET_ADC_TIME	8
++#define MCU_CMD_SET_MCU_TIME	9
 +#define MCU_ADC_TIMER_DEFAULT	2
++#define MCU_WD_POLL_MS		1000
++#define MCU_WD_SILENT_MS	5000
 +
 +#define INT_SIGN(x)		(((x) > 0) - ((x) < 0))
 +
@@ -221,6 +226,10 @@ index 000000000000..82570eff2fbe
 +	u16 adc_timer;
 +
 +	int cx, cy, cz, crz;
++
++	struct delayed_work watchdog;
++	unsigned long last_adc;
++	bool wd_stop;
 +};
 +
 +static int mcu_read(struct pmax_joypad *jp, u8 cmd, u16 *buf, int n)
@@ -254,12 +263,15 @@ index 000000000000..82570eff2fbe
 +{
 +	u16 cmd = MCU_CMD_SET_ADC_TIME;
 +	u16 val = jp->adc_timer;
++	u16 start = MCU_CMD_SET_MCU_TIME;
 +
 +	mutex_lock(&jp->lock);
 +	if (!spi_write(jp->spi, &cmd, sizeof(cmd))) {
 +		usleep_range(MCU_CMD_DELAY_US, MCU_CMD_DELAY_US + 10);
 +		spi_write(jp->spi, &val, sizeof(val));
 +	}
++	usleep_range(MCU_CMD_DELAY_US, MCU_CMD_DELAY_US + 10);
++	spi_write(jp->spi, &start, sizeof(start));
 +	mutex_unlock(&jp->lock);
 +}
 +
@@ -375,6 +387,8 @@ index 000000000000..82570eff2fbe
 +	if (all_zero)
 +		return IRQ_HANDLED;
 +
++	jp->last_adc = jiffies;
++
 +	if (update_params) {
 +		mcu_set_axis_absinfo(dev);
 +		update_params = 0;
@@ -433,7 +447,7 @@ index 000000000000..82570eff2fbe
 +	gpiod_set_raw_value_cansleep(jp->hall_l_gpio, 1);
 +	gpiod_set_raw_value_cansleep(jp->hall_r_gpio, 1);
 +	gpiod_set_raw_value_cansleep(jp->boot0_gpio, 1);
-+	gpiod_set_raw_value_cansleep(jp->boot1_gpio, 1);
++	gpiod_set_raw_value_cansleep(jp->boot1_gpio, 0);
 +
 +	msleep(20);
 +	gpiod_set_raw_value_cansleep(jp->reset_gpio, 0);
@@ -447,6 +461,30 @@ index 000000000000..82570eff2fbe
 +	gpiod_set_raw_value_cansleep(jp->hall_l_gpio, 0);
 +	gpiod_set_raw_value_cansleep(jp->hall_r_gpio, 0);
 +	gpiod_set_raw_value_cansleep(jp->power_gpio, 0);
++}
++
++static void mcu_kick(struct pmax_joypad *jp)
++{
++	gpiod_set_raw_value_cansleep(jp->reset_gpio, 1);
++	usleep_range(5000, 5200);
++	gpiod_set_raw_value_cansleep(jp->reset_gpio, 0);
++	msleep(100);
++	mcu_init(jp);
++}
++
++static void mcu_watchdog(struct work_struct *work)
++{
++	struct pmax_joypad *jp = container_of(to_delayed_work(work),
++					      struct pmax_joypad, watchdog);
++
++	if (time_after(jiffies, jp->last_adc + msecs_to_jiffies(MCU_WD_SILENT_MS)))
++		mcu_kick(jp);
++
++	mutex_lock(&jp->lock);
++	if (!jp->wd_stop)
++		queue_delayed_work(system_freezable_wq, &jp->watchdog,
++				   msecs_to_jiffies(MCU_WD_POLL_MS));
++	mutex_unlock(&jp->lock);
 +}
 +
 +static struct gpio_desc *mcu_get_gpio(struct device *dev, const char *con,
@@ -565,6 +603,11 @@ index 000000000000..82570eff2fbe
 +					     mcu_gpio_btns[i].con);
 +	}
 +
++	jp->last_adc = jiffies;
++	INIT_DELAYED_WORK(&jp->watchdog, mcu_watchdog);
++	queue_delayed_work(system_freezable_wq, &jp->watchdog,
++			   msecs_to_jiffies(MCU_WD_POLL_MS));
++
 +	return 0;
 +}
 +
@@ -572,6 +615,10 @@ index 000000000000..82570eff2fbe
 +{
 +	struct pmax_joypad *jp = spi_get_drvdata(spi);
 +
++	mutex_lock(&jp->lock);
++	jp->wd_stop = true;
++	mutex_unlock(&jp->lock);
++	cancel_delayed_work_sync(&jp->watchdog);
 +	mcu_power_off(jp);
 +}
 +
@@ -579,6 +626,10 @@ index 000000000000..82570eff2fbe
 +{
 +	struct pmax_joypad *jp = spi_get_drvdata(to_spi_device(dev));
 +
++	mutex_lock(&jp->lock);
++	jp->wd_stop = true;
++	mutex_unlock(&jp->lock);
++	cancel_delayed_work_sync(&jp->watchdog);
 +	disable_irq(jp->key_irq);
 +	disable_irq(jp->adc_irq);
 +	mcu_power_off(jp);
@@ -593,6 +644,10 @@ index 000000000000..82570eff2fbe
 +	mcu_init(jp);
 +	enable_irq(jp->key_irq);
 +	enable_irq(jp->adc_irq);
++	jp->last_adc = jiffies;
++	jp->wd_stop = false;
++	queue_delayed_work(system_freezable_wq, &jp->watchdog,
++			   msecs_to_jiffies(MCU_WD_POLL_MS));
 +	return 0;
 +}
 +

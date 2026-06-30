@@ -6,7 +6,7 @@ version: 1
 kind: CompositeDevice
 
 # Name of the composite device mapping
-name: AYN Layout
+name: AYN Thor Layout
 
 # Only use this profile if *any* of the given matches matches. If this list is
 # empty, then the source devices will *always* be checked.
@@ -16,27 +16,7 @@ matches:
       sys_path: /sys/firmware/devicetree/base
       attributes:
         - name: model
-          value: AYN Odin 2
-  - udev:
-      sys_path: /sys/firmware/devicetree/base
-      attributes:
-        - name: model
-          value: AYN Odin 2 Mini
-  - udev:
-      sys_path: /sys/firmware/devicetree/base
-      attributes:
-        - name: model
-          value: AYN Odin 2 Portal
-  - udev:
-      sys_path: /sys/firmware/devicetree/base
-      attributes:
-        - name: model
-          value: Retroid Pocket 6
-  - udev:
-      sys_path: /sys/firmware/devicetree/base
-      attributes:
-        - name: model
-          value: Retroid Pocket 6 TOP-DPAD
+          value: AYN Thor
 
 # Only allow a single source device per composite device of this type.
 single_source: false
@@ -52,8 +32,8 @@ source_devices:
 
   - group: gamepad
     evdev:
-      name: gpio-keys
-      phys_path: gpio-keys/input0
+      name: gpio-keys-ayn
+      phys_path: gpio-keys-ayn/input0
       handler: event*
     capability_map_id: ayn_mcu
 
