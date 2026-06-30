@@ -3,7 +3,7 @@
 # Copyright (C) 2022-present fewtarius (https://github.com/fewtarius)
 
 PKG_NAME="tailscale"
-PKG_VERSION="1.76.6"
+PKG_VERSION="1.98.8"
 PKG_SITE="https://tailscale.com/"
 PKG_DEPENDS_TARGET="toolchain wireguard-tools"
 PKG_LONGDESC="Zero config VPN. Installs on any device in minutes, manages firewall rules for you, and works from anywhere."
@@ -12,11 +12,11 @@ PKG_TOOLCHAIN="manual"
 case ${TARGET_ARCH} in
   aarch64)
     TS_ARCH="_arm64"
-    PKG_SHA256="a906659b57590a195370e93719d9633975db64704e90eb1ed9f8cd3d437b4941"
+    PKG_SHA256="53eb3ce89d062fd34e393d24a6c8ec08c769fede8eb77fe9c6e347ad4ae00f84"
   ;;
   x86_64)
     TS_ARCH="_amd64"
-    PKG_SHA256="08f2377b78f7b9e411caa28f231a9c4cd0887209c142b49b815bcc7042ff61f7"
+    PKG_SHA256="3a55b5900dd7e11e09b6c74d1e46d223d549dfbefbdc1f044a8ab7bdbafb933c"
   ;;
 esac
 
