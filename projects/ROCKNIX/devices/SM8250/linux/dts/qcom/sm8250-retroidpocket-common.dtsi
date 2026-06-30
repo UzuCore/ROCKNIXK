@@ -1493,10 +1493,6 @@
 	status = "okay";
 };
 
-&pm6125_rtc {
-	status = "okay";
-};
-
 &wsamacro {
 	status = "okay";
 };
