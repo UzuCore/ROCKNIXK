@@ -16,7 +16,7 @@ unset AC_STATUS
 ledcontrol $(get_setting led.color)
 
 while true; do
-  AC_STATUS="$(cat /sys/class/power_supply/[bB][aA][tT]*/status 2>/dev/null)"
+  AC_STATUS="$(cat "$(battery_path)/status" 2>/dev/null)"
   if [[ ! "${CURRENT_MODE}" =~ ${AC_STATUS} ]]; then
     case ${AC_STATUS} in
       Disch*)
