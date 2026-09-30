@@ -1,0 +1,95 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Thu, 31 Jul 2025 10:30:16 +0200
+Subject: [PATCH 024/225] dt-bindings: display: sprd: use more descriptive
+ clock names
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Introduce new clock names that actually describe what the clock input is
+used for instead of referring to a specific clock source.
+
+The new clock input names are based on information from clock drivers
+such as drivers/clk/sprd/ums512-clk.c. The 128M clock appears to be
+CLK_DISPC0_DPI, the clock used for the DPI output from the DPU, while
+the 192M clock is CLK_DISPC0, the actual DPU core clock. The DSI
+controller's 96M clock is most likely CLK_DSI_APB, the APB clock used
+for accessing its control registers.
+
+Since it seems possible to configure different frequencies for these
+clocks, the old bindings do not even accurately describe the hardware.
+Deprecate the old clock names.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ .../bindings/display/sprd/sprd,sharkl3-dpu.yaml | 17 +++++++++++------
+ .../display/sprd/sprd,sharkl3-dsi-host.yaml     | 11 ++++++++---
+ 2 files changed, 19 insertions(+), 9 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dpu.yaml b/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dpu.yaml
+index cfa162178..7f3465208 100644
+--- a/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dpu.yaml
++++ b/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dpu.yaml
+@@ -33,9 +33,14 @@ properties:
+     maxItems: 2
+ 
+   clock-names:
+-    items:
+-      - const: clk_src_128m
+-      - const: clk_src_384m
++    oneOf:
++      - deprecated: true
++        items:
++          - const: clk_src_128m
++          - const: clk_src_384m
++      - items:
++          - const: core
++          - const: dpi
+ 
+   power-domains:
+     maxItems: 1
+@@ -69,10 +74,10 @@ examples:
+         compatible = "sprd,sharkl3-dpu";
+         reg = <0x63000000 0x1000>;
+         interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
+-        clock-names = "clk_src_128m", "clk_src_384m";
+ 
+-        clocks = <&pll CLK_TWPLL_128M>,
+-          <&pll CLK_TWPLL_384M>;
++        clocks = <&pll CLK_TWPLL_384M>,
++                 <&pll CLK_TWPLL_128M>;
++        clock-names = "core", "dpi";
+ 
+         dpu_port: port {
+             dpu_out: endpoint {
+diff --git a/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dsi-host.yaml b/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dsi-host.yaml
+index 9177ae6aa..71abbc2de 100644
+--- a/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dsi-host.yaml
++++ b/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dsi-host.yaml
+@@ -25,8 +25,12 @@ properties:
+     maxItems: 1
+ 
+   clock-names:
+-    items:
+-      - const: clk_src_96m
++    oneOf:
++      - deprecated: true
++        items:
++          - const: clk_src_96m
++      - items:
++          - const: pclk
+ 
+   power-domains:
+     maxItems: 1
+@@ -75,8 +79,9 @@ examples:
+         reg = <0x63100000 0x1000>;
+         interrupts = <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>,
+           <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>;
+-        clock-names = "clk_src_96m";
+         clocks = <&pll CLK_TWPLL_96M>;
++        clock-names = "pclk";
++
+         ports {
+             #address-cells = <1>;
+             #size-cells = <0>;

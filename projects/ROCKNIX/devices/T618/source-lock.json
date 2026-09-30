@@ -3,9 +3,9 @@
   "repository_commit": "d91c3ad060b29d485e49df4a5d98a2803e475c6b",
   "device": "T618",
   "board": "RG405M",
-  "kernel_repo": "beebono/linux-mainline-sprd",
-  "kernel_commit": "464b3e7bf45bb300e190339977abba36c8078e1f",
-  "kernel_version": "7.1.0-rc1",
+  "kernel_repo": "kernel.org linux-7.1.2 + beebono/linux-mainline-sprd rg-rotate series",
+  "kernel_commit": "464b3e7bf45bb300e190339977abba36c8078e1f (rebased onto 7.1.2)",
+  "kernel_version": "7.1.2",
   "status": "experimental-prebuild-only",
   "source_complete": false,
   "ready_for_make": false,
@@ -35,5 +35,17 @@
       "qualification": "A failed I2C bus leaves the physical state unconfirmed; electrical/watchdog behavior requires hardware testing."
     }
   },
-  "overall_status_note": "Four core issues implemented; entire original checklist not certified complete; no build or hardware validation."
+  "overall_status_note": "Four core issues implemented; entire original checklist not certified complete; no build or hardware validation.",
+  "kernel_base": {
+    "url": "https://www.kernel.org/pub/linux/kernel/v7.x/linux-7.1.2.tar.xz",
+    "sha256": "37198c93727be247c9fb5309bb86cd5e496c61e5322cd8c4eca9476bb0b5883f"
+  },
+  "kernel_series": {
+    "repo": "beebono/linux-mainline-sprd",
+    "branch": "rg-rotate",
+    "commit": "464b3e7bf45bb300e190339977abba36c8078e1f",
+    "base": "v7.1-rc1",
+    "commits": 225,
+    "patches": "patches/linux/rg-rotate"
+  }
 }

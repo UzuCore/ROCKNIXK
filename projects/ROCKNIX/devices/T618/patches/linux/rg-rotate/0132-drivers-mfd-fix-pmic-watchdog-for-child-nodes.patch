@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Mon, 6 Jul 2026 04:16:46 -0500
+Subject: [PATCH 132/225] drivers/mfd: fix pmic watchdog for child nodes
+
+---
+ drivers/mfd/sprd-sc27xx-spi.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/mfd/sprd-sc27xx-spi.c b/drivers/mfd/sprd-sc27xx-spi.c
+index 339bbafdc..a72d2b688 100644
+--- a/drivers/mfd/sprd-sc27xx-spi.c
++++ b/drivers/mfd/sprd-sc27xx-spi.c
+@@ -67,6 +67,7 @@ static const struct mfd_cell sc2730_devices[] = {
+ 	MFD_CELL_NAME("sc2730-regulator"),
+ 	MFD_CELL_OF("sc2730-rtc", NULL, NULL, 0, 0, "sprd,sc2730-rtc"),
+ 	MFD_CELL_OF("sc2730-vibrator", NULL, NULL, 0, 0, "sprd,sc2730-vibrator"),
++	MFD_CELL_OF("sc2730-wdt", NULL, NULL, 0, 0, "sprd,sc2730-wdt"),
+ };
+ 
+ static const struct mfd_cell sc2731_devices[] = {

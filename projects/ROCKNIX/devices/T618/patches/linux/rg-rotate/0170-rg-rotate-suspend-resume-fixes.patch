@@ -1,0 +1,343 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Wed, 22 Jul 2026 22:18:41 -0500
+Subject: [PATCH 170/225] rg-rotate: suspend/resume fixes
+
+---
+ arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts |  1 +
+ drivers/cpufreq/sprd-cpufreqhw.c              | 43 +++++++++++++++--
+ drivers/net/wireless/unisoc/main.c            | 48 +++++++------------
+ drivers/net/wireless/unisoc/sc23xx.h          |  2 +
+ drivers/net/wireless/unisoc/sdio.c            | 34 +++++++++++++
+ drivers/usb/musb/musb_core.c                  | 35 +++++++++++---
+ drivers/watchdog/sc27xx_wdt.c                 | 32 +++++++++++++
+ 7 files changed, 153 insertions(+), 42 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+index 2ceedaaeb..7b6f64661 100644
+--- a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
++++ b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+@@ -338,6 +338,7 @@ &led2 {
+ &sc2730_fgu {
+ 	status = "okay";
+ 	monitored-battery = <&bat>;
++	power-supplies = <&charger>;
+ 	sprd,calib-resistance-micro-ohms = <10000>;
+ };
+ 
+diff --git a/drivers/cpufreq/sprd-cpufreqhw.c b/drivers/cpufreq/sprd-cpufreqhw.c
+index 3c8e02163..51d01ee0b 100644
+--- a/drivers/cpufreq/sprd-cpufreqhw.c
++++ b/drivers/cpufreq/sprd-cpufreqhw.c
+@@ -263,6 +263,39 @@ static int sprd_hardware_cpufreq_init_slaves(
+ 	return ret;
+ }
+ 
++/*
++ * Mark every possible CPU that references the same cpufreq-data-v1 phandle
++ * (i.e. shares this cluster's clock/power domain) in @cpus. This is derived
++ * purely from the DT and so is independent of which CPUs happen to be online
++ * right now -- unlike topology_cluster_cpumask(), whose sibling bits are only
++ * populated as each CPU comes online. During resume the non-boot CPUs are
++ * brought up one at a time, so using the online-dependent topology mask makes
++ * the first big core create a policy with related_cpus covering only itself;
++ * when the second core then comes online cpufreq_online() trips
++ * WARN_ON(!cpumask_test_cpu(cpu, policy->related_cpus)).
++ */
++static void sprd_cpufreq_get_sharing_cpus(struct device_node *cpufreq_of_node,
++					  struct cpumask *cpus)
++{
++	struct device_node *cpu_np, *sib_np;
++	int cpu;
++
++	for_each_possible_cpu(cpu) {
++		cpu_np = of_cpu_device_node_get(cpu);
++		if (!cpu_np)
++			continue;
++
++		sib_np = of_parse_phandle(cpu_np, "cpufreq-data-v1", 0);
++		of_node_put(cpu_np);
++		if (!sib_np)
++			continue;
++
++		if (sib_np == cpufreq_of_node)
++			cpumask_set_cpu(cpu, cpus);
++		of_node_put(sib_np);
++	}
++}
++
+ static int sprd_hardware_cpufreq_init(struct cpufreq_policy *policy)
+ {
+ 	struct cpufreq_frequency_table *freq_table;
+@@ -367,9 +400,13 @@ static int sprd_hardware_cpufreq_init(struct cpufreq_policy *policy)
+ 	policy->freq_table = freq_table;
+ 
+ #ifdef CONFIG_SMP
+-	/* CPUs in the same cluster share a clock and power domain */
+-	cpumask_or(policy->cpus, policy->cpus,
+-		   topology_cluster_cpumask(policy->cpu));
++	/*
++	 * CPUs in the same cluster share a clock and power domain. Derive the
++	 * sharing mask from the DT (cpufreq-data-v1 phandle) rather than the
++	 * online-dependent topology mask, so related_cpus is complete even when
++	 * sibling cores are still offline (e.g. during resume bring-up).
++	 */
++	sprd_cpufreq_get_sharing_cpus(cpufreq_of_node, policy->cpus);
+ #endif
+ 
+ 	if (!cpufreq_datas[data->cluster])
+diff --git a/drivers/net/wireless/unisoc/main.c b/drivers/net/wireless/unisoc/main.c
+index f38e167e5..6acbda53d 100644
+--- a/drivers/net/wireless/unisoc/main.c
++++ b/drivers/net/wireless/unisoc/main.c
+@@ -103,13 +103,18 @@ static const struct ieee80211_txrx_stypes sc23xx_mgmt_stypes[NUM_NL80211_IFTYPES
+ 	},
+ };
+ 
+-#ifdef CONFIG_PM
+-
+-static const struct wiphy_wowlan_support sc23xx_wowlan_support = {
+-	.flags = WIPHY_WOWLAN_ANY,
+-};
+-
+-static int sc23xx_set_suspend(struct sc23xx_dev *sdev, bool suspend)
++/*
++ * System suspend/resume for WiFi is NOT driven through cfg80211's wiphy
++ * .suspend/.resume. The wiphy's parent is a platform_device, while the SDIO
++ * bus (sdiohal) hangs off an sdio_func under the mmc host, so the two are
++ * unordered in the dpm list: cfg80211 would try to send the suspend command
++ * *after* sdiohal has already quiesced the bus, and it times out (-110).
++ *
++ * Instead the suspend/resume handshake is issued from the sdiohal
++ * power_notify callback (see sc23xx_sdio_power_notify in sdio.c), which runs
++ * inside sdiohal_suspend() while the bus is still up.
++ */
++int sc23xx_set_suspend(struct sc23xx_dev *sdev, bool suspend)
+ {
+ 	struct sc23xx_vif *vif;
+ 	int ret = 0, srcu_idx, i;
+@@ -127,24 +132,6 @@ static int sc23xx_set_suspend(struct sc23xx_dev *sdev, bool suspend)
+ 	return ret;
+ }
+ 
+-static int sc23xx_suspend(struct wiphy *wiphy, struct cfg80211_wowlan *wow)
+-{
+-	struct sc23xx_dev *sdev = wiphy_priv(wiphy);
+-
+-	wiphy_dbg(wiphy, "WoWLAN requested: %s\n", wow ? "yes" : "no");
+-
+-	return sc23xx_set_suspend(sdev, true);
+-}
+-
+-static int sc23xx_resume(struct wiphy *wiphy)
+-{
+-	struct sc23xx_dev *sdev = wiphy_priv(wiphy);
+-
+-	return sc23xx_set_suspend(sdev, false);
+-}
+-
+-#endif /* CONFIG_PM */
+-
+ static int sc23xx_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request)
+ {
+ 	struct sc23xx_vif *vif = netdev_priv(request->wdev->netdev);
+@@ -323,10 +310,10 @@ static int sc23xx_sched_scan_stop(struct wiphy *wiphy, struct net_device *ndev,
+ }
+ 
+ static const struct cfg80211_ops sc23xx_ops = {
+-#ifdef CONFIG_PM
+-	.suspend = sc23xx_suspend,
+-	.resume = sc23xx_resume,
+-#endif
++	/*
++	 * No .suspend/.resume: system suspend is handled via the sdiohal
++	 * power_notify callback instead (see sc23xx_set_suspend).
++	 */
+ 	.scan = sc23xx_scan,
+ 	.abort_scan = sc23xx_abort_scan,
+ 	.connect = sc23xx_connect,
+@@ -460,9 +447,6 @@ void *sc23xx_alloc_device(struct device *dev, size_t size,
+ 	wiphy->signal_type = CFG80211_SIGNAL_TYPE_MBM;
+ 	wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION) | BIT(NL80211_IFTYPE_AP);
+ 	wiphy->mgmt_stypes = sc23xx_mgmt_stypes;
+-#ifdef CONFIG_PM
+-	wiphy->wowlan = &sc23xx_wowlan_support;
+-#endif
+ 	wiphy->reg_notifier = sc23xx_reg_notify;
+ 	wiphy->regulatory_flags |= REGULATORY_DISABLE_BEACON_HINTS;
+ 
+diff --git a/drivers/net/wireless/unisoc/sc23xx.h b/drivers/net/wireless/unisoc/sc23xx.h
+index 1881b87c6..6198a9429 100644
+--- a/drivers/net/wireless/unisoc/sc23xx.h
++++ b/drivers/net/wireless/unisoc/sc23xx.h
+@@ -198,6 +198,8 @@ static inline u16 sc23xx_tx_seq_info(struct sc23xx_dev *sdev, int color)
+ int sc23xx_register_device(struct sc23xx_dev *sdev);
+ void sc23xx_unregister_device(struct sc23xx_dev *sdev);
+ 
++int sc23xx_set_suspend(struct sc23xx_dev *sdev, bool suspend);
++
+ void sc23xx_wakeup_fw(struct sc23xx_dev *sdev);
+ 
+ void sc23xx_rx_msg(struct sc23xx_dev *sdev, enum sc23xx_msg_type type,
+diff --git a/drivers/net/wireless/unisoc/sdio.c b/drivers/net/wireless/unisoc/sdio.c
+index 6a0f9b308..3bfe61f48 100644
+--- a/drivers/net/wireless/unisoc/sdio.c
++++ b/drivers/net/wireless/unisoc/sdio.c
+@@ -396,6 +396,34 @@ static int sc23xx_sdio_rx(int chn, struct mbuf_t *head,
+ 	return 0;
+ }
+ 
++/*
++ * sdiohal power_notify: called from sdiohal_suspend()/sdiohal_resume() while
++ * the SDIO bus is still up. This is where we issue the firmware suspend/resume
++ * handshake, rather than from cfg80211's wiphy .suspend (which the dpm order
++ * runs only *after* the bus has been quiesced — the command then times out).
++ *
++ * sdiohal calls power_notify(chn, false) to suspend and power_notify(chn, true)
++ * to resume. A non-zero return from the suspend call aborts the suspend and
++ * makes sdiohal roll the bus back up via its power_notify: unwind path.
++ */
++static int sc23xx_sdio_power_notify(int chn, int notify)
++{
++	struct sc23xx_sdio *priv = sc23xx_sdio_priv;
++	bool suspend = !notify;
++	int ret;
++
++	if (!priv)
++		return 0;
++
++	ret = sc23xx_set_suspend(&priv->sdev, suspend);
++	if (ret)
++		dev_warn(&priv->pdev->dev,
++			 "chn %d %s handshake failed: %d\n", chn,
++			 suspend ? "suspend" : "resume", ret);
++
++	return ret;
++}
++
+ static struct mchn_ops_t sc23xx_sdio_chn_ops[] = {
+ 	{
+ 		.hif_type = HW_TYPE_SDIO,
+@@ -428,6 +456,12 @@ static struct mchn_ops_t sc23xx_sdio_chn_ops[] = {
+ 		.pool_size = 10,
+ 		.buf_size = SC23XX_SDIO_MAX_CMD_LEN,
+ 		.pop_link = sc23xx_sdio_tx_pop,
++		/*
++		 * Drive the firmware suspend/resume handshake from the TX cmd
++		 * channel: sdiohal invokes power_notify per channel, and this
++		 * is the port the CMD_POWER_SAVE command is written on anyway.
++		 */
++		.power_notify = sc23xx_sdio_power_notify,
+ 	},
+ 	{
+ 		.hif_type = HW_TYPE_SDIO,
+diff --git a/drivers/usb/musb/musb_core.c b/drivers/usb/musb/musb_core.c
+index 73ac25f53..b66e1a6aa 100644
+--- a/drivers/usb/musb/musb_core.c
++++ b/drivers/usb/musb/musb_core.c
+@@ -2508,13 +2508,18 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
+ 		goto fail3;
+ 	}
+ 	musb->nIrq = nIrq;
+-	/* FIXME this handles wakeup irqs wrong */
+-	if (enable_irq_wake(nIrq) == 0) {
+-		musb->irq_wake = 1;
+-		device_init_wakeup(dev, 1);
+-	} else {
+-		musb->irq_wake = 0;
+-	}
++	/*
++	 * The musb IRQ fires on ordinary USB activity (SOF, packets, DMA), not
++	 * just on wake-worthy events, so arming it as a system wake source for
++	 * the controller's whole lifetime makes it abort every suspend while a
++	 * cable is attached. Advertise wakeup capability instead and let the
++	 * suspend/resume hooks arm the wake IRQ only when userspace has enabled
++	 * wakeup for this device (device_may_wakeup()); default to disabled so
++	 * the system can suspend while enumerated.
++	 */
++	device_set_wakeup_capable(dev, true);
++	device_wakeup_disable(dev);
++	musb->irq_wake = 0;
+ 
+ 	/* program PHY to use external vBus if required */
+ 	if (plat->extvbus) {
+@@ -2838,6 +2843,17 @@ static int musb_suspend(struct device *dev)
+ 	musb_save_context(musb);
+ 
+ 	spin_unlock_irqrestore(&musb->lock, flags);
++
++	/*
++	 * Only let the USB controller wake the system if userspace has opted
++	 * in via the device's power/wakeup attribute. Otherwise leave the IRQ
++	 * un-armed so routine USB activity doesn't abort system suspend.
++	 */
++	if (device_may_wakeup(dev) && !musb->irq_wake) {
++		enable_irq_wake(musb->nIrq);
++		musb->irq_wake = 1;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -2883,6 +2899,11 @@ static int musb_resume(struct device *dev)
+ 			error);
+ 	spin_unlock_irqrestore(&musb->lock, flags);
+ 
++	if (musb->irq_wake) {
++		disable_irq_wake(musb->nIrq);
++		musb->irq_wake = 0;
++	}
++
+ 	pm_runtime_put_autosuspend(dev);
+ 
+ 	return 0;
+diff --git a/drivers/watchdog/sc27xx_wdt.c b/drivers/watchdog/sc27xx_wdt.c
+index 2f06c6a35..0c81bbfed 100644
+--- a/drivers/watchdog/sc27xx_wdt.c
++++ b/drivers/watchdog/sc27xx_wdt.c
+@@ -218,6 +218,37 @@ static int sc27xx_wdt_probe(struct platform_device *pdev)
+ 	return devm_watchdog_register_device(dev, &wdt->wdd);
+ }
+ 
++static int __maybe_unused sc27xx_wdt_pm_suspend(struct device *dev)
++{
++	struct sc27xx_wdt *wdt = dev_get_drvdata(dev);
++
++	/*
++	 * Stop the counter across system suspend. Userspace (e.g. systemd's
++	 * RuntimeWatchdog) can no longer ping it while frozen, so a free-running
++	 * PMIC watchdog would fire and reset the SoC part-way through a long
++	 * sleep. The SoC-side sprd_wdt already does the same.
++	 */
++	if (watchdog_active(&wdt->wdd))
++		sc27xx_wdt_stop(&wdt->wdd);
++
++	return 0;
++}
++
++static int __maybe_unused sc27xx_wdt_pm_resume(struct device *dev)
++{
++	struct sc27xx_wdt *wdt = dev_get_drvdata(dev);
++
++	if (watchdog_active(&wdt->wdd))
++		return sc27xx_wdt_start(&wdt->wdd);
++
++	return 0;
++}
++
++static const struct dev_pm_ops sc27xx_wdt_pm_ops = {
++	SET_SYSTEM_SLEEP_PM_OPS(sc27xx_wdt_pm_suspend,
++				sc27xx_wdt_pm_resume)
++};
++
+ static const struct of_device_id sc27xx_wdt_of_match[] = {
+ 	{ .compatible = "sprd,sc2730-wdt", },
+ 	{ .compatible = "sprd,sc27xx-wdt", },
+@@ -230,6 +261,7 @@ static struct platform_driver sc27xx_wdt_driver = {
+ 	.driver = {
+ 		.name = "sc27xx-wdt",
+ 		.of_match_table = sc27xx_wdt_of_match,
++		.pm = &sc27xx_wdt_pm_ops,
+ 	},
+ };
+ module_platform_driver(sc27xx_wdt_driver);

@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sat, 1 Mar 2025 14:24:18 +0100
+Subject: [PATCH 048/225] power: supply: sc27xx: update charge counter with
+ capacity values
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When adjusting the capacity, also update the charge to keep the two
+properties synchronized. Most userspace applications expect them to
+be at least approximately proportional.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/power/supply/sc27xx_fuel_gauge.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/power/supply/sc27xx_fuel_gauge.c b/drivers/power/supply/sc27xx_fuel_gauge.c
+index 023d7d701..be6f3309c 100644
+--- a/drivers/power/supply/sc27xx_fuel_gauge.c
++++ b/drivers/power/supply/sc27xx_fuel_gauge.c
+@@ -814,9 +814,10 @@ static void sc27xx_fgu_adjust_cap(struct sc27xx_fgu_data *data, int cap)
+ 	int ret;
+ 
+ 	data->init_cap = cap;
+-	ret = sc27xx_fgu_get_clbcnt(data, &data->init_clbcnt);
++	data->init_clbcnt = sc27xx_fgu_cap_to_clbcnt(data, cap);
++	ret = sc27xx_fgu_set_clbcnt(data, data->init_clbcnt);
+ 	if (ret)
+-		dev_err(data->dev, "failed to get init coulomb counter\n");
++		dev_err(data->dev, "failed to adjust coulomb counter\n");
+ }
+ 
+ static void sc27xx_fgu_capacity_calibration(struct sc27xx_fgu_data *data,

@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Thu, 23 Jul 2026 20:49:01 -0500
+Subject: [PATCH 174/225] input: misc: sc27xx-vibra: don't ignore strong rumble
+ effects
+
+---
+ drivers/input/misc/sc27xx-vibra.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/input/misc/sc27xx-vibra.c b/drivers/input/misc/sc27xx-vibra.c
+index 1478017f0..fb15a7a1f 100644
+--- a/drivers/input/misc/sc27xx-vibra.c
++++ b/drivers/input/misc/sc27xx-vibra.c
+@@ -97,7 +97,8 @@ static int sc27xx_vibra_play(struct input_dev *input, void *data,
+ {
+ 	struct vibra_info *info = input_get_drvdata(input);
+ 
+-	info->strength = effect->u.rumble.weak_magnitude;
++	info->strength = max(effect->u.rumble.strong_magnitude,
++						effect->u.rumble.weak_magnitude);
+ 	schedule_work(&info->play_work);
+ 
+ 	return 0;

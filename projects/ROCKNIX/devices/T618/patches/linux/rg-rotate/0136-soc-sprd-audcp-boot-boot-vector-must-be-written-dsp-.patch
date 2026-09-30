@@ -1,0 +1,109 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Thu, 9 Jul 2026 15:17:34 -0500
+Subject: [PATCH 136/225] soc: sprd: audcp-boot: boot-vector must be written
+ (dsp-reboot-mode 0)
+
+First boot with the vendor stack got all the way to the first VBC
+command and timed out: the DSP never wrote a byte into the smsg RX
+ring. Root cause: the DT said dsp-reboot-mode = <1>, which skips the
+bootvector write - but stock omits the property (mode 0, "dsp reboot
+by DDR") and always programs AON 0x140 with (fw_base + 0x80) >> 1.
+With no vector the DSP core comes out of reset pointing nowhere and
+never executes the freshly-loaded firmware.
+
+Switch the node to mode 0, and match the vendor mode-0 sequence by
+also clearing the AUDCP AON IRAM window (new optional
+sprd,audcp-aon-iram phandle) before releasing resets.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+---
+ arch/arm64/boot/dts/sprd/ums512.dtsi |  9 ++++++++-
+ drivers/soc/sprd/sprd-audcp-boot.c   | 19 +++++++++++++++++++
+ 2 files changed, 27 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/sprd/ums512.dtsi b/arch/arm64/boot/dts/sprd/ums512.dtsi
+index 9960a74ae..8b2c8b85b 100644
+--- a/arch/arm64/boot/dts/sprd/ums512.dtsi
++++ b/arch/arm64/boot/dts/sprd/ums512.dtsi
+@@ -427,7 +427,13 @@ disp: display-subsystem {
+ 
+ 	audcp_boot: audcp-boot {
+ 		compatible = "sprd,ums512-audcp-boot";
+-		dsp-reboot-mode = <1>;
++		/*
++		 * Stock omits dsp-reboot-mode (= mode 0, "dsp reboot by
++		 * DDR"): the boot vector MUST be written, since we cold-load
++		 * the firmware into DDR ourselves. Mode 1 skips the vector
++		 * write and the DSP never executes the image.
++		 */
++		dsp-reboot-mode = <0>;
+ 		sysshutdown = <&pmu_apb_regs 0x0060 0x02000000>;
+ 		coreshutdown = <&pmu_apb_regs 0x005c 0x01000000>;
+ 		deepsleep = <&pmu_apb_regs 0x00cc 0x00080000>;
+@@ -442,6 +448,7 @@ audcp_boot: audcp-boot {
+ 		bootaddress_sel = <&aon_apb_regs 0x0144 0x00000001>;
+ 		accessenable = <&aon_apb_regs 0x014c 0x00000020>;
+ 		memory-region = <&audiodsp_reserved>, <&audio_reserved>;
++		sprd,audcp-aon-iram = <&audcp_iram_reserved>;
+ 		#power-domain-cells = <0>;
+ 		status = "okay";
+ 	};
+diff --git a/drivers/soc/sprd/sprd-audcp-boot.c b/drivers/soc/sprd/sprd-audcp-boot.c
+index 8bb9f74cc..5c5e9bbfe 100644
+--- a/drivers/soc/sprd/sprd-audcp-boot.c
++++ b/drivers/soc/sprd/sprd-audcp-boot.c
+@@ -8,6 +8,7 @@
+ #include <linux/mfd/syscon.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
++#include <linux/of_address.h>
+ #include <linux/of_reserved_mem.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm_domain.h>
+@@ -61,6 +62,8 @@ struct audcp_boot {
+ 	size_t fw_size;
+ 	void __iomem *smsg_virt;
+ 	size_t smsg_size;
++	void __iomem *aon_iram_virt;
++	size_t aon_iram_size;
+ 	u32 boot_vector;
+ 	u32 dsp_reboot_mode;
+ 	struct generic_pm_domain genpd;
+@@ -93,6 +96,9 @@ static void audcp_boot_start(struct audcp_boot *b)
+ {
+ 	if (b->smsg_virt)
+ 		memset_io(b->smsg_virt, 0, b->smsg_size);
++	/* mode-0 boots also clear the AUDCP AON IRAM window (vendor parity) */
++	if (!b->dsp_reboot_mode && b->aon_iram_virt)
++		memset_io(b->aon_iram_virt, 0, b->aon_iram_size);
+ 
+ 	audcp_set(b, CTRL_RESET_SEL, false);
+ 	audcp_set(b, CTRL_CORE_RESET, true);
+@@ -169,6 +175,7 @@ static int audcp_boot_map_region(struct device *dev, int idx,
+ static int audcp_boot_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
++	struct device_node *np;
+ 	struct audcp_boot *b;
+ 	int i, ret;
+ 
+@@ -205,6 +212,18 @@ static int audcp_boot_probe(struct platform_device *pdev)
+ 
+ 	audcp_boot_map_region(dev, 1, &b->smsg_virt, NULL, &b->smsg_size);
+ 
++	np = of_parse_phandle(dev->of_node, "sprd,audcp-aon-iram", 0);
++	if (np) {
++		struct resource res;
++
++		if (!of_address_to_resource(np, 0, &res)) {
++			b->aon_iram_virt = devm_ioremap_wc(dev, res.start,
++							   resource_size(&res));
++			b->aon_iram_size = resource_size(&res);
++		}
++		of_node_put(np);
++	}
++
+ 	ret = audcp_boot_load_firmware(b);
+ 	if (ret)
+ 		return ret;

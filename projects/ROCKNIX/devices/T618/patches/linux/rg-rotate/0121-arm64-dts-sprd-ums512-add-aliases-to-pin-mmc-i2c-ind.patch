@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Mon, 29 Jun 2026 04:50:03 -0500
+Subject: [PATCH 121/225] arm64: dts: sprd: ums512: add aliases to pin mmc/i2c
+ indices
+
+Upstream's ums512.dtsi has no aliases block, so MMC devices were numbered
+by probe order and the eMMC drifted to mmcblk1. The initramfs pivots to
+the Debian rootfs on mmcblk3p74, so it must stay mmcblk3. Pin mmc0=sdio0
+(microSD) and mmc3=sdio3 (eMMC), and the i2c bus indices, matching the
+6.16 tree.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+---
+ arch/arm64/boot/dts/sprd/ums512.dtsi | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/sprd/ums512.dtsi b/arch/arm64/boot/dts/sprd/ums512.dtsi
+index 45621ee5a..b56912508 100644
+--- a/arch/arm64/boot/dts/sprd/ums512.dtsi
++++ b/arch/arm64/boot/dts/sprd/ums512.dtsi
+@@ -13,6 +13,22 @@ / {
+ 	#address-cells = <2>;
+ 	#size-cells = <2>;
+ 
++	aliases {
++		/*
++		 * Pin the MMC indices: eMMC must stay mmcblk3 (rootfs lives on
++		 * mmcblk3p74) and the microSD mmcblk0, independent of probe
++		 * order. Without these the kernel auto-numbers by probe order
++		 * and eMMC drifts (e.g. to mmcblk1).
++		 */
++		mmc0 = &sdio0;
++		mmc3 = &sdio3;
++		i2c0 = &i2c0;
++		i2c1 = &i2c1;
++		i2c2 = &i2c2;
++		i2c3 = &i2c3;
++		i2c4 = &i2c4;
++	};
++
+ 	cpus {
+ 		#address-cells = <2>;
+ 		#size-cells = <0>;

@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Mon, 13 Jul 2026 09:53:14 -0500
+Subject: [PATCH 167/225] arm64: dts: sprd: ums512-rg-rotate: default green led
+ on, relabel led blue to yellow
+
+---
+ arch/arm64/boot/dts/sprd/sc2730.dtsi          | 8 ++++----
+ arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts | 8 ++++++++
+ 2 files changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/sprd/sc2730.dtsi b/arch/arm64/boot/dts/sprd/sc2730.dtsi
+index 50ef5d602..3e7b2c11c 100644
+--- a/arch/arm64/boot/dts/sprd/sc2730.dtsi
++++ b/arch/arm64/boot/dts/sprd/sc2730.dtsi
+@@ -21,23 +21,23 @@ watchdog@40 {
+ 			reg = <0x40>;
+ 		};
+ 
+-		led-controller@180 {
++		pmic_led: led-controller@180 {
+ 			compatible = "sprd,sc2730-bltc", "sprd,sc2731-bltc";
+ 			reg = <0x180>;
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+ 
+-			led@0 {
++			led0: led@0 {
+ 				label = "red";
+ 				reg = <0x0>;
+ 			};
+ 
+-			led@1 {
++			led1: led@1 {
+ 				label = "green";
+ 				reg = <0x1>;
+ 			};
+ 
+-			led@2 {
++			led2: led@2 {
+ 				label = "blue";
+ 				reg = <0x2>;
+ 			};
+diff --git a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+index ab5c18cfe..ac8407259 100644
+--- a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
++++ b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+@@ -380,6 +380,14 @@ dvfs_dcdc_cpu1_supply: dvfs-dcdc-cpu1-supply {
+ 	};
+ };
+ 
++&led1 {
++	linux,default-trigger = "default-on";
++};
++
++&led2 {
++	label = "yellow";
++};
++
+ /* SC2730 fuel gauge — battery voltage / capacity reporting. */
+ &sc2730_fgu {
+ 	status = "okay";

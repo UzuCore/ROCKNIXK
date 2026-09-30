@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sun, 18 May 2025 19:43:23 +0200
+Subject: [PATCH 010/225] dt-bindings: media: i2c: ov8856: include video device
+ bindings
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Include the video interface device bindings to define common properties
+such as the rotation and orientation properties used with camera sensors.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ Documentation/devicetree/bindings/media/i2c/ovti,ov8856.yaml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/media/i2c/ovti,ov8856.yaml b/Documentation/devicetree/bindings/media/i2c/ovti,ov8856.yaml
+index d0f577363..5377ae72c 100644
+--- a/Documentation/devicetree/bindings/media/i2c/ovti,ov8856.yaml
++++ b/Documentation/devicetree/bindings/media/i2c/ovti,ov8856.yaml
+@@ -100,7 +100,7 @@ required:
+   - reset-gpios
+   - port
+ 
+-additionalProperties: false
++unevaluatedProperties: false
+ 
+ examples:
+   - |

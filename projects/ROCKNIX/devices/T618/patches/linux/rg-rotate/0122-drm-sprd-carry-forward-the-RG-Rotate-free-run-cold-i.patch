@@ -1,0 +1,783 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Mon, 29 Jun 2026 04:53:45 -0500
+Subject: [PATCH 122/225] drm: sprd: carry forward the RG Rotate free-run /
+ cold-init display port
+
+Replace the clean upstream sprd dpu/dsi drivers with the proven 6.16
+versions, which compile unchanged against the 7.1 DRM core. These carry
+the load-bearing device bring-up that upstream lacks:
+
+  - free-running DPI: clear BIT_DPU_DPI_HALT_EN and DSI_MODE_CFG=0 (the
+    only measured config that lights this panel; the halt handshake parks
+    the lanes in stopstate -> black). See DISPLAY-KNOWN-GOOD-DSI-STATE.md.
+  - cold-init: soft-reset the DPU then re-apply DPI timing/panel size,
+    DDR QoS (CFG1/CFG2), and properly prepare the pipe (CLK_DISPC0) and
+    dpi pixel clocks instead of relying on clk_ignore_unused.
+  - prepare_prev_first + early clock-lane arm in the DSI bridge.
+
+Upstream's only non-instrumentation changes were cosmetic refactors, so
+nothing of value is lost; the diagnostic register dumps are kept for the
+on-device bring-up.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+---
+ drivers/gpu/drm/sprd/megacores_pll.c |  24 +--
+ drivers/gpu/drm/sprd/sprd_dpu.c      | 178 +++++++++++++++++++-
+ drivers/gpu/drm/sprd/sprd_dpu.h      |   5 +
+ drivers/gpu/drm/sprd/sprd_dsi.c      | 238 ++++++++++++++++++++++++++-
+ drivers/gpu/drm/sprd/sprd_dsi.h      |  19 +++
+ 5 files changed, 445 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/gpu/drm/sprd/megacores_pll.c b/drivers/gpu/drm/sprd/megacores_pll.c
+index f214f906b..fa51a25cf 100644
+--- a/drivers/gpu/drm/sprd/megacores_pll.c
++++ b/drivers/gpu/drm/sprd/megacores_pll.c
+@@ -66,7 +66,7 @@ static int dphy_calc_pll_param(struct dphy_pll *pll)
+ 	pll->refin = 3; /* pre-divider bypass */
+ 	pll->sdm_en = true; /* use fraction N PLL */
+ 	pll->fdk_s = 0x1; /* fraction */
+-	pll->cp_s = 0x0;
++	pll->cp_s = 0x2; /* match vendor sharkl5 BSP charge-pump setting */
+ 	pll->det_delay = 0x1;
+ 
+ 	return 0;
+@@ -77,20 +77,24 @@ static void dphy_set_pll_reg(struct dphy_pll *pll, struct regmap *regmap)
+ 	u8 reg_val[9] = {0};
+ 	int i;
+ 
++	/*
++	 * nint (reg 0x06) is written last to match the vendor sharkl5 BSP,
++	 * which commits the integer divider after all other PLL registers.
++	 */
+ 	u8 reg_addr[] = {
+-		0x03, 0x04, 0x06, 0x08, 0x09,
+-		0x0a, 0x0b, 0x0e, 0x0f
++		0x03, 0x04, 0x08, 0x09, 0x0a,
++		0x0b, 0x0e, 0x0f, 0x06
+ 	};
+ 
+ 	reg_val[0] = 1 | (1 << 1) |  (pll->lpf_sel << 2);
+ 	reg_val[1] = pll->div | (1 << 3) | (pll->cp_s << 5) | (pll->fdk_s << 7);
+-	reg_val[2] = pll->nint;
+-	reg_val[3] = pll->vco_band | (pll->sdm_en << 1) | (pll->refin << 2);
+-	reg_val[4] = pll->kint >> 12;
+-	reg_val[5] = pll->kint >> 4;
+-	reg_val[6] = pll->out_sel | ((pll->kint & 0xf) << 4);
+-	reg_val[7] = 1 << 4;
+-	reg_val[8] = pll->det_delay;
++	reg_val[2] = pll->vco_band | (pll->sdm_en << 1) | (pll->refin << 2);
++	reg_val[3] = pll->kint >> 12;
++	reg_val[4] = pll->kint >> 4;
++	reg_val[5] = pll->out_sel | ((pll->kint & 0xf) << 4);
++	reg_val[6] = 1 << 4;
++	reg_val[7] = pll->det_delay;
++	reg_val[8] = pll->nint;
+ 
+ 	for (i = 0; i < sizeof(reg_addr); ++i) {
+ 		regmap_write(regmap, reg_addr[i], reg_val[i]);
+diff --git a/drivers/gpu/drm/sprd/sprd_dpu.c b/drivers/gpu/drm/sprd/sprd_dpu.c
+index 5bb0b7946..05950dea0 100644
+--- a/drivers/gpu/drm/sprd/sprd_dpu.c
++++ b/drivers/gpu/drm/sprd/sprd_dpu.c
+@@ -8,10 +8,12 @@
+ #include <linux/delay.h>
+ #include <linux/dma-buf.h>
+ #include <linux/io.h>
++#include <linux/mfd/syscon.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/of_graph.h>
+ #include <linux/platform_device.h>
++#include <linux/regmap.h>
+ #include <linux/wait.h>
+ #include <linux/workqueue.h>
+ 
+@@ -28,6 +30,8 @@
+ #define REG_DPU_VERSION	0x00
+ #define REG_DPU_CTRL	0x04
+ #define REG_DPU_CFG0	0x08
++#define REG_DPU_CFG1	0x0C
++#define REG_DPU_CFG2	0x10
+ #define REG_PANEL_SIZE	0x20
+ #define REG_BLEND_SIZE	0x24
+ #define REG_BG_COLOR	0x2C
+@@ -323,6 +327,7 @@ static void sprd_dpu_layer(struct sprd_dpu *dpu, struct drm_plane_state *state)
+ 	u32 dst_y = state->crtc_y;
+ 	u32 alpha = state->alpha;
+ 	u32 index = state->zpos;
++	static int dump_count;
+ 	int i;
+ 
+ 	offset = (dst_x & 0xffff) | (dst_y << 16);
+@@ -359,6 +364,14 @@ static void sprd_dpu_layer(struct sprd_dpu *dpu, struct drm_plane_state *state)
+ 	blend = drm_blend_to_dpu(state);
+ 	rotation = drm_rotation_to_dpu(state);
+ 
++	if (dump_count < 6) {
++		dump_count++;
++		drm_info(dpu->drm,
++			 "LAYDUMP[%d] idx=%u base=%08x size=%08x pitch=%u fmt=%08x num_planes=%u\n",
++			 dump_count, index, addr, size, pitch, format,
++			 fb->format->num_planes);
++	}
++
+ 	layer_reg_wr(ctx, REG_LAY_CTRL, BIT_DPU_LAY_EN |
+ 				format |
+ 				blend |
+@@ -369,6 +382,27 @@ static void sprd_dpu_layer(struct sprd_dpu *dpu, struct drm_plane_state *state)
+ static void sprd_dpu_flip(struct sprd_dpu *dpu)
+ {
+ 	struct dpu_context *ctx = &dpu->ctx;
++	static int dump_count;
++
++	if (dump_count < 4) {
++		dump_count++;
++		drm_info(dpu->drm,
++			 "DPUDUMP[%d] stopped=%d CTRL=%08x INT_EN=%08x INT_STS=%08x DPI_CTRL=%08x\n",
++			 dump_count, ctx->stopped,
++			 readl(ctx->base + REG_DPU_CTRL),
++			 readl(ctx->base + REG_DPU_INT_EN),
++			 readl(ctx->base + REG_DPU_INT_STS),
++			 readl(ctx->base + REG_DPI_CTRL));
++		drm_info(dpu->drm,
++			 "DPUDUMP[%d] PANEL=%08x LAY_CTRL=%08x LAY_SIZE=%08x LAY_PITCH=%08x LAY_BASE0=%08x LAY_POS=%08x\n",
++			 dump_count,
++			 readl(ctx->base + REG_PANEL_SIZE),
++			 readl(ctx->base + REG_LAY_CTRL),
++			 readl(ctx->base + REG_LAY_SIZE),
++			 readl(ctx->base + REG_LAY_PITCH),
++			 readl(ctx->base + REG_LAY_BASE_ADDR0),
++			 readl(ctx->base + REG_LAY_POS));
++	}
+ 
+ 	/*
+ 	 * Make sure the dpu is in stop status. DPU has no shadow
+@@ -383,6 +417,10 @@ static void sprd_dpu_flip(struct sprd_dpu *dpu)
+ 		if (!ctx->stopped) {
+ 			dpu_reg_set(ctx, REG_DPU_CTRL, BIT_DPU_REG_UPDATE);
+ 			dpu_wait_update_done(dpu);
++		} else {
++			dpu_reg_set(ctx, REG_DPU_CTRL, BIT_DPU_RUN);
++			dpu_reg_set(ctx, REG_DPU_CTRL, BIT_DPU_REG_UPDATE);
++			ctx->stopped = false;
+ 		}
+ 
+ 		dpu_reg_set(ctx, REG_DPU_INT_EN, BIT_DPU_INT_ERR);
+@@ -393,14 +431,61 @@ static void sprd_dpu_flip(struct sprd_dpu *dpu)
+ 	}
+ }
+ 
++static void sprd_dpu_reset(struct dpu_context *ctx)
++{
++	if (!ctx->rst_syscon)
++		return;
++
++	regmap_update_bits(ctx->rst_syscon, ctx->rst_offset,
++			   ctx->rst_mask, ctx->rst_mask);
++	udelay(10);
++	regmap_update_bits(ctx->rst_syscon, ctx->rst_offset,
++			   ctx->rst_mask, 0);
++	udelay(10);
++
++	/*
++	 * The DPU is now in a clean, stopped state. Mark it so that the
++	 * follow-up sprd_dpu_init() skips sprd_dpu_stop() - issuing STOP on a
++	 * freshly-reset DPU just times out waiting for a stop-done IRQ and
++	 * leaves it unable to start.
++	 */
++	ctx->stopped = true;
++}
++
++static void sprd_dpi_init(struct sprd_dpu *dpu);
++
+ static void sprd_dpu_init(struct sprd_dpu *dpu)
+ {
+ 	struct dpu_context *ctx = &dpu->ctx;
+ 	u32 int_mask = 0;
+-	u32 dpu_version = readl(ctx->base + REG_DPU_VERSION);
++	u32 dpu_version;
++
++	/* clear the bootloader's pinned state so our config can latch */
++	sprd_dpu_reset(ctx);
++
++	/*
++	 * The reset above wipes every DPU register, including the panel size
++	 * and DPI timing that sprd_dpi_init() programmed in mode_set_nofb
++	 * (which runs before this atomic_enable). Re-apply them here, after the
++	 * reset, or the DPU runs with PANEL_SIZE=0 / DPI timing=0 and can never
++	 * complete a frame (reg update done timeout, underflow, black screen).
++	 */
++	sprd_dpi_init(dpu);
++
++	dpu_version = readl(ctx->base + REG_DPU_VERSION);
+ 
+ 	writel(0x00, ctx->base + REG_BG_COLOR);
+ 
++	/*
++	 * DDR QoS (CFG1) and CFG2. Without the QoS priorities the DPU's DDR
++	 * read requests starve and the layer FIFO underflows on the first
++	 * frame (no vsync). Values from the vendor dpu-r4p0 driver:
++	 * awqos_high=0xa awqos_low=0xa arqos_high=0xd arqos_low=0xc | BIT18 | BIT22.
++	 */
++	writel((0xa << 12) | (0xa << 8) | (0xd << 4) | 0xc | BIT(18) | BIT(22),
++	       ctx->base + REG_DPU_CFG1);
++	writel(0x14002, ctx->base + REG_DPU_CFG2);
++
+ 	if (ctx->if_type == SPRD_DPU_IF_DPI) {
+ 		/* use dpi as interface */
+ 		dpu_reg_clr(ctx, REG_DPU_CFG0, BIT_DPU_IF_EDPI);
+@@ -411,8 +496,28 @@ static void sprd_dpu_init(struct sprd_dpu *dpu)
+ 			/* select te from external pad */
+ 			dpu_reg_set(ctx, REG_DPI_CTRL, BIT_DPU_EDPI_FROM_EXTERNAL_PAD);
+ 		} else {
+-			/* enable Halt function for SPRD DSI */
+-			dpu_reg_set(ctx, REG_DPI_CTRL, BIT_DPU_DPI_HALT_EN);
++			/*
++			 * Keep BIT_DPU_DPI_HALT_EN CLEARED (free-running DPI), NOT
++			 * set. The vendor BSP sets it so the DPU's DPI output gates
++			 * on the DSI ready/ack handshake, and an earlier session
++			 * re-enabled it on the theory that the flags=3 burst fix
++			 * (lanes now streaming, PHY_STATUS=0x1f02) had finally made
++			 * the handshake completable.
++			 *
++			 * The two captured dmesg logs (2026-06-26,
++			 * good-fbcon-dmesg.log vs bad-fbcon-dmesg.log) disprove that:
++			 *  - The only state that ever lights the panel (U-Boot
++			 *    handoff, fbcon visible) has DPI_CTRL=0x00000000 AND
++			 *    DSI_MODE_CFG=0x0 -- both halt halves OFF, DPU free-runs.
++			 *  - The black kernel-native state had DPI_CTRL=0x00010000
++			 *    (this HALT_EN bit) AND DSI_MODE_CFG=0x2. Both halves on,
++			 *    lanes park in stopstate (PHY_STATUS=0x1f32), no scanout.
++			 * Enabling the halt handshake has produced a black panel on
++			 * every measurement; free-running is the only proven-good
++			 * config. Pair this with DSI_MODE_CFG=0 in sprd_dsi.c
++			 * (sprd_dsi_set_work_mode). See DISPLAY-KNOWN-GOOD-DSI-STATE.md.
++			 */
++			dpu_reg_clr(ctx, REG_DPI_CTRL, BIT_DPU_DPI_HALT_EN);
+ 		}
+ 
+ 		/* enable dpu update done INT */
+@@ -487,6 +592,7 @@ void sprd_dpu_run(struct sprd_dpu *dpu)
+ 	struct dpu_context *ctx = &dpu->ctx;
+ 
+ 	dpu_reg_set(ctx, REG_DPU_CTRL, BIT_DPU_RUN);
++	dpu_reg_set(ctx, REG_DPU_CTRL, BIT_DPU_REG_UPDATE);
+ 
+ 	ctx->stopped = false;
+ }
+@@ -801,6 +907,72 @@ static int sprd_dpu_context_init(struct sprd_dpu *dpu,
+ 		return PTR_ERR(ctx->clk);
+ 	}
+ 
++	/*
++	 * The "core" clock above is actually CLK_DISPC_EB - the APB enable
++	 * gate that lets us touch DPU registers. The DPU pipeline matrix
++	 * clock (CLK_DISPC0, "dispc0-clk" in clk_summary) is a separate
++	 * thing that vendor's BSP calls clk_dpu_core and explicitly
++	 * prepare_enables. Without it the DPU register block is reachable
++	 * but the pipeline itself can't tick - no scanout, no VSYNC, no
++	 * frames. Until 2026-06 mainline relied on clk_ignore_unused
++	 * leaving the bootloader's rate in place; with proper PM that
++	 * stops working.
++	 */
++	ctx->pipe_clk = devm_clk_get_optional_enabled(dev, "clk");
++	if (IS_ERR(ctx->pipe_clk)) {
++		dev_err(dev, "failed to get DPU pipeline clock\n");
++		return PTR_ERR(ctx->pipe_clk);
++	}
++	if (ctx->pipe_clk) {
++		int ret = clk_set_rate(ctx->pipe_clk, 384000000);
++
++		if (ret)
++			dev_warn(dev, "failed to set pipe clock rate: %d\n", ret);
++	}
++
++	/*
++	 * The DPU "dpi" clock is the pixel clock that feeds the DPI block.
++	 * Mainline only requested "core" so the framework never had a real
++	 * prepare/enable on the pixel clock: on sharkl5pro it only ran at all
++	 * because clk_ignore_unused left the bootloader's rate alone, but the
++	 * clock framework still saw it as unprepared, so transitions and any
++	 * future PM activity would gate it. Without a properly framework-
++	 * prepared pixel clock the DPI block can't drive valid frames into
++	 * the DSI controller, which then never asserts ready and the
++	 * DPU<->DSI halt handshake stalls forever.
++	 */
++	ctx->dpi_clk = devm_clk_get_optional_enabled(dev, "dpi");
++	if (IS_ERR(ctx->dpi_clk)) {
++		dev_err(dev, "failed to get DPU dpi clock\n");
++		return PTR_ERR(ctx->dpi_clk);
++	}
++	if (ctx->dpi_clk) {
++		int ret = clk_set_rate(ctx->dpi_clk, 38400000);
++
++		if (ret)
++			dev_warn(dev, "failed to set dpi clock rate: %d\n", ret);
++	}
++
++	/*
++	 * Optional hardware reset. The bootloader leaves the DPU running and
++	 * (with clk/regulator_ignore_unused) pinned; its shadow registers then
++	 * never latch our config. A soft reset before bring-up clears that.
++	 * reset-syscon = <&ap_ahb_regs offset mask>.
++	 */
++	{
++		u32 args[2];
++
++		ctx->rst_syscon = syscon_regmap_lookup_by_phandle_args(dev->of_node,
++								       "reset-syscon",
++								       2, args);
++		if (IS_ERR(ctx->rst_syscon)) {
++			ctx->rst_syscon = NULL;
++		} else {
++			ctx->rst_offset = args[0];
++			ctx->rst_mask = args[1];
++		}
++	}
++
+ 	/* disable and clear interrupts before register dpu IRQ. */
+ 	writel(0x00, ctx->base + REG_DPU_INT_EN);
+ 	writel(0xff, ctx->base + REG_DPU_INT_CLR);
+diff --git a/drivers/gpu/drm/sprd/sprd_dpu.h b/drivers/gpu/drm/sprd/sprd_dpu.h
+index d48b922de..1dcd11c55 100644
+--- a/drivers/gpu/drm/sprd/sprd_dpu.h
++++ b/drivers/gpu/drm/sprd/sprd_dpu.h
+@@ -45,6 +45,8 @@ enum {
+ struct dpu_context {
+ 	void __iomem *base;
+ 	struct clk *clk;
++	struct clk *pipe_clk;
++	struct clk *dpi_clk;
+ 	int irq;
+ 	u8 if_type;
+ 	struct videomode vm;
+@@ -52,6 +54,9 @@ struct dpu_context {
+ 	wait_queue_head_t wait_queue;
+ 	bool evt_update;
+ 	bool evt_stop;
++	struct regmap *rst_syscon;
++	u32 rst_offset;
++	u32 rst_mask;
+ };
+ 
+ /**
+diff --git a/drivers/gpu/drm/sprd/sprd_dsi.c b/drivers/gpu/drm/sprd/sprd_dsi.c
+index 0edb626eb..527e62bdf 100644
+--- a/drivers/gpu/drm/sprd/sprd_dsi.c
++++ b/drivers/gpu/drm/sprd/sprd_dsi.c
+@@ -4,9 +4,12 @@
+  */
+ 
+ #include <linux/component.h>
++#include <linux/delay.h>
++#include <linux/mfd/syscon.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
++#include <linux/regmap.h>
+ #include <video/mipi_display.h>
+ 
+ #include <drm/drm_atomic_helper.h>
+@@ -22,7 +25,13 @@
+ #define SOFT_RESET 0x04
+ #define MASK_PROTOCOL_INT 0x0C
+ #define MASK_INTERNAL_INT 0x14
++#define PROTOCOL_INT_STS 0x08
++#define INTERNAL_INT_STS 0x10
++#define PROTOCOL_INT_CLR 0xC8
++#define INTERNAL_INT_CLR 0xCC
+ #define DSI_MODE_CFG 0x18
++/* bit1 of DSI_MODE_CFG: DSI-side halt function enable (vendor dsi_video_mode) */
++#define DSI_VIDEO_HALT_EN BIT(1)
+ 
+ #define VIRTUAL_CHANNEL_ID 0x1C
+ #define GEN_RX_VCID GENMASK(1, 0)
+@@ -51,6 +60,10 @@
+ 
+ #define VID_MODE_CFG 0x38
+ #define VID_MODE_TYPE GENMASK(1, 0)
++#define DPI_COLOR_MODE_POL BIT(4)
++#define DPI_SHUT_DOWN_POL BIT(5)
++#define DPI_HSYNC_POL BIT(6)
++#define DPI_VSYNC_POL BIT(7)
+ #define LP_VSA_EN BIT(8)
+ #define LP_VBP_EN BIT(9)
+ #define LP_VFP_EN BIT(10)
+@@ -58,15 +71,19 @@
+ #define LP_HBP_EN BIT(12)
+ #define LP_HFP_EN BIT(13)
+ #define FRAME_BTA_ACK_EN BIT(14)
++#define LP_CMD_EN BIT(15)
+ 
+ #define TIMEOUT_CNT_CLK_CONFIG 0x40
+ #define HTX_TO_CONFIG 0x44
+ #define LRX_H_TO_CONFIG 0x48
+ 
+ #define TX_ESC_CLK_CONFIG 0x5C
++#define VACT_CMD_TRANS_LIMIT 0x60
++#define VBLK_CMD_TRANS_LIMIT 0x64
+ 
+ #define CMD_MODE_CFG 0x68
+ #define TEAR_FX_EN BIT(0)
++#define CMD_MODE_LP_CMD_EN (GENMASK(14, 8) | GENMASK(19, 16) | BIT(24))
+ 
+ #define GEN_HDR 0x6C
+ #define GEN_DT GENMASK(5, 0)
+@@ -161,6 +178,53 @@ dsi_reg_up(struct dsi_context *ctx, u32 offset, u32 mask,
+ 	writel((ret & ~mask) | (val & mask), ctx->base + offset);
+ }
+ 
++static void dsi_clear_int_status(struct dsi_context *ctx)
++{
++	u32 sts;
++
++	sts = readl(ctx->base + PROTOCOL_INT_STS);
++	if (sts)
++		writel(sts, ctx->base + PROTOCOL_INT_CLR);
++
++	sts = readl(ctx->base + INTERNAL_INT_STS);
++	if (sts)
++		writel(sts, ctx->base + INTERNAL_INT_CLR);
++}
++
++static void dsi_log_int_status(struct sprd_dsi *dsi, const char *tag,
++			       u32 proto, u32 internal)
++{
++	if (proto)
++		drm_info(dsi->drm, "%s protocol int sts=0x%08x\n", tag, proto);
++
++	if (internal & BIT(0))
++		drm_info(dsi->drm, "%s receive packet size error\n", tag);
++	if (internal & BIT(1))
++		drm_info(dsi->drm, "%s EoTp packet not received\n", tag);
++	if (internal & BIT(2))
++		drm_info(dsi->drm, "%s command FIFO write error\n", tag);
++	if (internal & BIT(3))
++		drm_info(dsi->drm, "%s RX payload FIFO read error\n", tag);
++	if (internal & BIT(4))
++		drm_info(dsi->drm, "%s RX payload FIFO write error\n", tag);
++	if (internal & BIT(5))
++		drm_info(dsi->drm, "%s TX payload FIFO write error\n", tag);
++	if (internal & BIT(6))
++		drm_info(dsi->drm, "%s TX payload FIFO read error\n", tag);
++	if (internal & BIT(7))
++		drm_info(dsi->drm, "%s DPI pixel FIFO write error\n", tag);
++	if (internal & BIT(27))
++		drm_info(dsi->drm, "%s ECC single-bit error\n", tag);
++	if (internal & BIT(28))
++		drm_info(dsi->drm, "%s ECC multi-bit error\n", tag);
++	if (internal & BIT(29))
++		drm_info(dsi->drm, "%s CRC error\n", tag);
++	if (internal & BIT(30))
++		drm_info(dsi->drm, "%s HS TX timeout\n", tag);
++	if (internal & BIT(31))
++		drm_info(dsi->drm, "%s LP RX timeout\n", tag);
++}
++
+ static int regmap_tst_io_write(void *context, u32 reg, u32 val)
+ {
+ 	struct sprd_dsi *dsi = context;
+@@ -490,9 +554,12 @@ static int sprd_dsi_dpi_video(struct dsi_context *ctx)
+ 	dsi_reg_wr(ctx, VIDEO_VBLK_LINES, VFP_LINES, 0, vm->vfront_porch);
+ 	dsi_reg_wr(ctx, VIDEO_VBLK_LINES, VBP_LINES, 10, vm->vback_porch);
+ 	dsi_reg_wr(ctx, VIDEO_VBLK_LINES, VSA_LINES, 20, vm->vsync_len);
++	writel(0x80, ctx->base + VBLK_CMD_TRANS_LIMIT);
+ 	dsi_reg_up(ctx, VID_MODE_CFG, LP_HBP_EN | LP_HFP_EN | LP_VACT_EN |
+ 			LP_VFP_EN | LP_VBP_EN | LP_VSA_EN, LP_HBP_EN | LP_HFP_EN |
+ 			LP_VACT_EN | LP_VFP_EN | LP_VBP_EN | LP_VSA_EN);
++	dsi_reg_up(ctx, VID_MODE_CFG, DPI_HSYNC_POL | DPI_VSYNC_POL |
++			DPI_COLOR_MODE_POL | DPI_SHUT_DOWN_POL, 0);
+ 
+ 	hs_to = (hline * vm->vactive) + (2 * bpp_x100) / 100;
+ 	for (div = 0x80; (div < hs_to) && (div > 2); div--) {
+@@ -679,27 +746,55 @@ static int sprd_dsi_rd_pkt(struct dsi_context *ctx, u8 vc, u8 type,
+ 	int i, ret;
+ 	int count = 0;
+ 	u32 temp;
++	u32 proto_int;
++	u32 internal_int;
++	u32 cmd_status;
+ 
+ 	if (vc > 3)
+ 		return -EINVAL;
+ 
++	dsi_clear_int_status(ctx);
++
+ 	/* 1st: send read command to peripheral */
+ 	ret = dsi_reg_rd(ctx, CMD_MODE_STATUS, GEN_CMD_CMD_FIFO_EMPTY, 5);
+ 	if (!ret)
+ 		return -EIO;
+ 
++	drm_info(dsi->drm,
++		 "rd_pkt[pre]  type=%02x lsb=%02x msb=%02x | PHY_STATUS=%08x CMD_MODE_STATUS=%08x PROTO_INT=%08x INT_INT=%08x\n",
++		 type, lsb_byte, msb_byte,
++		 readl(ctx->base + PHY_STATUS),
++		 readl(ctx->base + CMD_MODE_STATUS),
++		 readl(ctx->base + PROTOCOL_INT_STS),
++		 readl(ctx->base + INTERNAL_INT_STS));
++
+ 	writel(type | (vc << 6) | (lsb_byte << 8) | (msb_byte << 16),
+ 	       ctx->base + GEN_HDR);
+ 
+ 	/* 2nd: wait peripheral response completed */
+ 	ret = dsi_wait_rd_resp_completed(ctx);
+ 	if (ret) {
+-		drm_err(dsi->drm, "wait read response time out\n");
++		drm_err(dsi->drm,
++			"wait read response time out | PHY_STATUS=%08x CMD_MODE_STATUS=%08x PROTO_INT=%08x INT_INT=%08x\n",
++			readl(ctx->base + PHY_STATUS),
++			readl(ctx->base + CMD_MODE_STATUS),
++			readl(ctx->base + PROTOCOL_INT_STS),
++			readl(ctx->base + INTERNAL_INT_STS));
+ 		return ret;
+ 	}
+ 
++	cmd_status = readl(ctx->base + CMD_MODE_STATUS);
++	proto_int = readl(ctx->base + PROTOCOL_INT_STS);
++	internal_int = readl(ctx->base + INTERNAL_INT_STS);
++
++	drm_info(dsi->drm,
++		 "rd_pkt[post] PHY_STATUS=%08x CMD_MODE_STATUS=%08x PROTO_INT=%08x INT_INT=%08x\n",
++		 readl(ctx->base + PHY_STATUS),
++		 cmd_status, proto_int, internal_int);
++	dsi_log_int_status(dsi, "rd_pkt", proto_int, internal_int);
++
+ 	/* 3rd: get data from rx payload fifo */
+-	ret = dsi_reg_rd(ctx, CMD_MODE_STATUS, GEN_CMD_RDATA_FIFO_EMPTY, 1);
++	ret = !!(cmd_status & GEN_CMD_RDATA_FIFO_EMPTY);
+ 	if (ret) {
+ 		drm_err(dsi->drm, "rx payload fifo empty\n");
+ 		return -EIO;
+@@ -730,6 +825,23 @@ static void sprd_dsi_set_work_mode(struct dsi_context *ctx, u8 mode)
+ 	if (mode == DSI_MODE_CMD)
+ 		writel(1, ctx->base + DSI_MODE_CFG);
+ 	else
++		/*
++		 * Video mode: bit0=0 selects video, bit1=DSI_VIDEO_HALT_EN.
++		 * We write plain 0 (halt DISABLED), NOT DSI_VIDEO_HALT_EN.
++		 *
++		 * Live measurement on 2026-06-26 (see DISPLAY-KNOWN-GOOD-DSI-STATE.md)
++		 * settles the question the old comment got backwards: in the working
++		 * U-Boot-handoff state (panel visibly showing fbcon) DSI_MODE_CFG reads
++		 * 0x0 and the data lanes transmit HS (PHY_STATUS=0x1f02). In the broken
++		 * kernel-native state DSI_MODE_CFG read 0x2 (halt enabled) and the lanes
++		 * sat parked in stopstate (PHY_STATUS=0x1f32) -> black panel. Clearing
++		 * the bit live (devmemn 0x20400018 0) immediately dropped PHY_STATUS to
++		 * 0x1f02 and freed the lanes. The DPU-side halt is already disabled
++		 * (sprd_dpu.c "fix #5"), so arming only the DSI half left the lanes
++		 * waiting on a handshake the DPU never drives. Keep both halves off and
++		 * consistent. (Remaining wall after this is DPU scanout / DPU-RUN
++		 * ordering, not the DSI register.)
++		 */
+ 		writel(0, ctx->base + DSI_MODE_CFG);
+ }
+ 
+@@ -745,6 +857,25 @@ static int sprd_dphy_init(struct dsi_context *ctx)
+ 	struct sprd_dsi *dsi = container_of(ctx, struct sprd_dsi, ctx);
+ 	int ret;
+ 
++	/*
++	 * Wake the DPHY analog block before touching any controller-side PHY
++	 * registers. Vendor BSP sharkl5pro/global_dphy.c does this as two
++	 * separate ops via dedicated phandles; we fold both into pre_enable.
++	 * Clearing the power-shutdown bit must come with the 100us settle
++	 * delay vendor describes ("dphy has a random wakeup failed after
++	 * poweron").  Without this the digital PLL still locks but the
++	 * lanes can't drive, the DSI never asserts ready, and the
++	 * DPU<->DSI halt handshake stalls forever.
++	 */
++	if (ctx->phy_en_syscon)
++		regmap_update_bits(ctx->phy_en_syscon, ctx->phy_en_offset,
++				   ctx->phy_en_mask, ctx->phy_en_mask);
++	if (ctx->phy_pwr_syscon) {
++		regmap_update_bits(ctx->phy_pwr_syscon, ctx->phy_pwr_offset,
++				   ctx->phy_pwr_mask, 0);
++		udelay(100);
++	}
++
+ 	dsi_reg_up(ctx, PHY_INTERFACE_CTRL, RF_PHY_RESET_N, 0);
+ 	dsi_reg_up(ctx, PHY_INTERFACE_CTRL, RF_PHY_SHUTDOWN, 0);
+ 	dsi_reg_up(ctx, PHY_INTERFACE_CTRL, RF_PHY_CLK_EN, 0);
+@@ -827,6 +958,19 @@ static void sprd_dsi_bridge_mode_set(struct drm_bridge *bridge,
+ 	drm_display_mode_to_videomode(adj_mode, &dsi->ctx.vm);
+ }
+ 
++static void sprd_dsi_reset(struct dsi_context *ctx)
++{
++	if (!ctx->rst_syscon)
++		return;
++
++	regmap_update_bits(ctx->rst_syscon, ctx->rst_offset,
++			   ctx->rst_mask, ctx->rst_mask);
++	udelay(10);
++	regmap_update_bits(ctx->rst_syscon, ctx->rst_offset,
++			   ctx->rst_mask, 0);
++	udelay(10);
++}
++
+ static void sprd_dsi_bridge_pre_enable(struct drm_bridge *bridge)
+ {
+ 	struct sprd_dsi *dsi = bridge_to_dsi(bridge);
+@@ -834,6 +978,9 @@ static void sprd_dsi_bridge_pre_enable(struct drm_bridge *bridge)
+ 
+ 	clk_prepare_enable(ctx->clk);
+ 
++	/* clear the bootloader's pinned state, then fully re-init below */
++	sprd_dsi_reset(ctx);
++
+ 	sprd_dsi_init(ctx);
+ 	if (ctx->work_mode == DSI_MODE_VIDEO)
+ 		sprd_dsi_dpi_video(ctx);
+@@ -842,6 +989,35 @@ static void sprd_dsi_bridge_pre_enable(struct drm_bridge *bridge)
+ 
+ 	sprd_dphy_init(ctx);
+ 
++	/*
++	 * Send the panel init sequence in LP, matching the vendor BSP
++	 * (mipi_dsi_lp_cmd_enable(true) before the init writes). The earlier
++	 * HS-init experiment left every command class in HS; with the DSI now
++	 * streaming clean burst video, the remaining failure is the panel not
++	 * latching init, so revert to the vendor-proven LP command transport.
++	 */
++	dsi_reg_up(ctx, CMD_MODE_CFG, CMD_MODE_LP_CMD_EN, CMD_MODE_LP_CMD_EN);
++
++	/*
++	 * Arm clock-lane auto-HS control BEFORE the panel's prepare runs (it now
++	 * runs after this, via prepare_prev_first). Without the clock lane able
++	 * to engage, the command FIFO never drains and the very first panel init
++	 * write times out ("tx cmd fifo is not empty", -ETIMEDOUT). This used to
++	 * be set only in bridge_enable (after prepare), which is why cold-init
++	 * panel writes failed while the warm rebind path (clock lane already up
++	 * from a prior enable) succeeded. Our panel is MIPI_DSI_CLOCK_NON_-
++	 * CONTINUOUS, so use the auto-clklane path; bridge_enable re-applies the
++	 * matching setting.
++	 */
++	if (dsi->slave->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS) {
++		dsi_reg_up(ctx, PHY_CLK_LANE_LP_CTRL, AUTO_CLKLANE_CTRL_EN,
++			   AUTO_CLKLANE_CTRL_EN);
++	} else {
++		dsi_reg_up(ctx, PHY_CLK_LANE_LP_CTRL, PHY_CLKLANE_TX_REQ_HS,
++			   PHY_CLKLANE_TX_REQ_HS);
++		dphy_wait_pll_locked(ctx);
++	}
++
+ 	/*
+ 	 * Initialize in command mode to allow panels to prepare by sending
+ 	 * DSI commands before the DPU is started.
+@@ -855,19 +1031,26 @@ static void sprd_dsi_bridge_enable(struct drm_bridge *bridge)
+ 	struct dsi_context *ctx = &dsi->ctx;
+ 
+ 	sprd_dsi_set_work_mode(ctx, ctx->work_mode);
++
++	/*
++	 * Vendor BSP power-cycles the controller (SOFT_RESET 0->1) right after
++	 * switching from cmd mode to video mode. This is what actually arms
++	 * the video pixel FSM: without it the controller stays in the cmd-mode
++	 * state where it accepts panel init writes but never streams DPI video
++	 * packets out to the panel. The DPU and DPHY both look fine, but no
++	 * pixels reach the panel.
++	 */
+ 	sprd_dsi_state_reset(ctx);
+ 
+ 	if (dsi->slave->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS) {
+ 		dsi_reg_up(ctx, PHY_CLK_LANE_LP_CTRL, AUTO_CLKLANE_CTRL_EN,
+ 			   AUTO_CLKLANE_CTRL_EN);
+ 	} else {
+-		dsi_reg_up(ctx, PHY_CLK_LANE_LP_CTRL, RF_PHY_CLK_EN, RF_PHY_CLK_EN);
++		dsi_reg_up(ctx, PHY_CLK_LANE_LP_CTRL, AUTO_CLKLANE_CTRL_EN, 0);
+ 		dsi_reg_up(ctx, PHY_CLK_LANE_LP_CTRL, PHY_CLKLANE_TX_REQ_HS,
+ 			   PHY_CLKLANE_TX_REQ_HS);
+ 		dphy_wait_pll_locked(ctx);
+ 	}
+-
+-	sprd_dpu_run(to_sprd_crtc(dsi->encoder.crtc));
+ }
+ 
+ static void sprd_dsi_bridge_disable(struct drm_bridge *bridge)
+@@ -958,11 +1141,54 @@ static int sprd_dsi_context_init(struct sprd_dsi *dsi,
+ 		return PTR_ERR(ctx->regmap);
+ 	}
+ 
++	/* optional soft reset: reset-syscon = <&ap_ahb_regs offset mask> */
++	{
++		u32 args[2];
++
++		ctx->rst_syscon = syscon_regmap_lookup_by_phandle_args(dev->of_node,
++								       "reset-syscon",
++								       2, args);
++		if (IS_ERR(ctx->rst_syscon)) {
++			ctx->rst_syscon = NULL;
++		} else {
++			ctx->rst_offset = args[0];
++			ctx->rst_mask = args[1];
++		}
++	}
++
++	/*
++	 * DPHY analog block glue. See sprd_dphy_init for what these do.
++	 * Both are optional; absent on SoC variants that don't need them.
++	 */
++	{
++		u32 args[2];
++
++		ctx->phy_en_syscon = syscon_regmap_lookup_by_phandle_args(dev->of_node,
++									  "sprd,phy-en-syscon",
++									  2, args);
++		if (IS_ERR(ctx->phy_en_syscon)) {
++			ctx->phy_en_syscon = NULL;
++		} else {
++			ctx->phy_en_offset = args[0];
++			ctx->phy_en_mask = args[1];
++		}
++
++		ctx->phy_pwr_syscon = syscon_regmap_lookup_by_phandle_args(dev->of_node,
++									   "sprd,phy-pwr-syscon",
++									   2, args);
++		if (IS_ERR(ctx->phy_pwr_syscon)) {
++			ctx->phy_pwr_syscon = NULL;
++		} else {
++			ctx->phy_pwr_offset = args[0];
++			ctx->phy_pwr_mask = args[1];
++		}
++	}
++
+ 	ctx->data_hs2lp = 120;
+ 	ctx->data_lp2hs = 500;
+ 	ctx->clk_hs2lp = 4;
+ 	ctx->clk_lp2hs = 15;
+-	ctx->max_rd_time = 6000;
++	ctx->max_rd_time = 0x8000;
+ 	ctx->int0_mask = 0xffffffff;
+ 	ctx->int1_mask = 0xffffffff;
+ 
+diff --git a/drivers/gpu/drm/sprd/sprd_dsi.h b/drivers/gpu/drm/sprd/sprd_dsi.h
+index 14d062360..11137ee7f 100644
+--- a/drivers/gpu/drm/sprd/sprd_dsi.h
++++ b/drivers/gpu/drm/sprd/sprd_dsi.h
+@@ -94,6 +94,25 @@ struct dphy_pll {
+ struct dsi_context {
+ 	void __iomem *base;
+ 	struct regmap *regmap;
++	struct regmap *rst_syscon;
++	u32 rst_offset;
++	u32 rst_mask;
++	/*
++	 * DPHY analog block glue. Vendor BSP global_dphy.c plumbing:
++	 * - phy_en_syscon  : enable bits in AP-AHB syscon (set to enable)
++	 * - phy_pwr_syscon : analog shutdown bit in AP-APB syscon
++	 *                   (clear to power up, set to power down)
++	 * Without these the controller-side PHY interface comes up and
++	 * PHY_STATUS reports digital PLL lock, but the lanes can't
++	 * electrically transmit, the DSI never asserts ready, and the
++	 * DPU<->DSI halt handshake stalls.
++	 */
++	struct regmap *phy_en_syscon;
++	u32 phy_en_offset;
++	u32 phy_en_mask;
++	struct regmap *phy_pwr_syscon;
++	u32 phy_pwr_offset;
++	u32 phy_pwr_mask;
+ 	struct clk *clk;
+ 	struct dphy_pll pll;
+ 	struct videomode vm;

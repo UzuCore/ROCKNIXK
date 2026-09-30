@@ -1,0 +1,75 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Thu, 6 Aug 2026 19:46:47 -0500
+Subject: [PATCH 221/225] i2c: sprd-hw: program the TOP_DVFS hardware channels
+ at probe
+
+Stock u-boot's Android postload path runs i2c_dvfs_hwchn_init(),
+which programs hw channels 5 and 7 with the FAN53555 command config
+((0x60 << 8 | reg) << 2) and enables them in CHNL_EN0. Our extlinux
+boot path never runs it, so CHNL_EN0 stays 0 and every DCDC_CPU1
+voltage request from the DVFS engine parks unserviced (STATE_I2C=4).
+Mirror that init at probe, before the cpufreq engine posts its first
+vote.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+---
+ drivers/i2c/busses/i2c-sprd-hw.c | 31 +++++++++++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
+
+diff --git a/drivers/i2c/busses/i2c-sprd-hw.c b/drivers/i2c/busses/i2c-sprd-hw.c
+index 104ca85c4..2cbba7492 100644
+--- a/drivers/i2c/busses/i2c-sprd-hw.c
++++ b/drivers/i2c/busses/i2c-sprd-hw.c
+@@ -67,6 +67,22 @@
+ #define HW_CTL_VALUE		0x30
+ #define PRIL_HIGH_APB		0x64
+ 
++/*
++ * Hardware request channels used by the TOP_DVFS DCDC_CPU1 voltage
++ * engine on sharkl5pro. Stock u-boot programs these in its Android
++ * postload path (i2c_dvfs_hwchn_init): each channel's command config
++ * is (slave_addr << 8 | reg_addr) << 2 for the FAN53555 at 0x60, and
++ * the channel must be enabled in CHNL_EN0 or DVFS voltage requests
++ * park unserviced (STATE_I2C stuck at 4).
++ */
++#define CHNLX_ADDR(x)		(0x068 + (((x) - 2) << 2))
++#define DVFS_CHNL_ADDR(da, ra)	((((da) << 8) | (ra)) << 2)
++#define DVFS_FAN53555_ADDR	0x60
++#define DVFS_TX_5_CHNL		5
++#define DVFS_TX_5_REG		0x02
++#define DVFS_TX_7_CHNL		7
++#define DVFS_TX_7_REG		0x00
++
+ /* ARM_CMD_WR */
+ #define REG_ADDR_OFFSET		2
+ #define SLAVE_ADDR_OFFSET	10
+@@ -206,6 +222,20 @@ static void sprd_i2c_hw_chnl_priority(struct sprd_i2c_hw *i2c_dev)
+ 	writel(PRIL_HIGH_APB, i2c_dev->base + HW_CHNL_PRIL);
+ }
+ 
++static void sprd_i2c_hw_dvfs_chnl_init(struct sprd_i2c_hw *i2c_dev)
++{
++	u32 val;
++
++	writel(DVFS_CHNL_ADDR(DVFS_FAN53555_ADDR, DVFS_TX_5_REG),
++	       i2c_dev->base + CHNLX_ADDR(DVFS_TX_5_CHNL));
++	writel(DVFS_CHNL_ADDR(DVFS_FAN53555_ADDR, DVFS_TX_7_REG),
++	       i2c_dev->base + CHNLX_ADDR(DVFS_TX_7_CHNL));
++
++	val = readl(i2c_dev->base + CHNL_EN0);
++	val |= BIT(DVFS_TX_5_CHNL) | BIT(DVFS_TX_7_CHNL);
++	writel(val, i2c_dev->base + CHNL_EN0);
++}
++
+ static void sprd_i2c_hw_clear_ack(struct sprd_i2c_hw *i2c_dev)
+ {
+ 	u32 tmp = readl(i2c_dev->base + I2C_STATUS);
+@@ -481,6 +511,7 @@ static int sprd_i2c_hw_probe(struct platform_device *pdev)
+ 
+ 	sprd_i2c_hw_enable(i2c_dev);
+ 	sprd_i2c_hw_chnl_priority(i2c_dev);
++	sprd_i2c_hw_dvfs_chnl_init(i2c_dev);
+ 
+ 	ret = i2c_add_numbered_adapter(&i2c_dev->adap);
+ 	if (ret < 0) {

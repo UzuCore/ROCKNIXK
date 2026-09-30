@@ -1,6 +1,8 @@
 # RG405M source adaptations
 
-Base kernel: `beebono/linux-mainline-sprd@464b3e7bf45bb300e190339977abba36c8078e1f`.
+Base kernel: kernel.org Linux 7.1.2 + the `beebono/linux-mainline-sprd@464b3e7bf45bb300e190339977abba36c8078e1f`
+series rebased onto it (`devices/T618/patches/linux/rg-rotate`). The adapted files' base hashes are
+unchanged by the rebase (verified with `apply_sources.py --verify-only` on the 7.1.2 tree).
 Original headset implementation:
 `marohinmark/kernel_ums512_5.4@ead7c4e34de9a1465cb9badd7e0cf56691800b16`,
 `kernel_modules/kernel5.4/audio_driver/sprd/codec/sprd/sc2730/codec/`.

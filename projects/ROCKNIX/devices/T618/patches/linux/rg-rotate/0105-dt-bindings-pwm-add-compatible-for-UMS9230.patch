@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sat, 17 May 2025 20:56:35 +0200
+Subject: [PATCH 105/225] dt-bindings: pwm: add compatible for UMS9230
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The PWM controller in UMS9230 is compatible with the one used in
+UMS512.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ Documentation/devicetree/bindings/pwm/sprd,ums512-pwm.yaml | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/pwm/sprd,ums512-pwm.yaml b/Documentation/devicetree/bindings/pwm/sprd,ums512-pwm.yaml
+index c806b6768..3ae520f7c 100644
+--- a/Documentation/devicetree/bindings/pwm/sprd,ums512-pwm.yaml
++++ b/Documentation/devicetree/bindings/pwm/sprd,ums512-pwm.yaml
+@@ -13,7 +13,12 @@ maintainers:
+ 
+ properties:
+   compatible:
+-    const: sprd,ums512-pwm
++    oneOf:
++      - items:
++          - enum:
++            - sprd,ums9230-pwm
++          - const: sprd,ums512-pwm
++      - const: sprd,ums512-pwm
+ 
+   reg:
+     maxItems: 1

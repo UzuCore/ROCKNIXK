@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sun, 20 Apr 2025 16:50:05 +0200
+Subject: [PATCH 015/225] mmc: sdhci-sprd: Fix tuning routine
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Terminate the current range whenever a setting fails to ensure that the
+selected range never contains an invalid setting.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/mmc/host/sdhci-sprd.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/mmc/host/sdhci-sprd.c b/drivers/mmc/host/sdhci-sprd.c
+index f68953dc3..9b1ff8cc8 100644
+--- a/drivers/mmc/host/sdhci-sprd.c
++++ b/drivers/mmc/host/sdhci-sprd.c
+@@ -613,12 +613,12 @@ static int sdhci_sprd_get_best_clk_sample(struct mmc_host *mmc, u8 *value)
+ 			if (range_length < count) {
+ 				range_length = count;
+ 				range_end = i - 1;
+-				count = 0;
+ 			}
++			count = 0;
+ 		}
+ 	}
+ 
+-	if (!count)
++	if (!count && !range_length)
+ 		return -EIO;
+ 
+ 	if (count > range_length) {

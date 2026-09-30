@@ -1,0 +1,424 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Sun, 26 Jul 2026 16:42:16 -0500
+Subject: [PATCH 179/225] cpufreq: sprd-hwdvfs: enable hardware DVFS on ums512
+ (T618)
+
+Three separate defects kept hardware DVFS from working on sharkl5pro:
+
+1. sprd_cpudvfs_of_match had no .data for "sprd,sharkl5pro-cpudvfs", so
+   the driver ran with priv == NULL and silently skipped the mpll index
+   tables, voltage grade setup and misc config -- every consumer starts
+   with "if (!pdev->priv) return 0". Add ums512_dvfs_private_data with
+   dedicated tables extracted from the stock sprd-hwdvfs-ums512-arch.ko
+   rather than sharing ums312's; the layouts match but several values do
+   not, notably DCDC_CPU0's up-delay mask and the freq misc config.
+
+2. The board describes the big cluster's DCDC as pmic-type-num = <2>, an
+   I2C-attached third PMIC, but pmic_array[] only populated indices 0 and
+   1. The bounds check compares against MAX_PMIC_TYPE_NUM (8), so index 2
+   passed and pm = &pmic[2] yielded a valid pointer to a zeroed struct --
+   the "if (!pm)" guard can never fire -- and pm->update() branched to
+   address 0 during OPP-add, hanging the board early in boot. Add
+   PMIC_I2C_THIRD (600000uV base, 10000uV step) and check the entry
+   contents rather than the always-non-NULL pointer.
+
+3. host_cluster_auto_tuning_enable() passed ~bit as the *value* to
+   regmap_update_bits(), leaving (val & mask) == 0, so it cleared the TOP
+   DVFS voltage-enable and subsys frequency-enable bits every time it was
+   asked to enable them; slave_cluster_auto_tuning_enable() just below
+   has it right. This is what pinned the big cluster to its boot clock
+   source: the work index and voltage grade both tracked correctly, but
+   the cluster was never permitted to drive the core clock mux.
+
+Also match "sprd,sharkl5pro-hw-i2c" in i2c-sprd-hw-v2, the hardware I2C
+master that DCDC_CPU1's voltage path runs through.
+
+On an Anbernic RG Rotate, a 200k-iteration shell loop pinned to cpu6
+(A75) goes from not completing in 29s to 2.06s, against 3.23s on cpu0
+(A55).
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+---
+ drivers/cpufreq/sprd-hwdvfs-archdata.c | 254 +++++++++++++++++++++++++
+ drivers/cpufreq/sprd-hwdvfs-archdata.h |   5 +
+ drivers/cpufreq/sprd-hwdvfs-normal.c   |  28 ++-
+ drivers/cpufreq/sprd-hwdvfs-normal.h   |   1 +
+ drivers/i2c/busses/i2c-sprd-hw-v2.c    |   1 +
+ 5 files changed, 282 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/cpufreq/sprd-hwdvfs-archdata.c b/drivers/cpufreq/sprd-hwdvfs-archdata.c
+index 172657456..5e06de54f 100644
+--- a/drivers/cpufreq/sprd-hwdvfs-archdata.c
++++ b/drivers/cpufreq/sprd-hwdvfs-archdata.c
+@@ -76,6 +76,19 @@ static struct pmic_data pmic_array[MAX_PMIC_TYPE_NUM] = {
+ 		.up_cycle_calculate = default_cycle_calculate,
+ 		.down_cycle_calculate = default_cycle_calculate,
+ 	},
++	/*
++	 * Values taken from the stock sprd-hwdvfs-ums512-arch.ko pmic_array.
++	 * The 600mV base / 10mV step matches the 7-bit vsel fields of the
++	 * DCDC_CPU1_I2C grade registers.
++	 */
++	[PMIC_I2C_THIRD] = {
++		.volt_base = 600000,
++		.per_step = 10000,
++		.margin_us = 30,
++		.update = default_dcdc_volt_update,
++		.up_cycle_calculate = default_cycle_calculate,
++		.down_cycle_calculate = default_cycle_calculate,
++	},
+ 	{
+ 	},
+ };
+@@ -226,3 +239,244 @@ const struct dvfs_private_data ums312_dvfs_private_data = {
+ 	.freq_manager = &ums312_freq_manager,
+ 	.mpll_manager = &ums312_mpll_manager,
+ };
++
++/*
++ * UMS512 (T61x/T7xx) private data.
++ *
++ * Extracted from the stock sprd-hwdvfs-ums512-arch.ko (unstripped, Linux
++ * 5.4.161). ums512 gets its own tables throughout rather than sharing
++ * ums312's: the layouts match, but several values do not -- notably
++ * DCDC_CPU0's up-delay mask (0xffff here vs ums312's 0x1ffff), the freq misc
++ * config, and the MPLL index tables (per-index PLL multipliers; mpll rate =
++ * N * 26MHz, with N in bits 4+ of the anag register).
++ *
++ * Without a private_data entry for sharkl5pro the driver ran with priv==NULL
++ * and silently skipped all of this, since every consumer starts with
++ * "if (!pdev->priv) return 0".
++ */
++static struct reg_info ums512_volt_misc_cfg_array[] = {
++	GENREGVALSET(0x128, 0, 0x7, 4),
++	GENREGVALSET(0x128, 3, 0x7, 4),
++	GENREGVALSET(0x128, 6, 0x7, 4),
++	GENREGVALSET(0x128, 9, 0x7, 4),
++	GENREGVALSET(0x128, 12, 0x7, 4),
++	GENREGVALSET(0x128, 15, 0x7, 4),
++	GENREGVALSET(0x128, 18, 0x7, 4),
++	GENREGVALSET(0x128, 21, 0x7, 4),
++	/* The end of misc configurations */
++	GENREGVALSET(0, 0, 0, 0),
++};
++
++static struct reg_info ums512_freq_misc_cfg_array[] = {
++	/* Set default work index 10 for lit core */
++	GENREGVALSET(0x214, 0, 0xf, 10),
++	/* Set default work index 6 for big core */
++	GENREGVALSET(0x224, 0, 0xf, 6),
++	/* Set default work index 9 for scu */
++	GENREGVALSET(0x22c, 0, 0xf, 9),
++	/* The end of misc configurations */
++	GENREGVALSET(0, 0, 0, 0),
++};
++
++static struct mpll_index_tbl ums512_mpll_index_tbl[MAX_MPLL] = {
++	[MPLL0] = {
++		.entry = {
++			{ .output = {
++				GENREGVALSET(0x8c, 0, 0x7, 0x5),
++				GENREGVALSET(0x8c, 3, 0x1, 0x0),
++				GENREGVALSET(0x8c, 4, 0x7ff, 0x4d),
++			}, },
++			{ .output = {
++				GENREGVALSET(0x90, 0, 0x7, 0x5),
++				GENREGVALSET(0x90, 3, 0x1, 0x0),
++				GENREGVALSET(0x90, 4, 0x7ff, 0x4d),
++			}, },
++			{ .output = {
++				GENREGVALSET(0x94, 0, 0x7, 0x5),
++				GENREGVALSET(0x94, 3, 0x1, 0x0),
++				GENREGVALSET(0x94, 4, 0x7ff, 0x4d),
++			}, },
++		},
++	},
++	[MPLL1] = {
++		.entry = {
++			{ .output = {
++				GENREGVALSET(0x2c, 0, 0x7, 0x4),
++				GENREGVALSET(0x2c, 3, 0x1, 0x0),
++				GENREGVALSET(0x2c, 4, 0x7ff, 0x46),
++			}, },
++			{ .output = {
++				GENREGVALSET(0x30, 0, 0x7, 0x4),
++				GENREGVALSET(0x30, 3, 0x1, 0x0),
++				GENREGVALSET(0x30, 4, 0x7ff, 0x48),
++			}, },
++			{ .output = {
++				GENREGVALSET(0x34, 0, 0x7, 0x5),
++				GENREGVALSET(0x34, 3, 0x1, 0x0),
++				GENREGVALSET(0x34, 4, 0x7ff, 0x4d),
++			}, },
++			{ .output = {
++				GENREGVALSET(0x38, 0, 0x7, 0x5),
++				GENREGVALSET(0x38, 3, 0x1, 0x0),
++				GENREGVALSET(0x38, 4, 0x7ff, 0x4d),
++			}, },
++			{ .output = {
++				GENREGVALSET(0x3c, 0, 0x7, 0x5),
++				GENREGVALSET(0x3c, 3, 0x1, 0x0),
++				GENREGVALSET(0x3c, 4, 0x7ff, 0x4d),
++			}, },
++			{ .output = {
++				GENREGVALSET(0x40, 0, 0x7, 0x5),
++				GENREGVALSET(0x40, 3, 0x1, 0x0),
++				GENREGVALSET(0x40, 4, 0x7ff, 0x4d),
++			}, },
++		},
++	},
++	[MPLL2] = {
++		.entry = {
++			{ .output = {
++				GENREGVALSET(0xd8, 0, 0x7, 0x2),
++				GENREGVALSET(0xd8, 3, 0x1, 0x0),
++				GENREGVALSET(0xd8, 4, 0x7ff, 0x36),
++			}, },
++			{ .output = {
++				GENREGVALSET(0xd4, 0, 0x7, 0x1),
++				GENREGVALSET(0xd4, 3, 0x1, 0x0),
++				GENREGVALSET(0xd4, 4, 0x7ff, 0x33),
++			}, },
++			{ .output = {
++				GENREGVALSET(0xd0, 0, 0x7, 0x1),
++				GENREGVALSET(0xd0, 3, 0x1, 0x0),
++				GENREGVALSET(0xd0, 4, 0x7ff, 0x2f),
++			}, },
++			{ .output = {
++				GENREGVALSET(0xcc, 0, 0x7, 0x0),
++				GENREGVALSET(0xcc, 3, 0x1, 0x0),
++				GENREGVALSET(0xcc, 4, 0x7ff, 0x2b),
++			}, },
++			{ .output = {
++				GENREGVALSET(0xc8, 0, 0x7, 0x0),
++				GENREGVALSET(0xc8, 3, 0x1, 0x0),
++				GENREGVALSET(0xc8, 4, 0x7ff, 0x27),
++			}, },
++		},
++	},
++};
++
++/*
++ * ums512/T618 voltage-grade register maps. Extracted from the stock
++ * sprd-hwdvfs-ums512-arch.ko. The little core (DCDC_CPU0) is driven via
++ * the SC2730 ADI grade registers; the big core routes through the I2C
++ * (third) pmic, so its grades live at DCDC_CPU1_I2C (0x12c/0x130) and the
++ * direct DCDC_CPU1 ADI slot is intentionally left empty, matching stock.
++ */
++static struct volt_grades_table ums512_volt_grades_tbl[] = {
++	[DCDC_CPU0] = {
++		.regs_array = {
++			GENREGSET(0xf4, 0, 0x1ff),
++			GENREGSET(0xf4, 9, 0x1ff),
++			GENREGSET(0xf4, 18, 0x1ff),
++			GENREGSET(0xf8, 0, 0x1ff),
++			GENREGSET(0xf8, 9, 0x1ff),
++			GENREGSET(0xf8, 18, 0x1ff),
++			GENREGSET(0xfc, 0, 0x1ff),
++			GENREGSET(0xfc, 9, 0x1ff),
++		},
++		.grade_count = 8,
++	},
++	[DCDC_CPU1_I2C] = {
++		.regs_array = {
++			GENREGSET(0x12c, 0, 0x7f),
++			GENREGSET(0x12c, 7, 0x7f),
++			GENREGSET(0x12c, 14, 0x7f),
++			GENREGSET(0x12c, 21, 0x7f),
++			GENREGSET(0x130, 0, 0x7f),
++			GENREGSET(0x130, 7, 0x7f),
++		},
++		.grade_count = 6,
++	},
++	{
++	},
++};
++
++/*
++ * ums512/T618 up/down voltage-settle delay-cycle register maps. Extracted
++ * from stock; note DCDC_CPU0's up-delay mask is 0xffff on ums512 (ums312
++ * used 0x1ffff here). Indexed by dcdc, so only DCDC_CPU0/DCDC_CPU1 exist.
++ */
++static struct udelay_tbl ums512_up_udelay_tbl[] = {
++	[DCDC_CPU0] = {
++		.tbl = {
++			GENREGSET(0x58, 0, 0xffff),
++			GENREGSET(0x58, 16, 0xffff),
++			GENREGSET(0x54, 0, 0xffff),
++			GENREGSET(0x54, 16, 0xffff),
++			GENREGSET(0x50, 0, 0xffff),
++			GENREGSET(0x50, 16, 0xffff),
++			GENREGSET(0x110, 0, 0xffff),
++		},
++	},
++	[DCDC_CPU1] = {
++		.tbl = {
++			GENREGSET(0x84, 0, 0xffff),
++			GENREGSET(0x84, 16, 0xffff),
++			GENREGSET(0x80, 0, 0xffff),
++			GENREGSET(0x80, 16, 0xffff),
++			GENREGSET(0x7c, 0, 0xffff),
++			GENREGSET(0x7c, 16, 0xffff),
++			GENREGSET(0x118, 0, 0xffff),
++		},
++	},
++	{
++	},
++};
++
++static struct udelay_tbl ums512_down_udelay_tbl[] = {
++	[DCDC_CPU0] = {
++		.tbl = {
++			GENREGSET(0x64, 0, 0xffff),
++			GENREGSET(0x64, 16, 0xffff),
++			GENREGSET(0x60, 0, 0xffff),
++			GENREGSET(0x60, 16, 0xffff),
++			GENREGSET(0x5c, 0, 0xffff),
++			GENREGSET(0x5c, 16, 0xffff),
++			GENREGSET(0x114, 0, 0xffff),
++		},
++	},
++	[DCDC_CPU1] = {
++		.tbl = {
++			GENREGSET(0x90, 0, 0xffff),
++			GENREGSET(0x90, 16, 0xffff),
++			GENREGSET(0x8c, 0, 0xffff),
++			GENREGSET(0x8c, 16, 0xffff),
++			GENREGSET(0x88, 0, 0xffff),
++			GENREGSET(0x88, 16, 0xffff),
++			GENREGSET(0x11c, 0, 0xffff),
++		},
++	},
++	{
++	},
++};
++
++static struct topdvfs_volt_manager ums512_volt_manager = {
++	.grade_tbl = ums512_volt_grades_tbl,
++	.up_udelay_tbl = ums512_up_udelay_tbl,
++	.down_udelay_tbl = ums512_down_udelay_tbl,
++	.misc_cfg_array = ums512_volt_misc_cfg_array,
++};
++
++static struct cpudvfs_freq_manager ums512_freq_manager = {
++	.misc_cfg_array = ums512_freq_misc_cfg_array,
++};
++
++static struct mpll_freq_manager ums512_mpll_manager = {
++	.mpll_tbl = ums512_mpll_index_tbl,
++};
++
++const struct dvfs_private_data ums512_dvfs_private_data = {
++	.module_clk_khz = 128000,
++	.pmic = pmic_array,
++	.volt_manager = &ums512_volt_manager,
++	.freq_manager = &ums512_freq_manager,
++	.mpll_manager = &ums512_mpll_manager,
++};
+diff --git a/drivers/cpufreq/sprd-hwdvfs-archdata.h b/drivers/cpufreq/sprd-hwdvfs-archdata.h
+index 052244013..a55302623 100644
+--- a/drivers/cpufreq/sprd-hwdvfs-archdata.h
++++ b/drivers/cpufreq/sprd-hwdvfs-archdata.h
+@@ -30,6 +30,11 @@
+ enum sprd_cpudvfs_pmic {
+ 	PMIC_SC2730,
+ 	PMIC_SC2703,
++	/*
++	 * The I2C-attached "third" pmic supplying the big cluster on ums512
++	 * boards; selected by "pmic-type-num = <2>" in the dcdc supply node.
++	 */
++	PMIC_I2C_THIRD,
+ 	MAX_PMIC_TYPE_NUM = 8,
+ };
+ 
+diff --git a/drivers/cpufreq/sprd-hwdvfs-normal.c b/drivers/cpufreq/sprd-hwdvfs-normal.c
+index 06a868259..be1fffd04 100644
+--- a/drivers/cpufreq/sprd-hwdvfs-normal.c
++++ b/drivers/cpufreq/sprd-hwdvfs-normal.c
+@@ -50,6 +50,7 @@ static const struct of_device_id sprd_cpudvfs_of_match[] = {
+ 	},
+ 	{
+ 		.compatible = "sprd,sharkl5pro-cpudvfs",
++		.data = &ums512_dvfs_private_data,
+ 	},
+ 	{
+ 		.compatible = "sprd,orca-cpudvfs",
+@@ -355,16 +356,25 @@ int host_cluster_auto_tuning_enable(void *clu, bool enable)
+ 	addr1 = pdev->pwr[cluster->id].subsys_tune_ctl_reg;
+ 	bit1 =  1 << pdev->pwr[cluster->id].subsys_tune_ctl_bit;
+ 
+-	/* Enable TOP DVFS to change voltage dynamically */
++	/*
++	 * Enable TOP DVFS to change voltage dynamically.
++	 *
++	 * These must SET the bit: passing ~bit as the value leaves
++	 * (val & mask) == 0, which clears it and leaves hw dvfs disabled.
++	 * cf. slave_cluster_auto_tuning_enable() below, which has it right.
++	 * The dts third cell (dvfs_eb / subsys_tune_eb) only gates whether we
++	 * touch the bit at all - see cpufreq-hwdvfs-sprd.txt, where value 0
++	 * means "the hw dvfs function should be disabled".
++	 */
+ 	if (enable && pdev->pwr[cluster->id].dvfs_eb) {
+-		ret = regmap_update_bits(pdev->topdvfs_map, addr0, bit0, ~bit0);
++		ret = regmap_update_bits(pdev->topdvfs_map, addr0, bit0, bit0);
+ 		if (ret)
+ 			return ret;
+ 	}
+ 
+ 	/* Enable Subsys DVFS to change frequency dynamically */
+ 	if (enable && pdev->pwr[cluster->id].subsys_tune_eb) {
+-		ret = regmap_update_bits(pdev->topdvfs_map, addr1, bit1, ~bit1);
++		ret = regmap_update_bits(pdev->topdvfs_map, addr1, bit1, bit1);
+ 		if (ret)
+ 			return ret;
+ 	}
+@@ -1366,8 +1376,12 @@ static int voltage_grade_value_update(struct dvfs_cluster *clu,
+ 
+ 	pm = &pdev->priv->pmic[pmic_num];
+ 
+-	if (!regdata || !pm) {
+-		pr_err("Empty private data\n");
++	/*
++	 * pm always points into the pmic array, so a pmic-type-num naming an
++	 * unpopulated slot yields a zeroed entry, not NULL. Check the contents.
++	 */
++	if (!regdata || !pm->update || !pm->per_step) {
++		pr_err("No pmic data for pmic-type-num %d\n", pmic_num);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -1497,8 +1511,8 @@ static int sprd_cpudvfs_udelay_update(void *data, int cluster)
+ 	}
+ 
+ 	pm = &pdev->priv->pmic[pmic_num];
+-	if (!pm) {
+-		pr_err("Empty private data\n");
++	if (!pm->up_cycle_calculate || !pm->down_cycle_calculate) {
++		pr_err("No pmic data for pmic-type-num %d\n", pmic_num);
+ 		return -EINVAL;
+ 	}
+ 
+diff --git a/drivers/cpufreq/sprd-hwdvfs-normal.h b/drivers/cpufreq/sprd-hwdvfs-normal.h
+index d3262e7e1..dcb5e7e18 100644
+--- a/drivers/cpufreq/sprd-hwdvfs-normal.h
++++ b/drivers/cpufreq/sprd-hwdvfs-normal.h
+@@ -280,5 +280,6 @@ struct cpudvfs_archdata {
+ extern int cpudvfs_sysfs_create(struct cpudvfs_archdata *pdev);
+ 
+ extern const struct dvfs_private_data ums312_dvfs_private_data;
++extern const struct dvfs_private_data ums512_dvfs_private_data;
+ 
+ #endif /* DVFS_CTRL_H */
+diff --git a/drivers/i2c/busses/i2c-sprd-hw-v2.c b/drivers/i2c/busses/i2c-sprd-hw-v2.c
+index b402ba770..bf3b0b043 100644
+--- a/drivers/i2c/busses/i2c-sprd-hw-v2.c
++++ b/drivers/i2c/busses/i2c-sprd-hw-v2.c
+@@ -567,6 +567,7 @@ static int __maybe_unused sprd_i2c_hw_runtime_resume(struct device *pdev)
+ 
+ static const struct of_device_id sprd_i2c_hw_of_match[] = {
+ 	{ .compatible = "sprd,ums9230-hw-i2c", },
++	{ .compatible = "sprd,sharkl5pro-hw-i2c", },
+ 	{},
+ };
+ 

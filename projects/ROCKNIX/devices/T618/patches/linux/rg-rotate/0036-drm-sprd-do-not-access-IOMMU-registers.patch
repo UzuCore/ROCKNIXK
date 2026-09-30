@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sun, 20 Jul 2025 21:34:38 +0200
+Subject: [PATCH 036/225] drm: sprd: do not access IOMMU registers
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Changing the IOMMU registers results in conflicts with the sprd_iommu
+driver. Remove all references to IOMMU registers in the graphics driver.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/gpu/drm/sprd/sprd_dpu.c | 14 --------------
+ 1 file changed, 14 deletions(-)
+
+diff --git a/drivers/gpu/drm/sprd/sprd_dpu.c b/drivers/gpu/drm/sprd/sprd_dpu.c
+index b946d0151..acf28de3f 100644
+--- a/drivers/gpu/drm/sprd/sprd_dpu.c
++++ b/drivers/gpu/drm/sprd/sprd_dpu.c
+@@ -55,14 +55,6 @@
+ #define REG_DPI_H_TIMING	0x1F4
+ #define REG_DPI_V_TIMING	0x1F8
+ 
+-/* MMU control registers */
+-#define REG_MMU_EN			0x800
+-#define REG_MMU_VPN_RANGE		0x80C
+-#define REG_MMU_PPN1			0x83C
+-#define REG_MMU_RANGE1			0x840
+-#define REG_MMU_PPN2			0x844
+-#define REG_MMU_RANGE2			0x848
+-
+ /* Global control bits */
+ #define BIT_DPU_RUN			BIT(0)
+ #define BIT_DPU_STOP			BIT(1)
+@@ -410,12 +402,6 @@ static void sprd_dpu_init(struct sprd_dpu *dpu)
+ 	u32 dpu_version = readl(ctx->base + REG_DPU_VERSION);
+ 
+ 	writel(0x00, ctx->base + REG_BG_COLOR);
+-	writel(0x00, ctx->base + REG_MMU_EN);
+-	writel(0x00, ctx->base + REG_MMU_PPN1);
+-	writel(0xffff, ctx->base + REG_MMU_RANGE1);
+-	writel(0x00, ctx->base + REG_MMU_PPN2);
+-	writel(0xffff, ctx->base + REG_MMU_RANGE2);
+-	writel(0x1ffff, ctx->base + REG_MMU_VPN_RANGE);
+ 
+ 	if (ctx->if_type == SPRD_DPU_IF_DPI) {
+ 		/* use dpi as interface */

@@ -1,0 +1,146 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Thu, 30 Jul 2026 21:21:40 -0500
+Subject: [PATCH 197/225] sprd-dmaengine-pcm: fix use-after-free on dma
+ descriptor
+
+---
+ sound/soc/sprd/vendor/sprd-dmaengine-pcm.c | 99 +++++++++++++++++++---
+ 1 file changed, 85 insertions(+), 14 deletions(-)
+
+diff --git a/sound/soc/sprd/vendor/sprd-dmaengine-pcm.c b/sound/soc/sprd/vendor/sprd-dmaengine-pcm.c
+index 9b9268e13..2bce85075 100755
+--- a/sound/soc/sprd/vendor/sprd-dmaengine-pcm.c
++++ b/sound/soc/sprd/vendor/sprd-dmaengine-pcm.c
+@@ -145,7 +145,7 @@ struct dma_chan_index_name {
+  * just fails with -ENODATA. Advertising resume made alsa-lib take the
+  * snd_pcm_resume() recovery path, get a hard error and give up; without it
+  * ESTRPIPE recovery falls through to snd_pcm_prepare(), where
+- * sprd_pcm_rearm_dma() can do the work properly.
++ * sprd_pcm_prepare() can do the work properly.
+  */
+ #define SPRD_SNDRV_PCM_INFO_COMMON ( \
+ 	SNDRV_PCM_INFO_MMAP | \
+@@ -1303,16 +1303,66 @@ static int __sprd_pcm_rearm_dma(struct snd_pcm_substream *substream)
+ 	return ret;
+ }
+ 
+-static int sprd_pcm_rearm_dma(struct snd_pcm_substream *substream)
++/*
++ * Rebuild the dma descriptors for a stream that is being started again on
++ * channels it already owns.
++ *
++ * A dmaengine descriptor is single-shot: sprd_dma_start() list_del()s the
++ * node as soon as the transfer is issued, so the pointer cached in
++ * rtd->dma_tx_des[] is spent the moment it has run once. Submitting it a
++ * second time walks a poisoned list node and oopses in vchan_tx_submit().
++ *
++ * The vendor code never hit this because the Android HAL closed and
++ * re-opened the pcm between plays, which goes the whole way round
++ * hw_free -> hw_params and builds new descriptors. A pipewire/alsa
++ * userspace instead reuses the open stream, so drop -> prepare -> start
++ * comes back here with the old descriptors still cached.
++ *
++ * Terminate before re-preparing: vchan_tx_prep() puts every descriptor on
++ * the channel's desc_allocated list, so without it each prepare would
++ * strand its predecessor there until hw_free.
++ *
++ * Callers must hold pm_dma->pm_mtx_cnt.
++ */
++static int __sprd_pcm_reprep_dma(struct snd_pcm_substream *substream)
+ {
+-	struct audio_pm_dma *pm_dma = get_pm_dma();
+-	int ret;
++	struct snd_pcm_runtime *runtime;
++	struct sprd_runtime_data *rtd;
++	struct dma_chan *chn[SPRD_PCM_CHANNEL_MAX];
++	int i;
+ 
+-	mutex_lock(&pm_dma->pm_mtx_cnt);
+-	ret = __sprd_pcm_rearm_dma(substream);
+-	mutex_unlock(&pm_dma->pm_mtx_cnt);
++	if (!substream || !substream->runtime)
++		return 0;
+ 
+-	return ret;
++	runtime = substream->runtime;
++	rtd = runtime->private_data;
++	if (!rtd || !rtd->params || rtd->saved_ch_cnt <= 0)
++		return 0;
++	if (!rtd->dma_chn[0])
++		return 0;
++
++	/*
++	 * Drop the stale pointers before terminating, so a trigger racing in
++	 * gets the -ENODATA path instead of a descriptor that is about to be
++	 * freed underneath it.
++	 */
++	normal_dma_protect_mutex_lock(substream);
++	normal_dma_protect_spin_lock(substream);
++	for (i = 0; i < rtd->hw_chan; i++) {
++		chn[i] = rtd->dma_chn[i];
++		rtd->dma_tx_des[i] = NULL;
++		rtd->cookie[i] = 0;
++	}
++	normal_dma_protect_spin_unlock(substream);
++	normal_dma_protect_mutex_unlock(substream);
++
++	for (i = 0; i < rtd->hw_chan; i++) {
++		if (chn[i])
++			dmaengine_terminate_sync(chn[i]);
++	}
++
++	return sprd_pcm_arm_dma(substream, &rtd->saved_params,
++				rtd->saved_ch_cnt);
+ }
+ 
+ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
+@@ -1385,7 +1435,7 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
+ 	/*
+ 	 * Remember what the stream was configured with so the channels and
+ 	 * descriptors can be rebuilt after a suspend without userspace
+-	 * having to close and re-open the pcm. See sprd_pcm_rearm_dma().
++	 * having to close and re-open the pcm. See sprd_pcm_prepare().
+ 	 */
+ 	rtd->saved_params = *params;
+ 	rtd->saved_ch_cnt = ch_cnt;
+@@ -1457,13 +1507,34 @@ static int sprd_pcm_hw_free(struct snd_pcm_substream *substream)
+ 
+ static int sprd_pcm_prepare(struct snd_pcm_substream *substream)
+ {
++	struct audio_pm_dma *pm_dma = get_pm_dma();
++	struct sprd_runtime_data *rtd;
++	int ret;
++
+ 	/*
+-	 * Safety net for a stream whose channels were released while it was
+-	 * open (system suspend). prepare runs in process context, so it is
+-	 * safe to request channels here; trigger is atomic and cannot.
+-	 * No-op when the dma is already armed.
++	 * prepare runs in process context, so it is safe to request channels
++	 * and build descriptors here; trigger is atomic and cannot.
++	 *
++	 * Two distinct cases, and every start comes through one of them:
++	 *  - channels gone: the pm notifier released them while userspace held
++	 *    the stream open (system suspend), so re-acquire and arm.
++	 *  - channels held: the stream is simply being started again, and its
++	 *    cached descriptors are already spent.
+ 	 */
+-	return sprd_pcm_rearm_dma(substream);
++	if (!substream || !substream->runtime)
++		return 0;
++	rtd = substream->runtime->private_data;
++	if (!rtd)
++		return 0;
++
++	mutex_lock(&pm_dma->pm_mtx_cnt);
++	if (!rtd->dma_chn[0])
++		ret = __sprd_pcm_rearm_dma(substream);
++	else
++		ret = __sprd_pcm_reprep_dma(substream);
++	mutex_unlock(&pm_dma->pm_mtx_cnt);
++
++	return ret;
+ }
+ 
+ static int sprd_pcm_trigger(struct snd_pcm_substream *substream, int cmd)

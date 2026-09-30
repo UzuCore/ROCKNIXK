@@ -1,0 +1,631 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sun, 2 Mar 2025 20:50:29 +0100
+Subject: [PATCH 112/225] WIP: arm64: dts: sprd: add device tree for Reeder S19
+ Max Pro S
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The Reeder S19 Max Pro S is a smartphone based on the Unisoc Tiger T606
+(UMS9230) SoC and manufactured by the Turkish company Reeder. It is also
+sold by Jolla as the Jolla C2.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ arch/arm64/boot/dts/sprd/Makefile             |   9 +-
+ .../boot/dts/sprd/ums9230-reeder-s19mps.dts   | 543 ++++++++++++++++++
+ arch/arm64/boot/dts/sprd/ums9230.dtsi         |  28 +
+ 3 files changed, 576 insertions(+), 4 deletions(-)
+ create mode 100644 arch/arm64/boot/dts/sprd/ums9230-reeder-s19mps.dts
+
+diff --git a/arch/arm64/boot/dts/sprd/Makefile b/arch/arm64/boot/dts/sprd/Makefile
+index 3ce81ad71..0af83bf5f 100644
+--- a/arch/arm64/boot/dts/sprd/Makefile
++++ b/arch/arm64/boot/dts/sprd/Makefile
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: GPL-2.0
+-dtb-$(CONFIG_ARCH_SPRD) += sc9836-openphone.dtb \
+-			sp9860g-1h10.dtb	\
+-			sp9863a-1h10.dtb	\
+-			ums512-1h10.dtb		\
++dtb-$(CONFIG_ARCH_SPRD) += sc9836-openphone.dtb 	\
++			sp9860g-1h10.dtb		\
++			sp9863a-1h10.dtb		\
++			ums512-1h10.dtb			\
++			ums9230-reeder-s19mps.dtb	\
+ 			ums9620-2h10.dtb
+diff --git a/arch/arm64/boot/dts/sprd/ums9230-reeder-s19mps.dts b/arch/arm64/boot/dts/sprd/ums9230-reeder-s19mps.dts
+new file mode 100644
+index 000000000..5561dd693
+--- /dev/null
++++ b/arch/arm64/boot/dts/sprd/ums9230-reeder-s19mps.dts
+@@ -0,0 +1,543 @@
++// SPDX-License-Identifier: (GPL-2.0 OR MIT)
++/*
++ * Copyright (C) 2024 Otto Pflüger
++ */
++
++/dts-v1/;
++
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/leds/common.h>
++#include <dt-bindings/media/sprd-camsys.h>
++#include <dt-bindings/usb/pd.h>
++#include "ums9230.dtsi"
++#include "sc2730.dtsi"
++
++/ {
++	model = "Reeder S19 Max Pro S";
++
++	compatible = "reeder,s19mps", "sprd,ums9230";
++
++	aliases {
++		serial0 = &uart0;
++		serial1 = &uart1;
++		mmc0 = &sdio0;
++		i2c0 = &i2c0;
++		i2c1 = &i2c1;
++		i2c2 = &i2c2;
++		i2c3 = &i2c3;
++		i2c4 = &i2c4;
++		i2c5 = &i2c5;
++		i2c6 = &i2c6;
++		i2c7 = &aon_i2c0;
++	};
++
++	chosen {
++		stdout-path = "serial1:115200n8";
++
++		framebuffer {
++			compatible = "simple-framebuffer";
++			memory-region = <&framebuffer_region>;
++			width = <720>;
++			height = <1600>;
++			stride = <(720 * 4)>;
++			format = "a8r8g8b8";
++
++			status = "disabled"; /* display driver is enabled */
++		};
++	};
++
++	reserved-memory {
++		framebuffer_region: framebuffer-region@9e000000 {
++			compatible = "framebuffer";
++			reg = <0 0x9e000000 0 (720 * 1600 * 4)>;
++			iommu-addresses = <&dpu 0x9e000000 (720 * 1600 * 4)>;
++			no-map;
++		};
++
++		ramoops@fff80000 {
++			compatible = "ramoops";
++			reg = <0x0 0xfff80000 0x0 0x40000>;
++			console-size = <0x8000>;
++			record-size = <0x8000>;
++			pmsg-size = <0x8000>;
++		};
++
++		linux,cma {
++			compatible = "shared-dma-pool";
++			size = <0x0 0x8000000>;
++			reusable;
++			linux,cma-default;
++		};
++	};
++
++	backlight: backlight {
++		compatible = "pwm-backlight";
++		pwms = <&pwm 2 40000>;
++
++		brightness-levels = <0 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 23 25 27 29 31 33 35 37 39 41 43 45 47 49 51 53 55 57 59 61 63 65 67 69 71 73 75 77 79 81 83 85 87 89 91 93 95 97 99 101 103 105 107 109 111 113 115 117 119 121 123 125 127 129 131 133 135 137 139 141 143 146 149 152 155 158 161 164 167 170 173 176 179 182 185 188 191 194 197 200 203 206 209 212 215 218 221 224 227 230 233 237 241 245 248 252 256 260 264 268 272 276 280 284 288 292 296 300 304 308 312 316 320 324 328 332 336 342 346 350 355 360 365 370 375 380 385 390 395 400 406 412 418 424 430 436 442 448 454 460 466 472 478 484 490 496 502 508 514 519 524 530 536 542 548 554 560 566 572 578 584 590 596 602 608 614 620 626 632 638 644 650 656 662 670 676 682 688 694 700 706 712 718 724 730 736 742 748 754 760 766 772 778 784 790 796 802 808 814 820 826 832 838 844 850 856 862 868 874 880 886 892 898 904 910 916 922 928 934 940 945 950 955 960 965 970 975 980 985 990 995 1000 1006 1012 1018 1023>;
++		default-brightness-level = <100>;
++	};
++
++	bat: battery {
++		compatible = "simple-battery";
++		charge-full-design-microamp-hours = <4096000>;
++		charge-term-current-microamp = <130000>;
++		constant-charge-voltage-max-microvolt = <4400000>;
++		constant-charge-current-max-microamp = <2000000>;
++		voltage-min-design-microvolt = <3500000>;
++		voltage-max-design-microvolt = <4370000>;
++		factory-internal-resistance-micro-ohms = <268000>;
++		resistance-temp-table = <45 53>, <25 100>, <10 395>,
++					<0 567>, <(-10) 793>;
++		ocv-capacity-celsius = <20>;
++		ocv-capacity-table-0 = <4362000 100>, <4316000 95>,
++				       <4256000 90>, <4197000 85>,
++				       <4142000 80>, <4089000 75>,
++				       <4040000 70>, <3981000 65>,
++				       <3941000 60>, <3890000 55>,
++				       <3853000 50>, <3826000 45>,
++				       <3805000 40>, <3788000 35>,
++				       <3776000 30>, <3767000 25>,
++				       <3751000 20>, <3725000 15>,
++				       <3693000 10>, <3675000 5>,
++				       <3400000 0>;
++	};
++
++	flash-controller {
++		compatible = "sgmicro,sgm3140";
++		flash-gpios = <&ap_gpio 139 GPIO_ACTIVE_HIGH>;
++		enable-gpios = <&ap_gpio 32 GPIO_ACTIVE_HIGH>;
++
++		led {
++			function = LED_FUNCTION_FLASH;
++			color = <LED_COLOR_ID_WHITE>;
++			flash-max-timeout-us = <250000>;
++		};
++	};
++
++	gpio-keys {
++		compatible = "gpio-keys";
++
++		key-power {
++			wakeup-source;
++			debounce-interval = <2>;
++			gpios = <&pmic_eic 1 GPIO_ACTIVE_LOW>;
++			linux,code = <KEY_POWER>;
++		};
++
++		key-volumeup {
++			wakeup-source;
++			debounce-interval = <2>;
++			gpios = <&ap_gpio 124 GPIO_ACTIVE_LOW>;
++			linux,code = <KEY_VOLUMEUP>;
++		};
++
++		key-volumedown {
++			wakeup-source;
++			debounce-interval = <2>;
++			gpios = <&pmic_eic 4 GPIO_ACTIVE_HIGH>;
++			linux,code = <KEY_VOLUMEDOWN>;
++		};
++	};
++
++	speaker_amp: speaker-amp {
++		compatible = "simple-audio-amplifier";
++		sound-name-prefix = "Speaker Amp";
++		enable-gpios = <&ap_gpio 136 GPIO_ACTIVE_HIGH>;
++	};
++};
++
++&aon_i2c0 {
++	status = "okay";
++
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	bq25601_charger: charger@6b {
++		compatible = "ti,bq25601";
++		reg = <0x6b>;
++		monitored-battery = <&bat>;
++
++		bq25601_otg_vbus: usb-otg-vbus {
++			regulator-name = "usb-otg-vbus";
++		};
++	};
++};
++
++&camsys {
++	status = "okay";
++
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		/* 4-lane port: main camera */
++		port@CAMSYS_CSI_4LANE {
++			reg = <CAMSYS_CSI_4LANE>;
++
++			csi_4lane_ep: endpoint {
++				data-lanes = <0 1 2 3>;
++				remote-endpoint = <&ov64b40_ep>;
++			};
++		};
++
++		/* M port, 2-lane: ultrawide camera */
++		port@CAMSYS_CSI_M {
++			reg = <CAMSYS_CSI_M>;
++
++			csi_m_ep: endpoint {
++				data-lanes = <0 1>;
++				remote-endpoint = <&ov8856_ep>;
++			};
++		};
++
++		/* S port, 2-lane: macro camera */
++
++		/* RO M+S ports, 4-lane: front camera */
++		port@CAMSYS_CSI_RO_M_S {
++			reg = <CAMSYS_CSI_RO_M_S>;
++
++			csi_2p2ro_ep: endpoint {
++				data-lanes = <0 1 2 3>;
++				remote-endpoint = <&s5k3p3_ep>;
++			};
++		};
++	};
++};
++
++&cpufreq {
++	sprd,soc-version = /bits/ 64 <0x36303654>; /* T606 */
++	status = "okay";
++};
++
++&disp {
++	status = "okay";
++};
++
++&dpu {
++	memory-region = <&framebuffer_region>;
++	status = "okay";
++};
++
++&dsi {
++	status = "okay";
++
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	panel@0 {
++		compatible = "chipone,icnl9916-720x1600-panel";
++		reg = <0>;
++		reset-gpios = <&ap_gpio 50 GPIO_ACTIVE_LOW>;
++		backlight = <&backlight>;
++
++		port {
++			panel_in: endpoint {
++				remote-endpoint = <&dsi_out>;
++			};
++		};
++	};
++};
++
++&dsi_out {
++	remote-endpoint = <&panel_in>;
++};
++
++&gpu {
++	mali-supply = <&vddgpu>;
++	status = "okay";
++};
++
++&hsphy {
++	phy-supply = <&vddusb33>;
++	status = "okay";
++};
++
++&i2c0 {
++	status = "okay";
++
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	main_lens: lens@c {
++		compatible = "dongwoon,dw9800k";
++		reg = <0x0c>;
++		vdd-supply = <&vddcammot>;
++		dongwoon,sac-mode = <2>;
++		dongwoon,vcm-prescale = <0x75>;
++	};
++
++	/* front camera (s5k3p3 0x10) */
++	camera@10 {
++		compatible = "samsung,s5k3p3";
++		reg = <0x10>;
++
++		reset-gpios = <&ap_gpio 44 GPIO_ACTIVE_LOW>;
++
++		clocks = <&mm_gate CLK_MM_SENSOR0_EB>;
++		clock-names = "mclk";
++
++		assigned-clocks = <&mm_clk CLK_SENSOR0>;
++		assigned-clock-parents = <&pll1 CLK_TWPLL_48M>;
++		assigned-clock-rates = <24000000>;
++
++		vio-supply = <&vddcamio>;
++		avdd-supply = <&vddcama0>;
++		dvdd-supply = <&vddcamd0>;
++
++		rotation = <90>;
++		orientation = <0>;
++
++		port {
++			s5k3p3_ep: endpoint {
++				data-lanes = <1 2 3 4>;
++				remote-endpoint = <&csi_2p2ro_ep>;
++			};
++		};
++	};
++
++	/* main camera */
++	camera@36 {
++		compatible = "ovti,ov64b40";
++		reg = <0x36>;
++
++		reset-gpios = <&ap_gpio 47 GPIO_ACTIVE_LOW>;
++
++		clocks = <&mm_gate CLK_MM_SENSOR0_EB>;
++		clock-names = "xclk";
++
++		assigned-clocks = <&mm_clk CLK_SENSOR0>;
++		assigned-clock-parents = <&pll1 CLK_TWPLL_48M>;
++		assigned-clock-rates = <24000000>;
++
++		dovdd-supply = <&vddcamio>;
++		avdd-supply = <&vddcama0>;
++		dvdd-supply = <&vddcamd0>;
++
++		lens-focus = <&main_lens>;
++
++		rotation = <270>;
++		orientation = <1>;
++
++		port {
++			ov64b40_ep: endpoint {
++				data-lanes = <1 2 3 4>;
++				remote-endpoint = <&csi_4lane_ep>;
++			};
++		};
++	};
++};
++
++&i2c1 {
++	status = "okay";
++
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	/* ultrawide camera */
++	camera@10 {
++		compatible = "ovti,ov8856";
++		reg = <0x10>;
++
++		reset-gpios = <&ap_gpio 41 GPIO_ACTIVE_LOW>;
++
++		clocks = <&mm_gate CLK_MM_SENSOR1_EB>;
++		clock-names = "xvclk";
++		clock-frequency = <19200000>;
++
++		assigned-clocks = <&mm_clk CLK_SENSOR1>;
++		assigned-clock-parents = <&pll1 CLK_TWPLL_96M>;
++
++		dovdd-supply = <&vddcamio>;
++		avdd-supply = <&vddcama1>;
++		dvdd-supply = <&vddcamd0>;
++
++		rotation = <270>;
++		orientation = <1>;
++
++		port {
++			ov8856_ep: endpoint {
++				link-frequencies = /bits/ 64
++					<720000000 360000000>;
++				data-lanes = <1 2>;
++				remote-endpoint = <&csi_m_ep>;
++			};
++		};
++	};
++};
++
++&i2c3 {
++	status = "okay";
++
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	touchscreen@48 {
++		compatible = "chipone,icnl9916";
++		reg = <0x48>;
++		interrupts-extended = <&ap_gpio 144 IRQ_TYPE_EDGE_FALLING>;
++		touchscreen-reset-gpios = <&ap_gpio 145 GPIO_ACTIVE_LOW>;
++		reset-gpios = <&ap_gpio 50 GPIO_ACTIVE_LOW>;
++	};
++};
++
++&i2c6 {
++	status = "okay";
++
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	/* macro camera (gc02m1, 0x37) - shares reset gpio with ov8856 */
++};
++
++&modem {
++	status = "okay";
++};
++
++&modem_dai {
++	status = "okay";
++};
++
++&pmic_typec_pd {
++	vbus-supply = <&bq25601_otg_vbus>;
++	status = "okay";
++
++	connector {
++		compatible = "usb-c-connector";
++		label = "USB-C";
++		data-role = "dual";
++		power-role = "dual";
++		try-power-role = "sink";
++		source-pdos = <PDO_FIXED(5000, 1200, PDO_FIXED_USB_COMM)>;
++		sink-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
++		op-sink-microwatt = <10000000>;
++
++		port {
++			tcpc_hs_ep: endpoint {
++				remote-endpoint = <&usb_hs_ep>;
++			};
++		};
++	};
++};
++
++&sc2730_codec {
++	status = "okay";
++};
++
++&sc2730_fgu {
++	power-supplies = <&bq25601_charger>;
++	monitored-battery = <&bat>;
++	sprd,calib-resistance-micro-ohms = <4850>;
++
++	status = "okay";
++};
++
++&sdio0 {
++	vmmc-supply = <&vddsdcore>;
++	vqmmc-supply = <&vddsdio>;
++	cd-gpios = <&eic_async 35 GPIO_ACTIVE_HIGH>;
++
++	bus-width = <4>;
++	no-sdio;
++	no-mmc;
++	sprd,phy-delay-sd-uhs-sdr104 = <0x7f 0x73 0x72 0x72>;
++	sprd,phy-delay-sd-uhs-sdr50 = <0x6e 0x7f 0x01 0x01>;
++	sprd,phy-delay-sd-highspeed = <0x7f 0x1a 0x9a 0x9a>;
++	sprd,phy-delay-legacy = <0x7f 0x1a 0x9a 0x9a>;
++	sd-uhs-sdr104;
++	sd-uhs-sdr50;
++
++	status = "okay";
++};
++
++&sound {
++	model = "reeder-s19mps";
++	widgets =
++		"Headphone", "Headphones",
++		"Speaker", "Speaker",
++		"Line", "Modem Uplink",
++		"Line", "Modem Downlink";
++	pin-switches = "Speaker";
++	audio-routing =
++		"Headphones", "HPL_OUT",
++		"Headphones", "HPR_OUT",
++		"Speaker Amp INL", "HPL_OUT",
++		"Speaker Amp INR", "HPL_OUT",
++		"Speaker", "Speaker Amp OUTL",
++		"Speaker", "Speaker Amp OUTR",
++		"Modem Uplink", "Modem DAI AOUT",
++		"Modem DAI AIN", "Modem Downlink";
++	aux-devs = <&modem_dai>, <&speaker_amp>;
++
++	status = "okay";
++
++	iis0-dai-link {
++		link-name = "IIS0";
++		dai-format = "i2s";
++		frame-inversion;
++		sprd,fixed-fmt = <24>;
++
++		codec {
++			sound-dai = <&dig_codec 0>, <&sc2730_codec 0>;
++		};
++	};
++
++	iis1-dai-link {
++		link-name = "IIS1";
++		dai-format = "i2s";
++		frame-inversion;
++		sprd,fixed-fmt = <24>;
++
++		codec {
++			sound-dai = <&dig_codec 1>, <&sc2730_codec 1>;
++		};
++	};
++
++	voice-dai-link {
++		link-name = "VOICE";
++
++		codec {
++			sound-dai = <&modem_dai>;
++		};
++	};
++};
++
++&uart0 {
++	status = "okay";
++};
++
++&uart1 {
++	status = "okay";
++};
++
++&ufs {
++	vcc-supply = <&vddemmccore>;
++	status = "okay";
++};
++
++&usb {
++	dr_mode = "otg";
++	usb-role-switch;
++	role-switch-default-mode = "peripheral";
++	status = "okay";
++
++	port {
++		usb_hs_ep: endpoint {
++			remote-endpoint = <&tcpc_hs_ep>;
++		};
++	};
++};
++
++/* Required for proximity sensor (controlled via sensor hub) */
++&vddkpled {
++	regulator-always-on;
++};
++
++&wcn {
++	enable-gpios = <&ap_gpio 118 GPIO_ACTIVE_HIGH>;
++	reset-gpios = <&ap_gpio 117 GPIO_ACTIVE_LOW>;
++	vdd-supply = <&vddwcn>;
++	vddwifipa-supply = <&vddwifipa>;
++	dcxo1v8-supply = <&vddsim2>;
++	status = "okay";
++};
+diff --git a/arch/arm64/boot/dts/sprd/ums9230.dtsi b/arch/arm64/boot/dts/sprd/ums9230.dtsi
+index ce85178ef..9bf35dc25 100644
+--- a/arch/arm64/boot/dts/sprd/ums9230.dtsi
++++ b/arch/arm64/boot/dts/sprd/ums9230.dtsi
+@@ -1636,12 +1636,40 @@ atcmd@0 {
+ 						sprd,channel-name = "lte_at0";
+ 					};
+ 
++					/* SIM 0 secondary port */
++					atcmd@1 {
++						compatible = "sprd,spipe-at";
++						reg = <1>, <1>;
++						sprd,channel-name = "lte_at1";
++					};
++
++					/* SIM 0 secondary port */
++					atcmd@2 {
++						compatible = "sprd,spipe-at";
++						reg = <2>, <2>;
++						sprd,channel-name = "lte_at2";
++					};
++
+ 					/* SIM 1 port with indications */
+ 					atcmd@3 {
+ 						compatible = "sprd,spipe-at";
+ 						reg = <3>, <3>;
+ 						sprd,channel-name = "lte_at3";
+ 					};
++
++					/* SIM 1 secondary port */
++					atcmd@4 {
++						compatible = "sprd,spipe-at";
++						reg = <4>, <4>;
++						sprd,channel-name = "lte_at4";
++					};
++
++					/* SIM 1 secondary port */
++					atcmd@5 {
++						compatible = "sprd,spipe-at";
++						reg = <5>, <5>;
++						sprd,channel-name = "lte_at5";
++					};
+ 				};
+ 
+ 				channel@7 {

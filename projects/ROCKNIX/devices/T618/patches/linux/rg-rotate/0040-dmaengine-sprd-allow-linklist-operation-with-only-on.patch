@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Tue, 15 Apr 2025 09:41:20 +0200
+Subject: [PATCH 040/225] dmaengine: sprd: allow linklist operation with only
+ one item
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The special handling for single-item lists is currently broken. Since
+the DMA controller can operate in linklist mode even if only one item is
+present, do not handle this condition separately.
+
+TODO: test if this also works on older hardware
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/dma/sprd-dma.c | 8 --------
+ 1 file changed, 8 deletions(-)
+
+diff --git a/drivers/dma/sprd-dma.c b/drivers/dma/sprd-dma.c
+index 48b1a6899..fe8ada3ef 100644
+--- a/drivers/dma/sprd-dma.c
++++ b/drivers/dma/sprd-dma.c
+@@ -1023,14 +1023,6 @@ sprd_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
+ 			start_dst = dst;
+ 		}
+ 
+-		/*
+-		 * The link-list mode needs at least 2 link-list
+-		 * configurations. If there is only one sg, it doesn't
+-		 * need to fill the link-list configuration.
+-		 */
+-		if (sglen < 2)
+-			break;
+-
+ 		ret = sprd_dma_fill_linklist_desc(chan, sglen, i, src, dst, len,
+ 						  dir, flags, slave_cfg);
+ 		if (ret) {

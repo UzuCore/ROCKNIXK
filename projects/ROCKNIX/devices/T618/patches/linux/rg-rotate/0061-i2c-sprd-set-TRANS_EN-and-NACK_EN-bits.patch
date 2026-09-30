@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sun, 8 Dec 2024 17:45:32 +0100
+Subject: [PATCH 061/225] i2c: sprd: set TRANS_EN and NACK_EN bits
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+These bits are required to complete transfers on some newer SoCs
+such as UMS9230.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/i2c/busses/i2c-sprd.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/i2c/busses/i2c-sprd.c b/drivers/i2c/busses/i2c-sprd.c
+index 1b490525d..4531a8930 100644
+--- a/drivers/i2c/busses/i2c-sprd.c
++++ b/drivers/i2c/busses/i2c-sprd.c
+@@ -31,6 +31,8 @@
+ #define ADDR_RST		0x2c
+ 
+ /* I2C_CTL */
++#define I2C_NACK_EN		BIT(22)
++#define I2C_TRANS_EN		BIT(21)
+ #define STP_EN			BIT(20)
+ #define FIFO_AF_LVL_MASK	GENMASK(19, 16)
+ #define FIFO_AF_LVL		16
+@@ -361,7 +363,8 @@ static void sprd_i2c_enable(struct sprd_i2c *i2c_dev)
+ 	sprd_i2c_clear_irq(i2c_dev);
+ 
+ 	tmp = readl(i2c_dev->base + I2C_CTL);
+-	writel(tmp | I2C_EN | I2C_INT_EN, i2c_dev->base + I2C_CTL);
++	tmp |= I2C_EN | I2C_INT_EN | I2C_TRANS_EN | I2C_NACK_EN;
++	writel(tmp, i2c_dev->base + I2C_CTL);
+ }
+ 
+ static irqreturn_t sprd_i2c_isr_thread(int irq, void *dev_id)

@@ -1,0 +1,91 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sat, 17 May 2025 14:43:01 +0200
+Subject: [PATCH 011/225] media: i2c: ov8856: remember the selected Bayer
+ format
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When getting the active pad format, return the previously selected MBUS
+code instead of the default. Also avoid changing the current format when
+initializing the default format in ov8856_open.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/media/i2c/ov8856.c | 28 ++++++++++++++++++----------
+ 1 file changed, 18 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/media/i2c/ov8856.c b/drivers/media/i2c/ov8856.c
+index 8bedb47cd..c0ff14717 100644
+--- a/drivers/media/i2c/ov8856.c
++++ b/drivers/media/i2c/ov8856.c
+@@ -1976,9 +1976,9 @@ static int ov8856_init_controls(struct ov8856 *ov8856)
+ 	return ret;
+ }
+ 
+-static void ov8856_update_pad_format(struct ov8856 *ov8856,
+-				     const struct ov8856_mode *mode,
+-				     struct v4l2_mbus_framefmt *fmt)
++static void ov8856_update_pad_format(const struct ov8856_mode *mode,
++				     struct v4l2_mbus_framefmt *fmt,
++				     u32 *mbus_index)
+ {
+ 	int index;
+ 
+@@ -1990,8 +1990,10 @@ static void ov8856_update_pad_format(struct ov8856 *ov8856,
+ 	if (index == ARRAY_SIZE(ov8856_mbus_codes))
+ 		index = mode->default_mbus_index;
+ 	fmt->code = ov8856_mbus_codes[index];
+-	ov8856->cur_mbus_index = index;
+ 	fmt->field = V4L2_FIELD_NONE;
++
++	if (mbus_index)
++		*mbus_index = index;
+ }
+ 
+ static int ov8856_start_streaming(struct ov8856 *ov8856)
+@@ -2145,10 +2147,11 @@ static int ov8856_set_format(struct v4l2_subdev *sd,
+ 				      fmt->format.height);
+ 
+ 	mutex_lock(&ov8856->mutex);
+-	ov8856_update_pad_format(ov8856, mode, &fmt->format);
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
++		ov8856_update_pad_format(mode, &fmt->format, NULL);
+ 		*v4l2_subdev_state_get_format(sd_state, fmt->pad) = fmt->format;
+ 	} else {
++		ov8856_update_pad_format(mode, &fmt->format, &ov8856->cur_mbus_index);
+ 		ov8856->cur_mode = mode;
+ 		__v4l2_ctrl_s_ctrl(ov8856->link_freq, mode->link_freq_index);
+ 		__v4l2_ctrl_s_ctrl_int64(ov8856->pixel_rate,
+@@ -2184,11 +2187,15 @@ static int ov8856_get_format(struct v4l2_subdev *sd,
+ 	struct ov8856 *ov8856 = to_ov8856(sd);
+ 
+ 	mutex_lock(&ov8856->mutex);
+-	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
++	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
+ 		fmt->format = *v4l2_subdev_state_get_format(sd_state,
+ 							    fmt->pad);
+-	else
+-		ov8856_update_pad_format(ov8856, ov8856->cur_mode, &fmt->format);
++	} else {
++		fmt->format.width = ov8856->cur_mode->width;
++		fmt->format.height = ov8856->cur_mode->height;
++		fmt->format.code = ov8856_mbus_codes[ov8856->cur_mbus_index];
++		fmt->format.field = V4L2_FIELD_NONE;
++	}
+ 
+ 	mutex_unlock(&ov8856->mutex);
+ 
+@@ -2236,8 +2243,9 @@ static int ov8856_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+ 	struct ov8856 *ov8856 = to_ov8856(sd);
+ 
+ 	mutex_lock(&ov8856->mutex);
+-	ov8856_update_pad_format(ov8856, &ov8856->priv_lane->supported_modes[0],
+-				 v4l2_subdev_state_get_format(fh->state, 0));
++	ov8856_update_pad_format(&ov8856->priv_lane->supported_modes[0],
++				 v4l2_subdev_state_get_format(fh->state, 0),
++				 NULL);
+ 	mutex_unlock(&ov8856->mutex);
+ 
+ 	return 0;

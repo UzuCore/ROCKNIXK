@@ -1,0 +1,81 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Thu, 25 Sep 2025 19:49:26 +0200
+Subject: [PATCH 063/225] power: reset: sc27xx: Use
+ devm_register_sys_off_handler
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Use the new device life-cycle managed register function to remove the
+need for global variables in the driver.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/power/reset/sc27xx-poweroff.c | 24 +++++++++++++++++-------
+ 1 file changed, 17 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/power/reset/sc27xx-poweroff.c b/drivers/power/reset/sc27xx-poweroff.c
+index 6376706bf..af000ac16 100644
+--- a/drivers/power/reset/sc27xx-poweroff.c
++++ b/drivers/power/reset/sc27xx-poweroff.c
+@@ -10,6 +10,7 @@
+ #include <linux/module.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm.h>
++#include <linux/reboot.h>
+ #include <linux/regmap.h>
+ #include <linux/syscore_ops.h>
+ 
+@@ -18,8 +19,6 @@
+ #define SC27XX_SLP_CTRL		0xdf0
+ #define SC27XX_LDO_XTL_EN	BIT(3)
+ 
+-static struct regmap *regmap;
+-
+ /*
+  * On Spreadtrum platform, we need power off system through external SC27xx
+  * series PMICs, and it is one similar SPI bus mapped by regmap to access PMIC,
+@@ -49,26 +48,37 @@ static struct syscore poweroff_syscore = {
+ 	.ops = &poweroff_syscore_ops,
+ };
+ 
+-static void sc27xx_poweroff_do_poweroff(void)
++static int sc27xx_poweroff_do_poweroff(struct sys_off_data *off_data)
+ {
++	struct regmap *regmap = off_data->cb_data;
++
+ 	/* Disable the external subsys connection's power firstly */
+ 	regmap_write(regmap, SC27XX_SLP_CTRL, SC27XX_LDO_XTL_EN);
+ 
+ 	regmap_write(regmap, SC27XX_PWR_PD_HW, SC27XX_PWR_OFF_EN);
++
++	mdelay(1000);
++
++	pr_emerg("Unable to poweroff system\n");
++
++	return NOTIFY_DONE;
+ }
+ 
+ static int sc27xx_poweroff_probe(struct platform_device *pdev)
+ {
+-	if (regmap)
+-		return -EINVAL;
++	struct regmap *regmap;
+ 
+ 	regmap = dev_get_regmap(pdev->dev.parent, NULL);
+ 	if (!regmap)
+ 		return -ENODEV;
+ 
+-	pm_power_off = sc27xx_poweroff_do_poweroff;
+ 	register_syscore(&poweroff_syscore);
+-	return 0;
++
++	return devm_register_sys_off_handler(&pdev->dev,
++					     SYS_OFF_MODE_POWER_OFF,
++					     SYS_OFF_PRIO_DEFAULT,
++					     sc27xx_poweroff_do_poweroff,
++					     regmap);
+ }
+ 
+ static const struct platform_device_id sc27xx_poweroff_id_table[] = {

@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sun, 8 Dec 2024 20:00:20 +0100
+Subject: [PATCH 028/225] drm: sprd: remove plane and CRTC destroy callbacks
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When the driver allocates planes and CRTCs as managed resources, the
+destroy callbacks must be NULL and trigger a runtime warning if they
+are present.
+
+Fixes: b07bcf34b6c9 ("drm/sprd: add Unisoc's drm display controller driver")
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/gpu/drm/sprd/sprd_dpu.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/sprd/sprd_dpu.c b/drivers/gpu/drm/sprd/sprd_dpu.c
+index a3447622a..0d9eb7787 100644
+--- a/drivers/gpu/drm/sprd/sprd_dpu.c
++++ b/drivers/gpu/drm/sprd/sprd_dpu.c
+@@ -577,7 +577,6 @@ static const struct drm_plane_helper_funcs sprd_plane_helper_funcs = {
+ static const struct drm_plane_funcs sprd_plane_funcs = {
+ 	.update_plane = drm_atomic_helper_update_plane,
+ 	.disable_plane	= drm_atomic_helper_disable_plane,
+-	.destroy = drm_plane_cleanup,
+ 	.reset = drm_atomic_helper_plane_reset,
+ 	.atomic_duplicate_state = drm_atomic_helper_plane_duplicate_state,
+ 	.atomic_destroy_state = drm_atomic_helper_plane_destroy_state,
+@@ -704,7 +703,6 @@ static const struct drm_crtc_helper_funcs sprd_crtc_helper_funcs = {
+ };
+ 
+ static const struct drm_crtc_funcs sprd_crtc_funcs = {
+-	.destroy	= drm_crtc_cleanup,
+ 	.set_config	= drm_atomic_helper_set_config,
+ 	.page_flip	= drm_atomic_helper_page_flip,
+ 	.reset		= drm_atomic_helper_crtc_reset,

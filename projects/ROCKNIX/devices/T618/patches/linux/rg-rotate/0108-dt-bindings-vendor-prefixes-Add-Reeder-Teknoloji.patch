@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akari Tsuyukusa <akkun11.open@gmail.com>
+Date: Sun, 17 May 2026 20:22:10 +0900
+Subject: [PATCH 108/225] dt-bindings: vendor-prefixes: Add Reeder Teknoloji
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Reeder Teknoloji Sanayi Ve Ticaret A.Ş. is a technology and consumer
+electronics manufacturer based in Turkey.
+Link: https://reeder.com.tr/
+
+Signed-off-by: Akari Tsuyukusa <akkun11.open@gmail.com>
+---
+ Documentation/devicetree/bindings/vendor-prefixes.yaml | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/vendor-prefixes.yaml b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+index 28784d66a..a10f8a7da 100644
+--- a/Documentation/devicetree/bindings/vendor-prefixes.yaml
++++ b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+@@ -1377,6 +1377,8 @@ patternProperties:
+     description: Unisoc Communications, Inc.
+   "^realtek,.*":
+     description: Realtek Semiconductor Corp.
++  "^reeder,.*":
++    description: Reeder Teknoloji Sanayi Ve Ticaret A.Ş.
+   "^relfor,.*":
+     description: Relfor Labs Pvt. Ltd.
+   "^remarkable,.*":

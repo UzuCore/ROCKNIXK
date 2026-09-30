@@ -1,0 +1,98 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Tue, 28 Jul 2026 00:23:39 -0500
+Subject: [PATCH 189/225] make tx threads freezable, quiet loopcheck a bit
+
+---
+ .../net/wireless/sprdwcn/platform/loopcheck.c   | 17 ++++++++++++++---
+ .../net/wireless/sprdwcn/sdio/sdiohal_common.c  | 11 ++++++++++-
+ drivers/net/wireless/sprdwcn/sdio/sdiohal_tx.c  | 11 +++++++++++
+ 3 files changed, 35 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/wireless/sprdwcn/platform/loopcheck.c b/drivers/net/wireless/sprdwcn/platform/loopcheck.c
+index 75119f9e7..58bdf5678 100644
+--- a/drivers/net/wireless/sprdwcn/platform/loopcheck.c
++++ b/drivers/net/wireless/sprdwcn/platform/loopcheck.c
+@@ -112,8 +112,9 @@ static int loopcheck_send(char *buf, unsigned int len)
+ 	else
+ 		pub_head_rsv = PUB_HEAD_RSV;
+ 
+-	WCN_INFO("%s", __wcn_get_sw_ver());
+-	WCN_INFO("tx:%s\n", buf);
++	/* Both fire every LOOPCHECK_TIMER_INTERVAL seconds -- pr_debug, not pr_info. */
++	WCN_DBG("%s", __wcn_get_sw_ver());
++	WCN_DBG("tx:%s\n", buf);
+ 	if (unlikely(!marlin_get_module_status())) {
+ 		WCN_ERR("WCN module have not open\n");
+ 		return -EIO;
+@@ -256,8 +257,18 @@ int loopcheck_init(void)
+ {
+ 	loopcheck.status = 0;
+ 	init_completion(&loopcheck.completion);
++	/*
++	 * WQ_FREEZABLE, and not create_singlethread_workqueue(): on SDIO the
++	 * loopcheck sends via sprdwcn_bus_push_list_direct(), i.e. it drives the
++	 * bus from this worker's own context rather than through the TX thread.
++	 * On an unfreezable queue that keeps happening after the freeze, which
++	 * is what makes sdiohal_suspend() fail with -EBUSY and burn ~6 s in the
++	 * power_notify() unwind. Freezing the queue also drains any in-flight
++	 * loopcheck before suspend proceeds. Still ordered, as before.
++	 * WQ_MEM_RECLAIM is dropped deliberately -- this is not a reclaim path.
++	 */
+ 	loopcheck.workqueue =
+-		create_singlethread_workqueue("WCN_LOOPCHECK_QUEUE");
++		alloc_ordered_workqueue("WCN_LOOPCHECK_QUEUE", WQ_FREEZABLE);
+ 	if (!loopcheck.workqueue) {
+ 		WCN_ERR("WCN_LOOPCHECK_QUEUE create failed");
+ 		return -ENOMEM;
+diff --git a/drivers/net/wireless/sprdwcn/sdio/sdiohal_common.c b/drivers/net/wireless/sprdwcn/sdio/sdiohal_common.c
+index 733de5e7f..3679d8461 100644
+--- a/drivers/net/wireless/sprdwcn/sdio/sdiohal_common.c
++++ b/drivers/net/wireless/sprdwcn/sdio/sdiohal_common.c
+@@ -228,7 +228,16 @@ void sdiohal_tx_down(void)
+ {
+ 	struct sdiohal_data_t *p_data = sdiohal_get_data();
+ 
+-	wait_for_completion(&p_data->tx_completed);
++	/*
++	 * TASK_FREEZABLE lets the freezer park the TX thread here, inside the
++	 * wait, and resume the wait on thaw -- so there is no early return to
++	 * handle and no completion is consumed. The caller must hold no locks
++	 * and no wake source across this, which is true at the top of
++	 * sdiohal_tx_thread()'s loop. Staying UNINTERRUPTIBLE means a signal
++	 * cannot make this return either, so the result is always 0.
++	 */
++	wait_for_completion_state(&p_data->tx_completed,
++				  TASK_UNINTERRUPTIBLE | TASK_FREEZABLE);
+ }
+ 
+ void sdiohal_tx_up(void)
+diff --git a/drivers/net/wireless/sprdwcn/sdio/sdiohal_tx.c b/drivers/net/wireless/sprdwcn/sdio/sdiohal_tx.c
+index 19f534c25..402b819f6 100644
+--- a/drivers/net/wireless/sprdwcn/sdio/sdiohal_tx.c
++++ b/drivers/net/wireless/sprdwcn/sdio/sdiohal_tx.c
+@@ -5,6 +5,7 @@
+  * Filename : sdiohal_tx.c
+  * Abstract : This file is a implementation for wcn sdio hal function
+  */
++#include <linux/freezer.h>
+ #include <linux/sched/clock.h>
+ #include "sdiohal.h"
+ 
+@@ -65,6 +66,16 @@ int sdiohal_tx_thread(void *data)
+ 	/* sched_setscheduler() is not exported to modules; use sched_set_fifo(). */
+ 	sched_set_fifo(current);
+ 
++	/*
++	 * kthreads are PF_NOFREEZE by default, so without this the freezer skips
++	 * this thread entirely and it keeps driving the SDIO bus after "Freezing
++	 * remaining freezable tasks" -- which trips sdiohal_resume_check() and
++	 * then makes sdiohal_suspend() fail with -EBUSY. The matching freezable
++	 * wait is in sdiohal_tx_down(); the freeze lands at the top of the loop
++	 * below, before any lock or wake source is taken.
++	 */
++	set_freezable();
++
+ 	while (1) {
+ 		/* Wait the semaphore */
+ 		sdiohal_tx_down();

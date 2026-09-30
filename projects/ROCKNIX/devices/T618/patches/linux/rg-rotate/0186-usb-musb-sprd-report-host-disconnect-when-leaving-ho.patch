@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Mon, 27 Jul 2026 18:18:04 -0500
+Subject: [PATCH 186/225] usb: musb: sprd: report host disconnect when leaving
+ host role
+
+An enumerated device was never torn down on unplug: it stayed in lsusb
+indefinitely and the port never came free.
+
+This board has no ID pin, so detach is signalled out of band by the TCPM
+via the role switch. The controller therefore never raises a disconnect
+interrupt of its own, and nothing in the teardown path told the root hub
+its port had lost the connection, so usbcore kept the device alive.
+
+Call musb_root_disconnect() when leaving host role, guarded on the port
+actually being enabled, as the sunxi glue does for the same reason. It
+sets the C_CONNECTION change bit and kicks usb_hcd_poll_rh_status(), which
+is what makes usbcore unbind the device.
+
+Take musb->lock across it: every other caller runs from the interrupt
+handler with the lock held, whereas the role switch does not.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+---
+ drivers/usb/musb/sprd.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/drivers/usb/musb/sprd.c b/drivers/usb/musb/sprd.c
+index 1a97f53f7..d551c21c9 100644
+--- a/drivers/usb/musb/sprd.c
++++ b/drivers/usb/musb/sprd.c
+@@ -29,6 +29,7 @@ struct sprd_glue {
+ static int sprd_otg_switch_set(struct sprd_glue *glue, enum usb_role role)
+ {
+ 	struct musb *musb = glue->musb;
++	unsigned long flags;
+ 	u8 devctl;
+ 	int ret;
+ 
+@@ -38,6 +39,20 @@ static int sprd_otg_switch_set(struct sprd_glue *glue, enum usb_role role)
+ 	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
+ 
+ 	if (glue->role != USB_ROLE_NONE) {
++		/*
++		 * Leaving host role: tell the root hub the port lost its
++		 * connection. Detach is signalled out of band by the TCPM (no ID
++		 * pin on this board), so the controller never raises a disconnect
++		 * interrupt of its own and usbcore would otherwise keep the
++		 * enumerated device around forever.
++		 */
++		if (glue->role == USB_ROLE_HOST) {
++			spin_lock_irqsave(&musb->lock, flags);
++			if (musb->port1_status & USB_PORT_STAT_ENABLE)
++				musb_root_disconnect(musb);
++			spin_unlock_irqrestore(&musb->lock, flags);
++		}
++
+ 		/* force disconnect */
+ 		musb->is_active = 0;
+ 		devctl &= ~MUSB_DEVCTL_SESSION;

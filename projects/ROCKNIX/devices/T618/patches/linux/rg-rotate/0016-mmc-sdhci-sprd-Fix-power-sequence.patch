@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sun, 15 Jun 2025 19:38:00 +0200
+Subject: [PATCH 016/225] mmc: sdhci-sprd: Fix power sequence
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Both vmmc and vmmcq need to be powered on at the MMC_POWER_UP stage.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/mmc/host/sdhci-sprd.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/mmc/host/sdhci-sprd.c b/drivers/mmc/host/sdhci-sprd.c
+index 9b1ff8cc8..3892851c6 100644
+--- a/drivers/mmc/host/sdhci-sprd.c
++++ b/drivers/mmc/host/sdhci-sprd.c
+@@ -11,6 +11,7 @@
+ #include <linux/iopoll.h>
+ #include <linux/mmc/host.h>
+ #include <linux/mmc/mmc.h>
++#include <linux/mmc/slot-gpio.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/pinctrl/consumer.h>
+@@ -427,15 +428,14 @@ static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned char mode,
+ 
+ 	switch (mode) {
+ 	case MMC_POWER_OFF:
+-		mmc_regulator_set_ocr(host->mmc, mmc->supply.vmmc, 0);
+-
+ 		mmc_regulator_disable_vqmmc(mmc);
+-		break;
+-	case MMC_POWER_ON:
+-		mmc_regulator_enable_vqmmc(mmc);
++		mmc_regulator_set_ocr(host->mmc, mmc->supply.vmmc, 0);
+ 		break;
+ 	case MMC_POWER_UP:
++	case MMC_POWER_ON:
+ 		mmc_regulator_set_ocr(host->mmc, mmc->supply.vmmc, vdd);
++		usleep_range(200, 250);
++		mmc_regulator_enable_vqmmc(mmc);
+ 		break;
+ 	}
+ }

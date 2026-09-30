@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Tue, 28 Jul 2026 14:47:17 -0500
+Subject: [PATCH 191/225] ums512.dtsi: fix nvmem cell address drift from reads
+
+---
+ arch/arm64/boot/dts/sprd/ums512.dtsi | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/sprd/ums512.dtsi b/arch/arm64/boot/dts/sprd/ums512.dtsi
+index c51a695df..375a67060 100644
+--- a/arch/arm64/boot/dts/sprd/ums512.dtsi
++++ b/arch/arm64/boot/dts/sprd/ums512.dtsi
+@@ -33,9 +33,17 @@ reserved-memory {
+ 		#size-cells = <2>;
+ 		ranges;
+ 
+-		nvmem@800 {
++		/*
++		 * The vendor sprd_cache_efuse driver reads block n from
++		 * base + 0x4 + n * 4, and its cell offsets are relative to
++		 * that skipped first word. Generic nvmem-rmem has no such
++		 * quirk, so fold the +0x4 into the base and keep the vendor
++		 * cell offsets verbatim - the same thing ums9230.dtsi does.
++		 * Size is the real cache extent: 24 blocks * 4 bytes.
++		 */
++		nvmem@804 {
+ 			compatible = "sprd,ums512-cache-efuse", "nvmem-rmem";
+-			reg = <0 0x800 0 0x3ff>;
++			reg = <0 0x804 0 0x60>;
+ 			no-map;
+ 
+ 			nvmem-layout {

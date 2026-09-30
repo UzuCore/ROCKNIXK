@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sat, 17 May 2025 20:49:28 +0200
+Subject: [PATCH 103/225] dt-bindings: serial: add compatible for Unisoc
+ UMS9230
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The UMS9230 SoC uses the same UART controller as previous SoCs. Add a
+compatible string for UMS9230 to the list.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ Documentation/devicetree/bindings/serial/sprd-uart.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/serial/sprd-uart.yaml b/Documentation/devicetree/bindings/serial/sprd-uart.yaml
+index 5bf2656af..4f3555b6f 100644
+--- a/Documentation/devicetree/bindings/serial/sprd-uart.yaml
++++ b/Documentation/devicetree/bindings/serial/sprd-uart.yaml
+@@ -24,6 +24,7 @@ properties:
+               - sprd,sc9860-uart
+               - sprd,sc9863a-uart
+               - sprd,ums512-uart
++              - sprd,ums9230-uart
+               - sprd,ums9620-uart
+           - const: sprd,sc9836-uart
+       - enum:

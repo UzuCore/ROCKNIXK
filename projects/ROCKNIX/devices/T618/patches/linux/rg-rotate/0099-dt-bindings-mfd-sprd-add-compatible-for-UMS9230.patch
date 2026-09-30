@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sat, 17 May 2025 20:59:38 +0200
+Subject: [PATCH 099/225] dt-bindings: mfd: sprd: add compatible for UMS9230
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add a compatible string for the global control registers found in the
+UMS9230 SoC.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ .../bindings/mfd/sprd,ums512-glbreg.yaml      | 23 ++++++++++++++++++-
+ 1 file changed, 22 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/mfd/sprd,ums512-glbreg.yaml b/Documentation/devicetree/bindings/mfd/sprd,ums512-glbreg.yaml
+index a750fa23d..bc08f7f7b 100644
+--- a/Documentation/devicetree/bindings/mfd/sprd,ums512-glbreg.yaml
++++ b/Documentation/devicetree/bindings/mfd/sprd,ums512-glbreg.yaml
+@@ -21,6 +21,7 @@ properties:
+     items:
+       - enum:
+           - sprd,ums512-glbregs
++          - sprd,ums9230-glbregs
+           - sprd,ums9620-glbregs
+       - const: syscon
+       - const: simple-mfd
+@@ -40,10 +41,30 @@ properties:
+ patternProperties:
+   "^clock-controller@[0-9a-f]+$":
+     type: object
+-    $ref: /schemas/clock/sprd,ums512-clk.yaml#
+     description:
+       Clock controller for the SoC clocks.
+ 
++allOf:
++  - if:
++      properties:
++        compatible:
++          contains:
++            const: sprd,ums512-glbregs
++    then:
++      patternProperties:
++        "^clock-controller@[0-9a-f]+$":
++          $ref: /schemas/clock/sprd,ums512-clk.yaml#
++
++  - if:
++      properties:
++        compatible:
++          contains:
++            const: sprd,ums9230-glbregs
++    then:
++      patternProperties:
++        "^clock-controller@[0-9a-f]+$":
++          $ref: /schemas/clock/sprd,ums9230-clk.yaml#
++
+ required:
+   - compatible
+   - reg

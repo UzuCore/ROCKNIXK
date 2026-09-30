@@ -1,0 +1,147 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Wed, 29 Jul 2026 22:10:05 -0500
+Subject: [PATCH 192/225] vbc-dai: restore ag_iis0_ext_sel each stream
+
+---
+ sound/soc/sprd/vendor/vbc-dai.c | 105 ++++++++++++++++++++++++++++----
+ 1 file changed, 94 insertions(+), 11 deletions(-)
+
+diff --git a/sound/soc/sprd/vendor/vbc-dai.c b/sound/soc/sprd/vendor/vbc-dai.c
+index 3276a4d5d..6b73d11da 100755
+--- a/sound/soc/sprd/vendor/vbc-dai.c
++++ b/sound/soc/sprd/vendor/vbc-dai.c
+@@ -5323,6 +5323,53 @@ static inline void vbc_proc_init(struct snd_soc_component *codec)
+ }
+ #endif
+ 
++/*
++ * Re-assert BIT_AG_IIS0_EXT_SEL (bit 0 of the audcp-domain
++ * REG_AGCP_AHB_EXT_ACC_AG_SEL, 0x335e003c), which routes AG IIS0 to the
++ * audio-top and is what clocks the codec on the speaker path.
++ *
++ * This bit does NOT survive a suspend that had a PCM open: vbc_normal_suspend()
++ * calls disable_access_force() to slam AGCP access to zero, the audcp-domain
++ * register loses its contents across the sleep window, and restore_access()
++ * brings access back without restoring any of the state that rode on it. With
++ * the mux clear the DSP's DAC output stage has no clock, so the DSP stops
++ * draining the vbc play fifo -- which presents as a total audio wedge across
++ * every scene (AP01 and AP23 alike) that used to need a reboot to clear.
++ *
++ * Must be written UNCONDITIONALLY: vbc_get_ag_iis_ext_sel() reports
++ * vbc_codec->ag_iis_ext_sel[], a driver-side cache, so a test-then-set would
++ * read back "already enabled" on precisely the broken case and skip the write.
++ * The write is idempotent, and arch_audio_iis_to_audio_top_enable() does its own
++ * agdsp access wake, so callers need no extra wrapping.
++ */
++static void vbc_ag_iis0_restore_route(struct vbc_codec_priv *vbc_codec)
++{
++	bool wrote = false;
++
++	if (agdsp_access_enable() != 0) {
++		pr_err("%s: agdsp_access_enable failed, AG IIS0 route not restored\n",
++		       __func__);
++		return;
++	}
++	if (agdsp_can_access()) {
++		arch_audio_iis_to_audio_top_enable(AG_IIS0, 1);
++		wrote = true;
++	} else {
++		pr_err("%s: agdsp not accessible, AG IIS0 route not restored\n",
++		       __func__);
++	}
++	agdsp_access_disable();
++
++	/*
++	 * Only claim the cached value once the register write really happened --
++	 * the old probe-time code assigned this outside both guards, so a failed
++	 * write left the cache (and therefore the ag_iis0_ext_sel control)
++	 * reporting "enable" over silent hardware.
++	 */
++	if (wrote && vbc_codec)
++		vbc_codec->ag_iis_ext_sel[AG_IIS0] = 1;
++}
++
+ static int vbc_codec_soc_probe(struct snd_soc_component *codec)
+ {
+ 	struct vbc_codec_priv *vbc_codec = snd_soc_component_get_drvdata(codec);
+@@ -5347,18 +5394,24 @@ static int vbc_codec_soc_probe(struct snd_soc_component *codec)
+ 	 *
+ 	 * This was previously dropped when i2s0 owned the mux, but the all-i2s
+ 	 * card is a separate/optional card -- when it's disabled nobody sets
+-	 * the route, so re-own it here. Safe now: arch_audio_iis_to_audio_top_
+-	 * enable() honours the agcp-ahb null-check (no NULL-deref) and does its
+-	 * own agdsp wake; gate on agdsp_can_access() so an unpowered audcp
+-	 * can't fault. The permanent agdsp vote (sprd_codec_probe) keeps the
+-	 * core awake, so the bit no longer gets reset across power cycles.
++	 * the route, so re-own it here.
++	 *
++	 * A one-shot assert here is NOT sufficient, and the claim this comment
++	 * used to make -- that "the permanent agdsp vote keeps the core awake,
++	 * so the bit no longer gets reset across power cycles" -- is false. The
++	 * bit is lost on every suspend that had a PCM open. It is therefore
++	 * re-asserted on the paths that can lose it (see
++	 * vbc_ag_iis0_restore_route() and its callers in dsp_startup() and
++	 * vbc_normal_resume()); probe only needs to establish it for the boot
++	 * case.
++	 *
++	 * Note this call is also why the old code needed an "amixer sset
++	 * ag_iis0_ext_sel enable" from userspace despite setting the bit here:
++	 * agdsp access is not always available this early, and the cache was
++	 * assigned outside the guards, so the control claimed enable over
++	 * hardware that had never been written.
+ 	 */
+-	if (agdsp_access_enable() == 0) {
+-		if (agdsp_can_access())
+-			arch_audio_iis_to_audio_top_enable(AG_IIS0, 1);
+-		agdsp_access_disable();
+-	}
+-	vbc_codec->ag_iis_ext_sel[AG_IIS0] = 1;
++	vbc_ag_iis0_restore_route(vbc_codec);
+ 
+ 	snd_soc_dapm_ignore_suspend(dapm, "BE_DAI_OFFLOAD_CODEC_P");
+ 	snd_soc_dapm_ignore_suspend(dapm, "BE_DAI_FM_CODEC_P");
+@@ -5878,6 +5931,18 @@ static int vbc_normal_resume(void)
+ 
+ 	pm_vbc = aud_pm_vbc_get();
+ 	restore_access();
++	/*
++	 * restore_access() re-enables AGCP access but restores none of the
++	 * audcp-domain register state that was lost while access was revoked.
++	 * BIT_AG_IIS0_EXT_SEL is one such casualty and it silently kills the
++	 * DSP's output clock, so put it back here -- on the same path, and
++	 * immediately after, the disable_access_force() that dropped it.
++	 *
++	 * Ordering: this must land before the resume replay sends dsp_startup
++	 * from normal_resume()/vbc_normal_restore_scene(), or the DSP starts a
++	 * scene with no output clock and wedges exactly as before.
++	 */
++	vbc_ag_iis0_restore_route(NULL);
+ 	pr_info("%s resumed\n", __func__);
+ 
+ 	return 0;
+@@ -6310,6 +6375,24 @@ static int dsp_startup(struct vbc_codec_priv *vbc_codec,
+ 
+ 	if (!vbc_codec)
+ 		return 0;
++	/*
++	 * Re-assert the AG IIS0 route before telling the DSP to start anything.
++	 * The bit does not survive a suspend that had a PCM open, and a scene
++	 * started without the output clock wedges the DSP until the bit is
++	 * restored AND a fresh scene is started -- see
++	 * vbc_ag_iis0_restore_route().
++	 *
++	 * This is the common choke point for every scene (normal AP01, AP23,
++	 * fast, offload, voice, loop, fm, ...) rather than each scene's own
++	 * .startup, so all of them are covered; the wedge was global across
++	 * scenes, so the fix has to be too. It also means a plain close/re-open
++	 * recovers, which covers triggers with no suspend involved at all, such
++	 * as the pipewire node pause/resume on an ES<->emulator switch.
++	 *
++	 * Called before agdsp_access_enable() below so the access hold is not
++	 * nested; the helper takes its own.
++	 */
++	vbc_ag_iis0_restore_route(vbc_codec);
+ 	ret = agdsp_access_enable();
+ 	if (ret) {
+ 		pr_err("%s:agdsp_access_enable:error:%d", __func__, ret);

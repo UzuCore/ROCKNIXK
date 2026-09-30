@@ -1,0 +1,1104 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sun, 8 Dec 2024 17:32:20 +0100
+Subject: [PATCH 072/225] usb: musb: add support for Unisoc platform
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add a driver with support for the dual-role MUSB controller found in
+Spreadtrum/Unisoc SoCs. This platform has its own type of DMA controller
+and does not support PIO-only mode (except for EP0, reading from FIFOs
+only returns zeros).
+
+Host mode still seems to break when trying to transmit large packets.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/usb/musb/Kconfig       |   6 +
+ drivers/usb/musb/Makefile      |   1 +
+ drivers/usb/musb/musb_core.h   |   1 +
+ drivers/usb/musb/musb_dma.h    |   6 +
+ drivers/usb/musb/musb_gadget.c |  19 +-
+ drivers/usb/musb/musb_host.c   |  22 +-
+ drivers/usb/musb/sprd.c        | 360 +++++++++++++++++++++++++++++
+ drivers/usb/musb/sprd_dma.c    | 406 +++++++++++++++++++++++++++++++++
+ drivers/usb/musb/sprd_dma.h    | 105 +++++++++
+ 9 files changed, 916 insertions(+), 10 deletions(-)
+ create mode 100644 drivers/usb/musb/sprd.c
+ create mode 100644 drivers/usb/musb/sprd_dma.c
+ create mode 100644 drivers/usb/musb/sprd_dma.h
+
+diff --git a/drivers/usb/musb/Kconfig b/drivers/usb/musb/Kconfig
+index f56929267..4a6d61628 100644
+--- a/drivers/usb/musb/Kconfig
++++ b/drivers/usb/musb/Kconfig
+@@ -123,6 +123,12 @@ config USB_MUSB_POLARFIRE_SOC
+ 	  This support is also available as a module.  If so, the module
+ 	  will be called mpfs.
+ 
++config USB_MUSB_SPRD
++	tristate "Unisoc SoC platforms"
++	depends on ARCH_SPRD || COMPILE_TEST
++	depends on !MUSB_PIO_ONLY
++	select USB_MUSB_DUAL_ROLE
++
+ comment "MUSB DMA mode"
+ 
+ config MUSB_PIO_ONLY
+diff --git a/drivers/usb/musb/Makefile b/drivers/usb/musb/Makefile
+index 5dccf0e45..b773a04c0 100644
+--- a/drivers/usb/musb/Makefile
++++ b/drivers/usb/musb/Makefile
+@@ -24,6 +24,7 @@ obj-$(CONFIG_USB_MUSB_JZ4740)			+= jz4740.o
+ obj-$(CONFIG_USB_MUSB_SUNXI)			+= sunxi.o
+ obj-$(CONFIG_USB_MUSB_MEDIATEK)      		+= mediatek.o
+ obj-$(CONFIG_USB_MUSB_POLARFIRE_SOC)		+= mpfs.o
++obj-$(CONFIG_USB_MUSB_SPRD)			+= sprd.o sprd_dma.o
+ 
+ # the kconfig must guarantee that only one of the
+ # possible I/O schemes will be enabled at a time ...
+diff --git a/drivers/usb/musb/musb_core.h b/drivers/usb/musb/musb_core.h
+index 91b5b6b66..7722134a1 100644
+--- a/drivers/usb/musb/musb_core.h
++++ b/drivers/usb/musb/musb_core.h
+@@ -143,6 +143,7 @@ struct musb_io;
+  */
+ struct musb_platform_ops {
+ 
++#define MUSB_DMA_SPRD		BIT(10)
+ #define MUSB_G_NO_SKB_RESERVE	BIT(9)
+ #define MUSB_DA8XX		BIT(8)
+ #define MUSB_PRESERVE_SESSION	BIT(7)
+diff --git a/drivers/usb/musb/musb_dma.h b/drivers/usb/musb/musb_dma.h
+index 0cd7fc468..f2170f7e9 100644
+--- a/drivers/usb/musb/musb_dma.h
++++ b/drivers/usb/musb/musb_dma.h
+@@ -49,6 +49,12 @@ struct musb_hw_ep;
+ #define	is_dma_capable()	(1)
+ #endif
+ 
++#ifdef CONFIG_USB_MUSB_SPRD
++#define musb_dma_sprd(musb)		(musb->ops->quirks & MUSB_DMA_SPRD)
++#else
++#define musb_dma_sprd(musb)		0
++#endif
++
+ #ifdef CONFIG_USB_UX500_DMA
+ #define musb_dma_ux500(musb)		(musb->ops->quirks & MUSB_DMA_UX500)
+ #else
+diff --git a/drivers/usb/musb/musb_gadget.c b/drivers/usb/musb/musb_gadget.c
+index 016d3f3fc..56ffd5e2a 100644
+--- a/drivers/usb/musb/musb_gadget.c
++++ b/drivers/usb/musb/musb_gadget.c
+@@ -281,7 +281,8 @@ static void txstate(struct musb *musb, struct musb_request *req)
+ 
+ 		/* MUSB_TXCSR_P_ISO is still set correctly */
+ 
+-		if (musb_dma_inventra(musb) || musb_dma_ux500(musb)) {
++		if (musb_dma_inventra(musb) || musb_dma_ux500(musb) ||
++		    musb_dma_sprd(musb)) {
+ 			if (request_size < musb_ep->packet_sz)
+ 				musb_ep->dma->desired_mode = 0;
+ 			else
+@@ -554,6 +555,22 @@ static void rxstate(struct musb *musb, struct musb_request *req)
+ 		return;
+ 	}
+ 
++	if (musb_dma_sprd(musb) && is_buffer_mapped(req)) {
++		struct dma_controller	*c = musb->dma_controller;
++		struct dma_channel	*channel = musb_ep->dma;
++
++		csr |= MUSB_RXCSR_AUTOCLEAR | MUSB_RXCSR_DMAMODE |
++			MUSB_RXCSR_DMAENAB;
++		musb_writew(epio, MUSB_RXCSR, csr);
++
++		c->channel_program(channel,
++				   musb_ep->packet_sz,
++				   0,
++				   request->dma + request->actual,
++				   request->length - request->actual);
++		return;
++	}
++
+ 	if (is_cppi_enabled(musb) && is_buffer_mapped(req)) {
+ 		struct dma_controller	*c = musb->dma_controller;
+ 		struct dma_channel	*channel = musb_ep->dma;
+diff --git a/drivers/usb/musb/musb_host.c b/drivers/usb/musb/musb_host.c
+index 8efd2fa47..68972fe78 100644
+--- a/drivers/usb/musb/musb_host.c
++++ b/drivers/usb/musb/musb_host.c
+@@ -169,7 +169,7 @@ static inline void musb_h_tx_dma_start(struct musb_hw_ep *ep)
+ 	/* NOTE: no locks here; caller should lock and select EP */
+ 	txcsr = musb_readw(ep->regs, MUSB_TXCSR);
+ 	txcsr |= MUSB_TXCSR_DMAENAB | MUSB_TXCSR_H_WZC_BITS;
+-	if (is_cppi_enabled(ep->musb))
++	if (is_cppi_enabled(ep->musb) || musb_dma_sprd(ep->musb))
+ 		txcsr |= MUSB_TXCSR_DMAMODE;
+ 	musb_writew(ep->regs, MUSB_TXCSR, txcsr);
+ }
+@@ -269,7 +269,8 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
+ 
+ 		if (!hw_ep->tx_channel)
+ 			musb_h_tx_start(hw_ep);
+-		else if (is_cppi_enabled(musb) || tusb_dma_omap(musb))
++		else if (is_cppi_enabled(musb) || tusb_dma_omap(musb) ||
++			 musb_dma_sprd(musb))
+ 			musb_h_tx_dma_start(hw_ep);
+ 	}
+ }
+@@ -634,7 +635,8 @@ static bool musb_tx_dma_program(struct dma_controller *dma,
+ 	if (musb_dma_inventra(hw_ep->musb) || musb_dma_ux500(hw_ep->musb))
+ 		musb_tx_dma_set_mode_mentor(hw_ep, qh,
+ 					    &length, &mode);
+-	else if (is_cppi_enabled(hw_ep->musb) || tusb_dma_omap(hw_ep->musb))
++	else if (is_cppi_enabled(hw_ep->musb) || tusb_dma_omap(hw_ep->musb) ||
++		 musb_dma_sprd(hw_ep->musb))
+ 		musb_tx_dma_set_mode_cppi_tusb(hw_ep, urb, &mode);
+ 	else
+ 		return false;
+@@ -861,7 +863,8 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
+ 
+ 		/* kick things off */
+ 
+-		if ((is_cppi_enabled(musb) || tusb_dma_omap(musb)) && dma_channel) {
++		if ((is_cppi_enabled(musb) || tusb_dma_omap(musb) ||
++		     musb_dma_sprd(musb)) && dma_channel) {
+ 			/* Candidate for DMA */
+ 			dma_channel->actual_len = 0L;
+ 			qh->segsize = len;
+@@ -1411,7 +1414,8 @@ void musb_host_tx(struct musb *musb, u8 epnum)
+ 	} else if ((usb_pipeisoc(pipe) || transfer_pending) && dma) {
+ 		if (musb_tx_dma_program(musb->dma_controller, hw_ep, qh, urb,
+ 				offset, length)) {
+-			if (is_cppi_enabled(musb) || tusb_dma_omap(musb))
++			if (is_cppi_enabled(musb) || tusb_dma_omap(musb) ||
++			    musb_dma_sprd(musb))
+ 				musb_h_tx_dma_start(hw_ep);
+ 			return;
+ 		}
+@@ -1459,7 +1463,7 @@ void musb_host_tx(struct musb *musb, u8 epnum)
+ 			MUSB_TXCSR_H_WZC_BITS | MUSB_TXCSR_TXPKTRDY);
+ }
+ 
+-#ifdef CONFIG_USB_TI_CPPI41_DMA
++#if defined(CONFIG_USB_TI_CPPI41_DMA)
+ /* Seems to set up ISO for cppi41 and not advance len. See commit c57c41d */
+ static int musb_rx_dma_iso_cppi41(struct dma_controller *dma,
+ 				  struct musb_hw_ep *hw_ep,
+@@ -1497,7 +1501,7 @@ static inline int musb_rx_dma_iso_cppi41(struct dma_controller *dma,
+ #endif
+ 
+ #if defined(CONFIG_USB_INVENTRA_DMA) || defined(CONFIG_USB_UX500_DMA) || \
+-	defined(CONFIG_USB_TI_CPPI41_DMA)
++	defined(CONFIG_USB_TI_CPPI41_DMA) || defined(CONFIG_USB_MUSB_SPRD)
+ /* Host side RX (IN) using Mentor DMA works as follows:
+ 	submit_urb ->
+ 		- if queue was empty, ProgramEndpoint
+@@ -1883,7 +1887,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
+ 		musb_writew(hw_ep->regs, MUSB_RXCSR, val);
+ 
+ 		if (musb_dma_inventra(musb) || musb_dma_ux500(musb) ||
+-		    musb_dma_cppi41(musb)) {
++		    musb_dma_cppi41(musb) || musb_dma_sprd(musb)) {
+ 			    done = musb_rx_dma_inventra_cppi41(c, hw_ep, qh, urb, xfer_len);
+ 			    musb_dbg(hw_ep->musb,
+ 				    "ep %d dma %s, rxcsr %04x, rxcount %d",
+@@ -1912,7 +1916,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
+ 
+ 		/* we are expecting IN packets */
+ 		if ((musb_dma_inventra(musb) || musb_dma_ux500(musb) ||
+-		    musb_dma_cppi41(musb)) && dma) {
++		    musb_dma_cppi41(musb) || musb_dma_sprd(musb)) && dma) {
+ 			musb_dbg(hw_ep->musb,
+ 				"RX%d count %d, buffer 0x%llx len %d/%d",
+ 				epnum, musb_readw(epio, MUSB_RXCOUNT),
+diff --git a/drivers/usb/musb/sprd.c b/drivers/usb/musb/sprd.c
+new file mode 100644
+index 000000000..672c948aa
+--- /dev/null
++++ b/drivers/usb/musb/sprd.c
+@@ -0,0 +1,360 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (C) 2024 Otto Pflüger
++ */
++
++#include <linux/clk.h>
++#include <linux/delay.h>
++#include <linux/dma-mapping.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/of_platform.h>
++#include <linux/platform_device.h>
++#include <linux/usb/role.h>
++#include "musb_core.h"
++#include "sprd_dma.h"
++
++struct sprd_glue {
++	struct device *dev;
++	struct musb *musb;
++	struct platform_device *musb_pdev;
++	struct phy *phy;
++	struct clk *clk;
++	enum usb_role role;
++	struct usb_role_switch *role_sw;
++};
++
++static int sprd_otg_switch_set(struct sprd_glue *glue, enum usb_role role)
++{
++	struct musb *musb = glue->musb;
++	u8 devctl;
++
++	if (role == glue->role)
++		return 0;
++
++	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
++
++	if (glue->role != USB_ROLE_NONE) {
++		/* force disconnect */
++		musb->is_active = 0;
++		devctl &= ~MUSB_DEVCTL_SESSION;
++		musb_writeb(musb->mregs, MUSB_DEVCTL, devctl);
++		phy_power_off(glue->phy);
++		/* wait for disconnect event */
++		msleep(20);
++	}
++
++	switch (role) {
++	case USB_ROLE_HOST:
++		musb->is_active = 1;
++		musb_set_state(musb, OTG_STATE_A_IDLE);
++		MUSB_HST_MODE(musb);
++		devctl |= MUSB_DEVCTL_SESSION;
++		musb_writeb(musb->mregs, MUSB_DEVCTL, devctl);
++		phy_power_on(glue->phy);
++		phy_set_mode(glue->phy, PHY_MODE_USB_HOST);
++		break;
++	case USB_ROLE_DEVICE:
++		musb_set_state(musb, OTG_STATE_B_IDLE);
++		MUSB_DEV_MODE(musb);
++		phy_power_on(glue->phy);
++		phy_set_mode(glue->phy, PHY_MODE_USB_DEVICE);
++		break;
++	case USB_ROLE_NONE:
++	default:
++		/* keep phy turned off */
++		break;
++	}
++
++	glue->role = role;
++
++	return 0;
++}
++
++static int musb_usb_role_sx_set(struct usb_role_switch *sw, enum usb_role role)
++{
++	return sprd_otg_switch_set(usb_role_switch_get_drvdata(sw), role);
++}
++
++static enum usb_role musb_usb_role_sx_get(struct usb_role_switch *sw)
++{
++	struct sprd_glue *glue = usb_role_switch_get_drvdata(sw);
++
++	return glue->role;
++}
++
++static int sprd_otg_switch_init(struct sprd_glue *glue)
++{
++	struct usb_role_switch_desc role_sx_desc = { 0 };
++
++	role_sx_desc.set = musb_usb_role_sx_set;
++	role_sx_desc.get = musb_usb_role_sx_get;
++	role_sx_desc.allow_userspace_control = true;
++	role_sx_desc.fwnode = dev_fwnode(glue->dev);
++	role_sx_desc.driver_data = glue;
++	glue->role_sw = usb_role_switch_register(glue->dev, &role_sx_desc);
++
++	return PTR_ERR_OR_ZERO(glue->role_sw);
++}
++
++static void sprd_otg_switch_exit(struct sprd_glue *glue)
++{
++	return usb_role_switch_unregister(glue->role_sw);
++}
++
++static irqreturn_t sprd_musb_interrupt(int irq, void *__hci)
++{
++	unsigned long flags;
++	irqreturn_t retval = IRQ_NONE;
++	struct musb *musb = __hci;
++	u32 int_dma;
++
++	spin_lock_irqsave(&musb->lock, flags);
++	musb->int_usb = musb_readb(musb->mregs, MUSB_INTRUSB);
++	musb->int_rx = musb_readw(musb->mregs, MUSB_INTRRX);
++	musb->int_tx = musb_readw(musb->mregs, MUSB_INTRTX);
++
++	int_dma = musb_readl(musb->mregs, MUSB_DMA_INTR_MASK_STATUS);
++
++	if (musb->int_usb || musb->int_tx || musb->int_rx)
++		retval = musb_interrupt(musb);
++
++	if (int_dma)
++		retval |= sprd_musb_dma_interrupt(musb, int_dma);
++
++	spin_unlock_irqrestore(&musb->lock, flags);
++
++	return retval;
++}
++
++static int sprd_musb_set_mode(struct musb *musb, u8 mode)
++{
++	struct device *dev = musb->controller;
++	struct sprd_glue *glue = dev_get_drvdata(dev->parent);
++	enum usb_role new_role;
++
++	switch (mode) {
++	case MUSB_HOST:
++		new_role = USB_ROLE_HOST;
++		break;
++	case MUSB_PERIPHERAL:
++		new_role = USB_ROLE_DEVICE;
++		break;
++	case MUSB_OTG:
++		new_role = USB_ROLE_NONE;
++		break;
++	default:
++		dev_err(glue->dev, "Invalid mode request\n");
++		return -EINVAL;
++	}
++
++	sprd_otg_switch_set(glue, new_role);
++
++	return 0;
++}
++
++static int sprd_musb_init(struct musb *musb)
++{
++	struct device *dev = musb->controller;
++	struct sprd_glue *glue = dev_get_drvdata(dev->parent);
++	int ret;
++
++	glue->musb = musb;
++	musb->phy = glue->phy;
++	musb->is_host = false;
++	musb->isr = sprd_musb_interrupt;
++
++	ret = phy_init(glue->phy);
++	if (ret)
++		return ret;
++
++	if (musb->port_mode == MUSB_OTG) {
++		ret = sprd_otg_switch_init(glue);
++		if (ret)
++			goto err_otg_switch_init;
++	}
++
++	return 0;
++
++err_otg_switch_init:
++	phy_exit(glue->phy);
++
++	return ret;
++}
++
++static int sprd_musb_exit(struct musb *musb)
++{
++	struct device *dev = musb->controller;
++	struct sprd_glue *glue = dev_get_drvdata(dev->parent);
++
++	sprd_otg_switch_set(glue, USB_ROLE_NONE);
++	sprd_otg_switch_exit(glue);
++	phy_exit(glue->phy);
++	clk_disable_unprepare(glue->clk);
++
++	return 0;
++}
++
++static const struct musb_platform_ops sprd_musb_ops = {
++	.quirks = MUSB_DMA_SPRD,
++	.init = sprd_musb_init,
++	.exit = sprd_musb_exit,
++	.dma_init = sprd_musb_dma_controller_create,
++	.dma_exit = sprd_musb_dma_controller_destroy,
++	.set_mode = sprd_musb_set_mode,
++};
++
++#define SPRD_MUSB_MAX_EP_NUM	16
++#define SPRD_MUSB_RAM_BITS	13
++
++static struct musb_fifo_cfg sprd_musb_mode_cfg[] = {
++	MUSB_EP_FIFO_DOUBLE(1, FIFO_TX, 512),
++	MUSB_EP_FIFO_SINGLE(1, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(2, FIFO_TX, 512),
++	MUSB_EP_FIFO_DOUBLE(2, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(3, FIFO_TX, 512),
++	MUSB_EP_FIFO_DOUBLE(3, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(4, FIFO_TX, 512),
++	MUSB_EP_FIFO_DOUBLE(4, FIFO_RX, 512),
++	MUSB_EP_FIFO_SINGLE(5, FIFO_TX, 1024),
++	MUSB_EP_FIFO_SINGLE(5, FIFO_RX, 4096),
++	MUSB_EP_FIFO_DOUBLE(6, FIFO_TX, 1024),
++	MUSB_EP_FIFO_DOUBLE(6, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(7, FIFO_TX, 1024),
++	MUSB_EP_FIFO_DOUBLE(7, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(8, FIFO_TX, 1024),
++	MUSB_EP_FIFO_DOUBLE(8, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(9, FIFO_TX, 1024),
++	MUSB_EP_FIFO_DOUBLE(9, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(10, FIFO_TX, 512),
++	MUSB_EP_FIFO_DOUBLE(10, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(11, FIFO_TX, 512),
++	MUSB_EP_FIFO_DOUBLE(11, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(12, FIFO_TX, 512),
++	MUSB_EP_FIFO_DOUBLE(12, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(13, FIFO_TX, 8),
++	MUSB_EP_FIFO_DOUBLE(13, FIFO_RX, 8),
++	MUSB_EP_FIFO_DOUBLE(14, FIFO_TX, 8),
++	MUSB_EP_FIFO_DOUBLE(14, FIFO_RX, 8),
++	MUSB_EP_FIFO_DOUBLE(15, FIFO_TX, 8),
++	MUSB_EP_FIFO_DOUBLE(15, FIFO_RX, 8),
++};
++
++static const struct musb_hdrc_config sprd_musb_hdrc_config = {
++	.fifo_cfg = sprd_musb_mode_cfg,
++	.fifo_cfg_size = ARRAY_SIZE(sprd_musb_mode_cfg),
++	.multipoint = true,
++	.dyn_fifo = true,
++	.num_eps = SPRD_MUSB_MAX_EP_NUM,
++	.ram_bits = SPRD_MUSB_RAM_BITS,
++};
++
++static const struct platform_device_info sprd_dev_info = {
++	.name = "musb-hdrc",
++	.id = PLATFORM_DEVID_AUTO,
++	.dma_mask = DMA_BIT_MASK(32),
++};
++
++static int sprd_musb_probe(struct platform_device *pdev)
++{
++	struct musb_hdrc_platform_data *pdata;
++	struct sprd_glue *glue;
++	struct platform_device_info pinfo;
++	struct device *dev = &pdev->dev;
++	struct device_node *np = dev->of_node;
++	int ret;
++
++	glue = devm_kzalloc(dev, sizeof(*glue), GFP_KERNEL);
++	if (!glue)
++		return -ENOMEM;
++
++	glue->dev = dev;
++	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
++	if (!pdata)
++		return -ENOMEM;
++
++	ret = of_platform_populate(np, NULL, NULL, dev);
++	if (ret)
++		return dev_err_probe(dev, ret,
++				"failed to create child devices at %p\n", np);
++
++	glue->clk = devm_clk_get(dev, NULL);
++	if (IS_ERR(glue->clk))
++		return dev_err_probe(dev, PTR_ERR(glue->clk),
++				"failed to get clock\n");
++
++	pdata->config = &sprd_musb_hdrc_config;
++	pdata->platform_ops = &sprd_musb_ops;
++	pdata->mode = usb_get_dr_mode(dev);
++
++	if (IS_ENABLED(CONFIG_USB_MUSB_HOST))
++		pdata->mode = USB_DR_MODE_HOST;
++	else if (IS_ENABLED(CONFIG_USB_MUSB_GADGET))
++		pdata->mode = USB_DR_MODE_PERIPHERAL;
++
++	glue->role = USB_ROLE_NONE;
++
++	glue->phy = devm_of_phy_get_by_index(dev, dev->of_node, 0);
++	if (IS_ERR(glue->phy)) {
++		return dev_err_probe(dev, PTR_ERR(glue->phy),
++			"failed to get phy\n");
++	}
++
++	platform_set_drvdata(pdev, glue);
++
++	ret = clk_prepare_enable(glue->clk);
++	if (ret)
++		return ret;
++
++	pinfo = sprd_dev_info;
++	pinfo.parent = dev;
++	pinfo.res = pdev->resource;
++	pinfo.num_res = pdev->num_resources;
++	pinfo.data = pdata;
++	pinfo.size_data = sizeof(*pdata);
++	pinfo.fwnode = of_fwnode_handle(np);
++	pinfo.of_node_reused = true;
++
++	glue->musb_pdev = platform_device_register_full(&pinfo);
++	if (IS_ERR(glue->musb_pdev)) {
++		ret = PTR_ERR(glue->musb_pdev);
++		dev_err(dev, "failed to register musb device: %d\n", ret);
++		goto err_device_register;
++	}
++
++	return 0;
++
++err_device_register:
++	clk_disable_unprepare(glue->clk);
++
++	return ret;
++}
++
++static void sprd_musb_remove(struct platform_device *pdev)
++{
++	struct sprd_glue *glue = platform_get_drvdata(pdev);
++
++	platform_device_unregister(glue->musb_pdev);
++}
++
++#ifdef CONFIG_OF
++static const struct of_device_id sprd_musb_match[] = {
++	{ .compatible = "sprd,musb" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sprd_musb_match);
++#endif
++
++static struct platform_driver sprd_musb_driver = {
++	.probe = sprd_musb_probe,
++	.remove = sprd_musb_remove,
++	.driver = {
++		   .name = "musb-sprd",
++		   .of_match_table = of_match_ptr(sprd_musb_match),
++	},
++};
++
++module_platform_driver(sprd_musb_driver);
++
++MODULE_DESCRIPTION("Unisoc MUSB Glue Layer");
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/usb/musb/sprd_dma.c b/drivers/usb/musb/sprd_dma.c
+new file mode 100644
+index 000000000..4d218d164
+--- /dev/null
++++ b/drivers/usb/musb/sprd_dma.c
+@@ -0,0 +1,406 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (C) 2024 Otto Pflüger
++ *
++ * Based on Spreadtrum downstream code,
++ *  Copyright (c) 2018 Spreadtrum Co., Ltd.
++ * and on musb_dma.c,
++ *  Copyright 2005 Mentor Graphics Corporation
++ *  Copyright (C) 2005-2007 by Texas Instruments
++ */
++#include <linux/device.h>
++#include <linux/dma-mapping.h>
++#include <linux/interrupt.h>
++#include <linux/platform_device.h>
++#include <linux/slab.h>
++#include "musb_core.h"
++#include "sprd_dma.h"
++
++#define MAX_NODES_PER_CHANNEL 2048
++
++struct sprd_musb_dma_channel {
++	struct dma_channel		channel;
++	struct sprd_musb_dma_controller	*controller;
++	u32				start_addr;
++	u32				len;
++	u8				idx;
++	u8				epnum;
++	u8				transmit;
++};
++
++struct sprd_musb_dma_controller {
++	struct dma_controller		controller;
++	struct sprd_musb_dma_channel	channel[MUSB_DMA_CHANNELS+1];
++	void				*private_data;
++	void __iomem			*base;
++	u32				used_channels;
++	void				*linklist;
++	dma_addr_t 			linklist_dma_addr;
++};
++
++static void dma_channel_release(struct dma_channel *channel);
++
++static void dma_controller_stop(struct sprd_musb_dma_controller *controller)
++{
++	struct musb *musb = controller->private_data;
++	struct dma_channel *channel;
++	u8 bit;
++
++	if (controller->used_channels != 0) {
++		dev_err(musb->controller,
++			"Stopping DMA controller while channel active\n");
++
++		for (bit = 1; bit <= MUSB_DMA_CHANNELS; bit++) {
++			if (controller->used_channels & (1 << bit)) {
++				channel = &controller->channel[bit].channel;
++				dma_channel_release(channel);
++
++				if (!controller->used_channels)
++					break;
++			}
++		}
++	}
++}
++
++static struct dma_channel *dma_channel_allocate(struct dma_controller *c,
++				struct musb_hw_ep *hw_ep, u8 transmit)
++{
++	struct sprd_musb_dma_controller *controller = container_of(c,
++			struct sprd_musb_dma_controller, controller);
++	struct sprd_musb_dma_channel *musb_channel = NULL;
++	struct dma_channel *channel = NULL;
++	u8 bit = hw_ep->epnum + (transmit ? 0 : 15);
++
++	if (controller->used_channels & (1 << bit))
++		return NULL;
++
++	controller->used_channels |= (1 << bit);
++	musb_channel = &(controller->channel[bit]);
++	musb_channel->controller = controller;
++	musb_channel->idx = bit;
++	musb_channel->epnum = hw_ep->epnum;
++	musb_channel->transmit = transmit;
++	channel = &(musb_channel->channel);
++	channel->private_data = musb_channel;
++	channel->status = MUSB_DMA_STATUS_FREE;
++	channel->max_len = 0xfffc * MAX_NODES_PER_CHANNEL + 3;
++	/* Tx => mode 1; Rx => mode 0 */
++	channel->desired_mode = transmit;
++	channel->actual_len = 0;
++
++	return channel;
++}
++
++static void dma_channel_release(struct dma_channel *channel)
++{
++	struct sprd_musb_dma_channel *musb_channel = channel->private_data;
++
++	channel->actual_len = 0;
++
++	musb_channel->controller->used_channels &= ~(1 << musb_channel->idx);
++
++	channel->status = MUSB_DMA_STATUS_UNKNOWN;
++}
++
++static void configure_channel(struct dma_channel *channel,
++				dma_addr_t dma_addr, u32 len)
++{
++	struct sprd_musb_dma_channel *musb_channel = channel->private_data;
++	struct sprd_musb_dma_controller *controller = musb_channel->controller;
++	struct musb *musb = controller->private_data;
++	void __iomem *mbase = controller->base;
++	u8 bchannel = musb_channel->idx;
++	struct sprd_musb_linklist_node *linklist;
++	unsigned long ll_offset;
++	dma_addr_t next_boundary;
++	u64 list_addr;
++	u32 tmp_len, csr = 0;
++	int i = 0;
++
++	dev_dbg(musb->controller, "%cx len=%u on channel %d\n",
++		musb_channel->transmit ? 'T' : 'R', len, bchannel);
++
++	ll_offset = sizeof(struct sprd_musb_linklist_node) *
++		    MAX_NODES_PER_CHANNEL * (bchannel - 1);
++	list_addr = (u64)controller->linklist_dma_addr + ll_offset;
++	linklist = controller->linklist + ll_offset;
++
++	do {
++		if (len < 0x10000)
++			tmp_len = len;
++		else
++			tmp_len = 0xfffc;
++
++		next_boundary = (dma_addr | 0xfffffff) + 1;
++		if ((dma_addr + tmp_len) > next_boundary)
++			tmp_len = (u32)(next_boundary - dma_addr);
++
++		linklist->addr = (u32)dma_addr;
++		linklist->data_addr = 0;
++		linklist->frag_len = 32;
++		linklist->blk_len = tmp_len;
++		linklist->list_end = tmp_len == len;
++		linklist->sp = 0;
++		linklist->ioc = linklist->list_end;
++		linklist++;
++
++		dma_addr += tmp_len;
++		len -= tmp_len;
++		i += 1;
++	} while (len > 0 && i < MAX_NODES_PER_CHANNEL);
++
++	wmb();
++
++	/* set linklist pointer */
++	musb_writel(mbase, MUSB_DMA_CHN_LLIST_PTR(bchannel), (u32)list_addr);
++	musb_writel(mbase, MUSB_DMA_CHN_ADDR_H(bchannel), 0);
++
++	if (musb_channel->transmit) {
++		/* enable linklist end interrupt */
++		csr = musb_readl(mbase, MUSB_DMA_CHN_INTR(bchannel));
++		csr |= CHN_LLIST_INT_EN | CHN_CLEAR_INT_EN;
++		musb_writel(mbase, MUSB_DMA_CHN_INTR(bchannel), csr);
++
++		/* enable channel and trigger tx dma transfer */
++		csr = musb_readl(mbase, MUSB_DMA_CHN_PAUSE(bchannel));
++		if (csr & CHN_CLR)
++			musb_writel(mbase, MUSB_DMA_CHN_PAUSE(bchannel), 0);
++		csr = musb_readl(mbase, MUSB_DMA_CHN_CFG(bchannel));
++		csr |= CHN_EN;
++		musb_writel(mbase, MUSB_DMA_CHN_CFG(bchannel), csr);
++	} else {
++		/* enable linklist end and rx last interrupt */
++		csr = musb_readl(mbase, MUSB_DMA_CHN_INTR(bchannel));
++		csr |= CHN_USBRX_INT_EN | CHN_LLIST_INT_EN | CHN_CLEAR_INT_EN;
++		musb_writel(mbase, MUSB_DMA_CHN_INTR(bchannel), csr);
++
++		/* enable channel and trigger rx dma transfer */
++		csr = musb_readl(mbase, MUSB_DMA_CHN_PAUSE(bchannel));
++		if (csr & CHN_CLR)
++			musb_writel(mbase, MUSB_DMA_CHN_PAUSE(bchannel), 0);
++		csr = musb_readl(mbase, MUSB_DMA_CHN_CFG(bchannel));
++		csr |= CHN_EN;
++		musb_writel(mbase, MUSB_DMA_CHN_CFG(bchannel), csr);
++	}
++}
++
++static int dma_channel_program(struct dma_channel *channel,
++				u16 packet_sz, u8 mode,
++				dma_addr_t dma_addr, u32 len)
++{
++	struct sprd_musb_dma_channel *musb_channel = channel->private_data;
++
++	BUG_ON(channel->status == MUSB_DMA_STATUS_UNKNOWN ||
++		channel->status == MUSB_DMA_STATUS_BUSY);
++
++	channel->actual_len = 0;
++	musb_channel->start_addr = (u32)dma_addr;
++	musb_channel->len = len;
++	channel->status = MUSB_DMA_STATUS_BUSY;
++
++	configure_channel(channel, dma_addr, len);
++
++	return true;
++}
++
++static int dma_channel_abort(struct dma_channel *channel)
++{
++	struct sprd_musb_dma_channel *musb_channel = channel->private_data;
++	void __iomem *mbase = musb_channel->controller->base;
++	struct musb *musb = musb_channel->controller->private_data;
++
++	u8 bchannel = musb_channel->idx;
++	int offset;
++	u16 csr;
++
++	if (channel->status == MUSB_DMA_STATUS_BUSY) {
++		if (musb_channel->transmit) {
++			offset = musb->io.ep_offset(musb_channel->epnum,
++						MUSB_TXCSR);
++
++			/*
++			 * The programming guide says that we must clear
++			 * the DMAENAB bit before the DMAMODE bit...
++			 */
++			csr = musb_readw(mbase, offset);
++			csr &= ~(MUSB_TXCSR_AUTOSET | MUSB_TXCSR_DMAENAB);
++			musb_writew(mbase, offset, csr);
++			csr &= ~MUSB_TXCSR_DMAMODE;
++			musb_writew(mbase, offset, csr);
++		} else {
++			offset = musb->io.ep_offset(musb_channel->epnum,
++						MUSB_RXCSR);
++
++			csr = musb_readw(mbase, offset);
++			csr &= ~(MUSB_RXCSR_AUTOCLEAR |
++				 MUSB_RXCSR_DMAENAB |
++				 MUSB_RXCSR_DMAMODE);
++			musb_writew(mbase, offset, csr);
++		}
++
++		musb_writel(mbase, MUSB_DMA_CHN_LLIST_PTR(bchannel), 0);
++		musb_writel(mbase, MUSB_DMA_CHN_ADDR(bchannel), 0);
++		channel->status = MUSB_DMA_STATUS_FREE;
++	}
++
++	return 0;
++}
++
++static void sprd_musb_dma_complete(struct musb *musb,
++				   struct sprd_musb_dma_channel *musb_channel)
++{
++	struct dma_channel *channel = &musb_channel->channel;
++	void __iomem *mbase = musb->mregs;
++	u32 dma_addr;
++
++	dma_addr = musb_readl(mbase, MUSB_DMA_CHN_ADDR(musb_channel->idx));
++
++	/* Incomplete transfers are not possible when transmitting */
++	if (musb_channel->transmit)
++		channel->actual_len = musb_channel->len;
++	else
++		channel->actual_len = dma_addr - musb_channel->start_addr;
++
++	/*
++	 * When receiving data, dma_addr sometimes points to a location that
++	 * is not related to the current transfer. When this happens, we assume
++	 * that the transfer did not actually happen and reconfigure DMA to
++	 * receive again.
++	 */
++	if (channel->actual_len > musb_channel->len) {
++		dev_warn(musb->controller,
++			 "unexpected dma_addr=%08x, start=%08x\n",
++			 dma_addr, musb_channel->start_addr);
++		configure_channel(channel, musb_channel->start_addr,
++				  musb_channel->len);
++		return;
++	}
++
++	channel->status = MUSB_DMA_STATUS_FREE;
++
++	dev_dbg(musb->controller, "%cx actual_len=%lu on channel %d\n",
++		musb_channel->transmit ? 'T' : 'R', channel->actual_len,
++		musb_channel->idx);
++	musb_dma_completion(musb, musb_channel->epnum,
++			    musb_channel->transmit);
++}
++
++irqreturn_t sprd_musb_dma_interrupt(struct musb *musb, u32 int_hsdma)
++{
++	struct sprd_musb_dma_controller *controller = container_of(
++			musb->dma_controller,
++			struct sprd_musb_dma_controller,
++			controller);
++	struct sprd_musb_dma_channel *musb_channel = NULL;
++	void __iomem *mbase = musb->mregs;
++	u8 bchannel;
++	u32 intr;
++
++	for (bchannel = 1; bchannel <= MUSB_DMA_CHANNELS; bchannel++) {
++		if (int_hsdma & (1 << (bchannel - 1))) {
++			musb_channel = (struct sprd_musb_dma_channel *)
++					&(controller->channel[bchannel]);
++
++			intr = musb_readl(mbase, MUSB_DMA_CHN_INTR(bchannel));
++
++			if (intr & CHN_START_INT_MASK_STATUS) {
++				intr |= CHN_START_INT_CLR;
++				musb_writel(mbase, MUSB_DMA_CHN_INTR(bchannel), intr);
++			}
++
++			if (intr & CHN_CLEAR_INT_MASK_STATUS) {
++				musb_writel(mbase, MUSB_DMA_CHN_PAUSE(bchannel), 0);
++				musb_writel(mbase, MUSB_DMA_CHN_CFG(bchannel), 0);
++			}
++
++			if (intr & CHN_LLIST_INT_MASK_STATUS) {
++				intr |= CHN_LLIST_INT_CLR | CHN_START_INT_CLR |
++					CHN_FRAG_INT_CLR | CHN_BLK_INT_CLR |
++					CHN_USBRX_LAST_INT_CLR;
++				musb_writel(mbase, MUSB_DMA_CHN_INTR(bchannel), intr);
++
++				sprd_musb_dma_complete(musb, musb_channel);
++			}
++		}
++	}
++
++	return IRQ_HANDLED;
++}
++EXPORT_SYMBOL_GPL(sprd_musb_dma_interrupt);
++
++void sprd_musb_dma_controller_destroy(struct dma_controller *c)
++{
++	struct sprd_musb_dma_controller *controller = container_of(c,
++			struct sprd_musb_dma_controller, controller);
++	struct musb *musb = controller->private_data;
++
++	if (controller->linklist) {
++		dma_free_coherent(musb->controller,
++				  sizeof(struct sprd_musb_linklist_node) *
++				  MAX_NODES_PER_CHANNEL * MUSB_DMA_CHANNELS,
++				  controller->linklist,
++				  controller->linklist_dma_addr);
++	}
++
++	dma_controller_stop(controller);
++
++	kfree(controller);
++}
++EXPORT_SYMBOL_GPL(sprd_musb_dma_controller_destroy);
++
++static struct sprd_musb_dma_controller *
++dma_controller_alloc(struct musb *musb, void __iomem *base)
++{
++	struct sprd_musb_dma_controller *controller;
++
++	controller = kzalloc(sizeof(*controller), GFP_KERNEL);
++	if (!controller)
++		return NULL;
++
++	controller->private_data = musb;
++	controller->base = base;
++
++	controller->controller.channel_alloc = dma_channel_allocate;
++	controller->controller.channel_release = dma_channel_release;
++	controller->controller.channel_program = dma_channel_program;
++	controller->controller.channel_abort = dma_channel_abort;
++
++	controller->linklist = dma_alloc_coherent(musb->controller,
++			sizeof(struct sprd_musb_linklist_node) *
++			MAX_NODES_PER_CHANNEL * MUSB_DMA_CHANNELS,
++			&controller->linklist_dma_addr, GFP_KERNEL);
++	if (!controller->linklist) {
++		dev_err(musb->controller, "Failed to allocate DMA list\n");
++		sprd_musb_dma_controller_destroy(&controller->controller);
++		return NULL;
++	}
++
++	return controller;
++}
++
++struct dma_controller *
++sprd_musb_dma_controller_create(struct musb *musb, void __iomem *base)
++{
++	struct sprd_musb_dma_controller *controller;
++	int i;
++
++	controller = dma_controller_alloc(musb, base);
++	if (!controller)
++		return NULL;
++
++	/* reset DMA to avoid unexpected problems if USB was already enabled */
++	for (i = 1; i <= MUSB_DMA_CHANNELS; i++) {
++		musb_writel(base, MUSB_DMA_CHN_PAUSE(i), CHN_CLR);
++		musb_writel(base, MUSB_DMA_CHN_CFG(i), 0);
++		musb_writel(base, MUSB_DMA_CHN_INTR(i), CHN_CLEAR_INT_EN |
++			CHN_LLIST_INT_CLR | CHN_START_INT_CLR |
++			CHN_FRAG_INT_CLR | CHN_BLK_INT_CLR |
++			CHN_USBRX_LAST_INT_CLR);
++		musb_writel(base, MUSB_DMA_CHN_ADDR(i), 0);
++		musb_writel(base, MUSB_DMA_CHN_LLIST_PTR(i), 0);
++		musb_writel(base, MUSB_DMA_CHN_ADDR_H(i), 0);
++	}
++
++	return &controller->controller;
++}
++EXPORT_SYMBOL_GPL(sprd_musb_dma_controller_create);
+diff --git a/drivers/usb/musb/sprd_dma.h b/drivers/usb/musb/sprd_dma.h
+new file mode 100644
+index 000000000..62fa5e1fb
+--- /dev/null
++++ b/drivers/usb/musb/sprd_dma.h
+@@ -0,0 +1,105 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (C) 2018 Spreadtrum Communications Inc.
++ */
++
++#ifndef __SPRD_DMA_H__
++#define __SPRD_DMA_H__
++
++#define MUSB_DMA_PAUSE			0x1000
++#define MUSB_DMA_FRAG_WAIT		0x1004
++#define MUSB_DMA_INTR_RAW_STATUS	0x1008
++#define MUSB_DMA_INTR_MASK_STATUS	0x100C
++#define MUSB_DMA_REQ_STATUS		0x1010
++#define MUSB_DMA_EN_STATUS		0x1014
++#define MUSB_DMA_DEBUG_STATUS		0x1018
++
++/* multi LL which is supported by r4p0 */
++#define MUSB_DMA_MULT_LL_Q_CTRL_STATUS	0x1080
++#define MUSB_DMA_MULT_LL_CTRL		0x1084
++#define MUSB_DMA_TX_CMD_QUEUE_LOW	0x1088
++#define MUSB_DMA_TX_CMD_QUEUE_HIGH	0x108C
++#define MUSB_DMA_TX_CMPLT_QUEUE_LOW	0x1090
++#define MUSB_DMA_TX_CMPLT_QUEUE_HIGH	0x1094
++#define MUSB_DMA_RX_CMD_QUEUE_LOW	0x1098
++#define MUSB_DMA_RX_CMD_QUEUE_HIGH	0x109C
++#define MUSB_DMA_RX_CMPLT_QUEUE_LOW	0x10A0
++#define MUSB_DMA_RX_CMPLT_QUEUE_HIGH	0x10A4
++
++#define MUSB_DMA_CHN_PAUSE(n)		(0x1C00 + ((n) - 1) * 0x20)
++#define MUSB_DMA_CHN_CFG(n)		(0x1C04 + ((n) - 1) * 0x20)
++#define MUSB_DMA_CHN_INTR(n)		(0x1C08 + ((n) - 1) * 0x20)
++#define MUSB_DMA_CHN_ADDR(n)		(0x1C0C + ((n) - 1) * 0x20)
++#define MUSB_DMA_CHN_LEN(n)		(0x1C10 + ((n) - 1) * 0x20)
++#define MUSB_DMA_CHN_LLIST_PTR(n)	(0x1C14 + ((n) - 1) * 0x20)
++#define MUSB_DMA_CHN_ADDR_H(n)		(0x1C18 + ((n) - 1) * 0x20)
++#define MUSB_DMA_CHN_REQ(n)		(0x1C1C + ((n) - 1) * 0x20)
++
++#define CHN_EN			BIT(0)
++#define CHN_LLIST_INT_EN	BIT(2)
++#define CHN_START_INT_EN	BIT(3)
++#define CHN_USBRX_INT_EN	BIT(4)
++#define CHN_CLEAR_INT_EN	BIT(5)
++
++#define CHN_LLIST_INT_MASK_STATUS	BIT(18)
++#define CHN_START_INT_MASK_STATUS	BIT(19)
++#define CHN_USBRX_INT_MASK_STATUS	BIT(20)
++#define CHN_CLEAR_INT_MASK_STATUS	BIT(21)
++
++#define CHN_CLR			BIT(15)
++#define CHN_CLR_STATUS		BIT(31)
++
++#define CHN_FRAG_INT_CLR	BIT(24)
++#define CHN_BLK_INT_CLR		BIT(25)
++#define CHN_LLIST_INT_CLR	BIT(26)
++#define CHN_START_INT_CLR	BIT(27)
++#define CHN_USBRX_LAST_INT_CLR	BIT(28)
++
++#define MUSB_DMA_CHANNELS	30
++
++/* MUSB_DMA_MULT_LL_Q_CTRL_STATUS bit defines */
++#define BIT_TX_CMD_DEPTH_MASK	GENMASK(23, 20)
++#define BIT_TX_CMPLT_DEPTH_MASK	GENMASK(19, 16)
++#define BIT_TX_CMD_FULL		BIT(15)
++#define BIT_TX_CMPLT_EMPTY	BIT(14)
++#define BIT_TX_CMD_CLR		BIT(13)
++#define BIT_TX_CMPLT_CLR	BIT(12)
++#define BIT_RX_CMD_DEPTH_MASK	GENMASK(11, 8)
++#define BIT_RX_CMPLT_DEPTH_MASK	GENMASK(7, 4)
++#define BIT_RX_CMD_FULL		BIT(3)
++#define BIT_RX_CMPLT_EMPTY	BIT(2)
++#define BIT_RX_CMD_CLR		BIT(1)
++#define BIT_RX_CMPLT_CLR	BIT(0)
++
++/* MUSB_DMA_MULT_LL_CTRL bit defines */
++#define BIT_TX_CMD_QUEUE_WR	BIT(11)
++#define BIT_TX_CMPLT_QUEUE_RD	BIT(10)
++#define BIT_RX_CMD_QUEUE_WR	BIT(9)
++#define BIT_RX_CMPLT_QUEUE_RD	BIT(8)
++#define BIT_TX_IPA_CHN_MASK	GENMASK(7, 4)
++#define BIT_RX_IPA_CHN_MASK	GENMASK(3, 0)
++
++struct sprd_musb_dma_controller;
++
++struct sprd_musb_linklist_node {
++	u32	addr;
++
++	u16	frag_len;
++	u16	blk_len;
++
++	u32	list_end	:  1;
++	u32	sp		:  1;
++	u32	ioc		:  1;
++	u32	reserved	:  5;
++	u32	data_addr	:  4;
++	u32	pad		: 20;
++
++	u32	reserved1;
++} __packed;
++
++irqreturn_t sprd_musb_dma_interrupt(struct musb *musb, u32 int_hsdma);
++struct dma_controller *sprd_musb_dma_controller_create(struct musb *musb,
++						       void __iomem *base);
++void sprd_musb_dma_controller_destroy(struct dma_controller *c);
++
++#endif

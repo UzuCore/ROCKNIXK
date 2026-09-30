@@ -1,0 +1,65 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sat, 1 Mar 2025 15:54:54 +0100
+Subject: [PATCH 054/225] dt-bindings: power: add binding for UMS9230 power
+ domains
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add device tree bindings for the power domains found on the
+Unisoc UMS9230 SoC.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ .../dt-bindings/power/sprd,ums9230-power.h    | 41 +++++++++++++++++++
+ 1 file changed, 41 insertions(+)
+ create mode 100644 include/dt-bindings/power/sprd,ums9230-power.h
+
+diff --git a/include/dt-bindings/power/sprd,ums9230-power.h b/include/dt-bindings/power/sprd,ums9230-power.h
+new file mode 100644
+index 000000000..5f1ec6a9d
+--- /dev/null
++++ b/include/dt-bindings/power/sprd,ums9230-power.h
+@@ -0,0 +1,41 @@
++// SPDX-License-Identifier: GPL-2.0
++#ifndef __DT_BINDINGS_POWER_SPRD_UMS9230_POWER_H__
++#define __DT_BINDINGS_POWER_SPRD_UMS9230_POWER_H__
++
++#define UMS9230_POWER_DOMAIN_AP			0
++#define UMS9230_POWER_DOMAIN_APCPU_TOP		1
++#define UMS9230_POWER_DOMAIN_APCPU_CORE0	2
++#define UMS9230_POWER_DOMAIN_APCPU_CORE1	3
++#define UMS9230_POWER_DOMAIN_APCPU_CORE2	4
++#define UMS9230_POWER_DOMAIN_APCPU_CORE3	5
++#define UMS9230_POWER_DOMAIN_APCPU_CORE4	6
++#define UMS9230_POWER_DOMAIN_APCPU_CORE5	7
++#define UMS9230_POWER_DOMAIN_APCPU_CORE6	8
++#define UMS9230_POWER_DOMAIN_APCPU_CORE7	9
++#define UMS9230_POWER_DOMAIN_GPU_TOP		10
++#define UMS9230_POWER_DOMAIN_GPU_C0		11
++#define UMS9230_POWER_DOMAIN_MM			12
++#define UMS9230_POWER_DOMAIN_AP_VSP		13
++#define UMS9230_POWER_DOMAIN_PUBCP		14
++#define UMS9230_POWER_DOMAIN_WTLCP		15
++#define UMS9230_POWER_DOMAIN_WTLCP_LDSP		16
++#define UMS9230_POWER_DOMAIN_WTLCP_TGDSP	17
++#define UMS9230_POWER_DOMAIN_WTLCP_TD_PROC	18
++#define UMS9230_POWER_DOMAIN_WTLCP_LTE_PROC	19
++#define UMS9230_POWER_DOMAIN_WTLCP_LTE_CE	20
++#define UMS9230_POWER_DOMAIN_WTLCP_LTE_DPFEC	21
++#define UMS9230_POWER_DOMAIN_WTLCP_HU3GE_A	22
++#define UMS9230_POWER_DOMAIN_WTLCP_HU3GE_B	23
++#define UMS9230_POWER_DOMAIN_WCN		24
++#define UMS9230_POWER_DOMAIN_WIFI_WRAP		25
++#define UMS9230_POWER_DOMAIN_WIFI_MAC		26
++#define UMS9230_POWER_DOMAIN_WIFI_PHY		27
++#define UMS9230_POWER_DOMAIN_BTWF_SS		28
++#define UMS9230_POWER_DOMAIN_GNSS_SS		29
++#define UMS9230_POWER_DOMAIN_GNSS_IP		30
++#define UMS9230_POWER_DOMAIN_BT			31
++#define UMS9230_POWER_DOMAIN_AUDCP		32
++#define UMS9230_POWER_DOMAIN_AUDCP_AUDDSP	33
++#define UMS9230_POWER_DOMAIN_PUB		34
++
++#endif

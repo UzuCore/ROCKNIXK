@@ -1,5 +1,5 @@
 {
-  "kernel_repo": "beebono/linux-mainline-sprd",
+  "kernel_repo": "kernel.org linux-7.1.2 + patches/linux/rg-rotate (beebono/linux-mainline-sprd 464b3e7 rebased)",
   "kernel_commit": "464b3e7bf45bb300e190339977abba36c8078e1f",
   "vendor_repo": "marohinmark/kernel_ums512_5.4",
   "vendor_commit": "ead7c4e34de9a1465cb9badd7e0cf56691800b16",

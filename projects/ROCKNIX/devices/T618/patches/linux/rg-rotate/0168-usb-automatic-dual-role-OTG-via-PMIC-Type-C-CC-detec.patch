@@ -1,0 +1,366 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Mon, 13 Jul 2026 20:25:53 -0500
+Subject: [PATCH 168/225] usb: automatic dual-role OTG via PMIC Type-C CC
+ detection
+
+Replace the userspace forced-peripheral hack with real CC-based dual-role
+operation driven by the sc2730 PMIC Type-C port manager (sc27xx_pd), so
+the port selects host or device automatically on cable attach.
+
+VBUS in host mode is sourced by the AW32257 (bq2415x) charger's OTG boost;
+there is no discrete 5V regulator on this board. Expose that boost as a
+"usb-otg-vbus" regulator so the TCPM can source 5V on host attach.
+
+  bq2415x: add a USB OTG VBUS regulator provider whose enable/disable map
+    to charger BOOST/OFF mode; build the charger in (m -> y) so the
+    provider is present before the built-in TCPM resolves vbus-supply.
+
+  musb/sprd: pick up an optional "vbus" supply and drive it from the role
+    switch state machine for boards with no TCPM (dormant here, since VBUS
+    now lives on the PD node and is owned by the TCPM exclusively).
+
+  sc27xx_pd: three fixes to get the TCPM to register and source VBUS:
+    - vconn: get_optional instead of get_exclusive, so an absent supply
+      (no VCONN switch on this board) yields NULL rather than a dummy that
+      -EINVALs the exclusive request and fails probe.
+    - as source, report vbus_present from the commanded state: the PMIC
+      VBUS_OK comparator never senses the external charger boost, so
+      polling it timed out (-110) and stalled the SRC state machine.
+    - fix a copy-paste is_enabled(vbus) -> vconn in the vconn path.
+
+  dts: enable &pmic_typec_pd with a usb-c-connector graphed to &usb's role
+    switch, move vbus-supply onto the PD node, add the bq2415x usb-otg-vbus
+    regulator subnode, and mark the connector pd-disable (CC role detection
+    only, no PD contracts, which avoids the source/sink-pdo requirement).
+    Drop the now-inert extcon-usb-gpio node and its &usb/&hsphy/charger
+    references: nothing consumed it (the PHY force-asserts VBUS-valid in
+    hardware) and removal was confirmed to have no effect.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+---
+ arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts | 48 +++++++++++-
+ arch/arm64/configs/ums512_defconfig           |  2 +-
+ drivers/power/supply/bq2415x_charger.c        | 78 +++++++++++++++++++
+ drivers/usb/musb/sprd.c                       | 28 +++++++
+ drivers/usb/typec/tcpm/sc27xx_pd.c            | 27 ++++++-
+ 5 files changed, 178 insertions(+), 5 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+index ac8407259..c2b852068 100644
+--- a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
++++ b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+@@ -685,6 +685,48 @@ &hsphy {
+ &usb {
+ 	status = "okay";
+ 	dr_mode = "otg";
++	usb-role-switch;
++	role-switch-default-mode = "peripheral";
++
++	/*
++	 * OF-graph link to the PMIC Type-C port manager (sc27xx_pd). CC-based
++	 * attach/detach drives this role switch; VBUS is owned by the TCPM
++	 * (vbus-supply lives on &pmic_typec_pd, not here) so its exclusive
++	 * regulator request doesn't collide with the musb glue.
++	 */
++	port {
++		usb_hs_ep: endpoint {
++			remote-endpoint = <&tcpc_hs_ep>;
++		};
++	};
++};
++
++&pmic_typec_pd {
++	status = "okay";
++	/* charger OTG boost, sourced on host attach by the TCPM */
++	vbus-supply = <&usb_otg_vbus>;
++
++	connector {
++		compatible = "usb-c-connector";
++		label = "USB-C";
++		power-role = "dual";
++		data-role = "dual";
++		try-power-role = "sink";
++		/*
++		 * CC-based OTG role detection only, no USB-PD. Skips the
++		 * source/sink-pdo requirement that -EINVALs tcpm_register_port
++		 * for a PD-capable port; DRP toggling, VBUS sourcing and the
++		 * role switch all still work.
++		 */
++		pd-disable;
++		typec-power-opmode = "default";
++
++		port {
++			tcpc_hs_ep: endpoint {
++				remote-endpoint = <&usb_hs_ep>;
++			};
++		};
++	};
+ };
+ 
+ &gpu {
+@@ -759,7 +801,7 @@ &i2c4 {
+ 	#address-cells = <1>;
+ 	#size-cells = <0>;
+ 
+-	sc2730_charger: charger@6a {
++	charger: charger@6a {
+ 		compatible = "ti,bq24158";
+ 		reg = <0x6a>;
+ 		ti,current-limit = <1800>;
+@@ -768,6 +810,10 @@ sc2730_charger: charger@6a {
+ 		ti,charge-current = <2000>;
+ 		ti,termination-current = <200>;
+ 		ti,resistor-sense = <33>;
++
++		usb_otg_vbus: usb-otg-vbus {
++			regulator-name = "usb-otg-vbus";
++		};
+ 	};
+ };
+ 
+diff --git a/arch/arm64/configs/ums512_defconfig b/arch/arm64/configs/ums512_defconfig
+index 7b3462196..3024cbe50 100644
+--- a/arch/arm64/configs/ums512_defconfig
++++ b/arch/arm64/configs/ums512_defconfig
+@@ -451,7 +451,7 @@ CONFIG_BATTERY_SBS=m
+ CONFIG_BATTERY_BQ27XXX=y
+ CONFIG_BATTERY_MAX17042=m
+ CONFIG_CHARGER_MANAGER=y
+-CONFIG_CHARGER_BQ2415X=m
++CONFIG_CHARGER_BQ2415X=y
+ CONFIG_FUEL_GAUGE_SC27XX=y
+ CONFIG_SENSORS_ARM_SCMI=y
+ CONFIG_SENSORS_ARM_SCPI=y
+diff --git a/drivers/power/supply/bq2415x_charger.c b/drivers/power/supply/bq2415x_charger.c
+index b50a28b9d..787671726 100644
+--- a/drivers/power/supply/bq2415x_charger.c
++++ b/drivers/power/supply/bq2415x_charger.c
+@@ -27,6 +27,9 @@
+ #include <linux/i2c.h>
+ #include <linux/slab.h>
+ #include <linux/acpi.h>
++#include <linux/regulator/driver.h>
++#include <linux/regulator/machine.h>
++#include <linux/regulator/of_regulator.h>
+ 
+ #include <linux/power/bq2415x_charger.h>
+ 
+@@ -173,6 +176,7 @@ struct bq2415x_device {
+ 	int automode;	/* 1 - enabled, 0 - disabled; -1 - not supported */
+ 	int charge_status;
+ 	int id;
++	struct regulator_dev *usb_vbus_reg;
+ };
+ 
+ /* each registered chip must have unique id */
+@@ -784,6 +788,70 @@ static int bq2415x_set_mode(struct bq2415x_device *bq, enum bq2415x_mode mode)
+ 
+ }
+ 
++/**** USB OTG VBUS regulator (charger boost mode) ****/
++
++#ifdef CONFIG_REGULATOR
++static int bq2415x_vbus_enable(struct regulator_dev *rdev)
++{
++	struct bq2415x_device *bq = rdev_get_drvdata(rdev);
++
++	return bq2415x_set_mode(bq, BQ2415X_MODE_BOOST);
++}
++
++static int bq2415x_vbus_disable(struct regulator_dev *rdev)
++{
++	struct bq2415x_device *bq = rdev_get_drvdata(rdev);
++
++	return bq2415x_set_mode(bq, BQ2415X_MODE_OFF);
++}
++
++static int bq2415x_vbus_is_enabled(struct regulator_dev *rdev)
++{
++	struct bq2415x_device *bq = rdev_get_drvdata(rdev);
++	int ret;
++
++	ret = bq2415x_exec_command(bq, BQ2415X_BOOST_MODE_STATUS);
++	if (ret < 0)
++		return ret;
++
++	return !!ret;
++}
++
++static const struct regulator_ops bq2415x_vbus_ops = {
++	.enable		= bq2415x_vbus_enable,
++	.disable	= bq2415x_vbus_disable,
++	.is_enabled	= bq2415x_vbus_is_enabled,
++};
++
++static const struct regulator_desc bq2415x_vbus_desc = {
++	.name		= "usb_otg_vbus",
++	.of_match	= of_match_ptr("usb-otg-vbus"),
++	.type		= REGULATOR_VOLTAGE,
++	.owner		= THIS_MODULE,
++	.ops		= &bq2415x_vbus_ops,
++	.fixed_uV	= 5000000,
++	.n_voltages	= 1,
++};
++
++static int bq2415x_register_vbus_regulator(struct bq2415x_device *bq)
++{
++	struct regulator_config cfg = { };
++
++	cfg.dev = bq->dev;
++	cfg.driver_data = bq;
++	cfg.of_node = bq->dev->of_node;
++
++	bq->usb_vbus_reg = devm_regulator_register(bq->dev, &bq2415x_vbus_desc,
++						   &cfg);
++	return PTR_ERR_OR_ZERO(bq->usb_vbus_reg);
++}
++#else
++static inline int bq2415x_register_vbus_regulator(struct bq2415x_device *bq)
++{
++	return 0;
++}
++#endif
++
+ static bool bq2415x_update_reported_mode(struct bq2415x_device *bq, int mA)
+ {
+ 	enum bq2415x_mode mode;
+@@ -1656,6 +1724,16 @@ static int bq2415x_probe(struct i2c_client *client)
+ 		goto error_3;
+ 	}
+ 
++	/*
++	 * Expose the chip's boost mode as a USB OTG VBUS regulator so a USB
++	 * role switch (or TCPM) can source 5V on VBUS in host mode. Optional:
++	 * absent DT subnode just means no consumer, so don't fail probe.
++	 */
++	ret = bq2415x_register_vbus_regulator(bq);
++	if (ret)
++		dev_warn(bq->dev,
++			 "failed to register usb-otg-vbus regulator: %d\n", ret);
++
+ 	if (bq->notify_node || bq->init_data.notify_device) {
+ 		bq->nb.notifier_call = bq2415x_notifier_call;
+ 		ret = power_supply_reg_notifier(&bq->nb);
+diff --git a/drivers/usb/musb/sprd.c b/drivers/usb/musb/sprd.c
+index fa70ca08a..466dd8a5f 100644
+--- a/drivers/usb/musb/sprd.c
++++ b/drivers/usb/musb/sprd.c
+@@ -10,6 +10,7 @@
+ #include <linux/of.h>
+ #include <linux/of_platform.h>
+ #include <linux/platform_device.h>
++#include <linux/regulator/consumer.h>
+ #include <linux/usb/role.h>
+ #include "musb_core.h"
+ #include "sprd_dma.h"
+@@ -22,12 +23,14 @@ struct sprd_glue {
+ 	struct clk *clk;
+ 	enum usb_role role;
+ 	struct usb_role_switch *role_sw;
++	struct regulator *vbus;
+ };
+ 
+ static int sprd_otg_switch_set(struct sprd_glue *glue, enum usb_role role)
+ {
+ 	struct musb *musb = glue->musb;
+ 	u8 devctl;
++	int ret;
+ 
+ 	if (role == glue->role)
+ 		return 0;
+@@ -42,10 +45,23 @@ static int sprd_otg_switch_set(struct sprd_glue *glue, enum usb_role role)
+ 		phy_power_off(glue->phy);
+ 		/* wait for disconnect event */
+ 		msleep(20);
++		/* drop VBUS if we were sourcing it as host */
++		if (glue->role == USB_ROLE_HOST && glue->vbus)
++			regulator_disable(glue->vbus);
+ 	}
+ 
+ 	switch (role) {
+ 	case USB_ROLE_HOST:
++		/*
++		 * No TCPM on this board, so the role switch is what turns on
++		 * VBUS: enable the charger's OTG boost regulator to source 5V.
++		 */
++		if (glue->vbus) {
++			ret = regulator_enable(glue->vbus);
++			if (ret)
++				dev_err(glue->dev,
++					"failed to enable vbus: %d\n", ret);
++		}
+ 		musb->is_active = 1;
+ 		musb_set_state(musb, OTG_STATE_A_IDLE);
+ 		MUSB_HST_MODE(musb);
+@@ -312,6 +328,18 @@ static int sprd_musb_probe(struct platform_device *pdev)
+ 			"failed to get phy\n");
+ 	}
+ 
++	/*
++	 * Optional VBUS supply for host mode. On boards with a TCPM the PD
++	 * block drives VBUS instead, so absence is not an error.
++	 */
++	glue->vbus = devm_regulator_get_optional(dev, "vbus");
++	if (IS_ERR(glue->vbus)) {
++		ret = PTR_ERR(glue->vbus);
++		if (ret == -EPROBE_DEFER)
++			return dev_err_probe(dev, ret, "failed to get vbus\n");
++		glue->vbus = NULL;
++	}
++
+ 	platform_set_drvdata(pdev, glue);
+ 
+ 	ret = clk_prepare_enable(glue->clk);
+diff --git a/drivers/usb/typec/tcpm/sc27xx_pd.c b/drivers/usb/typec/tcpm/sc27xx_pd.c
+index cba02da28..cb0f7a377 100644
+--- a/drivers/usb/typec/tcpm/sc27xx_pd.c
++++ b/drivers/usb/typec/tcpm/sc27xx_pd.c
+@@ -1357,6 +1357,21 @@ static int sc27xx_get_vbus_status(struct sc27xx_pd *pd)
+ 	bool vbus_present;
+ 	int ret;
+ 
++	/*
++	 * As a source, VBUS is supplied by the external charger's OTG boost,
++	 * which the PMIC's VBUS_OK comparator (TYPEC_DBG1 bit 8) does not sense
++	 * -- it only ever sees incoming VBUS when we are a sink. Polling it here
++	 * always times out (-110) and stalls the TCPM SRC state machine, so
++	 * trust the commanded VBUS state instead while attached as source.
++	 */
++	if (pd->state == SC27XX_ATTACHED_SRC) {
++		if (pd->vbus_on != pd->vbus_present) {
++			pd->vbus_present = pd->vbus_on;
++			tcpm_vbus_change(pd->tcpm_port);
++		}
++		return 0;
++	}
++
+ 	if (pd->typec_online) {
+ 		ret = regmap_read_poll_timeout(pd->regmap,
+ 					       pd->typec_base + SC27XX_TYPEC_DBG1,
+@@ -1627,7 +1642,13 @@ static int sc27xx_pd_probe(struct platform_device *pdev)
+ 			regulator_disable(pd->vbus);
+ 	}
+ 
+-	pd->vconn = devm_regulator_get_exclusive(pd->dev, "vconn");
++	/*
++	 * VCONN is only needed to power e-marked/active cables (Ra detection);
++	 * normal DRP host/device operation never enables it, and this board has
++	 * no VCONN switch. Use an optional get so an absent supply yields
++	 * -ENODEV (NULL) instead of a dummy that -EINVALs the exclusive request.
++	 */
++	pd->vconn = devm_regulator_get_optional(pd->dev, "vconn");
+ 	if (IS_ERR(pd->vconn)) {
+ 		ret = PTR_ERR(pd->vconn);
+ 		if (ret != -ENODEV) {
+@@ -1636,8 +1657,8 @@ static int sc27xx_pd_probe(struct platform_device *pdev)
+ 		}
+ 		pd->vconn = NULL;
+ 	} else {
+-		if (regulator_is_enabled(pd->vbus) > 0)
+-			regulator_disable(pd->vbus);
++		if (regulator_is_enabled(pd->vconn) > 0)
++			regulator_disable(pd->vconn);
+ 	}
+ 
+ 	ret = devm_request_threaded_irq(pd->dev, pd_irq, NULL,

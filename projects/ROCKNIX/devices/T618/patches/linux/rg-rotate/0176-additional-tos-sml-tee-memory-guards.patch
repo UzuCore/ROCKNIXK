@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Fri, 24 Jul 2026 20:36:03 -0500
+Subject: [PATCH 176/225] additional tos/sml/tee memory guards
+
+---
+ arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts | 15 +++++++++++++++
+ arch/arm64/boot/dts/sprd/ums512.dtsi          |  2 --
+ 2 files changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+index 16080db11..0ad3a7e46 100644
+--- a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
++++ b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+@@ -40,6 +40,21 @@ reserved-memory {
+ 		#size-cells = <2>;
+ 		ranges;
+ 
++		sml-mem@94000000 {
++			reg = <0 0x94000000 0 0x40000>;
++			no-map;
++		};
++
++		tos-mem@94040000 {
++			reg = <0 0x94040000 0 0x5fc0000>;
++			no-map;
++		};
++
++		sh-mem@9a000000 {
++			reg = <0 0x9a000000 0 0x100000>;
++			no-map;
++		};
++
+         framebuffer_region: framebuffer-region@9e000000 {
+             compatible = "framebuffer";
+             reg = <0 0x9e000000 0 (720 * 720 * 4)>;
+diff --git a/arch/arm64/boot/dts/sprd/ums512.dtsi b/arch/arm64/boot/dts/sprd/ums512.dtsi
+index 9ab996ee7..af7d59cd7 100644
+--- a/arch/arm64/boot/dts/sprd/ums512.dtsi
++++ b/arch/arm64/boot/dts/sprd/ums512.dtsi
+@@ -42,7 +42,6 @@ nvmem-layout {
+ 				#address-cells = <1>;
+ 				#size-cells = <1>;
+ 
+-				/* Per-die 64-bit chip UID (from the stock DTB). */
+ 				uid_start: uid-start@5c {
+ 					reg = <0x5c 0x4>;
+ 				};
+@@ -143,7 +142,6 @@ thm2_sen0: thm2-sen0@3f {
+ 			};
+ 		};
+ 
+-		/* Stock audio carveouts (see device/stock/dtb_stock.dts) */
+ 		audio_reserved: audio-mem@87400000 {
+ 			reg = <0x0 0x87400000 0x0 0x400000>;
+ 			no-map;

@@ -1,0 +1,179 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Mon, 29 Jun 2026 04:11:06 -0500
+Subject: [PATCH 117/225] usb: musb: sprd: re-apply RG Rotate gadget-session
+ hack; dts: add usb + hsphy
+
+Port the hsphy (under anlg_phy_g2) and usb@5fff0000 (under soc) SoC nodes
+into ums512.dtsi. Upstream's musb sprd glue gained an OTG_STATE_B_IDLE
+set on the DEVICE role but still does not assert a gadget session, so on
+this VBUS-session-less board the gadget never enumerates. Re-apply the
+board hack: on role=DEVICE, musb_start() + force B_PERIPHERAL + DEVCTL
+SESSION + POWER SOFTCONN so the host enumerates (driven by the initramfs
+role-switch write). dr_mode must stay "otg".
+
+Enable USB_MUSB_SPRD, PHY_SPRD_USB2, the gadget serial stack, and
+SERIAL_SPRD(+console) for the serial1 stdout-path.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+---
+ arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts | 27 +++++++++++++++++--
+ arch/arm64/boot/dts/sprd/ums512.dtsi          | 18 +++++++++++++
+ arch/arm64/configs/ums512_defconfig           |  6 +++++
+ drivers/usb/musb/sprd.c                       | 14 +++++++++-
+ 4 files changed, 62 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+index 93d08aec8..f78f6737d 100644
+--- a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
++++ b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+@@ -166,6 +166,26 @@ charger@6a {
+ 	};
+ };
+ 
++&hsphy {
++	status = "okay";
++	phy-supply = <&vddusb33>;
++};
++
++/*
++ * USB. dr_mode MUST stay "otg": the sprd musb glue only registers the
++ * usb_role_switch (/sys/class/usb_role/*) in OTG mode, and this board has no
++ * extcon/VBUS session edge -- the PHY force-asserts VBUS. The gadget session +
++ * D+ pullup are asserted via sprd_otg_switch_set(DEVICE) (drivers/usb/musb/
++ * sprd.c board hack), which the initramfs init triggers by writing "device" to
++ * the role sysfs. dr_mode="peripheral" drops the role switch -> the init dance
++ * no-ops and the gadget never enumerates (host sees -71).
++ * (memory: usb-gadget-otg-and-cleanup)
++ */
++&usb {
++	status = "okay";
++	dr_mode = "otg";
++};
++
+ /*
+  * ===========================================================================
+  * STAGED — blocked on SoC nodes not yet present in upstream 7.1 ums512.dtsi.
+@@ -185,8 +205,11 @@ charger@6a {
+  *       0x00700000 for free). i2c4 pinmux + charger@6a un-staged above.
+  *       (memory: charger-aw32257-i2c4-blocker)
+  *
+- * [ ] USB  (memory: usb-gadget-otg-and-cleanup)  needs hsphy + usb SoC nodes.
+- *       board: &hsphy phy-supply=<&vddusb33>; &usb dr_mode="otg" (MUST).
++ * [x] USB  — DONE. Ported hsphy (anlg_phy_g2) + usb@5fff0000 (under soc) SoC
++ *       nodes into ums512.dtsi, and re-applied the board musb DEVICE-case hack
++ *       in drivers/usb/musb/sprd.c (upstream only added OTG_STATE_B_IDLE; it
++ *       still does not assert a gadget session on this VBUS-edge-less board).
++ *       Board &hsphy/&usb un-staged above. (memory: usb-gadget-otg-and-cleanup)
+  *
+  * [ ] Display  (memory: cold-init-prepare-prev-first; docs/DISPLAY-BRINGUP)
+  *       needs: dpu/dsi/disp/iommu_disp + pwm SoC nodes. board: framebuffer
+diff --git a/arch/arm64/boot/dts/sprd/ums512.dtsi b/arch/arm64/boot/dts/sprd/ums512.dtsi
+index b3a0893c4..1583b739b 100644
+--- a/arch/arm64/boot/dts/sprd/ums512.dtsi
++++ b/arch/arm64/boot/dts/sprd/ums512.dtsi
+@@ -267,6 +267,14 @@ mpll1: clock-controller@0 {
+ 				reg = <0x0 0x100>;
+ 				#clock-cells = <1>;
+ 			};
++
++			hsphy: phy@100 {
++				compatible = "sprd,ums512-hsphy";
++				reg = <0x100 0x2000>;
++				sprd,syscon-aon-apb = <&aon_apb_regs>;
++				#phy-cells = <0>;
++				status = "disabled";
++			};
+ 		};
+ 
+ 		anlg_phy_g3_regs: syscon@323c0000 {
+@@ -979,6 +987,16 @@ pinctrl: pinctrl@450000 {
+ 				reg = <0x450000 0x3000>;
+ 			};
+ 		};
++
++		usb: usb@5fff0000 {
++			compatible = "sprd,ums512-musb", "sprd,musb";
++			reg = <0 0x5fff0000 0 0x2000>;
++			interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>;
++			interrupt-names = "mc";
++			clocks = <&aonapb_gate CLK_OTG_UTMI_EB>;
++			phys = <&hsphy>;
++			status = "disabled";
++		};
+ 	};
+ 
+ 	ext_26m: clk-26m {
+diff --git a/arch/arm64/configs/ums512_defconfig b/arch/arm64/configs/ums512_defconfig
+index 413c1906f..672c35c11 100644
+--- a/arch/arm64/configs/ums512_defconfig
++++ b/arch/arm64/configs/ums512_defconfig
+@@ -521,6 +521,8 @@ CONFIG_SERIAL_FSL_LPUART=y
+ CONFIG_SERIAL_FSL_LPUART_CONSOLE=y
+ CONFIG_SERIAL_FSL_LINFLEXUART=y
+ CONFIG_SERIAL_FSL_LINFLEXUART_CONSOLE=y
++CONFIG_SERIAL_SPRD=y
++CONFIG_SERIAL_SPRD_CONSOLE=y
+ CONFIG_SERIAL_STM32=y
+ CONFIG_SERIAL_STM32_CONSOLE=y
+ CONFIG_SERIAL_MVEBU_UART=y
+@@ -1183,6 +1185,7 @@ CONFIG_USB_CDNS3_HOST=y
+ CONFIG_USB_MTU3=y
+ CONFIG_USB_MUSB_HDRC=y
+ CONFIG_USB_MUSB_SUNXI=y
++CONFIG_USB_MUSB_SPRD=y
+ CONFIG_USB_DWC3=y
+ CONFIG_USB_DWC2=y
+ CONFIG_USB_CHIPIDEA=y
+@@ -1200,6 +1203,7 @@ CONFIG_USB_ONBOARD_DEV_USB5744=y
+ CONFIG_NOP_USB_XCEIV=y
+ CONFIG_USB_MXS_PHY=m
+ CONFIG_USB_GADGET=y
++CONFIG_U_SERIAL_CONSOLE=y
+ CONFIG_USB_RENESAS_USBHS_UDC=m
+ CONFIG_USB_RZV2M_USB3DRD=y
+ CONFIG_USB_RENESAS_USB3=m
+@@ -1216,6 +1220,7 @@ CONFIG_USB_CONFIGFS_EEM=y
+ CONFIG_USB_CONFIGFS_MASS_STORAGE=y
+ CONFIG_USB_CONFIGFS_F_FS=y
+ CONFIG_USB_MASS_STORAGE=m
++CONFIG_USB_G_SERIAL=m
+ CONFIG_TYPEC=m
+ CONFIG_TYPEC_TCPM=m
+ CONFIG_TYPEC_TCPCI=m
+@@ -1700,6 +1705,7 @@ CONFIG_RESET_TI_SCI=y
+ CONFIG_PHY_CAN_TRANSCEIVER=m
+ CONFIG_PHY_NXP_PTN3222=m
+ CONFIG_PHY_SNPS_EUSB2=m
++CONFIG_PHY_SPRD_USB2=y
+ CONFIG_PHY_XGENE=y
+ CONFIG_PHY_SUN4I_USB=y
+ CONFIG_PHY_CADENCE_TORRENT=m
+diff --git a/drivers/usb/musb/sprd.c b/drivers/usb/musb/sprd.c
+index 672c948aa..fa70ca08a 100644
+--- a/drivers/usb/musb/sprd.c
++++ b/drivers/usb/musb/sprd.c
+@@ -55,10 +55,22 @@ static int sprd_otg_switch_set(struct sprd_glue *glue, enum usb_role role)
+ 		phy_set_mode(glue->phy, PHY_MODE_USB_HOST);
+ 		break;
+ 	case USB_ROLE_DEVICE:
+-		musb_set_state(musb, OTG_STATE_B_IDLE);
+ 		MUSB_DEV_MODE(musb);
+ 		phy_power_on(glue->phy);
+ 		phy_set_mode(glue->phy, PHY_MODE_USB_DEVICE);
++		/* This SoC's phy force-asserts VBUS with no session edge, so
++		 * start the controller and assert a peripheral session + D+
++		 * pullup ourselves so the host enumerates.
++		 */
++		musb_start(musb);
++		musb->is_active = 1;
++		musb_set_state(musb, OTG_STATE_B_PERIPHERAL);
++		musb_writeb(musb->mregs, MUSB_DEVCTL,
++			    musb_readb(musb->mregs, MUSB_DEVCTL) |
++			    MUSB_DEVCTL_SESSION);
++		musb_writeb(musb->mregs, MUSB_POWER,
++			    musb_readb(musb->mregs, MUSB_POWER) |
++			    MUSB_POWER_HSENAB | MUSB_POWER_SOFTCONN);
+ 		break;
+ 	case USB_ROLE_NONE:
+ 	default:

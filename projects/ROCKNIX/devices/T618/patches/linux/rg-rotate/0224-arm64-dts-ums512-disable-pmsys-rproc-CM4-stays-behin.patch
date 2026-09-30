@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Thu, 6 Aug 2026 21:36:44 -0500
+Subject: [PATCH 224/225] arm64: dts: ums512: disable pmsys rproc - CM4 stays
+ behind stock lock
+
+The SPL now ships with the stock CM4_SYS_SOFT_RST TZPC lock (SPL
+CM4_DEFER dropped): the rproc's reset-release write is silently
+ignored, the CM4 never runs, and rproc reports a phantom 'running'
+with no SIPC channel ever opening. A75 DVFS does not need pm_sys.
+Keep all the plumbing; flip status together with the SPL option if
+the sensor hub is ever wired up.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+---
+ arch/arm64/boot/dts/sprd/ums512.dtsi | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/sprd/ums512.dtsi b/arch/arm64/boot/dts/sprd/ums512.dtsi
+index 242405650..9e30a5a17 100644
+--- a/arch/arm64/boot/dts/sprd/ums512.dtsi
++++ b/arch/arm64/boot/dts/sprd/ums512.dtsi
+@@ -533,9 +533,18 @@ soc: soc {
+ 		 *
+ 		 * dma-ranges is the CM4's view of the shared DDR and matches
+ 		 * the second smem-info triple, 0x88000000 -> 0x18000000.
++		 *
++		 * Disabled: the SPL ships with the stock CM4_SYS_SOFT_RST TZPC
++		 * lock (CONFIG_SPL_FW_CM4_DEFER off), so the reset-release
++		 * write is silently ignored and the CM4 never runs - booting
++		 * the rproc just reports a phantom "running". A75 DVFS does
++		 * NOT need pm_sys (it is serviced by the hw-i2c DVFS channels,
++		 * see i2c-sprd-hw.c). Re-enable together with the SPL defer if
++		 * the sensor hub is ever wired up.
+ 		 */
+ 		pmsys@800000 {
+ 			compatible = "sprd,ums512-pmsys";
++			status = "disabled";
+ 			reg = <0x0 0x800000 0x0 0x1000>;
+ 			dma-ranges = <0x18000000 0x0 0x88000000 0x08000000>;
+ 			#address-cells = <1>;

@@ -1,0 +1,118 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Thu, 21 Nov 2024 13:39:27 +0100
+Subject: [PATCH 064/225] power: reset: sc27xx: Add support for SC2730
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add register definitions for the SC2730 PMIC. Introduce a new struct
+sc27xx_poweroff_data for passing register information to the poweroff
+handler. Use platform device ID matching to distinguish between SC2730
+and SC2731.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/power/reset/sc27xx-poweroff.c | 60 ++++++++++++++++++++++-----
+ 1 file changed, 49 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/power/reset/sc27xx-poweroff.c b/drivers/power/reset/sc27xx-poweroff.c
+index af000ac16..7be1d8fef 100644
+--- a/drivers/power/reset/sc27xx-poweroff.c
++++ b/drivers/power/reset/sc27xx-poweroff.c
+@@ -14,10 +14,26 @@
+ #include <linux/regmap.h>
+ #include <linux/syscore_ops.h>
+ 
+-#define SC27XX_PWR_PD_HW	0xc2c
++#define SC2730_PWR_PD_HW	0x1820
++#define SC2730_SLP_CTRL		0x1a48
++#define SC2730_LDO_XTL_EN	BIT(2)
++
++#define SC2731_PWR_PD_HW	0xc2c
++#define SC2731_SLP_CTRL		0xdf0
++#define SC2731_LDO_XTL_EN	BIT(3)
++
+ #define SC27XX_PWR_OFF_EN	BIT(0)
+-#define SC27XX_SLP_CTRL		0xdf0
+-#define SC27XX_LDO_XTL_EN	BIT(3)
++
++struct sc27xx_poweroff_reg_info {
++	u32 poweroff_reg;
++	u32 slp_ctrl_reg;
++	u32 ldo_xtl_en;
++};
++
++struct sc27xx_poweroff_data {
++	struct regmap *regmap;
++	const struct sc27xx_poweroff_reg_info *regs;
++};
+ 
+ /*
+  * On Spreadtrum platform, we need power off system through external SC27xx
+@@ -50,12 +66,14 @@ static struct syscore poweroff_syscore = {
+ 
+ static int sc27xx_poweroff_do_poweroff(struct sys_off_data *off_data)
+ {
+-	struct regmap *regmap = off_data->cb_data;
++	struct sc27xx_poweroff_data *data = off_data->cb_data;
+ 
+ 	/* Disable the external subsys connection's power firstly */
+-	regmap_write(regmap, SC27XX_SLP_CTRL, SC27XX_LDO_XTL_EN);
++	regmap_write(data->regmap, data->regs->slp_ctrl_reg,
++		     data->regs->ldo_xtl_en);
+ 
+-	regmap_write(regmap, SC27XX_PWR_PD_HW, SC27XX_PWR_OFF_EN);
++	regmap_write(data->regmap, data->regs->poweroff_reg,
++		     SC27XX_PWR_OFF_EN);
+ 
+ 	mdelay(1000);
+ 
+@@ -66,10 +84,17 @@ static int sc27xx_poweroff_do_poweroff(struct sys_off_data *off_data)
+ 
+ static int sc27xx_poweroff_probe(struct platform_device *pdev)
+ {
+-	struct regmap *regmap;
++	const struct platform_device_id *id = platform_get_device_id(pdev);
++	struct sc27xx_poweroff_data *data;
++
++	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
+ 
+-	regmap = dev_get_regmap(pdev->dev.parent, NULL);
+-	if (!regmap)
++	data->regs = (const struct sc27xx_poweroff_reg_info *)id->driver_data;
++
++	data->regmap = dev_get_regmap(pdev->dev.parent, NULL);
++	if (!data->regmap)
+ 		return -ENODEV;
+ 
+ 	register_syscore(&poweroff_syscore);
+@@ -78,11 +103,24 @@ static int sc27xx_poweroff_probe(struct platform_device *pdev)
+ 					     SYS_OFF_MODE_POWER_OFF,
+ 					     SYS_OFF_PRIO_DEFAULT,
+ 					     sc27xx_poweroff_do_poweroff,
+-					     regmap);
++					     data);
+ }
+ 
++static const struct sc27xx_poweroff_reg_info sc2730_pwr_regs = {
++	.poweroff_reg = SC2730_PWR_PD_HW,
++	.slp_ctrl_reg = SC2730_SLP_CTRL,
++	.ldo_xtl_en = SC2730_LDO_XTL_EN,
++};
++
++static const struct sc27xx_poweroff_reg_info sc2731_pwr_regs = {
++	.poweroff_reg = SC2731_PWR_PD_HW,
++	.slp_ctrl_reg = SC2731_SLP_CTRL,
++	.ldo_xtl_en = SC2731_LDO_XTL_EN,
++};
++
+ static const struct platform_device_id sc27xx_poweroff_id_table[] = {
+-	{ "sc2731-poweroff" },
++	{ "sc2730-poweroff", (kernel_ulong_t)&sc2730_pwr_regs },
++	{ "sc2731-poweroff", (kernel_ulong_t)&sc2731_pwr_regs },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(platform, sc27xx_poweroff_id_table);

@@ -1,0 +1,479 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sun, 8 Dec 2024 17:38:23 +0100
+Subject: [PATCH 012/225] input: add support for Chipone ICNL9916 based
+ touchscreens
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The Chipone ICNL9916 is a combined display driver and touchscreen IC
+found in various mobile phones. Add a driver for the touchscreen part.
+
+This driver is based on the existing drivers for the distantly related
+ICN8318 and ICN8505 controllers. ICNL9916 uses a completely different
+command-based protocol via I2C, but still has some similarities with
+them.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/input/touchscreen/Kconfig            |  13 +
+ drivers/input/touchscreen/Makefile           |   1 +
+ drivers/input/touchscreen/chipone_icnl9916.c | 412 +++++++++++++++++++
+ 3 files changed, 426 insertions(+)
+ create mode 100644 drivers/input/touchscreen/chipone_icnl9916.c
+
+diff --git a/drivers/input/touchscreen/Kconfig b/drivers/input/touchscreen/Kconfig
+index aeaf9a9cb..ea2710545 100644
+--- a/drivers/input/touchscreen/Kconfig
++++ b/drivers/input/touchscreen/Kconfig
+@@ -210,6 +210,19 @@ config TOUCHSCREEN_CHIPONE_ICN8505
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called chipone_icn8505.
+ 
++config TOUCHSCREEN_CHIPONE_ICNL9916
++	tristate "chipone icnl9916 touchscreen controller"
++	depends on GPIOLIB || COMPILE_TEST
++	depends on I2C
++	depends on OF
++	help
++	  Say Y here if you have a ChipOne icnl9916 based I2C touchscreen.
++
++	  If unsure, say N.
++
++	  To compile this driver as a module, choose M here: the
++	  module will be called chipone_icnl9916.
++
+ config TOUCHSCREEN_CY8CTMA140
+ 	tristate "cy8ctma140 touchscreen"
+ 	depends on I2C
+diff --git a/drivers/input/touchscreen/Makefile b/drivers/input/touchscreen/Makefile
+index f2b002abe..71f0b307f 100644
+--- a/drivers/input/touchscreen/Makefile
++++ b/drivers/input/touchscreen/Makefile
+@@ -23,6 +23,7 @@ obj-$(CONFIG_TOUCHSCREEN_BU21013)	+= bu21013_ts.o
+ obj-$(CONFIG_TOUCHSCREEN_BU21029)	+= bu21029_ts.o
+ obj-$(CONFIG_TOUCHSCREEN_CHIPONE_ICN8318)	+= chipone_icn8318.o
+ obj-$(CONFIG_TOUCHSCREEN_CHIPONE_ICN8505)	+= chipone_icn8505.o
++obj-$(CONFIG_TOUCHSCREEN_CHIPONE_ICNL9916)	+= chipone_icnl9916.o
+ obj-$(CONFIG_TOUCHSCREEN_CY8CTMA140)	+= cy8ctma140.o
+ obj-$(CONFIG_TOUCHSCREEN_CY8CTMG110)	+= cy8ctmg110_ts.o
+ obj-$(CONFIG_TOUCHSCREEN_CYTTSP_CORE)	+= cyttsp_core.o
+diff --git a/drivers/input/touchscreen/chipone_icnl9916.c b/drivers/input/touchscreen/chipone_icnl9916.c
+new file mode 100644
+index 000000000..c0fdf8bc6
+--- /dev/null
++++ b/drivers/input/touchscreen/chipone_icnl9916.c
+@@ -0,0 +1,412 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Driver for ChipOne icnl9916 i2c touchscreen controller
++ *
++ * Copyright (C) 2024 Otto Pflüger
++ *
++ * Parts of this driver are based on the ChipOne icnl9916 driver,
++ * Copyright (c) 2015 Red Hat Inc.
++ *
++ * Red Hat authors:
++ * Hans de Goede <hdegoede@redhat.com>
++ */
++
++#include <linux/delay.h>
++#include <linux/gpio/consumer.h>
++#include <linux/interrupt.h>
++#include <linux/i2c.h>
++#include <linux/input.h>
++#include <linux/input/mt.h>
++#include <linux/input/touchscreen.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/reset.h>
++
++#define ICNL9916_READ_CMD(cls, cmd)	(1 << 14 | (cls) << 8 | (cmd))
++#define ICNL9916_WRITE_CMD(cls, cmd)	(1 << 13 | (cls) << 8 | (cmd))
++
++#define ICNL9916_READ_FW_ID		ICNL9916_READ_CMD(0, 3)
++#define ICNL9916_READ_RESOLUTION	ICNL9916_READ_CMD(0, 7)
++#define ICNL9916_READ_TOUCH_DATA	ICNL9916_READ_CMD(1, 3)
++#define ICNL9916_WRITE_POWER_MODE	ICNL9916_WRITE_CMD(2, 4)
++
++#define ICNL9916_POWER_SUSPEND		2
++
++#define ICNL9916_MAX_TOUCHES		10
++
++struct icnl9916_tx_header {
++	__le16 cmd;
++	__le16 len;
++	__u8 check_l;
++	__u8 check_h;
++} __packed;
++
++struct icnl9916_rx_trailer {
++	__u8 error;
++	__le16 cmd;
++	__u8 check_l;
++	__u8 check_h;
++} __packed;
++
++struct icnl9916_touch {
++	__u8 slot;
++	__le16 x;
++	__le16 y;
++	__u8 pressure;	/* Seems more like finger width then pressure really */
++	__u8 event;
++#define ICNL9916_EVENT_NONE	0
++#define ICNL9916_EVENT_DOWN	1
++#define ICNL9916_EVENT_MOVE	2
++#define ICNL9916_EVENT_STAY	3
++#define ICNL9916_EVENT_UP	4
++} __packed;
++
++struct icnl9916_touch_data {
++	__u8 softbutton;
++	__u8 touch_count;
++	struct icnl9916_touch touches[ICNL9916_MAX_TOUCHES];
++} __packed;
++
++struct icnl9916_data {
++	struct i2c_client *client;
++	struct input_dev *input;
++	struct reset_control *chip_reset;
++	struct gpio_desc *reset_gpio;
++	struct touchscreen_properties prop;
++};
++
++static u8 icnl9916_calc_checksum(u8 *data, int len)
++{
++	u8 checksum = 0;
++	int i;
++
++	for (i = 0; i < len; i++)
++		checksum += *data++;
++
++	return ~checksum;
++}
++
++static int icnl9916_read(struct i2c_client *client, u16 cmd, void *buf, u16 len)
++{
++	struct icnl9916_tx_header cmd_hdr = {
++		.cmd = cmd,
++		.len = len,
++	};
++	struct icnl9916_rx_trailer rsp;
++	int ret;
++	struct i2c_msg msg[] = {
++		{
++			.addr = client->addr,
++			.len = sizeof(cmd_hdr),
++			.buf = (u8 *)&cmd_hdr
++		},
++		{
++			.addr = client->addr,
++			.flags = I2C_M_RD,
++			.len = len,
++			.buf = buf
++		},
++		{
++			.addr = client->addr,
++			.flags = I2C_M_RD,
++			.len = sizeof(rsp),
++			.buf = (u8 *)&rsp
++		}
++	};
++
++	cmd_hdr.check_l = icnl9916_calc_checksum((u8 *)&cmd_hdr, 4);
++	cmd_hdr.check_h = 1;
++
++	ret = i2c_transfer(client->adapter, msg, ARRAY_SIZE(msg));
++	if (ret < 0)
++		return ret;
++
++	if (rsp.error) {
++		dev_err(&client->dev, "Command %04x error %02x\n", cmd, rsp.error);
++		return -EIO;
++	}
++
++	return 0;
++}
++
++static int icnl9916_write(struct i2c_client *client, u16 cmd, void *buf, u16 len)
++{
++	struct icnl9916_tx_header cmd_hdr = {
++		.cmd = cpu_to_le16(cmd),
++		.len = cpu_to_le16(len),
++	};
++	u8 data_checksum[2];
++	int ret;
++	struct i2c_msg msg[] = {
++		{
++			.addr = client->addr,
++			.len = sizeof(cmd_hdr),
++			.buf = (u8 *)&cmd_hdr
++		},
++		{
++			.addr = client->addr,
++			.len = len,
++			.buf = buf
++		},
++		{
++			.addr = client->addr,
++			.len = sizeof(data_checksum),
++			.buf = data_checksum
++		},
++	};
++
++	cmd_hdr.check_l = icnl9916_calc_checksum((u8 *)&cmd_hdr, 4);
++	cmd_hdr.check_h = 1;
++
++	data_checksum[0] = icnl9916_calc_checksum(buf, len);
++	data_checksum[1] = 1;
++
++	ret = i2c_transfer(client->adapter, msg, ARRAY_SIZE(msg));
++	if (ret < 0)
++		return ret;
++
++	return 0;
++}
++
++static inline bool icnl9916_touch_active(u8 event)
++{
++	return (event == ICNL9916_EVENT_DOWN) ||
++	       (event == ICNL9916_EVENT_MOVE) ||
++	       (event == ICNL9916_EVENT_STAY);
++}
++
++static irqreturn_t icnl9916_irq(int irq, void *dev_id)
++{
++	struct icnl9916_data *data = dev_id;
++	struct device *dev = &data->client->dev;
++	struct icnl9916_touch_data touch_data;
++	int i, ret;
++
++	ret = icnl9916_read(data->client, ICNL9916_READ_TOUCH_DATA,
++			    &touch_data, sizeof(touch_data));
++	if (ret) {
++		dev_err(dev, "Error reading touch data: %d\n", ret);
++		return IRQ_HANDLED;
++	}
++
++	if (touch_data.softbutton) {
++		/*
++		 * Other data is invalid when a softbutton is pressed.
++		 * This needs some extra devicetree bindings to map the icnl9916
++		 * softbutton codes to evdev codes. Currently no known devices
++		 * use this.
++		 */
++		return IRQ_HANDLED;
++	}
++
++	if (touch_data.touch_count > ICNL9916_MAX_TOUCHES) {
++		dev_warn(dev, "Too many touches %d > %d\n",
++			 touch_data.touch_count, ICNL9916_MAX_TOUCHES);
++		touch_data.touch_count = ICNL9916_MAX_TOUCHES;
++	}
++
++	for (i = 0; i < touch_data.touch_count; i++) {
++		struct icnl9916_touch *touch = &touch_data.touches[i];
++		bool act = icnl9916_touch_active(touch->event);
++
++		input_mt_slot(data->input, touch->slot);
++		input_mt_report_slot_state(data->input, MT_TOOL_FINGER, act);
++		if (!act)
++			continue;
++
++		touchscreen_report_pos(data->input, &data->prop,
++				       le16_to_cpu(touch->x),
++				       le16_to_cpu(touch->y), true);
++	}
++
++	input_mt_sync_frame(data->input);
++	input_sync(data->input);
++
++	return IRQ_HANDLED;
++}
++
++static int icnl9916_init(struct icnl9916_data *data)
++{
++	struct device *dev = &data->client->dev;
++	__le16 fw_id;
++	int ret;
++
++	reset_control_deassert(data->chip_reset);
++
++	gpiod_set_value_cansleep(data->reset_gpio, 1);
++	mdelay(10);
++	gpiod_set_value_cansleep(data->reset_gpio, 0);
++	mdelay(40);
++
++	ret = icnl9916_read(data->client, ICNL9916_READ_FW_ID,
++			    &fw_id, sizeof(fw_id));
++	if (ret) {
++		dev_err(dev, "Failed to read device ID: %d\n", ret);
++		return ret;
++	}
++
++	dev_dbg(dev, "Device ID: %04x\n", le16_to_cpu(fw_id));
++
++	return 0;
++}
++
++static int icnl9916_start(struct input_dev *input)
++{
++	struct icnl9916_data *data = input_get_drvdata(input);
++	int ret;
++
++	ret = icnl9916_init(data);
++	if (ret)
++		return ret;
++
++	enable_irq(data->client->irq);
++
++	return 0;
++}
++
++static void icnl9916_stop(struct input_dev *input)
++{
++	struct icnl9916_data *data = input_get_drvdata(input);
++	u8 pwr_mode = ICNL9916_POWER_SUSPEND;
++
++	disable_irq(data->client->irq);
++	icnl9916_write(data->client, ICNL9916_WRITE_POWER_MODE,
++		       &pwr_mode, sizeof(pwr_mode));
++
++	reset_control_assert(data->chip_reset);
++}
++
++static int icnl9916_suspend(struct device *dev)
++{
++	struct icnl9916_data *data = i2c_get_clientdata(to_i2c_client(dev));
++
++	mutex_lock(&data->input->mutex);
++	if (input_device_enabled(data->input))
++		icnl9916_stop(data->input);
++	mutex_unlock(&data->input->mutex);
++
++	return 0;
++}
++
++static int icnl9916_resume(struct device *dev)
++{
++	struct icnl9916_data *data = i2c_get_clientdata(to_i2c_client(dev));
++
++	mutex_lock(&data->input->mutex);
++	if (input_device_enabled(data->input))
++		icnl9916_start(data->input);
++	mutex_unlock(&data->input->mutex);
++
++	return 0;
++}
++
++static DEFINE_SIMPLE_DEV_PM_OPS(icnl9916_pm_ops, icnl9916_suspend, icnl9916_resume);
++
++static int icnl9916_probe(struct i2c_client *client)
++{
++	struct device *dev = &client->dev;
++	struct icnl9916_data *data;
++	struct input_dev *input;
++	__le16 resolution[2];
++	int error;
++
++	if (!client->irq) {
++		dev_err(dev, "Error no irq specified\n");
++		return -EINVAL;
++	}
++
++	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
++
++	data->chip_reset = devm_reset_control_get_shared(dev, NULL);
++	if (IS_ERR(data->chip_reset))
++		return dev_err_probe(dev, PTR_ERR(data->chip_reset),
++				     "Error getting chip reset");
++
++	data->reset_gpio = devm_gpiod_get(dev, "touchscreen-reset",
++					  GPIOD_OUT_HIGH);
++	if (IS_ERR(data->reset_gpio))
++		return dev_err_probe(dev, PTR_ERR(data->reset_gpio),
++				     "Error getting touchscreen reset gpio\n");
++
++	input = devm_input_allocate_device(dev);
++	if (!input)
++		return -ENOMEM;
++
++	input->name = client->name;
++	input->id.bustype = BUS_I2C;
++	input->open = icnl9916_start;
++	input->close = icnl9916_stop;
++	input->dev.parent = dev;
++
++	data->client = client;
++	data->input = input;
++	input_set_drvdata(input, data);
++
++	input_set_capability(input, EV_ABS, ABS_MT_POSITION_X);
++	input_set_capability(input, EV_ABS, ABS_MT_POSITION_Y);
++
++	error = icnl9916_init(data);
++	if (error) {
++		dev_err(dev, "Failed to initialize device: %d\n", error);
++		return error;
++	}
++
++	error = icnl9916_read(client, ICNL9916_READ_RESOLUTION,
++			      resolution, sizeof(resolution));
++	if (error) {
++		dev_err(dev, "Failed to read resolution: %d\n", error);
++		return error;
++	}
++
++	input_set_abs_params(input, ABS_MT_POSITION_X, 0,
++			     le16_to_cpu(resolution[0]), 0, 0);
++	input_set_abs_params(input, ABS_MT_POSITION_Y, 0,
++			     le16_to_cpu(resolution[1]), 0, 0);
++	touchscreen_parse_properties(input, true, &data->prop);
++
++	error = input_mt_init_slots(input, ICNL9916_MAX_TOUCHES,
++				    INPUT_MT_DIRECT | INPUT_MT_DROP_UNUSED);
++	if (error)
++		return error;
++
++	error = devm_request_threaded_irq(dev, client->irq, NULL, icnl9916_irq,
++					  IRQF_ONESHOT, client->name, data);
++	if (error) {
++		dev_err(dev, "Error requesting irq: %d\n", error);
++		return error;
++	}
++
++	/* Stop device till opened */
++	icnl9916_stop(input);
++
++	error = input_register_device(input);
++	if (error)
++		return error;
++
++	i2c_set_clientdata(client, data);
++
++	return 0;
++}
++
++static const struct of_device_id icnl9916_of_match[] = {
++	{ .compatible = "chipone,icnl9916" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, icnl9916_of_match);
++
++static struct i2c_driver icnl9916_driver = {
++	.driver = {
++		.name	= "chipone_icnl9916",
++		.pm	= pm_sleep_ptr(&icnl9916_pm_ops),
++		.of_match_table = icnl9916_of_match,
++	},
++	.probe = icnl9916_probe,
++};
++
++module_i2c_driver(icnl9916_driver);
++
++MODULE_DESCRIPTION("ChipOne ICNL9916 I2C touchscreen Driver");
++MODULE_AUTHOR("Otto Pflüger <otto.pflueger@abscue.de>");
++MODULE_LICENSE("GPL");

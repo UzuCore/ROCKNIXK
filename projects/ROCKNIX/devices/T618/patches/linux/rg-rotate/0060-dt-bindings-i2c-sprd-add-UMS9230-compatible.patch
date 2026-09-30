@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sat, 17 May 2025 20:31:52 +0200
+Subject: [PATCH 060/225] dt-bindings: i2c: sprd: add UMS9230 compatible
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add a compatible string for the I2C controller on UMS9230.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ Documentation/devicetree/bindings/i2c/sprd,sc9860-i2c.yaml | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/i2c/sprd,sc9860-i2c.yaml b/Documentation/devicetree/bindings/i2c/sprd,sc9860-i2c.yaml
+index ec0d39e73..4ecedd9d0 100644
+--- a/Documentation/devicetree/bindings/i2c/sprd,sc9860-i2c.yaml
++++ b/Documentation/devicetree/bindings/i2c/sprd,sc9860-i2c.yaml
+@@ -16,7 +16,12 @@ allOf:
+ 
+ properties:
+   compatible:
+-    const: sprd,sc9860-i2c
++    oneOf:
++      - items:
++          - enum:
++              - sprd,ums9230-i2c
++          - const: sprd,sc9860-i2c
++      - const: sprd,sc9860-i2c
+ 
+   reg:
+     maxItems: 1
