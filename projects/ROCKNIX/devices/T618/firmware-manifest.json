@@ -1,0 +1,121 @@
+{
+  "version": 2,
+  "files": [
+    {
+      "file": "wcnmodem.bin",
+      "size": 947120,
+      "sha256": "39abf4bd216a5bec2d39219529322eb4b238856ecdd5f8c31093979ed2366bf2",
+      "source_sha256": "39abf4bd216a5bec2d39219529322eb4b238856ecdd5f8c31093979ed2366bf2",
+      "license_status": "private-reference; redistribution not established",
+      "source_group": "vendor",
+      "source_file": "firmware/wcnmodem.bin"
+    },
+    {
+      "file": "gnssmodem.bin",
+      "size": 595116,
+      "sha256": "3a44bdaaff12aec35d18d1da315d27c3ad27cae0e88cc288a7c4c512ddb174ed",
+      "source_sha256": "3a44bdaaff12aec35d18d1da315d27c3ad27cae0e88cc288a7c4c512ddb174ed",
+      "license_status": "private-reference; redistribution not established",
+      "source_group": "vendor",
+      "source_file": "firmware/gnssmodem.bin"
+    },
+    {
+      "file": "wifi_board_config.ini",
+      "size": 7021,
+      "sha256": "a58f40c8d99e2bdee1adaac55ab72481c7823b5c386bc9b3085fb43f573f2a5c",
+      "source_sha256": "a58f40c8d99e2bdee1adaac55ab72481c7823b5c386bc9b3085fb43f573f2a5c",
+      "license_status": "private-reference; redistribution not established",
+      "source_group": "vendor",
+      "source_file": "firmware/wifi_board_config.ini"
+    },
+    {
+      "file": "sprd/wifi_board_config.ini",
+      "size": 7021,
+      "sha256": "a58f40c8d99e2bdee1adaac55ab72481c7823b5c386bc9b3085fb43f573f2a5c",
+      "source_sha256": "a58f40c8d99e2bdee1adaac55ab72481c7823b5c386bc9b3085fb43f573f2a5c",
+      "license_status": "private-reference; redistribution not established",
+      "source_group": "vendor",
+      "source_file": "firmware/wifi_board_config.ini"
+    },
+    {
+      "file": "bt_configure_pskey.ini",
+      "size": 5442,
+      "sha256": "82267aedf0e3e85eb3bccde90b61e2f7ca56fecb4d9081829bb8410023538641",
+      "source_sha256": "82267aedf0e3e85eb3bccde90b61e2f7ca56fecb4d9081829bb8410023538641",
+      "license_status": "private-reference; redistribution not established",
+      "source_group": "vendor",
+      "source_file": "firmware/bt_configure_pskey.ini"
+    },
+    {
+      "file": "sprd/bt_configure_pskey.ini",
+      "size": 5442,
+      "sha256": "82267aedf0e3e85eb3bccde90b61e2f7ca56fecb4d9081829bb8410023538641",
+      "source_sha256": "82267aedf0e3e85eb3bccde90b61e2f7ca56fecb4d9081829bb8410023538641",
+      "license_status": "private-reference; redistribution not established",
+      "source_group": "vendor",
+      "source_file": "firmware/bt_configure_pskey.ini"
+    },
+    {
+      "file": "bt_configure_rf.ini",
+      "size": 3114,
+      "sha256": "0b86cd94f846f7aecdba2ee3f81313b7c9ffb14aa3041574bad85b2a4be95df2",
+      "source_sha256": "0b86cd94f846f7aecdba2ee3f81313b7c9ffb14aa3041574bad85b2a4be95df2",
+      "license_status": "private-reference; redistribution not established",
+      "source_group": "vendor",
+      "source_file": "firmware/bt_configure_rf.ini"
+    },
+    {
+      "file": "sprd/bt_configure_rf.ini",
+      "size": 3114,
+      "sha256": "0b86cd94f846f7aecdba2ee3f81313b7c9ffb14aa3041574bad85b2a4be95df2",
+      "source_sha256": "0b86cd94f846f7aecdba2ee3f81313b7c9ffb14aa3041574bad85b2a4be95df2",
+      "license_status": "private-reference; redistribution not established",
+      "source_group": "vendor",
+      "source_file": "firmware/bt_configure_rf.ini"
+    },
+    {
+      "file": "audio_structure",
+      "size": 43824,
+      "sha256": "cb2f9d8aa3bd15f9d6909953becc834e1f9401e3ecd5fbc8443125050ec0192b",
+      "source_sha256": "cb2f9d8aa3bd15f9d6909953becc834e1f9401e3ecd5fbc8443125050ec0192b",
+      "license_status": "private-reference; redistribution not established",
+      "source_group": "vendor",
+      "source_file": "firmware/audio_structure"
+    },
+    {
+      "file": "dsp_vbc",
+      "size": 112604,
+      "sha256": "90fe459a03d9dcefe9c1e928254c62e4c7627054719fa46925c3716b17af1ee1",
+      "source_sha256": "90fe459a03d9dcefe9c1e928254c62e4c7627054719fa46925c3716b17af1ee1",
+      "license_status": "private-reference; redistribution not established",
+      "source_group": "vendor",
+      "source_file": "firmware/dsp_vbc"
+    },
+    {
+      "file": "agdsp.bin",
+      "size": 5242880,
+      "sha256": "d0c7e40d090e8ace008ff7acabacaeb19677bce2c634cebda742762507573929",
+      "source_sha256": "abe15406ece1c2f0a179860bf605c6d82855525f68b8fcd0604f794e99bf1096",
+      "transform": "AVB footer original_image_size; tail metadata excluded",
+      "license_status": "private-reference; redistribution not established",
+      "source_group": "stock",
+      "source_file": "l_agdsp.bin"
+    },
+    {
+      "file": "pm_sys.bin",
+      "size": 587748,
+      "sha256": "8c464267411f83bf912c8dee4ba4a038394012ff5c403b3cfecb464b9f103f77",
+      "source_sha256": "2a408c4e2721bb57480bf512a8615da70153e62a663f7d3b3681fbc929a37e9d",
+      "transform": "AVB footer original_image_size; tail metadata excluded",
+      "license_status": "private-reference; redistribution not established",
+      "source_group": "stock",
+      "source_file": "pm_sys.bin"
+    }
+  ],
+  "redistribution_approved": false,
+  "input_root_default": "${HOME}/rg405m-buildprep/private-firmware",
+  "input_provenance": {
+    "vendor": "GammaOS Next RG405M Full v1.1 extracted vendor partition",
+    "stock": "RG405M V1.15 PAC extracted partitions; see external PAC_MANIFEST.json"
+  }
+}

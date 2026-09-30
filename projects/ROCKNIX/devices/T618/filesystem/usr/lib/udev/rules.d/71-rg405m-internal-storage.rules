@@ -1,0 +1,2 @@
+# Never offer internal Android partitions to desktop automounters.
+SUBSYSTEM=="block", KERNEL=="mmcblk*", ATTRS{type}=="MMC", ENV{UDISKS_IGNORE}="1", ENV{UDISKS_AUTO}="0"

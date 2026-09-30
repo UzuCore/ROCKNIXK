@@ -1,0 +1,13 @@
+[Unit]
+Description=Keep the approved RG405M slot bootable (tries refresh, auto-fallback kept)
+After=local-fs.target essway.service
+ConditionPathExists=/storage/.config/rg405m/allow-boot-control-write
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/sleep 60
+ExecStart=/usr/bin/python3 /usr/lib/rg405m/boot_success.py --commit --refresh-only
+TimeoutStartSec=90
+
+[Install]
+WantedBy=multi-user.target

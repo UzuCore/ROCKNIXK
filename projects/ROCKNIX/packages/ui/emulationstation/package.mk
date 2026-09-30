@@ -71,7 +71,7 @@ makeinstall_target() {
 
   mkdir -p ${INSTALL}/etc/emulationstation
     ln -sf /storage/.config/emulationstation/themes ${INSTALL}/etc/emulationstation/themes
-    ln -sf ${INSTALL}/usr/config/emulationstation/es_systems.cfg ${INSTALL}/etc/emulationstation/es_systems.cfg
+    ln -sf /usr/config/emulationstation/es_systems.cfg ${INSTALL}/etc/emulationstation/es_systems.cfg
 
 
   # If we're not an emulation device, ES may still be installed so we need a default config.

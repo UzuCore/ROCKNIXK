@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+case "${TARGET_ARCH}" in
+  aarch64) TARGET_CPU="cortex-a75.cortex-a55"; TARGET_CPU_FLAGS="+crc+fp+simd" ;;
+  arm)     # 32-bit userland for lib32 / 32-bit cores (ENABLE_32BIT), same as RK3566
+    TARGET_KERNEL_ARCH="arm64"; TARGET_FLOAT="hard"; TARGET_CPU="cortex-a55"
+    TARGET_CPU_FLAGS="+crc"; TARGET_FPU="neon-fp-armv8" ;;
+  *) echo "T618 supports aarch64 (+ arm compat) only" >&2; exit 1 ;;
+esac
+TARGET_KERNEL_ARCH="arm64"
+HW_CPU="Unisoc T618"
+PARTITION_TABLE="gpt"
+KERNEL_TARGET="Image"
+KERNEL_MAKE_EXTRACMD=" $(get_kernel_make_extracmd)"
+EXTRA_CMDLINE="rootwait fbcon=rotate:1 printk.devkmsg=on systemd.show_status=1 panic=10"
+DEBUG_TTY="/dev/tty1"
+BOOTLOADER="u-boot"
+GRAPHIC_DRIVERS="panfrost"
+PREFER_GLES="yes"
+# PanVK on Bifrost v7 needs PAN_I_WANT_A_BROKEN_VULKAN_DRIVER=1 (set in quirks/platforms/T618/090-ui_service)
+VULKAN_SUPPORT="yes"
+VULKAN="vulkan-loader"
+DISPLAYSERVER="wl"
+WINDOWMANAGER="swaywm-env"
+ENABLE_32BIT="true"
+ROCKNIX_JOYPAD="no"
+ROCKNIX_DEVICE_TREE_OVERLAYS="no"
+ADDITIONAL_DRIVERS=""
+FIRMWARE=""
+ADDITIONAL_PACKAGES="inputplumber t618-input t618-firmware"
+ZRAM_COMPRESSION_ALGO="zstd"
+ZRAM_SWAP_SIZE="Auto"
+SWAP_FILE_SIZE="0"
+PKG_BUILD_PERF="no"
+
+# Private, hash-checked firmware inputs; never committed to Git.
+T618_PRIVATE_FIRMWARE_DIR="${T618_PRIVATE_FIRMWARE_DIR:-${HOME}/rg405m-buildprep/private-firmware}"
+
+# Android boot carriers and the SD SYSTEM must be updated as a matching set.
+ENABLE_UPDATES="no"
+
+# Includes SYSTEM plus Android boot carriers copied through the existing extlinux hook.
+SYSTEM_SIZE=4096
+
+# Keep the normal image unchanged; hardware bring-up images omit emulator payloads.
+if [ "${T618_TEST_BUILD:-no}" = "yes" ]; then
+  ADDITIONAL_PACKAGES+=" t618-test-tools gamepadtester"   # gamepadtester: ROCKNIX "Test Gamepad" (normally via misc/modules)
+  EMULATION_DEVICE="no"
+  TARGET_TYPE="none"
+  ENABLE_32BIT="false"
+  MODULES_PKG="no"
+  CODEX_SUPPORT="no"
+fi

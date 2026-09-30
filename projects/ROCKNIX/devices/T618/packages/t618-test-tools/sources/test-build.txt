@@ -1,0 +1,4 @@
+ROCKNIXK T618 test image
+Emulators, RetroArch cores, game payloads, and 32-bit compatibility packages are excluded.
+This image is not a production release and has not been validated on hardware.
+No bootloader installation or eMMC write is performed automatically by these tools.

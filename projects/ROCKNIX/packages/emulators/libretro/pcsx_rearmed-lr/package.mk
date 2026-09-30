@@ -23,4 +23,12 @@ makeinstall_target() {
       aarch64|x86_64) cp -a ../pcsx_rearmed_libretro.so ${INSTALL}/usr/lib/libretro ;;
       arm) cp -a ../pcsx_rearmed_libretro.so ${INSTALL}/usr/lib/libretro/pcsx_rearmed32_libretro.so ;;
     esac
+  # The aarch64 image needs the 32-bit core as well: es_systems makes pcsx_rearmed32 the default PSX core on
+  # several ARM devices and runemu.sh loads it from /tmp/cores (= /usr/lib/libretro). The 2026-08 cleanup
+  # (74818e9c94) dropped this copy, so the default core was missing and PSX games exited immediately.
+  # Same pattern as gpsp-lr / desmume-lr.
+  if [ "${ARCH}" = "aarch64" ] && [ "${ENABLE_32BIT}" = "true" ]; then
+    cp -vP ${ROOT}/build.${DISTRO}-${DEVICE}.arm/install_pkg/${PKG_NAME}-*/usr/lib/libretro/pcsx_rearmed32_libretro.so \
+      ${INSTALL}/usr/lib/libretro/
+  fi
 }

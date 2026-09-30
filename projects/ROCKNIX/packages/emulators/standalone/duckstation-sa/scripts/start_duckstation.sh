@@ -107,8 +107,13 @@ fi
   elif [ "$RENDERER" = "vulkan" ]; then
     sed -i '/^Renderer =/c\Renderer = Vulkan' ${CONF_FILE}
   else
-    #Default to software renderer
-    sed -i '/^Renderer =/c\Renderer = Software' ${CONF_FILE}
+    #Default to software renderer.
+    #T618 (RG405M): the software renderer dies with SIGSEGV in the page-fault handler; OpenGL runs the game.
+    if [ "${HW_DEVICE}" = "T618" ]; then
+      sed -i '/^Renderer =/c\Renderer = OpenGL' ${CONF_FILE}
+    else
+      sed -i '/^Renderer =/c\Renderer = Software' ${CONF_FILE}
+    fi
   fi
 
   #VSYNC

@@ -1,0 +1,11 @@
+[Unit]
+Description=RG405M bring-up boot log to /flash
+DefaultDependencies=no
+After=systemd-journald.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/t618-bootlog
+
+[Install]
+WantedBy=sysinit.target fs-resize.target

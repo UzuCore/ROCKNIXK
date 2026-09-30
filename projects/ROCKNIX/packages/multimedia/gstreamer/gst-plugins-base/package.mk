@@ -3,6 +3,7 @@
 
 PKG_NAME="gst-plugins-base"
 PKG_VERSION="$(get_pkg_version gstreamer)"
+PKG_SHA256="eaaaa0bb455812e2277d14c9be8dd3136e2c607e34efd401a33d4b384b2f0253"
 PKG_LICENSE="GPL-2.1-or-later"
 PKG_SITE="https://gstreamer.freedesktop.org/modules/gst-plugins-base.html"
 PKG_URL="https://gstreamer.freedesktop.org/src/gst-plugins-base/${PKG_NAME}-${PKG_VERSION}.tar.xz"

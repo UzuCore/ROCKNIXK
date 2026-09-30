@@ -1,0 +1,19 @@
+[Unit]
+Description=RG405M: take /storage back from Android (root:root 0755) before tmpfiles
+# When Android (GammaOS or stock) mounts the microSD STORAGE partition, vold changes the owner of its
+# root directory to media_rw (1023). systemd-tmpfiles then refuses the "unsafe path transition"
+# /storage (1023) -> /storage/.tmp (root), never creates /storage/.tmp/*-workdir, and every
+# /tmp/{cores,assets,database,joypads,overlays,shaders} overlay mount fails - RetroArch loses its cores.
+# Only the top directory is touched; nothing below it is changed.
+DefaultDependencies=no
+Before=systemd-tmpfiles-setup.service tmp-cores.mount tmp-assets.mount tmp-database.mount tmp-joypads.mount tmp-overlays.mount tmp-shaders.mount
+After=local-fs-pre.target
+ConditionPathIsMountPoint=/storage
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'o=$(stat -c %%u:%%g:%%a /storage); [ "$o" = "0:0:755" ] || { echo "RG405M: /storage was $o, restoring root:root 0755"; chown 0:0 /storage; chmod 0755 /storage; }'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target

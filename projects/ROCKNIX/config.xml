@@ -1,4 +1,7 @@
 <rocknix>
+  <T618 mkimage_options="dtb,extlinux" fdt="device_trees/ums512-rg405m.dtb" fdt_type="fdt" dtb_prefix="sprd">
+    <file>ums512-rg405m</file>
+  </T618>
   <H700 dtb_prefix="allwinner">
     <DDR4 mkimage_options="dtb,extlinux,uboot" fdt="dtb.img" fdt_type="fdt">
         <file>sun50i-h700-anbernic-rg35xx-plus</file>

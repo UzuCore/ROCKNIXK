@@ -56,7 +56,13 @@ fi
 if [ $(echo $1 | grep -i .zip | wc -l) -eq 1 ]; then
     # Unzip the game ROM if needed
     unzip -q -o "$1" -d ${TMP}
-    ROM=$(unzip -Zl -1 "$1")
+    # "unzip -Z" is Info-ZIP zipinfo; the image only ships busybox unzip, which prints its usage instead,
+    # so ROM ended up empty and mupen64plus tried to open the directory "${TMP}/". Read the first file
+    # entry with Python's zipfile (always in the image), and keep Info-ZIP as a fallback.
+    ROM=$(python3 -c 'import sys, zipfile
+names = [i.filename for i in zipfile.ZipFile(sys.argv[1]).infolist() if not i.is_dir()]
+print(names[0] if names else "")' "$1" 2>/dev/null)
+    [ -n "${ROM}" ] || ROM=$(unzip -Zl -1 "$1" 2>/dev/null)
 else
     cp "$1" ${TMP}
     ROM="${GAME}"

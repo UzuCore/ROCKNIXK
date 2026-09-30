@@ -1,0 +1,20 @@
+#!/bin/sh
+# RG405M bring-up: copy kernel log + journal to the FAT boot partition every 10 s for 5 min,
+# so a headless/black-screen boot can be diagnosed from Android afterwards.
+for i in $(seq 1 30); do
+  mount -o remount,rw /flash 2>/dev/null
+  {
+    echo "=== t618-bootlog pass $i $(date -Iseconds 2>/dev/null) uptime $(cut -d' ' -f1 /proc/uptime)"
+    echo "--- cmdline"; cat /proc/cmdline
+    echo "--- failed units"; systemctl --no-pager --failed 2>&1
+    echo "--- jobs"; systemctl --no-pager list-jobs 2>&1 | head -40
+    echo "--- drm"; ls -l /dev/dri 2>&1; cat /sys/class/drm/*/status 2>/dev/null
+    echo "--- fb"; cat /sys/class/graphics/fb0/name /sys/class/graphics/fb0/virtual_size 2>&1
+    echo "--- backlight"; cat /sys/class/backlight/*/brightness /sys/class/backlight/*/bl_power 2>&1
+  } > /flash/t618-status.log 2>&1
+  dmesg > /flash/t618-dmesg.log 2>&1
+  journalctl -b --no-pager -o short-monotonic > /flash/t618-journal.log 2>&1
+  sync
+  mount -o remount,ro /flash 2>/dev/null
+  sleep 10
+done
