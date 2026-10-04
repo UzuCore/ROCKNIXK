@@ -47,141 +47,123 @@ ZCULLA=$(get_setting zcull_accuracy "${PLATFORM}" "${GAME}")
 SUI=$(get_setting start_ui "${PLATFORM}" "${GAME}")
 CONFIG_YML="/storage/.config/rpcs3/config.yml"
 
-# Aspect Ratio. Leave RPCS3's current value untouched when ES has no override.
-case "${ASPECT}" in
-  4x3)
-    sed -i "s#Aspect ratio:.*\$#Aspect ratio: 4:3#g" "${CONFIG_YML}"
-    ;;
-  16x9)
-    sed -i "s#Aspect ratio:.*\$#Aspect ratio: 16:9#g" "${CONFIG_YML}"
-    ;;
-esac
+#Aspect Ratio
+if [ "${ASPECT}" = "4x3" ]; then
+  sed -i "s#Aspect ratio:.*\$#Aspect ratio: 4:3#g" "${CONFIG_YML}"
+else
+  sed -i "s#Aspect ratio:.*\$#Aspect ratio: 16:9#g" "${CONFIG_YML}"
+fi
 
-# Asynchronous Texture Streaming
-case "${ATEXTURE}" in
-  true)
-    sed -i "s#Asynchronous Texture Streaming 2:.*\$#Asynchronous Texture Streaming 2: true#g" "${CONFIG_YML}"
-    ;;
-  false)
-    sed -i "s#Asynchronous Texture Streaming 2:.*\$#Asynchronous Texture Streaming 2: false#g" "${CONFIG_YML}"
-    ;;
-esac
+#Asynchronous Texture Streaming
+if [ "${ATEXTURE}" = "true" ]; then
+  sed -i "s#Asynchronous Texture Streaming 2:.*\$#Asynchronous Texture Streaming 2: true#g" "${CONFIG_YML}"
+else
+  sed -i "s#Asynchronous Texture Streaming 2:.*\$#Asynchronous Texture Streaming 2: false#g" "${CONFIG_YML}"
+fi
 
-# Graphics Backend
-case "${GRENDERER}" in
-  vulkan)
-    sed -i '/Video:/ {n; s/Renderer: .*/Renderer: Vulkan/}' "${CONFIG_YML}"
-    ;;
-  opengl)
-    sed -i '/Video:/ {n; s/Renderer: .*/Renderer: OpenGL/}' "${CONFIG_YML}"
-    ;;
-esac
+#Graphics Backend
+if [ "$GRENDERER" = "vulkan" ]; then
+  sed -i '/Video:/ {n; s/Renderer: .*/Renderer: Vulkan/}' "${CONFIG_YML}"
+else
+  sed -i '/Video:/ {n; s/Renderer: .*/Renderer: OpenGL/}' "${CONFIG_YML}"
+fi
 
-# Frame Limit
-case "${FLIMIT}" in
-  30|60)
-    sed -i "s#Frame limit:.*\$#Frame limit: ${FLIMIT}#g" "${CONFIG_YML}"
-    ;;
-  auto)
-    sed -i "s#Frame limit:.*\$#Frame limit: Auto#g" "${CONFIG_YML}"
-    ;;
-esac
+#Internal Resolution
+if [ "${FLIMIT}" = "30" ]; then
+  sed -i "s#Frame limit:.*\$#Frame limit: 30#g" "${CONFIG_YML}"
+elif [ "${FLIMIT}" = "60" ]; then
+  sed -i "s#Frame limit:.*\$#Frame limit: 60#g" "${CONFIG_YML}"
+else
+  sed -i "s#Frame limit:.*\$#Frame limit: Auto#g" "${CONFIG_YML}"
+fi
 
-# Internal Resolution
-case "${IPS3RES}" in
-  480)
-    sed -i "s#Resolution:.*\$#Resolution: 720x480#g" "${CONFIG_YML}"
-    ;;
-  576)
-    sed -i "s#Resolution:.*\$#Resolution: 720x576#g" "${CONFIG_YML}"
-    ;;
-  720)
-    sed -i "s#Resolution:.*\$#Resolution: 1280x720#g" "${CONFIG_YML}"
-    ;;
-  1080)
-    sed -i "s#Resolution:.*\$#Resolution: 1920x1080#g" "${CONFIG_YML}"
-    ;;
-  native)
-    sed -i "s#Resolution:.*\$#Resolution: $(fbwidth)x$(fbheight)#g" "${CONFIG_YML}"
-    ;;
-esac
+#Internal Resolution
+if [ "${IPS3RES}" = "576" ]; then
+  sed -i "s#Resolution:.*\$#Resolution: 720x576#g" "${CONFIG_YML}"
+elif [ "${IPS3RES}" = "720" ]; then
+  sed -i "s#Resolution:.*\$#Resolution: 1280x720#g" "${CONFIG_YML}"
+elif [ "${IPS3RES}" = "1080" ]; then
+  sed -i "s#Resolution:.*\$#Resolution: 1920x1080#g" "${CONFIG_YML}"
+elif [ "${IPS3RES}" = "native" ]; then
+  sed -i "s#Resolution:.*\$#Resolution: $(fbwidth)x$(fbheight)#g" "${CONFIG_YML}"
+else
+  sed -i "s#Resolution:.*\$#Resolution: 720x480#g" "${CONFIG_YML}"
+fi
 
-# Internal Resolution Scale
-case "${IRES_SCALE}" in
-  25|50|75|100)
-    sed -i "s#Resolution Scale:.*\$#Resolution Scale: ${IRES_SCALE}#g" "${CONFIG_YML}"
-    ;;
-esac
+#Internal Resolution Scale
+if [ "${IRES_SCALE}" = "25" ]; then
+  sed -i "s#Resolution Scale:.*\$#Resolution Scale: 25#g" "${CONFIG_YML}"
+elif [ "${IRES_SCALE}" = "75" ]; then
+  sed -i "s#Resolution Scale:.*\$#Resolution Scale: 75#g" "${CONFIG_YML}"
+elif [ "${IRES_SCALE}" = "100" ]; then
+  sed -i "s#Resolution Scale:.*\$#Resolution Scale: 100#g" "${CONFIG_YML}"
+else
+  sed -i "s#Resolution Scale:.*\$#Resolution Scale: 50#g" "${CONFIG_YML}"
+fi
 
-# Multithreaded RSX
-case "${MULTIRSX}" in
-  true|false)
-    sed -i "s#Multithreaded RSX:.*\$#Multithreaded RSX: ${MULTIRSX}#g" "${CONFIG_YML}"
-    ;;
-esac
+# Scan out render size, 1x is the configured Resolution
+SCANOUT_H=$(awk '/Resolution: [0-9]+x[0-9]+/ { sub(/.*x/, ""); print; exit }' "${CONFIG_YML}")
+SCANOUT_SCALE=$(scanout_internal_scale "$(awk '/Resolution Scale:/ {print $3 / 100; exit}' "${CONFIG_YML}")" "${SCANOUT_H}" 0.25 8 0.25)
+sed -i "s#Resolution Scale:.*\$#Resolution Scale: $(awk -v s="${SCANOUT_SCALE}" 'BEGIN { printf "%d", s * 100 }')#g" "${CONFIG_YML}"
+scanout_render_size "${SCANOUT_H}" "${SCANOUT_SCALE}" 16:9
 
-# Shader Precision
-case "${SPREC}" in
-  low)
-    sed -i "s#Shader Precision:.*\$#Shader Precision: Low#g" "${CONFIG_YML}"
-    ;;
-  high)
-    sed -i "s#Shader Precision:.*\$#Shader Precision: High#g" "${CONFIG_YML}"
-    ;;
-  ultra)
-    sed -i "s#Shader Precision:.*\$#Shader Precision: Ultra#g" "${CONFIG_YML}"
-    ;;
-esac
+#Multithreaded RSX
+if [ "${MULTIRSX}" = "true" ]; then
+  sed -i "s#Multithreaded RSX:.*\$#Multithreaded RSX: true#g" "${CONFIG_YML}"
+else
+  sed -i "s#Multithreaded RSX:.*\$#Multithreaded RSX: false#g" "${CONFIG_YML}"
+fi
 
-# SPU XFloat Accuracy
-case "${SPUXFLOAT}" in
-  approximate)
-    sed -i "s#XFloat Accuracy:.*\$#XFloat Accuracy: Approximate#g" "${CONFIG_YML}"
-    ;;
-  accurate)
-    sed -i "s#XFloat Accuracy:.*\$#XFloat Accuracy: Accurate#g" "${CONFIG_YML}"
-    ;;
-  relaxed)
-    sed -i "s#XFloat Accuracy:.*\$#XFloat Accuracy: Relaxed#g" "${CONFIG_YML}"
-    ;;
-esac
+#Shader Precision
+if [ "$SPREC" = "ultra" ]; then
+  sed -i "s#Shader Precision:.*\$#Shader Precision: Ultra#g" "${CONFIG_YML}"
+elif [ "$SPREC" = "high" ]; then
+  sed -i "s#Shader Precision:.*\$#Shader Precision: High#g" "${CONFIG_YML}"
+else
+  sed -i "s#Shader Precision:.*\$#Shader Precision: Low#g" "${CONFIG_YML}"
+fi
 
-# Write Color Buffers
-case "${WCOLORB}" in
-  true|false)
-    sed -i "s#Write Color Buffers:.*\$#Write Color Buffers: ${WCOLORB}#g" "${CONFIG_YML}"
-    ;;
-esac
+#SPU XFloat Accuracy
+if [ "$SPUXFLOAT" = "accurate" ]; then
+  sed -i "s#XFloat Accuracy:.*\$#XFloat Accuracy: Accurate#g" "${CONFIG_YML}"
+elif [ "$SPUXFLOAT" = "relaxed" ]; then
+  sed -i "s#XFloat Accuracy:.*\$#XFloat Accuracy: Relaxed#g" "${CONFIG_YML}"
+else
+  sed -i "s#XFloat Accuracy:.*\$#XFloat Accuracy: Approximate#g" "${CONFIG_YML}"
+fi
 
-# VSync
-case "${VSYNC}" in
-  true|false)
-    sed -i "s#VSync:.*\$#VSync: ${VSYNC}#g" "${CONFIG_YML}"
-    ;;
-esac
+#Write Color Buffers
+if [ "${WCOLORB}" = "true" ]; then
+  sed -i "s#Write Color Buffers:.*\$#Write Color Buffers: true#g" "${CONFIG_YML}"
+else
+  sed -i "s#Write Color Buffers:.*\$#Write Color Buffers: false#g" "${CONFIG_YML}"
+fi
 
-# ZCULL Accuracy
-case "${ZCULLA}" in
-  precise)
-    sed -i "s#Relaxed ZCULL Sync:.*\$#Relaxed ZCULL Sync: false#g" "${CONFIG_YML}"
-    sed -i "s#Accurate ZCULL stats:.*\$#Accurate ZCULL stats: true#g" "${CONFIG_YML}"
-    ;;
-  approximate)
-    sed -i "s#Relaxed ZCULL Sync:.*\$#Relaxed ZCULL Sync: false#g" "${CONFIG_YML}"
-    sed -i "s#Accurate ZCULL stats:.*\$#Accurate ZCULL stats: false#g" "${CONFIG_YML}"
-    ;;
-  relaxed)
-    sed -i "s#Relaxed ZCULL Sync:.*\$#Relaxed ZCULL Sync: true#g" "${CONFIG_YML}"
-    sed -i "s#Accurate ZCULL stats:.*\$#Accurate ZCULL stats: false#g" "${CONFIG_YML}"
-    ;;
-esac
+#Vsync
+if [ "${VSYNC}" = "true" ]; then
+  sed -i "s#VSync:.*\$#VSync: true#g" "${CONFIG_YML}"
+else
+  sed -i "s#VSync:.*\$#VSync: false#g" "${CONFIG_YML}"
+fi
+
+#Zcull Accuracy
+if [ "$ZCULLA" = "precise" ]; then
+  sed -i "s#Relaxed ZCULL Sync:.*\$#Relaxed ZCULL Sync: false#g" "${CONFIG_YML}"
+  sed -i "s#Accurate ZCULL stats:.*\$#Accurate ZCULL stats: true#g" "${CONFIG_YML}"
+elif [ "$ZCULLA" = "approximate" ]; then
+  sed -i "s#Relaxed ZCULL Sync:.*\$#Relaxed ZCULL Sync: true#g" "${CONFIG_YML}"
+  sed -i "s#Accurate ZCULL stats:.*\$#Accurate ZCULL stats: false#g" "${CONFIG_YML}"
+else
+  sed -i "s#Relaxed ZCULL Sync:.*\$#Relaxed ZCULL Sync: false#g" "${CONFIG_YML}"
+  sed -i "s#Accurate ZCULL stats:.*\$#Accurate ZCULL stats: false#g" "${CONFIG_YML}"
+fi
 
 # Performance Overlay
-case "${PERFOVERLAY}" in
-  true|false)
-    sed -i "/Performance Overlay:/ {n; s/Enabled: .*/Enabled: ${PERFOVERLAY}/}" "${CONFIG_YML}"
-    ;;
-esac
+if [ "${PERFOVERLAY}" = "true" ]; then
+  sed -i '/Performance Overlay:/ {n; s/Enabled: .*/Enabled: true/}' "${CONFIG_YML}"
+else
+  sed -i '/Performance Overlay:/ {n; s/Enabled: .*/Enabled: false/}' "${CONFIG_YML}"
+fi
 
 #Set the cores to use
 CORES=$(get_setting "cores" "${PLATFORM}" "${GAME}")
@@ -217,8 +199,8 @@ cat <<EOF >/var/log/rpcs3-sa.log
 GAME: ${GAME}
 PLATFORM: ${PLATFORM}
 ASPECT RATIO: ${ASPECT}
-GPU BACKEND: ${GRENDERER}
-INTERNAL RESOLUTION: ${IPS3RES}
+GRU BACKEND: ${GRENDERER}
+INTERNAL RESOLUTION: ${IRES}
 INTERNAL RESOLUTION SCALE: ${IRES_SCALE}
 MULTITHREADED RSX: ${MULTIRSX}
 PERFORMANCE OVERLAY: ${PERFOVERLAY}

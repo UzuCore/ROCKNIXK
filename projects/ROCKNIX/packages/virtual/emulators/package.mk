@@ -53,7 +53,7 @@ case "${DEVICE}" in
     ;;
   RK3399)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 desmume-lr gpsp-lr pcsx_rearmed-lr"
-    PKG_EMUS+=" aethersx2-sa dolphin-sa drastic-sa mednafen melonds-sa nanoboyadvance-sa"
+    PKG_EMUS+=" aethersx2-sa armsx2-sa dolphin-sa drastic-sa mednafen melonds-sa nanoboyadvance-sa"
     LIBRETRO_CORES+=" beetle-psx-lr bsnes-lr bsnes-hd-lr dolphin-lr uae4arm-lr"
     ;;
   RK3566)
@@ -1220,22 +1220,18 @@ makeinstall_target() {
 
   ### Sony Playstation 2
   case ${DEVICE} in
-    AMD64)
-      add_emu_core ps2 armsx2 armsx2-sa true
-      install_script "Start ARMSX2.sh"
-      add_es_system ps2
-      ;;
-    RK3399|RK3576|RK3566|RK3588|SM4450|SM6115|SM8250|SM8550|SM8650|SM8750|S922X)
-      add_emu_core ps2 aethersx2 aethersx2-sa true
-      case ${DEVICE} in
-        S922X|RK3576|SM4450|SM6115|SM8250|SM8550|SM8650|SM8750)
-          add_emu_core ps2 armsx2 armsx2-sa false
-          install_script "Start ARMSX2.sh"
-          ;;
-      esac
-      add_es_system ps2
-      install_script "Start AetherSX2.sh"
-      ;;
+  AMD64)
+    add_emu_core ps2 armsx2 armsx2-sa true
+    install_script "Start ARMSX2.sh"
+    add_es_system ps2
+    ;;
+  RK3399|RK3576|RK3566|RK3588|SM4450|SM6115|SM8250|SM8550|SM8650|SM8750|S922X)
+    add_emu_core ps2 armsx2 armsx2-sa true
+    add_emu_core ps2 aethersx2 aethersx2-sa false
+    add_es_system ps2
+    install_script "Start ARMSX2.sh"
+    install_script "Start AetherSX2.sh"
+    ;;
   esac
 
   ### Sony Playstation 3

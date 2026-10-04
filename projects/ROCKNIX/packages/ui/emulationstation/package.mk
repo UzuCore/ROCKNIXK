@@ -2,8 +2,8 @@
 # Copyright (C) 2024-present ROCKNIX (https://github.com/ROCKNIX)
 
 PKG_NAME="emulationstation"
-PKG_VERSION="bccd715707e794a396e6578a585526658909c427"
-PKG_SHA256="0915d23f87433ee1803e8c5ab7769f50a9999d46d7f6e149f518c4f334cf42d1"
+PKG_VERSION="cada856d86e3115fbbf0bce09dd761b0ee8fa9fd"
+PKG_SHA256="c92eb0fd6e1e2b5fa603391f6c0b540d4fad858664c23321237df32efecf68ad"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/ROCKNIX/emulationstation-next"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
@@ -99,6 +99,12 @@ EOF
   if [ ! "${VULKAN_SUPPORT}" = "yes" ]; then
     xmlstarlet ed --inplace -d '//choice[contains(@name, "vulkan")]' ${INSTALL}/usr/config/emulationstation/es_features.cfg
   fi
+
+  #ARMSX2's own Turnip ships only on these devices (see armsx2-sa)
+  case ${DEVICE} in
+    SM4450|SM6115|SM8250|SM8550|SM8650) ;;
+    *) xmlstarlet ed --inplace -d '//core[@name="armsx2-sa"]//feature[@name="vulkan driver"]' ${INSTALL}/usr/config/emulationstation/es_features.cfg ;;
+  esac
 }
 
 

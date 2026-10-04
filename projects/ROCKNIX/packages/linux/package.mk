@@ -15,6 +15,7 @@ PKG_STAMP="${KERNEL_TARGET} ${KERNEL_MAKE_EXTRACMD}"
 
 PKG_PATCH_DIRS="${LINUX} mainline ${DEVICE} default"
 
+[[ "${DEVICE}" =~ "RK3326|RK3399|S922X|H700" ]] && PKG_PATCH_DIRS+=" rocknix-joypad"
 [[ "${DEVICE}" == RK* ]] && PKG_PATCH_DIRS+=" mainline-rockchip"
 [[ "${DEVICE}" == SM* ]] && PKG_DEPENDS_TARGET+=" mkbootimg:host"
 
@@ -25,6 +26,12 @@ case ${DEVICE} in
     PKG_URL="https://github.com/armbian/linux-rockchip/archive/${PKG_VERSION}.tar.gz"
     PKG_GIT_CLONE_BRANCH="rk-6.1-rkr3"
     PKG_PATCH_DIRS="${LINUX} ${DEVICE} default"
+    ;;
+  RK3576|RK3566)
+    PKG_VERSION="7.2.7"
+    PKG_SHA256="4ac34c47db2540ffb2713943f8d891ff1702e0ba6934525a493b7d1cad43145a"
+    PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+    PKG_PATCH_DIRS+=" 7.2.6"
     ;;
   H700|SM4450|SM6115|SM8250|SM8550|SM8650|SM8750)
     PKG_VERSION="7.2"
@@ -39,15 +46,9 @@ case ${DEVICE} in
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
     PKG_PATCH_DIRS+=" 7.0"
     ;;
-  RK3576|RK3566)
-    PKG_VERSION="7.0.2"
-    PKG_SHA256="53591a03294527a48ccb0b9e559e922df8a38554745a1206827ca751d2ca7662"
-    PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
-    PKG_PATCH_DIRS+=" 7.0"
-    ;;
   S922X|RK3399)
-    PKG_VERSION="6.18.49"
-    PKG_SHA256="ae826f33111fea6f1d279dde7299d7463c8dfd204aeb75a8fb5432bc60a28191"
+    PKG_VERSION="6.18.54"
+    PKG_SHA256="9df30b02dd8102bbd0be52556288ef6889ddbe7f1ddb96fbf847d0becf3eacac"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
     ;;
 esac
@@ -371,8 +372,10 @@ make_target() {
       NO_LIBPFM4=1 \
       NO_LIBBABELTRACE=1 \
       NO_CAPSTONE=1 \
+      NO_RUST=1 \
       CROSS_COMPILE="${TARGET_PREFIX}" \
       JOBS="${CONCURRENCY_MAKE_LEVEL}" \
+      EXTRA_CFLAGS="-g -O2 -Wno-error=discarded-qualifiers" \
         make ${PERF_BUILD_ARGS}
       mkdir -p ${INSTALL}/usr/bin
         cp perf ${INSTALL}/usr/bin
@@ -429,6 +432,4 @@ makeinstall_target() {
       fi
     done
   fi
-
-  makeinstall_host
 }

@@ -45,7 +45,6 @@
 |id Software|Doom (doom)|1993|`doom`|.doom .iwad .pwad .wad|**gzdoom:** gzdoom-sa (default)<br>**retroarch:** prboom<br>|
 |id Software|iDtech (idtech)|1991|`idtech`|.sh|**retroarch:** idtech (default)<br>|
 |Infocom|Z-machine (zmachine)|1979|`zmachine`|.dat .z1 .z2 .z3 .z4 .z5 .z6 .zip|**retroarch:** mojozork (default)<br>|
-|Korean Mobile|ARAM - Korean Feature Phone (aram)|2000|`aram`|.dat .jar .zip .ZIP|**aram:** aram-sa (default)<br>|
 |Lexaloffle|PICO-8 (pico-8)|2015|`pico-8`|.p8 .png|**pico-8:** pico8 (default)<br>**retroarch:** fake08<br>|
 |Magnavox|Odyssey 2 (odyssey2)|1979|`odyssey`|.bin .zip .7z|**retroarch:** o2em (default)<br>|
 |Mattel|Intellivision (intellivision)|1979|`intellivision`|.int .bin .rom .zip .7z|**retroarch:** freeintv (default)<br>|
@@ -54,7 +53,6 @@
 |Microsoft|MSX 2 (msx2)|1988|`msx2`|.dsk .mx1 .mx2 .rom .zip .7z .m3u|**retroarch:** bluemsx (default)<br>**retroarch:** fmsx<br>|
 |Microsoft|Windows (windows)|System|`windows`|.sh|**wine:** wine (default)<br>|
 |Microsoft|Xbox (xbox)|2001|`xbox`|.iso|**xemu:** xemu-sa (default)<br>|
-|Microsoft|Xbox 360 (xbox360)|2005|`xbox360`|.iso .xex .zar|**xenia:** xenia-sa (default)<br>|
 |NEC|PC Engine (pcengine)|1987|`pcengine`|.pce .bin .zip .7z|**retroarch:** beetle_pce_fast (default)<br>**retroarch:** beetle_pce<br>**retroarch:** beetle_supergrafx<br>**retroarch:** geargrafx<br>**mednafen:** pce<br>**mednafen:** pce_fast<br>**ares:** ares-sa<br>|
 |NEC|PC Engine CD (pcenginecd)|1988|`pcenginecd`|.cue .ccd .chd .toc .m3u|**retroarch:** beetle_pce_fast (default)<br>**retroarch:** beetle_pce<br>**retroarch:** beetle_supergrafx<br>**retroarch:** geargrafx<br>**mednafen:** pce<br>**mednafen:** pce_fast<br>**ares:** ares-sa<br>|
 |NEC|PC-8800 (pc-8800)|1981|`pc88`|.d88 .u88 .m3u|**retroarch:** quasi88 (default)<br>|
@@ -88,7 +86,6 @@
 |Nintendo|Super NES MSU-1 (snesmsu1)|2012|`snesmsu1`|.smc .fig .sfc .swc .zip .7z|**retroarch:** snes9x (default)<br>**retroarch:** supersnes9x<br>**retroarch:** beetle_supafaust<br>**mednafen:** snes_faust<br>|
 |Nintendo|Super Nintendo (Hacks) (snesh)|1991|`snesh`|.smc .fig .sfc .swc .zip .7z|**retroarch:** snes9x (default)<br>**retroarch:** snes9x2010<br>**retroarch:** snes9x2002<br>**retroarch:** snes9x2005_plus<br>**retroarch:** supersnes9x<br>**retroarch:** beetle_supafaust<br>**retroarch:** bsnes_mercury_accuracy<br>**retroarch:** bsnes_mercury_balanced<br>**retroarch:** bsnes_mercury_performance<br>**retroarch:** bsnes2014_accuracy<br>**retroarch:** bsnes2014_balanced<br>**retroarch:** bsnes2014_performance<br>**retroarch:** mesen-s<br>**retroarch:** bsnes<br>**retroarch:** bsnes_hd_beta<br>**mednafen:** snes_faust<br>**ares:** ares-sa<br>|
 |Nintendo|Super Nintendo (snes)|1991|`snes`|.smc .fig .sfc .swc .zip .7z|**retroarch:** snes9x (default)<br>**retroarch:** snes9x2010<br>**retroarch:** snes9x2002<br>**retroarch:** snes9x2005_plus<br>**retroarch:** supersnes9x<br>**retroarch:** beetle_supafaust<br>**retroarch:** bsnes_mercury_accuracy<br>**retroarch:** bsnes_mercury_balanced<br>**retroarch:** bsnes_mercury_performance<br>**retroarch:** bsnes2014_accuracy<br>**retroarch:** bsnes2014_balanced<br>**retroarch:** bsnes2014_performance<br>**retroarch:** mesen-s<br>**retroarch:** bsnes<br>**retroarch:** bsnes_hd_beta<br>**mednafen:** snes_faust<br>**ares:** ares-sa<br>|
-|Nintendo|Switch (switch)|2017|`switch`|.xci .nsp .nca .nso .nro .nsz .xcz|**eden:** eden-sa (default)<br>|
 |Nintendo|Triforce (triforce)|2002|`triforce`|.gcm .iso .gcz .ciso .wbfs .rvz .dol .m3u|**dolphin:** dolphin-sa-gc (default)<br>**dolphin:** dolphin-qt-gc<br>|
 |Nintendo|Virtual Boy (virtualboy)|1995|`virtualboy`|.vb .zip .7z|**retroarch:** beetle_vb (default)<br>**mednafen:** vb<br>|
 |Nintendo|Wii (wii)|2006|`wii`|.gcm .iso .gcz .ciso .wbfs .rvz .dol .wad .m3u|**dolphin:** dolphin-sa-wii (default)<br>**dolphin:** dolphin-qt-wii<br>**retroarch:** dolphin<br>|
@@ -126,8 +123,8 @@
 |SNK|Neo Geo Pocket (ngp)|1998|`ngp`|.ngp .ngc .zip .7z|**retroarch:** beetle_ngp (default)<br>**retroarch:** race<br>**mednafen:** ngp<br>**ares:** ares-sa<br>|
 |SNK|Neo Geo Pocket Color (ngpc)|1999|`ngpc`|.ngp .ngc .zip .7z|**retroarch:** beetle_ngp (default)<br>**retroarch:** race<br>**mednafen:** ngp<br>**ares:** ares-sa<br>|
 |Sony|PlayStation (psx)|1994|`psx`|.bin .cue .img .mdf .pbp .toc .cbn .m3u .ccd .chd .iso|**retroarch:** pcsx_rearmed (default)<br>**retroarch:** beetle_psx<br>**mednafen:** psx<br>**retroarch:** duckstation<br>**duckstation:** duckstation-sa<br>**retroarch:** swanstation<br>|
-|Sony|PlayStation 2 (ps2)|2000|`ps2`|.iso .mdf .nrg .bin .img .dump .gz .cso .chd|**aethersx2:** aethersx2-sa (default)<br>**armsx2:** armsx2-sa<br>|
-|Sony|PlayStation 3 (ps3)|2006|`ps3`|.ps3 .psn .m3u .iso|**rpcs3:** rpcs3-sa (default)<br>**armsx3:** armsx3-sa<br>|
+|Sony|PlayStation 2 (ps2)|2000|`ps2`|.iso .mdf .nrg .bin .img .dump .gz .cso .chd|**armsx2:** armsx2-sa (default)<br>**aethersx2:** aethersx2-sa<br>|
+|Sony|PlayStation 3 (ps3)|2006|`ps3`|.ps3 .psn .m3u|**rpcs3:** rpcs3-sa (default)<br>|
 |Sony|PlayStation Portable (psp)|2004|`psp`|.iso .cso .pbp .chd|**ppsspp:** ppsspp-sa (default)<br>**retroarch:** ppsspp<br>|
 |Sony|PlayStation Vita (psvita)|2011|`psvita`|.pkg .psvita .zip|**vita3k:** vita3k-sa (default)<br>|
 |Sony|PSP Minis (pspminis)|2004|`pspminis`|.iso .cso .pbp .chd|**ppsspp:** ppsspp-sa (default)<br>**retroarch:** ppsspp<br>|
