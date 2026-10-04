@@ -73,6 +73,8 @@ make_target() {
   export HOME=${PKG_BUILD}/nix
   curl -L https://nixos.org/nix/install | sh -s -- --no-daemon
   . "${HOME}/.nix-profile/etc/profile.d/nix.sh"
+  # pin nixpkgs (nixos-26.05, gcc 15): unstable moved to gcc 16 whose <limits> breaks i686 clang guest thunks
+  export NIX_PATH="nixpkgs=https://github.com/NixOS/nixpkgs/archive/7fc6f2c20af09cdcaf48b92ec3121860139ec668.tar.gz"
 
   #Pin for monthly revert after bumping gcc
   export NIX_PATH="nixpkgs=https://github.com/NixOS/nixpkgs/archive/b6018f87da91d19d0ab4cf979885689b469cdd41.tar.gz"

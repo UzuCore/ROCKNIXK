@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rxodin <rxodin@localhost>
+Date: Wed, 30 Sep 2026 13:01:09 +0900
+Subject: [PATCH] soundwire: qcom: disable clock stop on controllers v1.3.0 and
+ below
+
+Taken from https://gitlab.com/jenneron/linux/-/tree/68360b73aaee537c359c13c457d3b5bb779f4f0d (sdm845-mainline based AYN Odin kernel, pmaports linux-ayn-odin).
+---
+ drivers/soundwire/qcom.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index 3d8f5a8..bd27c5c 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -678,6 +678,9 @@ static int qcom_swrm_enumerate(struct sdw_bus *bus)
+ 			}
+ 		}
+ 
++		if (ctrl->version <= SWRM_VERSION_1_3_0)
++			ctrl->clock_stop_not_supported = true;
++
+ 		if (!found) {
+ 			qcom_swrm_set_slave_dev_num(bus, NULL, i);
+ 			sdw_slave_add(bus, &id, NULL);

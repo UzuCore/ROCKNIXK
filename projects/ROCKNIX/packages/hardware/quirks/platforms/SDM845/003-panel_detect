@@ -1,0 +1,40 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2026-present ROCKNIX (https://github.com/ROCKNIX)
+
+# AYN Odin: pick the device tree for the panel revision on first boot.
+# The TD4328 is a touch + display (TDDI) module, so the touch controller
+# identifies the screen module even when the panel does not light up.
+# Runs only until a choice is stored in /flash/device.name (by this script
+# or by the "THIS DEVICE IS" setting in EmulationStation).
+
+[ -f /flash/device.name ] && exit 0
+[ -x /usr/bin/device-switch ] || exit 0
+
+RMI=/sys/bus/rmi4/devices/rmi4-00
+for i in $(seq 1 20); do
+  [ -f ${RMI}/firmware_id ] && break
+  sleep 0.5
+done
+[ -f ${RMI}/firmware_id ] || exit 0
+
+FW_ID=$(cat ${RMI}/firmware_id 2>/dev/null)
+CFG_ID=$(cat ${RMI}/configuration_id 2>/dev/null)
+PROD_ID=$(cat ${RMI}/product_id 2>/dev/null)
+CUR=$(/usr/bin/device-switch)
+
+echo "$(date '+%F %T') product=${PROD_ID} firmware=${FW_ID} config=${CFG_ID} current=${CUR}" >>/storage/.config/odin-panel-detect.log
+
+# Known Odin M2 screen module (Truly): firmware build 2902991, config id 007ACC...
+case "${FW_ID}:$(echo ${CFG_ID} | tr 'a-f' 'A-F')" in
+  2902991:*|*:007ACC*) WANT="odin-m2" ;;
+  *)                   WANT="odin" ;;
+esac
+
+/usr/bin/device-switch ${WANT}
+
+if [ "${WANT}" != "${CUR}" ]; then
+  echo "switching ${CUR} -> ${WANT}, rebooting" >>/storage/.config/odin-panel-detect.log
+  sync
+  systemctl reboot
+fi

@@ -1,0 +1,24 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+import argparse
+import json
+import sys
+sys.path.insert(0, '/usr/lib/odin')
+import odin_hardware as hw
+
+p = argparse.ArgumentParser()
+p.add_argument('command', choices=('status', 'apply'))
+p.add_argument('profile', nargs='?', choices=tuple(hw.PROFILES))
+p.add_argument('--runtime-only', action='store_true')
+a = p.parse_args()
+try:
+    if a.command == 'apply':
+        if a.profile is None:
+            p.error('apply requires a profile')
+        result = hw.set_performance(a.profile, persist=not a.runtime_only)
+    else:
+        result = hw.performance_status()
+    print(json.dumps(result))
+except (OSError, ValueError, RuntimeError) as error:
+    print(json.dumps({'error': str(error)}))
+    sys.exit(1)

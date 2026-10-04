@@ -1,0 +1,7 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+case "$(tr -d '\000' </proc/device-tree/model)" in
+  "AYN Odin"|"AYN Odin M2") modprobe ledtrig_odin_scan ;;
+  *) exit 0 ;;
+esac
+/usr/bin/odin-ledctl restore

@@ -11,7 +11,7 @@ PKG_DEPENDS_TARGET="toolchain SDL2 flac zstd zlib"
 PKG_LONGDESC="Mednafen standalone emulator"
 
 case ${DEVICE} in
-  H700|SM8*) PKG_PATCH_DIRS+=" sdl-input" ;;
+  H700|SDM845|SM8*) PKG_PATCH_DIRS+=" sdl-input" ;;
 esac
 
 pre_configure_target() {

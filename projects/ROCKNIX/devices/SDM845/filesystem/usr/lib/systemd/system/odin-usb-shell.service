@@ -1,0 +1,27 @@
+[Unit]
+Description=AYN Odin test build: root shell on USB serial gadget (ttyGS0)
+DefaultDependencies=no
+After=odin-usb-gadget.service
+Wants=odin-usb-gadget.service
+IgnoreOnIsolate=yes
+
+[Service]
+Environment=TERM=vt100 HOME=/storage
+EnvironmentFile=-/etc/profile.d/999-export
+WorkingDirectory=/storage
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 60); do [ -c /dev/ttyGS0 ] && exit 0; sleep 1; done; exit 1'
+ExecStart=/bin/bash -l
+StandardInput=tty-force
+StandardOutput=inherit
+StandardError=inherit
+TTYPath=/dev/ttyGS0
+TTYReset=yes
+TTYVHangup=yes
+KillMode=process
+IgnoreSIGPIPE=no
+SendSIGHUP=yes
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=sysinit.target

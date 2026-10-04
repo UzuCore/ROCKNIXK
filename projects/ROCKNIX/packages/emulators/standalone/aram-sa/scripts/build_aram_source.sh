@@ -4,18 +4,35 @@ set -euo pipefail
 
 BUILD_DIR="${1:?missing package build directory}"
 SOURCE_ROOT="${BUILD_DIR}/source"
-GO_BIN="${ARAM_GO:-/usr/bin/go}"
+
+# aram's go.work/go.mod need Go >= 1.25 (and GOTOOLCHAIN, which is Go 1.21+). Distro Go is often far older
+# (Ubuntu 22.04 ships 1.18, which cannot even parse "go 1.25.0"), so pick the first new enough Go available.
+ARAM_GO_MIN=1.25
+go_new_enough() {
+  local v
+  v=$("$1" env GOVERSION 2>/dev/null) || return 1
+  v=${v#go}
+  [ -n "$v" ] || return 1
+  [ "$(printf '%s\n%s\n' "$ARAM_GO_MIN" "$v" | sort -V | head -n1)" = "$ARAM_GO_MIN" ]
+}
+GO_BIN=""
+for c in "${ARAM_GO:-}" "${TOOLCHAIN:-}/lib/golang/bin/go" /usr/local/go/bin/go /usr/lib/go/bin/go "$(command -v go || true)"; do
+  [ -n "$c" ] && [ -x "$c" ] && go_new_enough "$c" && { GO_BIN="$c"; break; }
+done
+if [ -z "${GO_BIN}" ]; then
+  echo "aram-sa: need Go >= ${ARAM_GO_MIN}; set ARAM_GO=/path/to/go or install one (e.g. /usr/local/go)" >&2
+  for c in "${ARAM_GO:-}" "${TOOLCHAIN:-}/lib/golang/bin/go" /usr/local/go/bin/go /usr/lib/go/bin/go "$(command -v go || true)"; do
+    [ -n "$c" ] && [ -x "$c" ] && echo "  found ${c}: $("$c" env GOVERSION 2>/dev/null)" >&2
+  done
+  exit 1
+fi
+echo "aram-sa: using ${GO_BIN} ($(${GO_BIN} env GOVERSION))"
 
 : "${ARAM_EMU_REF:?missing ARAM_EMU_REF}"
 : "${ARAM_CORE_REF:?missing ARAM_CORE_REF}"
 : "${ARAM_FRONTEND_REF:?missing ARAM_FRONTEND_REF}"
 : "${ARAM_AUTHD_REF:?missing ARAM_AUTHD_REF}"
 : "${CC:?missing ROCKNIX target CC}"
-
-if [ ! -x "${GO_BIN}" ]; then
-  echo "aram-sa: Go compiler not found at ${GO_BIN}" >&2
-  exit 1
-fi
 
 fetch_repo() {
   local repo="$1"

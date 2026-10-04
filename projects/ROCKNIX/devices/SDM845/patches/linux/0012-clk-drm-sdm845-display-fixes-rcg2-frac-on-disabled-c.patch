@@ -1,0 +1,92 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rxodin <rxodin@localhost>
+Date: Wed, 30 Sep 2026 13:01:11 +0900
+Subject: [PATCH] clk/drm: sdm845 display fixes (rcg2 frac on disabled clk,
+ mdss gdsc no-stay-on, dsi disable guard)
+
+Taken from https://gitlab.com/jenneron/linux/-/tree/68360b73aaee537c359c13c457d3b5bb779f4f0d (sdm845-mainline based AYN Odin kernel, pmaports linux-ayn-odin).
+---
+ drivers/clk/qcom/clk-rcg2.c        | 18 ++++++++++++++++++
+ drivers/clk/qcom/dispcc-sdm845.c   |  1 +
+ drivers/gpu/drm/msm/dsi/dsi_host.c | 13 +++++++++++++
+ 3 files changed, 32 insertions(+)
+
+diff --git a/drivers/clk/qcom/clk-rcg2.c b/drivers/clk/qcom/clk-rcg2.c
+index 6064a0e..3f75ba5 100644
+--- a/drivers/clk/qcom/clk-rcg2.c
++++ b/drivers/clk/qcom/clk-rcg2.c
+@@ -1182,6 +1182,24 @@ static int clk_pixel_set_rate(struct clk_hw *hw, unsigned long rate,
+ 		f.m = frac->num;
+ 		f.n = frac->den;
+ 
++		/*
++		 * If clock is disabled, update the M, N and D registers and
++		 * don't hit the update bit.
++		 */
++		if (!clk_hw_is_enabled(hw)) {
++			int ret;
++
++			ret = regmap_read(rcg->clkr.regmap, RCG_CFG_OFFSET(rcg), &cfg);
++			if (ret)
++				return ret;
++
++			ret = __clk_rcg2_configure(rcg, &f, &cfg);
++			if (ret)
++				return ret;
++
++			return regmap_write(rcg->clkr.regmap, RCG_CFG_OFFSET(rcg), cfg);
++		}
++
+ 		return clk_rcg2_configure(rcg, &f);
+ 	}
+ 	return -EINVAL;
+diff --git a/drivers/clk/qcom/dispcc-sdm845.c b/drivers/clk/qcom/dispcc-sdm845.c
+index 6ad6c4f..5df2893 100644
+--- a/drivers/clk/qcom/dispcc-sdm845.c
++++ b/drivers/clk/qcom/dispcc-sdm845.c
+@@ -762,6 +762,7 @@ static struct gdsc mdss_gdsc = {
+ 	.en_rest_wait_val = 0x5,
+ 	.pd = {
+ 		.name = "mdss_gdsc",
++		.flags = GENPD_FLAG_NO_STAY_ON,
+ 	},
+ 	.pwrsts = PWRSTS_OFF_ON,
+ 	.flags = HW_CTRL | POLL_CFG_GDSCR,
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index 982abaa..4c17cf2 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -782,6 +782,12 @@ dsi_get_cmd_fmt(const enum mipi_dsi_pixel_format mipi_fmt)
+ 
+ static void dsi_ctrl_disable(struct msm_dsi_host *msm_host)
+ {
++	/* Check if we're already powered off before writing registers */
++	if (!msm_host->power_on) {
++		pr_info("DSI CTRL: Skipping register write - host already powered off\n");
++		return;
++	}
++
+ 	dsi_write(msm_host, REG_DSI_CTRL, 0);
+ }
+ 
+@@ -2545,6 +2551,8 @@ int msm_dsi_host_power_off(struct mipi_dsi_host *host)
+ {
+ 	struct msm_dsi_host *msm_host = to_msm_dsi_host(host);
+ 	const struct msm_dsi_cfg_handler *cfg_hnd = msm_host->cfg_hnd;
++	int ret;
++
+ 
+ 	mutex_lock(&msm_host->dev_mutex);
+ 	if (!msm_host->power_on) {
+@@ -2552,6 +2560,11 @@ int msm_dsi_host_power_off(struct mipi_dsi_host *host)
+ 		goto unlock_ret;
+ 	}
+ 
++	/* Ensure clocks are enabled before register access */
++	ret = pm_runtime_get_sync(&msm_host->pdev->dev);
++	if (ret < 0)
++		pm_runtime_put_noidle(&msm_host->pdev->dev);
++
+ 	dsi_ctrl_disable(msm_host);
+ 
+ 	pinctrl_pm_select_sleep_state(&msm_host->pdev->dev);

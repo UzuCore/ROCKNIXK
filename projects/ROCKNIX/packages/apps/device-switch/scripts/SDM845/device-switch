@@ -1,0 +1,35 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026-present ROCKNIX (https://github.com/ROCKNIX)
+
+# AYN Odin: switch between the panel revisions (original Odin / Odin M2).
+# The default GRUB entry boots /boot/grub/sdm845-ayn-odin.dtb, so the selected
+# device tree is copied over it. The choice is kept in /flash/device.name and
+# re-applied by the bootloader update script.
+
+. /etc/profile
+
+DS=/sys/firmware/devicetree/base/rocknix,device_switch
+GRUB_DIR=/flash/boot/grub
+ACTIVE_DTB=sdm845-ayn-odin.dtb
+DTB_SRC=/usr/share/bootloader/boot/grub
+
+case "$1" in
+  "")
+    echo $(cat ${DS}/this | tr -d '\0')
+    ;;
+  "--options")
+    echo $(ls ${DS}/ | grep -Ev '^(name|this|phandle)$')
+    ;;
+  *)
+    [ -f "${DS}/$1" ] || { echo "Unknown device: $1" >&2; exit 2; }
+    DTB=$(cat ${DS}/$1 | tr -d '\0').dtb
+    [ -f "${DTB_SRC}/${DTB}" ] || { echo "dtb not found: ${DTB_SRC}/${DTB}" >&2; exit 3; }
+
+    mount -o remount,rw /flash
+    cp -f "${DTB_SRC}/${DTB}" "${GRUB_DIR}/${ACTIVE_DTB}"
+    echo "$1" > /flash/device.name
+    sync
+    mount -o remount,ro /flash
+    ;;
+esac

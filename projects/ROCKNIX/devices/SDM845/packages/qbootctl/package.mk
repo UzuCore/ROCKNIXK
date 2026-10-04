@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+PKG_NAME="qbootctl"
+PKG_VERSION="39a6e6daaf029fb0a083777679a15ea2c18f72de"
+PKG_SHA256="9dc68fdc00309dacedaf5077d83c673f531c4abce37a65453830455b8de8b67b"
+PKG_LICENSE="GPL-3.0-or-later AND BSD-3-Clause"
+PKG_SITE="https://github.com/linux-msm/qbootctl"
+PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
+PKG_DEPENDS_TARGET="toolchain"
+PKG_TOOLCHAIN="meson"
+PKG_LONGDESC="Qualcomm A/B boot control for Linux"
