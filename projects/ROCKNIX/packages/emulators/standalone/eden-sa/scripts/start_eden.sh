@@ -17,6 +17,11 @@ if [ ! -f "${CONF_FILE}" ]; then
         cp -r "/usr/config/eden/qt-config.ini" "${CONF_FILE}"
 fi
 
+# SDL3 uses a different GUID for the Odin virtual DualSense controller.
+if [ "${HW_DEVICE}" = "SDM845" ]; then
+    sed -i 's/guid:030000004c050000e60c000011810000/guid:030000004c050000e60c000000006800/g' "${CONF_FILE}"
+fi
+
 # Preserve existing data before linking the shared BIOS and save folders.
 merge_eden_directory() {
     local source="$1" target="$2" entry destination
