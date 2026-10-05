@@ -861,6 +861,22 @@ function set_analogsupport() {
     esac
 }
 
+function set_pcsx_rearmed_rumble() {
+    case ${CORE} in
+        pcsx_rearmed|pcsx_rearmed32)
+            local DEFAULT_REMAP="/usr/config/retroarch/PCSX-ReARMed.rmp"
+            local REMAP_DIR="/storage/remappings/PCSX-ReARMed"
+            local REMAP_FILE="${REMAP_DIR}/PCSX-ReARMed.rmp"
+            if [ -f "${DEFAULT_REMAP}" ] && [ ! -e "${REMAP_FILE}" ]
+            then
+                mkdir -p "${REMAP_DIR}"
+                cp "${DEFAULT_REMAP}" "${REMAP_FILE}"
+                log "Installed default PCSX-ReARMed DualShock remap"
+            fi
+        ;;
+    esac
+}
+
 function set_tatemode() {
     log "Setup tate mode..."
     if [ "${CORE}" = "mame2003_plus" ]
@@ -1334,6 +1350,7 @@ set_netplay &
 set_runahead &
 set_audiolatency &
 set_analogsupport &
+set_pcsx_rearmed_rumble &
 set_tatemode &
 set_n64opts &
 set_saturnopts &

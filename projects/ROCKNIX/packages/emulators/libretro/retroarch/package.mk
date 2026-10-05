@@ -145,6 +145,9 @@ makeinstall_target() {
     exit 1
   fi
 
+  # Install the shared PCSX-ReARMed DualShock default for rumble support.
+  cp -a ${PKG_DIR}/PCSX-ReARMed.rmp ${INSTALL}/usr/config/retroarch/
+
   # Make sure the shader directories exist for overlayfs.
   mkdir -p ${INSTALL}/usr/share/{common,glsl,slang}-shaders
     touch ${INSTALL}/usr/share/{common,glsl,slang}-shaders/.overlay
