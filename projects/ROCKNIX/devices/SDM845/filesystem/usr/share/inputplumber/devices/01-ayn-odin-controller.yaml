@@ -24,6 +24,7 @@ matches:
 
 # Only allow a single source device per composite device of this type.
 single_source: false
+capability_map_id: ayn_odin
 
 # One or more source devices to combine into a single virtual device. The events
 # from these devices will be watched and translated according to the key map.
@@ -33,6 +34,10 @@ source_devices:
       phys_path: odin-gamepad/input0
       handler: event*
     capability_map_id: ayn_odin
+  - group: gamepad
+    evdev:
+      name: spmi_haptics
+      handler: event*
 
 # Optional configuration for the composite device
 options:
