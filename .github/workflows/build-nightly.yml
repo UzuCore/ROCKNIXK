@@ -1,10 +1,6 @@
 name: Build
 
 on:
-  push:
-    branches:
-      - t618
-      - odin
   workflow_dispatch:
     inputs:
       RK3326:
