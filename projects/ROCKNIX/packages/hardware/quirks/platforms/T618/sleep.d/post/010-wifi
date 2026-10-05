@@ -1,4 +1,0 @@
-#!/bin/sh
-# SPDX-License-Identifier: GPL-2.0-or-later
-[ -f /run/rg405m-wlan-was-on ] && rfkill unblock wlan
-rm -f /run/rg405m-wlan-was-on

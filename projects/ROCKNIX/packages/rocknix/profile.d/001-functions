@@ -149,26 +149,11 @@ function set_setting() {
   fi
 }
 
-function battery_path() {
-  # Most handhelds name the internal battery BAT*/bat*. Others use the driver name
-  # (e.g. sc27xx-fgu on the Anbernic RG405M), so fall back to the first power supply of
-  # type Battery that is not a peripheral (controller batteries report scope=Device).
-  local p
-  for p in /sys/class/power_supply/[Bb][Aa][Tt]*; do
-    [ -e "${p}" ] && { echo "${p}"; return; }
-  done
-  for p in /sys/class/power_supply/*; do
-    [ "$(cat "${p}/type" 2>/dev/null)" = "Battery" ] || continue
-    [ "$(cat "${p}/scope" 2>/dev/null)" = "Device" ] && continue
-    echo "${p}"; return
-  done
-}
-
 function battery_percent() {
   if [ -f /tmp/battery.percent ]; then
     cat /tmp/battery.percent
   else
-    awk 'BEGIN {FS="="} /POWER_SUPPLY_CAPACITY=/ {print $2}' "$(battery_path)/uevent" 2>/dev/null
+    awk 'BEGIN {FS="="} /POWER_SUPPLY_CAPACITY=/ {print $2}' /sys/class/power_supply/[Bb][Aa][Tt]*/uevent 2>/dev/null
   fi
 }
 

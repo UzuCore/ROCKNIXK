@@ -1,8 +1,0 @@
-#!/bin/sh
-# SPDX-License-Identifier: GPL-2.0-or-later
-# Default to s2idle until deep sleep is proven on the mainline sprd kernel.
-. /etc/profile.d/001-functions
-MYSLEEPMODE=$(get_setting system.suspendmode)
-if [ -z "${MYSLEEPMODE}" ]; then
-  /usr/bin/suspendmode freeze
-fi

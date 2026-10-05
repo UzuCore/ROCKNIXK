@@ -1,2 +1,0 @@
-# RG405M bring-up: never power off from initramfs (a reboot lets U-Boot A/B rollback return to Android).
-poweroff() { echo "t618: poweroff requested -> reboot" >/dev/kmsg; sync; /usr/bin/busybox reboot -f; }

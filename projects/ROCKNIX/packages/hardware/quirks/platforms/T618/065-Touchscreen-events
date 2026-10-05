@@ -1,8 +1,0 @@
-#!/bin/sh
-# SPDX-License-Identifier: GPL-2.0-or-later
-# The RG405M has a Goodix touchscreen.
-. /etc/profile.d/001-functions
-TOUCHSCREEN_EVENTS=$(get_setting key.touchscreen.events)
-if [ -z "${TOUCHSCREEN_EVENTS}" ]; then
-  set_setting key.touchscreen.events 1
-fi

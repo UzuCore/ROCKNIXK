@@ -1,9 +1,0 @@
-#!/bin/sh
-# SPDX-License-Identifier: GPL-2.0-or-later
-mkdir -p /storage/.config/profile.d
-cat <<'EOF' >/storage/.config/profile.d/090-ui_service
-UI_SERVICE="sway.service essway.service"
-# Mali-G52 (Bifrost v7) on panfrost: unlock the experimental PanVK, as ROCKNIX does for the RK3326.
-PAN_I_WANT_A_BROKEN_VULKAN_DRIVER=1
-DISABLE_WSI_LAYER=1
-EOF

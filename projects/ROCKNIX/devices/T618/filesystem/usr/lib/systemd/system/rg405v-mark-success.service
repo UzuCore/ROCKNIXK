@@ -1,9 +1,0 @@
-[Unit]
-Description=Refresh approved RG405V slot tries while keeping automatic fallback
-After=local-fs.target essway.service
-ConditionPathExists=/storage/.config/rg405v/allow-boot-control-write
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/python3 /usr/lib/rg405m/boot_success.py --commit --refresh-only
-TimeoutStartSec=30

@@ -26,8 +26,6 @@ makeinstall_target() {
 
   mkdir -p ${INSTALL}/usr/bin
     cp -a ${PKG_BUILD}/${PKG_NAME}-${PKG_VERSION}.AppImage ${INSTALL}/usr/bin/duckstation-sa
-    # The downloaded AppImage keeps the download's 0644 mode; without this the launcher fails silently
-    # (start_duckstation.sh sends output to /dev/null) and PSX with duckstation-sa exits at once.
     chmod 0755 ${INSTALL}/usr/bin/duckstation-sa
     cp -a ${PKG_DIR}/scripts/* ${INSTALL}/usr/bin
 

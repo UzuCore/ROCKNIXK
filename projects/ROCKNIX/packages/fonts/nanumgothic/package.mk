@@ -3,7 +3,6 @@
 
 PKG_NAME="nanumgothic"
 PKG_VERSION="2.5"
-PKG_SHA256="f4c9b1082cb36d793ccf75a331316c880ef9e4bc229408c22f9d2703b7619a3f"
 PKG_LICENSE="Bitstream"
 PKG_SITE="https://github.com/naver/nanumfont"
 PKG_URL="${PKG_SITE}/releases/download/VER${PKG_VERSION}/NanumGothicCoding-${PKG_VERSION}.zip"
