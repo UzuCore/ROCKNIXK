@@ -6,7 +6,7 @@ PKG_VERSION="1.0"
 PKG_LICENSE="custom"
 PKG_SITE=""
 PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain rclone commander qterminal"
+PKG_DEPENDS_TARGET="toolchain rclone commander qterminal bios-downloader"
 PKG_LONGDESC="OS Modules Package"
 PKG_TOOLCHAIN="manual"
 
@@ -19,6 +19,7 @@ esac
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/config/modules
     cp -rf ${PKG_DIR}/sources/* ${INSTALL}/usr/config/modules
+    chmod 0755 "${INSTALL}/usr/config/modules/download_bios.sh"
 }
 
 post_makeinstall_target() {
