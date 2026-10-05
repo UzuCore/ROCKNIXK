@@ -1,6 +1,6 @@
 [Unit]
 Description=Mark the validated Odin ROCKNIX slot as successfully booted
-After=essway.service
+After=rocknix-autostart.service essway.service
 Requires=essway.service
 ConditionPathExists=/usr/bin/odin-reboot-android
 
@@ -10,4 +10,4 @@ ExecStart=/usr/bin/odin-mark-boot-successful
 RemainAfterExit=yes
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=rocknix.target
