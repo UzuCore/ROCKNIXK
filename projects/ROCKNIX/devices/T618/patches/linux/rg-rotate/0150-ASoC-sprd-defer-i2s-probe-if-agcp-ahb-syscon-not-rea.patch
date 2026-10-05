@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Fri, 10 Jul 2026 05:42:52 -0500
+Subject: [PATCH 150/225] ASoC: sprd: defer i2s probe if agcp-ahb syscon not
+ ready; log acquisition
+
+The standalone agcp-ahb acquisition added for the AG_IIS0 route treated
+every syscon_regmap_lookup_by_phandle() error as "warn and continue", so
+a -EPROBE_DEFER (the agcp-ahb syscon not yet registered when this early
+AP device probes) silently left g_agcp_ahb_gpr NULL forever -- the route
+never got set and every i2s stream logged agcp_ahb_gpr_null_check failed.
+
+Return -EPROBE_DEFER so the probe retries once the syscon is up; only
+warn+continue on a genuine absence/error. Add a success pr_info so a
+boot log unambiguously shows the acquisition worked.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+---
+ sound/soc/sprd/vendor/sprd-i2s.c | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/sound/soc/sprd/vendor/sprd-i2s.c b/sound/soc/sprd/vendor/sprd-i2s.c
+index 1c69d340b..ed074d320 100755
+--- a/sound/soc/sprd/vendor/sprd-i2s.c
++++ b/sound/soc/sprd/vendor/sprd-i2s.c
+@@ -1299,7 +1299,18 @@ static int i2s_drv_probe(struct platform_device *pdev)
+ 				syscon_regmap_lookup_by_phandle(node,
+ 					"sprd,syscon-agcp-ahb");
+ 			if (IS_ERR(agcp_ahb_gpr)) {
+-				pr_warn("i2s: no sprd,syscon-agcp-ahb; AG_IIS0 route unavailable\n");
++				ret = PTR_ERR(agcp_ahb_gpr);
++				/*
++				 * The agcp-ahb syscon may not be registered yet
++				 * when this (early AP) device probes -- defer and
++				 * retry rather than silently losing the AG_IIS0
++				 * route. Only give up if the phandle is truly
++				 * absent/broken.
++				 */
++				if (ret == -EPROBE_DEFER)
++					return ret;
++				pr_warn("i2s: no sprd,syscon-agcp-ahb (%d); AG_IIS0 route unavailable\n",
++					ret);
+ 			} else {
+ 				u32 so = 0x100, co = 0x200;
+ 
+@@ -1307,6 +1318,8 @@ static int i2s_drv_probe(struct platform_device *pdev)
+ 				of_property_read_u32(node, "clr-offset", &co);
+ 				set_agcp_ahb_offset(so, co);
+ 				arch_audio_set_agcp_ahb_gpr(agcp_ahb_gpr);
++				pr_info("i2s: acquired agcp-ahb gpr for AG_IIS0 route (set/clr 0x%x/0x%x)\n",
++					so, co);
+ 			}
+ 		}
+ 

@@ -1,0 +1,629 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sat, 18 Apr 2026 14:26:17 +0200
+Subject: [PATCH 006/225] ASoC: sprd: mcdt: add support for MCDT revision 2
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add support for the MCDT version found in newer Unisoc SoCs such as
+UMS9230. In this version, the register layout has been changed and one
+ADC channel has been replaced with a DAC channel.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ sound/soc/sprd/sprd-mcdt.c | 420 +++++++++++--------------------------
+ 1 file changed, 127 insertions(+), 293 deletions(-)
+
+diff --git a/sound/soc/sprd/sprd-mcdt.c b/sound/soc/sprd/sprd-mcdt.c
+index 814a1cde1..78ff19122 100644
+--- a/sound/soc/sprd/sprd-mcdt.c
++++ b/sound/soc/sprd/sprd-mcdt.c
+@@ -14,66 +14,33 @@
+ #include "sprd-mcdt.h"
+ 
+ /* MCDT registers definition */
+-#define MCDT_CH0_TXD		0x0
+-#define MCDT_CH0_RXD		0x28
+-#define MCDT_DAC0_WTMK		0x60
+-#define MCDT_ADC0_WTMK		0x88
++#define MCDT_CH_BASE		0x0
++#define MCDT_WTMK_BASE		0x60
+ #define MCDT_DMA_EN		0xb0
+ 
+-#define MCDT_INT_EN0		0xb4
+-#define MCDT_INT_EN1		0xb8
+-#define MCDT_INT_EN2		0xbc
+-
+-#define MCDT_INT_CLR0		0xc0
+-#define MCDT_INT_CLR1		0xc4
+-#define MCDT_INT_CLR2		0xc8
+-
+-#define MCDT_INT_RAW1		0xcc
+-#define MCDT_INT_RAW2		0xd0
+-#define MCDT_INT_RAW3		0xd4
+-
+-#define MCDT_INT_MSK1		0xd8
+-#define MCDT_INT_MSK2		0xdc
+-#define MCDT_INT_MSK3		0xe0
+-
+-#define MCDT_DAC0_FIFO_ADDR_ST	0xe4
+-#define MCDT_ADC0_FIFO_ADDR_ST	0xe8
+-
+-#define MCDT_CH_FIFO_ST0	0x134
+-#define MCDT_CH_FIFO_ST1	0x138
+-#define MCDT_CH_FIFO_ST2	0x13c
++#define MCDT_INT_EN_BASE	0xb4
++#define MCDT_INT_CLR_BASE	0xc0
++#define MCDT_INT_RAW_BASE	0xcc
++#define MCDT_INT_MSK_BASE	0xd8
++#define MCDT_CH_FIFO_ST_BASE	0x134
+ 
+ #define MCDT_INT_MSK_CFG0	0x140
+ #define MCDT_INT_MSK_CFG1	0x144
+ 
+-#define MCDT_DMA_CFG0		0x148
+-#define MCDT_FIFO_CLR		0x14c
+-#define MCDT_DMA_CFG1		0x150
+-#define MCDT_DMA_CFG2		0x154
+-#define MCDT_DMA_CFG3		0x158
+-#define MCDT_DMA_CFG4		0x15c
+-#define MCDT_DMA_CFG5		0x160
++/* Interrupt and FIFO status definition */
++#define MCDT_CH_SHIFT		8
+ 
+ /* Channel water mark definition */
+ #define MCDT_CH_FIFO_AE_SHIFT	16
+ #define MCDT_CH_FIFO_AE_MASK	GENMASK(24, 16)
+ #define MCDT_CH_FIFO_AF_MASK	GENMASK(8, 0)
+ 
+-/* DMA channel select definition */
+-#define MCDT_DMA_CH0_SEL_MASK	GENMASK(3, 0)
+-#define MCDT_DMA_CH0_SEL_SHIFT	0
+-#define MCDT_DMA_CH1_SEL_MASK	GENMASK(7, 4)
+-#define MCDT_DMA_CH1_SEL_SHIFT	4
+-#define MCDT_DMA_CH2_SEL_MASK	GENMASK(11, 8)
+-#define MCDT_DMA_CH2_SEL_SHIFT	8
+-#define MCDT_DMA_CH3_SEL_MASK	GENMASK(15, 12)
+-#define MCDT_DMA_CH3_SEL_SHIFT	12
+-#define MCDT_DMA_CH4_SEL_MASK	GENMASK(19, 16)
+-#define MCDT_DMA_CH4_SEL_SHIFT	16
++/* DMA enable definition */
+ #define MCDT_DAC_DMA_SHIFT	16
+ 
+-/* DMA channel ACK select definition */
+-#define MCDT_DMA_ACK_SEL_MASK	GENMASK(3, 0)
++/* DMA channel select definition */
++#define MCDT_DMA_CHN_SHIFT	4
++#define MCDT_DMA_CHN_SEL_MASK	GENMASK(3, 0)
+ 
+ /* Channel FIFO definition */
+ #define MCDT_CH_FIFO_ADDR_SHIFT	16
+@@ -81,9 +48,50 @@
+ #define MCDT_ADC_FIFO_SHIFT	16
+ #define MCDT_FIFO_LENGTH	512
+ 
+-#define MCDT_ADC_CHANNEL_NUM	10
+-#define MCDT_DAC_CHANNEL_NUM	10
+-#define MCDT_CHANNEL_NUM	(MCDT_ADC_CHANNEL_NUM + MCDT_DAC_CHANNEL_NUM)
++#define MCDT_CHANNEL_NUM	20
++
++struct sprd_mcdt_hw_info {
++	u32 revision;
++	u32 num_adc_channels;
++	u32 num_dac_channels;
++	u32 dac_fifo_addr_base;
++	u32 adc_fifo_addr_base;
++	u32 fifo_addr_stride;
++	u32 fifo_clr_reg;
++	u32 dma_dac_chn_base;
++	u32 dma_adc_chn_base;
++	u32 dma_dac_ack_base;
++	u32 dma_adc_ack_base;
++	u32 dma_adc_shift;
++};
++
++static const struct sprd_mcdt_hw_info sprd_mcdt_r1_info = {
++	.num_adc_channels = 10,
++	.num_dac_channels = 10,
++	.dac_fifo_addr_base = 0xe4,
++	.adc_fifo_addr_base = 0xe8,
++	.fifo_addr_stride = 8,
++	.fifo_clr_reg = 0x14c,
++	.dma_dac_chn_base = 0x148,
++	.dma_adc_chn_base = 0x150,
++	.dma_dac_ack_base = 0x154,
++	.dma_adc_ack_base = 0x15c,
++	.dma_adc_shift = 0,
++};
++
++static const struct sprd_mcdt_hw_info sprd_mcdt_r2_info = {
++	.num_adc_channels = 9,
++	.num_dac_channels = 11,
++	.dac_fifo_addr_base = 0xe4,
++	.adc_fifo_addr_base = 0x110,
++	.fifo_addr_stride = 4,
++	.fifo_clr_reg = 0x158,
++	.dma_dac_chn_base = 0x14c,
++	.dma_adc_chn_base = 0x150,
++	.dma_dac_ack_base = 0x15c,
++	.dma_adc_ack_base = 0x160,
++	.dma_adc_shift = 12,
++};
+ 
+ enum sprd_mcdt_fifo_int {
+ 	MCDT_ADC_FIFO_AE_INT,
+@@ -107,6 +115,7 @@ enum sprd_mcdt_fifo_sts {
+ 
+ struct sprd_mcdt_dev {
+ 	struct device *dev;
++	const struct sprd_mcdt_hw_info *info;
+ 	void __iomem *base;
+ 	spinlock_t lock;
+ 	struct sprd_mcdt_chan chan[MCDT_CHANNEL_NUM];
+@@ -128,7 +137,7 @@ static void sprd_mcdt_update(struct sprd_mcdt_dev *mcdt, u32 reg, u32 val,
+ static void sprd_mcdt_dac_set_watermark(struct sprd_mcdt_dev *mcdt, u8 channel,
+ 					u32 full, u32 empty)
+ {
+-	u32 reg = MCDT_DAC0_WTMK + channel * 4;
++	u32 reg = MCDT_WTMK_BASE + channel * 4;
+ 	u32 water_mark =
+ 		(empty << MCDT_CH_FIFO_AE_SHIFT) & MCDT_CH_FIFO_AE_MASK;
+ 
+@@ -140,7 +149,7 @@ static void sprd_mcdt_dac_set_watermark(struct sprd_mcdt_dev *mcdt, u8 channel,
+ static void sprd_mcdt_adc_set_watermark(struct sprd_mcdt_dev *mcdt, u8 channel,
+ 					u32 full, u32 empty)
+ {
+-	u32 reg = MCDT_ADC0_WTMK + channel * 4;
++	u32 reg = MCDT_WTMK_BASE + (mcdt->info->num_dac_channels + channel) * 4;
+ 	u32 water_mark =
+ 		(empty << MCDT_CH_FIFO_AE_SHIFT) & MCDT_CH_FIFO_AE_MASK;
+ 
+@@ -182,7 +191,7 @@ static void sprd_mcdt_ap_int_enable(struct sprd_mcdt_dev *mcdt, u8 channel,
+ static void sprd_mcdt_dac_write_fifo(struct sprd_mcdt_dev *mcdt, u8 channel,
+ 				     u32 val)
+ {
+-	u32 reg = MCDT_CH0_TXD + channel * 4;
++	u32 reg = MCDT_CH_BASE + channel * 4;
+ 
+ 	writel_relaxed(val, mcdt->base + reg);
+ }
+@@ -190,7 +199,7 @@ static void sprd_mcdt_dac_write_fifo(struct sprd_mcdt_dev *mcdt, u8 channel,
+ static void sprd_mcdt_adc_read_fifo(struct sprd_mcdt_dev *mcdt, u8 channel,
+ 				    u32 *val)
+ {
+-	u32 reg = MCDT_CH0_RXD + channel * 4;
++	u32 reg = MCDT_CH_BASE + (mcdt->info->num_dac_channels + channel) * 4;
+ 
+ 	*val = readl_relaxed(mcdt->base + reg);
+ }
+@@ -198,208 +207,85 @@ static void sprd_mcdt_adc_read_fifo(struct sprd_mcdt_dev *mcdt, u8 channel,
+ static void sprd_mcdt_dac_dma_chn_select(struct sprd_mcdt_dev *mcdt, u8 channel,
+ 					 enum sprd_mcdt_dma_chan dma_chan)
+ {
+-	switch (dma_chan) {
+-	case SPRD_MCDT_DMA_CH0:
+-		sprd_mcdt_update(mcdt, MCDT_DMA_CFG0,
+-				 channel << MCDT_DMA_CH0_SEL_SHIFT,
+-				 MCDT_DMA_CH0_SEL_MASK);
+-		break;
++	u32 reg, idx, shift;
+ 
+-	case SPRD_MCDT_DMA_CH1:
+-		sprd_mcdt_update(mcdt, MCDT_DMA_CFG0,
+-				 channel << MCDT_DMA_CH1_SEL_SHIFT,
+-				 MCDT_DMA_CH1_SEL_MASK);
+-		break;
+-
+-	case SPRD_MCDT_DMA_CH2:
+-		sprd_mcdt_update(mcdt, MCDT_DMA_CFG0,
+-				 channel << MCDT_DMA_CH2_SEL_SHIFT,
+-				 MCDT_DMA_CH2_SEL_MASK);
+-		break;
++	idx = dma_chan * MCDT_DMA_CHN_SHIFT;
++	reg = mcdt->info->dma_dac_chn_base + (idx / 32) * 4;
++	shift = idx % 32;
+ 
+-	case SPRD_MCDT_DMA_CH3:
+-		sprd_mcdt_update(mcdt, MCDT_DMA_CFG0,
+-				 channel << MCDT_DMA_CH3_SEL_SHIFT,
+-				 MCDT_DMA_CH3_SEL_MASK);
+-		break;
+-
+-	case SPRD_MCDT_DMA_CH4:
+-		sprd_mcdt_update(mcdt, MCDT_DMA_CFG0,
+-				 channel << MCDT_DMA_CH4_SEL_SHIFT,
+-				 MCDT_DMA_CH4_SEL_MASK);
+-		break;
+-	}
++	sprd_mcdt_update(mcdt, reg, channel << shift,
++			 MCDT_DMA_CHN_SEL_MASK << shift);
+ }
+ 
+ static void sprd_mcdt_adc_dma_chn_select(struct sprd_mcdt_dev *mcdt, u8 channel,
+ 					 enum sprd_mcdt_dma_chan dma_chan)
+ {
+-	switch (dma_chan) {
+-	case SPRD_MCDT_DMA_CH0:
+-		sprd_mcdt_update(mcdt, MCDT_DMA_CFG1,
+-				 channel << MCDT_DMA_CH0_SEL_SHIFT,
+-				 MCDT_DMA_CH0_SEL_MASK);
+-		break;
+-
+-	case SPRD_MCDT_DMA_CH1:
+-		sprd_mcdt_update(mcdt, MCDT_DMA_CFG1,
+-				 channel << MCDT_DMA_CH1_SEL_SHIFT,
+-				 MCDT_DMA_CH1_SEL_MASK);
+-		break;
+-
+-	case SPRD_MCDT_DMA_CH2:
+-		sprd_mcdt_update(mcdt, MCDT_DMA_CFG1,
+-				 channel << MCDT_DMA_CH2_SEL_SHIFT,
+-				 MCDT_DMA_CH2_SEL_MASK);
+-		break;
++	u32 reg, idx, shift;
+ 
+-	case SPRD_MCDT_DMA_CH3:
+-		sprd_mcdt_update(mcdt, MCDT_DMA_CFG1,
+-				 channel << MCDT_DMA_CH3_SEL_SHIFT,
+-				 MCDT_DMA_CH3_SEL_MASK);
+-		break;
++	idx = dma_chan * MCDT_DMA_CHN_SHIFT + mcdt->info->dma_adc_shift;
++	reg = mcdt->info->dma_adc_chn_base + (idx / 32) * 4;
++	shift = idx % 32;
+ 
+-	case SPRD_MCDT_DMA_CH4:
+-		sprd_mcdt_update(mcdt, MCDT_DMA_CFG1,
+-				 channel << MCDT_DMA_CH4_SEL_SHIFT,
+-				 MCDT_DMA_CH4_SEL_MASK);
+-		break;
+-	}
+-}
+-
+-static u32 sprd_mcdt_dma_ack_shift(u8 channel)
+-{
+-	switch (channel) {
+-	default:
+-	case 0:
+-	case 8:
+-		return 0;
+-	case 1:
+-	case 9:
+-		return 4;
+-	case 2:
+-		return 8;
+-	case 3:
+-		return 12;
+-	case 4:
+-		return 16;
+-	case 5:
+-		return 20;
+-	case 6:
+-		return 24;
+-	case 7:
+-		return 28;
+-	}
++	sprd_mcdt_update(mcdt, reg, channel << shift,
++			 MCDT_DMA_CHN_SEL_MASK << shift);
+ }
+ 
+ static void sprd_mcdt_dac_dma_ack_select(struct sprd_mcdt_dev *mcdt, u8 channel,
+ 					 enum sprd_mcdt_dma_chan dma_chan)
+ {
+-	u32 reg, shift = sprd_mcdt_dma_ack_shift(channel), ack = dma_chan;
+-
+-	switch (channel) {
+-	case 0 ... 7:
+-		reg = MCDT_DMA_CFG2;
+-		break;
++	u32 reg, idx, shift;
+ 
+-	case 8 ... 9:
+-		reg = MCDT_DMA_CFG3;
+-		break;
++	idx = channel * MCDT_DMA_CHN_SHIFT;
++	reg = mcdt->info->dma_dac_ack_base + (idx / 32) * 4;
++	shift = idx % 32;
+ 
+-	default:
+-		return;
+-	}
+-
+-	sprd_mcdt_update(mcdt, reg, ack << shift,
+-			 MCDT_DMA_ACK_SEL_MASK << shift);
++	sprd_mcdt_update(mcdt, reg, dma_chan << shift,
++			 MCDT_DMA_CHN_SEL_MASK << shift);
+ }
+ 
+ static void sprd_mcdt_adc_dma_ack_select(struct sprd_mcdt_dev *mcdt, u8 channel,
+ 					 enum sprd_mcdt_dma_chan dma_chan)
+ {
+-	u32 reg, shift = sprd_mcdt_dma_ack_shift(channel), ack = dma_chan;
+-
+-	switch (channel) {
+-	case 0 ... 7:
+-		reg = MCDT_DMA_CFG4;
+-		break;
+-
+-	case 8 ... 9:
+-		reg = MCDT_DMA_CFG5;
+-		break;
++	u32 reg, idx, shift;
+ 
+-	default:
+-		return;
+-	}
++	idx = channel * MCDT_DMA_CHN_SHIFT + mcdt->info->dma_adc_shift;
++	reg = mcdt->info->dma_adc_ack_base + (idx / 32) * 4;
++	shift = idx % 32;
+ 
+-	sprd_mcdt_update(mcdt, reg, ack << shift,
+-			 MCDT_DMA_ACK_SEL_MASK << shift);
++	sprd_mcdt_update(mcdt, reg, dma_chan << shift,
++			 MCDT_DMA_CHN_SEL_MASK << shift);
+ }
+ 
+ static bool sprd_mcdt_chan_fifo_sts(struct sprd_mcdt_dev *mcdt, u8 channel,
+ 				    enum sprd_mcdt_fifo_sts fifo_sts)
+ {
+-	u32 reg, shift;
++	u32 reg, idx, shift;
+ 
+-	switch (channel) {
+-	case 0 ... 3:
+-		reg = MCDT_CH_FIFO_ST0;
+-		break;
+-	case 4 ... 7:
+-		reg = MCDT_CH_FIFO_ST1;
+-		break;
+-	case 8 ... 9:
+-		reg = MCDT_CH_FIFO_ST2;
+-		break;
+-	default:
+-		return false;
+-	}
+-
+-	switch (channel) {
+-	case 0:
+-	case 4:
+-	case 8:
+-		shift = fifo_sts;
+-		break;
+-
+-	case 1:
+-	case 5:
+-	case 9:
+-		shift = 8 + fifo_sts;
+-		break;
+-
+-	case 2:
+-	case 6:
+-		shift = 16 + fifo_sts;
+-		break;
+-
+-	case 3:
+-	case 7:
+-		shift = 24 + fifo_sts;
+-		break;
+-
+-	default:
+-		return false;
+-	}
++	idx = channel * MCDT_CH_SHIFT;
++	reg = MCDT_CH_FIFO_ST_BASE + (idx / 32) * 4;
++	shift = idx % 32;
+ 
+ 	return !!(readl_relaxed(mcdt->base + reg) & BIT(shift));
+ }
+ 
+ static void sprd_mcdt_dac_fifo_clear(struct sprd_mcdt_dev *mcdt, u8 channel)
+ {
+-	sprd_mcdt_update(mcdt, MCDT_FIFO_CLR, BIT(channel), BIT(channel));
++	sprd_mcdt_update(mcdt, mcdt->info->fifo_clr_reg,
++			 BIT(channel), BIT(channel));
+ }
+ 
+ static void sprd_mcdt_adc_fifo_clear(struct sprd_mcdt_dev *mcdt, u8 channel)
+ {
+ 	u32 shift = MCDT_ADC_FIFO_SHIFT + channel;
+ 
+-	sprd_mcdt_update(mcdt, MCDT_FIFO_CLR, BIT(shift), BIT(shift));
++	sprd_mcdt_update(mcdt, mcdt->info->fifo_clr_reg,
++			 BIT(shift), BIT(shift));
+ }
+ 
+ static u32 sprd_mcdt_dac_fifo_avail(struct sprd_mcdt_dev *mcdt, u8 channel)
+ {
+-	u32 reg = MCDT_DAC0_FIFO_ADDR_ST + channel * 8;
++	u32 reg = mcdt->info->dac_fifo_addr_base +
++		  channel * mcdt->info->fifo_addr_stride;
+ 	u32 r_addr = (readl_relaxed(mcdt->base + reg) >>
+ 		      MCDT_CH_FIFO_ADDR_SHIFT) & MCDT_CH_FIFO_ADDR_MASK;
+ 	u32 w_addr = readl_relaxed(mcdt->base + reg) & MCDT_CH_FIFO_ADDR_MASK;
+@@ -412,7 +298,8 @@ static u32 sprd_mcdt_dac_fifo_avail(struct sprd_mcdt_dev *mcdt, u8 channel)
+ 
+ static u32 sprd_mcdt_adc_fifo_avail(struct sprd_mcdt_dev *mcdt, u8 channel)
+ {
+-	u32 reg = MCDT_ADC0_FIFO_ADDR_ST + channel * 8;
++	u32 reg = mcdt->info->adc_fifo_addr_base +
++		  channel * mcdt->info->fifo_addr_stride;
+ 	u32 r_addr = (readl_relaxed(mcdt->base + reg) >>
+ 		      MCDT_CH_FIFO_ADDR_SHIFT) & MCDT_CH_FIFO_ADDR_MASK;
+ 	u32 w_addr = readl_relaxed(mcdt->base + reg) & MCDT_CH_FIFO_ADDR_MASK;
+@@ -423,51 +310,14 @@ static u32 sprd_mcdt_adc_fifo_avail(struct sprd_mcdt_dev *mcdt, u8 channel)
+ 		return 4 * (MCDT_FIFO_LENGTH - r_addr + w_addr);
+ }
+ 
+-static u32 sprd_mcdt_int_type_shift(u8 channel,
+-				    enum sprd_mcdt_fifo_int int_type)
+-{
+-	switch (channel) {
+-	case 0:
+-	case 4:
+-	case 8:
+-		return int_type;
+-
+-	case 1:
+-	case 5:
+-	case 9:
+-		return  8 + int_type;
+-
+-	case 2:
+-	case 6:
+-		return 16 + int_type;
+-
+-	case 3:
+-	case 7:
+-		return 24 + int_type;
+-
+-	default:
+-		return 0;
+-	}
+-}
+-
+ static void sprd_mcdt_chan_int_en(struct sprd_mcdt_dev *mcdt, u8 channel,
+ 				  enum sprd_mcdt_fifo_int int_type, bool enable)
+ {
+-	u32 reg, shift = sprd_mcdt_int_type_shift(channel, int_type);
++	u32 reg, idx, shift;
+ 
+-	switch (channel) {
+-	case 0 ... 3:
+-		reg = MCDT_INT_EN0;
+-		break;
+-	case 4 ... 7:
+-		reg = MCDT_INT_EN1;
+-		break;
+-	case 8 ... 9:
+-		reg = MCDT_INT_EN2;
+-		break;
+-	default:
+-		return;
+-	}
++	idx = channel * MCDT_CH_SHIFT + int_type;
++	reg = MCDT_INT_EN_BASE + (idx / 32) * 4;
++	shift = idx % 32;
+ 
+ 	if (enable)
+ 		sprd_mcdt_update(mcdt, reg, BIT(shift), BIT(shift));
+@@ -478,21 +328,11 @@ static void sprd_mcdt_chan_int_en(struct sprd_mcdt_dev *mcdt, u8 channel,
+ static void sprd_mcdt_chan_int_clear(struct sprd_mcdt_dev *mcdt, u8 channel,
+ 				     enum sprd_mcdt_fifo_int int_type)
+ {
+-	u32 reg, shift = sprd_mcdt_int_type_shift(channel, int_type);
++	u32 reg, idx, shift;
+ 
+-	switch (channel) {
+-	case 0 ... 3:
+-		reg = MCDT_INT_CLR0;
+-		break;
+-	case 4 ... 7:
+-		reg = MCDT_INT_CLR1;
+-		break;
+-	case 8 ... 9:
+-		reg = MCDT_INT_CLR2;
+-		break;
+-	default:
+-		return;
+-	}
++	idx = channel * MCDT_CH_SHIFT + int_type;
++	reg = MCDT_INT_CLR_BASE + (idx / 32) * 4;
++	shift = idx % 32;
+ 
+ 	sprd_mcdt_update(mcdt, reg, BIT(shift), BIT(shift));
+ }
+@@ -500,21 +340,11 @@ static void sprd_mcdt_chan_int_clear(struct sprd_mcdt_dev *mcdt, u8 channel,
+ static bool sprd_mcdt_chan_int_sts(struct sprd_mcdt_dev *mcdt, u8 channel,
+ 				   enum sprd_mcdt_fifo_int int_type)
+ {
+-	u32 reg, shift = sprd_mcdt_int_type_shift(channel, int_type);
++	u32 reg, idx, shift;
+ 
+-	switch (channel) {
+-	case 0 ... 3:
+-		reg = MCDT_INT_MSK1;
+-		break;
+-	case 4 ... 7:
+-		reg = MCDT_INT_MSK2;
+-		break;
+-	case 8 ... 9:
+-		reg = MCDT_INT_MSK3;
+-		break;
+-	default:
+-		return false;
+-	}
++	idx = channel * MCDT_CH_SHIFT + int_type;
++	reg = MCDT_INT_MSK_BASE + (idx / 32) * 4;
++	shift = idx % 32;
+ 
+ 	return !!(readl_relaxed(mcdt->base + reg) & BIT(shift));
+ }
+@@ -526,9 +356,10 @@ static irqreturn_t sprd_mcdt_irq_handler(int irq, void *dev_id)
+ 
+ 	spin_lock(&mcdt->lock);
+ 
+-	for (i = 0; i < MCDT_ADC_CHANNEL_NUM; i++) {
++	for (i = 0; i < mcdt->info->num_adc_channels; i++) {
+ 		if (sprd_mcdt_chan_int_sts(mcdt, i, MCDT_ADC_FIFO_AF_INT)) {
+-			struct sprd_mcdt_chan *chan = &mcdt->chan[i];
++			struct sprd_mcdt_chan *chan =
++				&mcdt->chan[i + mcdt->info->num_dac_channels];
+ 
+ 			sprd_mcdt_chan_int_clear(mcdt, i, MCDT_ADC_FIFO_AF_INT);
+ 			if (chan->cb)
+@@ -536,10 +367,9 @@ static irqreturn_t sprd_mcdt_irq_handler(int irq, void *dev_id)
+ 		}
+ 	}
+ 
+-	for (i = 0; i < MCDT_DAC_CHANNEL_NUM; i++) {
++	for (i = 0; i < mcdt->info->num_dac_channels; i++) {
+ 		if (sprd_mcdt_chan_int_sts(mcdt, i, MCDT_DAC_FIFO_AE_INT)) {
+-			struct sprd_mcdt_chan *chan =
+-				&mcdt->chan[i + MCDT_ADC_CHANNEL_NUM];
++			struct sprd_mcdt_chan *chan = &mcdt->chan[i];
+ 
+ 			sprd_mcdt_chan_int_clear(mcdt, i, MCDT_DAC_FIFO_AE_INT);
+ 			if (chan->cb)
+@@ -919,15 +749,14 @@ static void sprd_mcdt_init_chans(struct sprd_mcdt_dev *mcdt,
+ 	for (i = 0; i < MCDT_CHANNEL_NUM; i++) {
+ 		struct sprd_mcdt_chan *chan = &mcdt->chan[i];
+ 
+-		if (i < MCDT_ADC_CHANNEL_NUM) {
++		if (i < mcdt->info->num_dac_channels) {
+ 			chan->id = i;
+-			chan->type = SPRD_MCDT_ADC_CHAN;
+-			chan->fifo_phys = res->start + MCDT_CH0_RXD + i * 4;
+-		} else {
+-			chan->id = i - MCDT_ADC_CHANNEL_NUM;
+ 			chan->type = SPRD_MCDT_DAC_CHAN;
+-			chan->fifo_phys = res->start + MCDT_CH0_TXD +
+-				(i - MCDT_ADC_CHANNEL_NUM) * 4;
++			chan->fifo_phys = res->start + MCDT_CH_BASE + i * 4;
++		} else {
++			chan->id = i - mcdt->info->num_dac_channels;
++			chan->type = SPRD_MCDT_ADC_CHAN;
++			chan->fifo_phys = res->start + MCDT_CH_BASE + i * 4;
+ 		}
+ 
+ 		chan->mcdt = mcdt;
+@@ -949,6 +778,10 @@ static int sprd_mcdt_probe(struct platform_device *pdev)
+ 	if (!mcdt)
+ 		return -ENOMEM;
+ 
++	mcdt->info = of_device_get_match_data(&pdev->dev);
++	if (!mcdt->info)
++		return -EINVAL;
++
+ 	mcdt->base = devm_platform_get_and_ioremap_resource(pdev, 0, &res);
+ 	if (IS_ERR(mcdt->base))
+ 		return PTR_ERR(mcdt->base);
+@@ -986,7 +819,8 @@ static void sprd_mcdt_remove(struct platform_device *pdev)
+ }
+ 
+ static const struct of_device_id sprd_mcdt_of_match[] = {
+-	{ .compatible = "sprd,sc9860-mcdt", },
++	{ .compatible = "sprd,sc9860-mcdt", .data = &sprd_mcdt_r1_info },
++	{ .compatible = "sprd,ums9230-mcdt", .data = &sprd_mcdt_r2_info },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, sprd_mcdt_of_match);

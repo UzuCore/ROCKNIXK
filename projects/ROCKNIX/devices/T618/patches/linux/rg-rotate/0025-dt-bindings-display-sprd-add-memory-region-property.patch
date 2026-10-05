@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Mon, 21 Jul 2025 10:50:24 +0200
+Subject: [PATCH 025/225] dt-bindings: display: sprd: add memory-region
+ property
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Explain that the DPU node supports a memory-region property that can be
+used to describe an initial framebuffer set up by the bootloader,
+usually in order to create a passthrough mapping for this framebuffer
+when the IOMMU is used.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ .../bindings/display/sprd/sprd,sharkl3-dpu.yaml           | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dpu.yaml b/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dpu.yaml
+index 7f3465208..fa9ad2600 100644
+--- a/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dpu.yaml
++++ b/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dpu.yaml
+@@ -48,6 +48,14 @@ properties:
+   iommus:
+     maxItems: 1
+ 
++  memory-region:
++    maxItems: 1
++    description:
++      A phandle to the framebuffer region configured by the bootloader. This
++      can be used together with an iommu-addresses property on the reserved
++      memory region to create an initial passthrough mapping for the boot
++      splash framebuffer.
++
+   port:
+     type: object
+     description:

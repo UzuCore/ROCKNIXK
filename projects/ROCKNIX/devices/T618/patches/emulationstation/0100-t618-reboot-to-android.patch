@@ -1,0 +1,28 @@
+From: RG405M bring-up <rg405m@localhost>
+Subject: [PATCH] T618: add "REBOOT TO ANDROID" to the quit menu
+
+---
+--- a/es-app/src/guis/GuiMenu.cpp	2026-09-29 12:46:13.453306671 +0900
++++ b/es-app/src/guis/GuiMenu.cpp	2026-09-29 12:46:13.478906156 +0900
+@@ -6034,6 +6034,21 @@
+ 			_("NO"), nullptr));
+ 	}, "iconRestart");
+ 
++	// T618 / Anbernic RG405M: ROCKNIX boots from eMMC slot B, Android stays on slot A.
++	if (Utils::FileSystem::exists("/usr/bin/rg405m-reboot-android"))
++	{
++		s->addEntry(_("REBOOT TO ANDROID"), false, [window] {
++			window->pushGui(new GuiMsgBox(window, _("REALLY REBOOT TO ANDROID?"),
++				_("YES"), [window] {
++					if (Utils::Platform::ProcessStartInfo("/usr/bin/rg405m-reboot-android --no-reboot").run() == 0)
++						Utils::Platform::quitES(Utils::Platform::QuitMode::REBOOT);
++					else
++						window->pushGui(new GuiMsgBox(window, _("COULD NOT SELECT ANDROID. NOTHING WAS CHANGED."), _("OK"), nullptr));
++				},
++				_("NO"), nullptr));
++		}, "iconRestart");
++	}
++
+ 	if (ApiSystem::getInstance()->isScriptingSupported(ApiSystem::SUSPEND))
+ 	{
+ 		s->addEntry(_("SUSPEND SYSTEM"), false, [window, s] {

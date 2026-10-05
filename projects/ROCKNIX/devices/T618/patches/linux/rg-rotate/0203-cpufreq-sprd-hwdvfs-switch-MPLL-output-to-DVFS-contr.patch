@@ -1,0 +1,72 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Wed, 5 Aug 2026 02:47:51 -0500
+Subject: [PATCH 203/225] cpufreq: sprd-hwdvfs: switch MPLL output to DVFS
+ control before relock/pd
+
+Both CPU clusters stay parked on their TWPLL boot parent (A55 at 1536MHz,
+A75 at 1228.8MHz) even though every DVFS register reads correct: the work
+index latches, the voltage path responds, all enables are set and all three
+MPLLs are released from software control. Sampling the block across a real
+driver->set shows MPLL_DVFS_STATE (0x322a82a0) and APCPU_FREQ_UPDATE_STATE0
+(0x322a82a4) never leave zero, so the frequency-update state machine is
+never triggered at all.
+
+The vendor 5.4 driver keeps this bit-clear as a distinct step,
+sprd_mpll_output_source_switch(), and calls it first in its per-MPLL init
+loop, ahead of auto relock and auto power down, followed by a 50us wait for
+"finishing analog configuration". Our 4.14-derived copy does the same clear
+inline but only after relock and pd are already enabled, and without the
+settle delay.
+
+Reorder to match the vendor sequence and add the delay. Same registers and
+same mask (mpll-rst bits 4/6/7 == the vendor's mpll-sel-syscon 0xd0), so the
+end state is unchanged; only the ordering and the settle time differ.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+---
+ drivers/cpufreq/sprd-hwdvfs-normal.c | 24 ++++++++++++++++++------
+ 1 file changed, 18 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/cpufreq/sprd-hwdvfs-normal.c b/drivers/cpufreq/sprd-hwdvfs-normal.c
+index be1fffd04..281836552 100644
+--- a/drivers/cpufreq/sprd-hwdvfs-normal.c
++++ b/drivers/cpufreq/sprd-hwdvfs-normal.c
+@@ -2827,12 +2827,14 @@ static int sprd_cpudvfs_common_init(struct cpudvfs_archdata *pdev)
+ 	}
+ 
+ 	for (ix = 0; ix < pdev->mpll_num; ++ix) {
+-		ret = pdev->phy_ops->mpll_relock_enable(pdev, ix, true);
+-		if (ret)
+-			return ret;
+-		ret = pdev->phy_ops->mpll_pd_enable(pdev, ix, true);
+-		if (ret)
+-			return ret;
++		/*
++		 * Hand the MPLL output over to DVFS control before enabling
++		 * auto relock and auto power down. The vendor 5.4 driver
++		 * (sprd_mpll_output_source_switch) does the switch first and
++		 * waits for the analog side to settle; doing it afterwards
++		 * leaves the frequency-update state machine parked, so the
++		 * clock never leaves its TWPLL boot parent.
++		 */
+ 		addr = pdev->mplls[ix].anag_reg;
+ 		bit = (1 << pdev->mplls[ix].POST_DIV) |
+ 		      (1 << pdev->mplls[ix].ICP) |
+@@ -2844,6 +2846,16 @@ static int sprd_cpudvfs_common_init(struct cpudvfs_archdata *pdev)
+ 			return ret;
+ 		}
+ 
++		/* Wait for the analog configuration to finish */
++		udelay(50);
++
++		ret = pdev->phy_ops->mpll_relock_enable(pdev, ix, true);
++		if (ret)
++			return ret;
++		ret = pdev->phy_ops->mpll_pd_enable(pdev, ix, true);
++		if (ret)
++			return ret;
++
+ 		/* Need to init mpll index table if necessary */
+ 		ret = pdev->phy_ops->mpll_index_table_init(pdev, ix);
+ 		if (ret)

@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sun, 8 Dec 2024 18:51:22 +0100
+Subject: [PATCH 027/225] drm: of: try binding port parent node instead of the
+ port itself
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The drm_of_component_probe function is intended to bind all devices in
+an OF graph given a set of ports linked using the "ports" property on a
+main device node. This means that it should also bind the components
+providing these ports, not just the components of other ports connected
+to them. In order to do this, it calls drm_of_component_match_add with
+a pointer to each port node after checking that its parent node is a
+device.
+
+However, when given a pointer to the port node, the compare_of callback
+does not match it with a device node and thus fails to detect that the
+node belongs to a component. Fix this by passing a pointer to the parent
+node here too.
+
+Currently only the Unisoc platform driver relies on this feature, which
+was previously broken and is fixed by this change. On other platforms,
+the "ports" property points to ports that are not part of a component,
+i.e. the components only have indirect connections to the main node.
+
+Fixes: df785aa87f3a ("drm: Introduce generic probe function for component based masters.")
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/gpu/drm/drm_of.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/drm_of.c b/drivers/gpu/drm/drm_of.c
+index 4f65ce729..5f7d94eb2 100644
+--- a/drivers/gpu/drm/drm_of.c
++++ b/drivers/gpu/drm/drm_of.c
+@@ -135,7 +135,7 @@ int drm_of_component_probe(struct device *dev,
+ 
+ 		if (of_device_is_available(port->parent))
+ 			drm_of_component_match_add(dev, &match, compare_of,
+-						   port);
++						   port->parent);
+ 
+ 		of_node_put(port);
+ 	}

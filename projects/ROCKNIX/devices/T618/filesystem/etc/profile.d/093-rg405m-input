@@ -1,0 +1,4 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Keep the virtual DualSense on the shared evdev/SDL mapping.
+export SDL_JOYSTICK_HIDAPI_PS5=0

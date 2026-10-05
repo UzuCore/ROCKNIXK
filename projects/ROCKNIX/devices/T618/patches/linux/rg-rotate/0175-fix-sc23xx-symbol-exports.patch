@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Fri, 24 Jul 2026 20:14:09 -0500
+Subject: [PATCH 175/225] fix sc23xx symbol exports
+
+---
+ drivers/net/wireless/unisoc/main.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/wireless/unisoc/main.c b/drivers/net/wireless/unisoc/main.c
+index 6acbda53d..5620b755c 100644
+--- a/drivers/net/wireless/unisoc/main.c
++++ b/drivers/net/wireless/unisoc/main.c
+@@ -131,6 +131,7 @@ int sc23xx_set_suspend(struct sc23xx_dev *sdev, bool suspend)
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(sc23xx_set_suspend);
+ 
+ static int sc23xx_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request)
+ {

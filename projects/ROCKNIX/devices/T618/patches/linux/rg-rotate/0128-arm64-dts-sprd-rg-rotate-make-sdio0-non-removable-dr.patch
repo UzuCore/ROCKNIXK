@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Thu, 2 Jul 2026 09:23:16 -0500
+Subject: [PATCH 128/225] arm64: dts: sprd: rg-rotate: make sdio0
+ non-removable, drop CD polling
+
+broken-cd's mmc-core polling (MMC_CAP_NEEDS_POLL, forced since there's no
+CD GPIO) was racing the SPRD sdhci controller's IRQ line: every poll cycle's
+status command triggered a spurious/duplicate command-complete interrupt,
+logged as "Got command interrupt 0x00000001 even though no command
+operation was in progress" plus a full register dump. Confirmed on-device
+by temporarily adding non-removable: the log spam disappeared entirely.
+
+Keep non-removable permanently - this device is used with a card left
+inserted, so the loss of hot-swap detection (would need a reboot to
+notice a swap) is an acceptable trade for eliminating the periodic dmesg
+spam and stray IRQ handling on every poll.
+---
+ arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+index 06042ee8f..cb904b21f 100644
+--- a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
++++ b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+@@ -238,8 +238,15 @@ &uart1 {
+  * microSD. Claim the SD core/IO supplies so the regulator framework keeps
+  * them powered without regulator_ignore_unused. Mainline sdhci-sprd sets
+  * SDHCI_QUIRK_BROKEN_CARD_DETECTION and ignores the stock syscon card
+- * detect; there is no dedicated CD GPIO on this board, so fall back to
+- * mmc-core polling via broken-cd. (memory: sdcard-sdio0-bringup)
++ * detect; there is no dedicated CD GPIO on this board. `broken-cd` alone
++ * (mmc-core polling via MMC_CAP_NEEDS_POLL) caused a periodic "Got command
++ * interrupt ... even though no command operation was in progress" pr_err +
++ * register dump every poll cycle - confirmed on-device to be the detect
++ * poll's status command racing a stray/duplicate command-complete IRQ on
++ * the SPRD controller. `non-removable` skips the periodic poll entirely
++ * (one-shot enumeration at boot), which eliminates the spurious IRQ.
++ * Trade-off: no hot-swap detection without a reboot. (memory:
++ * sdcard-sdio0-bringup)
+  */
+ &sdio0 {
+ 	status = "okay";
+@@ -249,6 +256,7 @@ &sdio0 {
+ 	no-sdio;
+ 	no-mmc;
+ 	broken-cd;
++	non-removable;
+ 	sprd,phy-delay-sd-uhs-sdr104 = <0x7f 0x73 0x72 0x72>;
+ 	sprd,phy-delay-sd-uhs-sdr50 = <0x6e 0x7f 0x01 0x01>;
+ 	sprd,phy-delay-sd-highspeed = <0x7f 0x1a 0x9a 0x9a>;

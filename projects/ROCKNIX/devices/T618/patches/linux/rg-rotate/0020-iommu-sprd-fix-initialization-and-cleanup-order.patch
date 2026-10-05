@@ -1,0 +1,75 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Tue, 15 Apr 2025 13:06:05 +0200
+Subject: [PATCH 020/225] iommu/sprd: fix initialization and cleanup order
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Register the device after enabling the clock and setting the version
+since devices may be attached to the IOMMU during registration.
+Unregister the sysfs object after the IOMMU.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/iommu/sprd-iommu.c | 26 ++++++++++++--------------
+ 1 file changed, 12 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/iommu/sprd-iommu.c b/drivers/iommu/sprd-iommu.c
+index 1ca125339..1f33afe67 100644
+--- a/drivers/iommu/sprd-iommu.c
++++ b/drivers/iommu/sprd-iommu.c
+@@ -529,17 +529,9 @@ static int sprd_iommu_probe(struct platform_device *pdev)
+ 	platform_set_drvdata(pdev, sdev);
+ 	sdev->dev = dev;
+ 
+-	ret = iommu_device_sysfs_add(&sdev->iommu, dev, NULL, dev_name(dev));
+-	if (ret)
+-		goto free_page;
+-
+-	ret = iommu_device_register(&sdev->iommu, &sprd_iommu_ops, dev);
+-	if (ret)
+-		goto remove_sysfs;
+-
+ 	ret = sprd_iommu_clk_enable(sdev);
+ 	if (ret)
+-		goto unregister_iommu;
++		goto free_page;
+ 
+ 	ret = sprd_iommu_get_version(sdev);
+ 	if (ret < 0) {
+@@ -548,14 +540,20 @@ static int sprd_iommu_probe(struct platform_device *pdev)
+ 	}
+ 	sdev->ver = ret;
+ 
++	ret = iommu_device_sysfs_add(&sdev->iommu, dev, NULL, dev_name(dev));
++	if (ret)
++		goto disable_clk;
++
++	ret = iommu_device_register(&sdev->iommu, &sprd_iommu_ops, dev);
++	if (ret)
++		goto remove_sysfs;
++
+ 	return 0;
+ 
+-disable_clk:
+-	sprd_iommu_clk_disable(sdev);
+-unregister_iommu:
+-	iommu_device_unregister(&sdev->iommu);
+ remove_sysfs:
+ 	iommu_device_sysfs_remove(&sdev->iommu);
++disable_clk:
++	sprd_iommu_clk_disable(sdev);
+ free_page:
+ 	dma_free_coherent(sdev->dev, SPRD_IOMMU_PAGE_SIZE, sdev->prot_page_va, sdev->prot_page_pa);
+ 	return ret;
+@@ -568,8 +566,8 @@ static void sprd_iommu_remove(struct platform_device *pdev)
+ 	dma_free_coherent(sdev->dev, SPRD_IOMMU_PAGE_SIZE, sdev->prot_page_va, sdev->prot_page_pa);
+ 
+ 	platform_set_drvdata(pdev, NULL);
+-	iommu_device_sysfs_remove(&sdev->iommu);
+ 	iommu_device_unregister(&sdev->iommu);
++	iommu_device_sysfs_remove(&sdev->iommu);
+ }
+ 
+ static struct platform_driver sprd_iommu_driver = {

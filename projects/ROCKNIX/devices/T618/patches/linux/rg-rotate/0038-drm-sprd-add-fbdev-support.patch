@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Mon, 9 Dec 2024 06:38:21 +0100
+Subject: [PATCH 038/225] drm: sprd: add fbdev support
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Set up the internal fbdev client in the Unisoc DRM driver. This is
+needed to make the framebuffer console work.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/gpu/drm/sprd/sprd_drm.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/sprd/sprd_drm.c b/drivers/gpu/drm/sprd/sprd_drm.c
+index 4abc0b0b1..6153c0657 100644
+--- a/drivers/gpu/drm/sprd/sprd_drm.c
++++ b/drivers/gpu/drm/sprd/sprd_drm.c
+@@ -12,8 +12,10 @@
+ #include <linux/of_graph.h>
+ #include <linux/platform_device.h>
+ 
++#include <drm/clients/drm_client_setup.h>
+ #include <drm/drm_atomic_helper.h>
+ #include <drm/drm_drv.h>
++#include <drm/drm_fbdev_dma.h>
+ #include <drm/drm_gem_dma_helper.h>
+ #include <drm/drm_gem_framebuffer_helper.h>
+ #include <drm/drm_of.h>
+@@ -59,6 +61,8 @@ static struct drm_driver sprd_drm_drv = {
+ 	.dumb_create		= sprd_gem_dumb_create,
+ 	.gem_prime_import_sg_table = sprd_gem_prime_import_sg_table,
+ 
++	DRM_FBDEV_DMA_DRIVER_OPS,
++
+ 	.name			= DRIVER_NAME,
+ 	.desc			= DRIVER_DESC,
+ 	.major			= DRIVER_MAJOR,
+@@ -152,6 +156,8 @@ static int sprd_drm_bind(struct device *dev)
+ 	if (ret < 0)
+ 		goto err_kms_helper_poll_fini;
+ 
++	drm_client_setup(drm, NULL);
++
+ 	return 0;
+ 
+ err_kms_helper_poll_fini:

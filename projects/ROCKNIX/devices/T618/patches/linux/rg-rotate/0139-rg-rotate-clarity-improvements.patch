@@ -1,0 +1,120 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Thu, 9 Jul 2026 21:27:53 -0500
+Subject: [PATCH 139/225] rg-rotate clarity improvements
+
+---
+ arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts | 26 +++++++++----------
+ arch/arm64/configs/ums512_defconfig           |  1 +
+ sound/soc/codecs/aw87390.h                    |  2 ++
+ .../sprd/vendor/sprd-asoc-card-utils-hook.c   |  9 +++++++
+ 4 files changed, 25 insertions(+), 13 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+index 6fed5675d..a7fa8fee2 100644
+--- a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
++++ b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+@@ -208,15 +208,15 @@ &sc2730_codec {
+ 	digital-codec = <&sprd_audio_codec_dig>;
+ };
+ 
+-/*
+- * Full stock ASoC card (unisoc,vbc-v4-codec-sc2730). The speaker PA is
+- * an aw87xxx on GPIO 9 driven by the card's ext-PA pulse hook
+- * (4 pulses then high = gain preset), exactly as stock.
+- */
+ &sound_vbc_v4_sprd_codec {
+ 	status = "okay";
+-	sprd,spk-ext-pa-info = <0 0 0 0>;
+-	sprd,spk-ext-pa-gpio = <&ap_gpio 9 1>;
++	/*
++	 * Stock Android drives speaker playback through the codec HP path, not
++	 * the SC2730 class-D SPK pin, so route Ext Spk/Ext Spk1 to HP Pin only.
++	 */
++	sprd-audio-card,routing =
++		"Ext Spk", "HP Pin",
++		"Ext Spk1", "HP Pin";
+ };
+ 
+ &pinctrl {
+@@ -484,10 +484,10 @@ &i2c2 {
+ 	#address-cells = <1>;
+ 	#size-cells = <0>;
+ 
+-	/*
+-	 * The aw87xxx speaker amp at i2c 0x58 is deliberately NOT declared:
+-	 * stock drives it purely via the GPIO-9 pulse hook in the sprd
+-	 * machine card (sprd,spk-ext-pa-gpio above); an i2c driver would be
+-	 * a second, conflicting control path.
+-	 */
++	speaker_amp: audio-codec@58 {
++		/* Anbernic reused a previously mainlined awinic 87xxx amp */
++		compatible = "anbernic,rgds-amp";
++		reg = <0x58>;
++		sound-name-prefix = "Speaker Amp";
++	};
+ };
+diff --git a/arch/arm64/configs/ums512_defconfig b/arch/arm64/configs/ums512_defconfig
+index babc08c67..978027ec6 100644
+--- a/arch/arm64/configs/ums512_defconfig
++++ b/arch/arm64/configs/ums512_defconfig
+@@ -519,6 +519,7 @@ CONFIG_SND_SOC_UNISOC_VBC_V4_SC2730=y
+ CONFIG_SND_SOC_ADAU7002=m
+ CONFIG_SND_SOC_AK4613=m
+ CONFIG_SND_SOC_AK4619=m
++CONFIG_SND_SOC_AW87390=y
+ CONFIG_SND_SOC_BT_SCO=m
+ CONFIG_SND_SOC_DA7213=m
+ CONFIG_SND_SOC_DMIC=m
+diff --git a/sound/soc/codecs/aw87390.h b/sound/soc/codecs/aw87390.h
+index f48b207e4..4becfd703 100644
+--- a/sound/soc/codecs/aw87390.h
++++ b/sound/soc/codecs/aw87390.h
+@@ -168,4 +168,6 @@ struct aw87390 {
+ 	struct regulator *vdd_reg;
+ };
+ 
++int anbernic_rgds_amp_enable(int on);
++
+ #endif
+diff --git a/sound/soc/sprd/vendor/sprd-asoc-card-utils-hook.c b/sound/soc/sprd/vendor/sprd-asoc-card-utils-hook.c
+index 5df5a245a..860fe2d50 100755
+--- a/sound/soc/sprd/vendor/sprd-asoc-card-utils-hook.c
++++ b/sound/soc/sprd/vendor/sprd-asoc-card-utils-hook.c
+@@ -65,6 +65,8 @@ static struct sprd_asoc_hook_spk_priv hook_spk_priv;
+ static int select_mode;
+ static u32 extral_iic_pa_en;
+ 
++extern int anbernic_rgds_amp_enable(int on);
++
+ static ssize_t select_mode_show(struct kobject *kobj,
+ 				struct kobj_attribute *attr, char *buff)
+ {
+@@ -138,6 +140,7 @@ static void hook_gpio_pulse_control(unsigned int gpio, unsigned int mode)
+ static int hook_general_spk(int id, int on)
+ {
+ 	int gpio, mode;
++	int ret;
+ #if 0
+ 	sp_asoc_pr_info("%s enter\n", __func__);
+ 	if (extral_iic_pa_en == 1) {
+@@ -179,6 +182,9 @@ static int hook_general_spk(int id, int on)
+ 
+ 	/* Off */
+ 	if (!on) {
++		ret = anbernic_rgds_amp_enable(0);
++		if (ret && ret != -ENODEV)
++			pr_warn("%s rgds amp disable failed: %d\n", __func__, ret);
+ 		gpio_set_value(gpio, !EN_LEVEL);
+           	msleep(5);
+ 		return HOOK_OK;
+@@ -191,6 +197,9 @@ static int hook_general_spk(int id, int on)
+ 			__func__, mode, select_mode);
+ 	}
+ 	hook_gpio_pulse_control(gpio, mode);
++	ret = anbernic_rgds_amp_enable(1);
++	if (ret && ret != -ENODEV)
++		pr_warn("%s rgds amp enable failed: %d\n", __func__, ret);
+ 
+ 	/* When the first time open speaker path and play a very short sound,
+ 	 * the sound can't be heard. So add a delay here to make sure the AMP

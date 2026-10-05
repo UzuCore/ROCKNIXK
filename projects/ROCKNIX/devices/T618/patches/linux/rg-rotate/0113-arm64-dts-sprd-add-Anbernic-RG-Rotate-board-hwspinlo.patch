@@ -1,0 +1,223 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Mon, 29 Jun 2026 03:59:32 -0500
+Subject: [PATCH 113/225] arm64: dts: sprd: add Anbernic RG Rotate board +
+ hwspinlock node
+
+Add the RG Rotate (UMS512/T618) board DTS as a ums512_1h10 variant,
+layering the device-specific deltas on upstream's generic ums512.dtsi.
+Stage 1 wires what the upstream dtsi can back today: serial, microSD
+(supplies + broken-cd + phy delays), eMMC, and the SC2730 fuel-gauge
+battery telemetry. Remaining subsystems are tracked as an inline
+checklist in the board file and land as their SoC nodes are ported.
+
+Also port the hwspinlock SoC node (missing from upstream's ums512.dtsi)
+back under aon bus@32000000 at offset 0x7f0000; the SC2730 ADC/efuse
+that back the fuel gauge depend on the &hwlock phandle.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+---
+ arch/arm64/boot/dts/sprd/Makefile             |   1 +
+ arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts | 162 ++++++++++++++++++
+ arch/arm64/boot/dts/sprd/ums512.dtsi          |   8 +
+ 3 files changed, 171 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+
+diff --git a/arch/arm64/boot/dts/sprd/Makefile b/arch/arm64/boot/dts/sprd/Makefile
+index 0af83bf5f..e2679f3e9 100644
+--- a/arch/arm64/boot/dts/sprd/Makefile
++++ b/arch/arm64/boot/dts/sprd/Makefile
+@@ -3,5 +3,6 @@ dtb-$(CONFIG_ARCH_SPRD) += sc9836-openphone.dtb 	\
+ 			sp9860g-1h10.dtb		\
+ 			sp9863a-1h10.dtb		\
+ 			ums512-1h10.dtb			\
++			ums512-rg-rotate.dtb		\
+ 			ums9230-reeder-s19mps.dtb	\
+ 			ums9620-2h10.dtb
+diff --git a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+new file mode 100644
+index 000000000..905a3fd91
+--- /dev/null
++++ b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+@@ -0,0 +1,162 @@
++// SPDX-License-Identifier: (GPL-2.0 OR MIT)
++/*
++ * Anbernic RG Rotate (Unisoc UMS512 / T618, sharkl5pro) board DTS.
++ *
++ * 7.1 rebase of the 6.16 ums512 bring-up (see docs/REBASE-7.1-SURVEY.md).
++ * The RG Rotate is a ums512_1h10 variant; this board file layers the
++ * device-specific deltas on top of upstream's generic ums512.dtsi.
++ *
++ * NOTE ON SCOPE (7.1 rebase, stage 1):
++ * Upstream's ums512.dtsi is far leaner than our 6.16 tree's. It currently
++ * provides only: uart0/1, sdio0/sdio3, gpu clk syscon, ap_clk/apapb_gate,
++ * ap_ahb_regs. It does NOT yet carry SoC nodes for: ap_gpio, pinctrl, pwm,
++ * dpu/dsi/disp/iommu_disp (display), hsphy/usb, i2c2/i2c4, the audio
++ * codec/VBC/pcm graph, or the cpufreq-dvfs supplies. So this board file
++ * wires only what upstream's dtsi can back today (serial, SD, eMMC, the
++ * SC2730 fuel gauge). The remaining subsystems are staged below as an
++ * inline roadmap and land as their SoC nodes are ported into the 7.1 dtsi,
++ * one independently-bootable subsystem at a time. Cross-ref the memories /
++ * docs cited per block.
++ */
++
++/dts-v1/;
++
++#include <dt-bindings/gpio/gpio.h>
++#include "ums512.dtsi"
++#include "sc2730.dtsi"
++
++/ {
++	model = "Anbernic RG Rotate";
++	compatible = "sprd,ums512-1h10", "sprd,ums512";
++	sprd,sc-id = "ums512 1h10 1000";
++
++	aliases {
++		serial0 = &uart0;
++		serial1 = &uart1;
++	};
++
++	memory@80000000 {
++		device_type = "memory";
++		reg = <0x0 0x80000000 0x0 0x80000000>;
++	};
++
++	chosen {
++		stdout-path = "serial1:115200n8";
++	};
++
++	/*
++	 * Battery profile for the RG Rotate cell. Values transcribed from the
++	 * stock dtbo overlay (device/stock/dtbo_decompiled/dtbo_overlay_1.dts,
++	 * the authoritative source for this SKU). Consumed by the SC2730 fuel
++	 * gauge (sc2730_fgu) via monitored-battery.
++	 */
++	bat: battery {
++		compatible = "simple-battery";
++		charge-full-design-microamp-hours = <1900000>;
++		charge-term-current-microamp = <120000>;
++		constant-charge-voltage-max-microvolt = <4340000>;
++		factory-internal-resistance-micro-ohms = <230000>;
++		voltage-min-design-microvolt = <3410000>;
++		ocv-capacity-celsius = <25>;
++		ocv-capacity-table-0 = <4338000 100>, <4243000 95>,
++			<4189000 90>, <4143000 85>, <4102000 80>,
++			<4051000 75>, <4002000 70>, <3958000 65>,
++			<3901000 60>, <3840000 55>, <3784000 50>,
++			<3742000 45>, <3703000 40>, <3673000 35>,
++			<3656000 30>, <3622000 25>, <3595000 20>,
++			<3558000 15>, <3523000 10>, <3490000 5>,
++			<3412000 0>;
++	};
++};
++
++/* Console + secondary UART. serial1 is the console per /chosen. */
++&uart0 {
++	status = "okay";
++};
++
++&uart1 {
++	status = "okay";
++};
++
++/*
++ * microSD. Claim the SD core/IO supplies so the regulator framework keeps
++ * them powered without regulator_ignore_unused. Mainline sdhci-sprd sets
++ * SDHCI_QUIRK_BROKEN_CARD_DETECTION and ignores the stock syscon card
++ * detect; there is no dedicated CD GPIO on this board, so fall back to
++ * mmc-core polling via broken-cd. (memory: sdcard-sdio0-bringup)
++ */
++&sdio0 {
++	status = "okay";
++	vmmc-supply = <&vddsdcore>;
++	vqmmc-supply = <&vddsdio>;
++	bus-width = <4>;
++	no-sdio;
++	no-mmc;
++	broken-cd;
++	sprd,phy-delay-sd-uhs-sdr104 = <0x7f 0x73 0x72 0x72>;
++	sprd,phy-delay-sd-uhs-sdr50 = <0x6e 0x7f 0x01 0x01>;
++	sprd,phy-delay-sd-highspeed = <0x7f 0x1a 0x9a 0x9a>;
++	sprd,phy-delay-legacy = <0x7f 0x1a 0x9a 0x9a>;
++	sd-uhs-sdr104;
++	sd-uhs-sdr50;
++};
++
++/* eMMC. vmmc-supply keeps the core rail up without regulator_ignore_unused. */
++&sdio3 {
++	status = "okay";
++	vmmc-supply = <&vddemmccore>;
++	bus-width = <8>;
++	no-sdio;
++	no-sd;
++	non-removable;
++	cap-mmc-hw-reset;
++};
++
++/* SC2730 fuel gauge — battery voltage / capacity reporting. */
++&sc2730_fgu {
++	status = "okay";
++	monitored-battery = <&bat>;
++	sprd,calib-resistance-micro-ohms = <10000>;
++};
++
++/*
++ * ===========================================================================
++ * STAGED — blocked on SoC nodes not yet present in upstream 7.1 ums512.dtsi.
++ * Port each SoC node into the 7.1 dtsi, then un-stage the matching board
++ * block here. Order mirrors docs/REBASE-7.1-SURVEY.md (lowest risk first).
++ * ===========================================================================
++ *
++ * [x] ap_gpio + pinctrl  — DONE. Ported ap_gpio@70000 + pinctrl@450000 SoC
++ *       nodes into ums512.dtsi (offset-addr under aon bus@32000000) and the
++ *       pinctrl-sprd-ums512.c driver (drops in clean; framework identical to
++ *       6.16). Configs: PINCTRL_SPRD_UMS512, GPIO_SPRD, GPIO_EIC_SPRD.
++ *       (ums9230 pinctrl data does NOT cover ums512 pins — own driver kept.)
++ *
++ * [ ] ap-apb ranges + i2c4 addressing  (memory: charger-aw32257-i2c4-blocker)
++ *       SoC-level: apapb `ranges;` identity + offset child addrs so i2c4
++ *       lands at 0x00700000. Then board: i2c4 pinmux on SIMCLK2/SIMDA2
++ *       (func2/AF1, WPU) + charger@6a "ti,bq24158".
++ *
++ * [ ] USB  (memory: usb-gadget-otg-and-cleanup)  needs hsphy + usb SoC nodes.
++ *       board: &hsphy phy-supply=<&vddusb33>; &usb dr_mode="otg" (MUST).
++ *
++ * [ ] Display  (memory: cold-init-prepare-prev-first; docs/DISPLAY-BRINGUP)
++ *       needs: dpu/dsi/disp/iommu_disp + pwm SoC nodes. board: framebuffer
++ *       reserved-memory + simple-fb, backlight (pwm 2), lcd_avdd/avee
++ *       fixed regulators (ap_gpio 15/138), &dpu/&dsi reset-syscon, panel@0
++ *       "rocknix,generic-dsi" w/ panel_description, dsi_out<->panel_in.
++ *
++ * [ ] GPU panfrost  (memory: gpu-panfrost-bringup)
++ *       upstream dtsi has only gpu_clk syscon, no mali device node — port it.
++ *       Re-verify sprd_reset_deassert PC=0x0 fix vs reorganized clk/reset.c.
++ *
++ * [ ] cpufreq DVFS  (memory: thermal-cpufreq-bringup)
++ *       prefer upstream sprd-cpufreq-v2; board: dvfs_dcdc_cpu0/1 supply cfg +
++ *       &dcdc_cpu0/1 dcdc-supply-mode-cfg + &cpudvfs_dev. Re-verify
++ *       topology_cluster_id result holds on v2.
++ *
++ * [ ] Audio  (memory: audio-bringup; docs/AUDIO-THEORY)
++ *       needs codec/VBC/pcm SoC graph. board: i2c2 speaker_amp aw87391@58
++ *       (en-gpio 9), &sc2730_codec okay, sound card "sprd,ums512-audio-card"
++ *       (IIS0 link, dig_codec+sc2730_codec). Do NOT re-add AUDIF soft-reset.
++ */
+diff --git a/arch/arm64/boot/dts/sprd/ums512.dtsi b/arch/arm64/boot/dts/sprd/ums512.dtsi
+index efa14309c..d29258762 100644
+--- a/arch/arm64/boot/dts/sprd/ums512.dtsi
++++ b/arch/arm64/boot/dts/sprd/ums512.dtsi
+@@ -885,6 +885,14 @@ adi_bus: spi@100000 {
+ 					<17 0x1844>,<19 0x1844>, <21 0x1864>, <30 0x1820>,
+ 					<35 0x19b8>, <39 0x19ac>;
+ 			};
++
++			hwlock: hwspinlock@7f0000 {
++				compatible = "sprd,hwspinlock-r3p0";
++				reg = <0x7f0000 0x10000>;
++				#hwlock-cells = <1>;
++				clocks = <&aonapb_gate CLK_SPLK_EB>;
++				clock-names = "enable";
++			};
+ 		};
+ 	};
+ 

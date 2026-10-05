@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Mon, 3 Aug 2026 20:56:33 -0500
+Subject: [PATCH 201/225] arm64: dts: ums512: reserve stock widevine region at
+ 0xe3800000
+
+The stock firmware reserves a 200 MB secure/DRM pool at 0xe3800000, but
+declares it in a devicetree *overlay* (fragment@12) rather than the base
+dts. Porting reserved-memory from the stock base dts alone therefore
+misses it entirely, and comparing the two shows nothing wrong.
+
+The secure world writes that region whether or not the kernel knows
+about it. Left unreserved, the page allocator hands those pages to
+userspace and they are zeroed underneath their owner. This presented as
+memory corruption once an allocation grew past ~1.5 GiB and started
+reaching 0xe3800000 -- so emulators tripped it while lighter workloads
+never allocated enough to notice.
+
+Confirmed by resolving the corrupted words to physical frames via
+/proc/self/pagemap: 100% of bad words read back exactly zero, and the
+bad pages formed one dense block at 0xe3800000..0xe97ff000, matching the
+overlay node's base exactly. With the reservation in place, a 2300 MB
+mlocked test buffer verifies clean where 1600 MB previously failed.
+
+The same overlay also declares faceid-mem@fd270000 and vdsp-mem@fd770000.
+Those stay unreserved for now as the camera/AI stacks are not enabled and
+nothing drives that hardware; they will need reserving if that changes.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+---
+ arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+index 2b04e1c0d..7aa240e57 100644
+--- a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
++++ b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+@@ -63,6 +63,22 @@ framebuffer_region: framebuffer-region@9e000000 {
+             no-map;
+         };
+ 
++		/*
++		 * Secure/DRM pool. Stock declares this in a devicetree overlay
++		 * (fragment@12) rather than the base dts, so it is easy to miss
++		 * when porting: see docs/decomp_overlay.dts.
++		 *
++		 * The secure world writes this region whether or not the kernel
++		 * knows about it. Leaving it unreserved lets the page allocator
++		 * hand it to userspace, and the pages are then zeroed underneath
++		 * their owner -- which looks exactly like memory corruption once
++		 * an allocation grows past ~1.5G and starts reaching 0xe3800000.
++		 */
++		widevine-mem@e3800000 {
++			reg = <0 0xe3800000 0 0xc800000>;
++			no-map;
++		};
++
+ 		linux,cma {
+ 			compatible = "shared-dma-pool";
+ 			size = <0x0 0x8000000>;

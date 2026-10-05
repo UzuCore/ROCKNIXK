@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sun, 2 Mar 2025 20:42:42 +0100
+Subject: [PATCH 098/225] Input: ff-memless - increase number of effects
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Needed for Sailfish OS.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/input/ff-memless.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/input/ff-memless.c b/drivers/input/ff-memless.c
+index 937370d04..e045426b4 100644
+--- a/drivers/input/ff-memless.c
++++ b/drivers/input/ff-memless.c
+@@ -24,10 +24,10 @@ MODULE_AUTHOR("Anssi Hannula <anssi.hannula@gmail.com>");
+ MODULE_DESCRIPTION("Force feedback support for memoryless devices");
+ 
+ /* Number of effects handled with memoryless devices */
+-#define FF_MEMLESS_EFFECTS	16
++#define FF_MEMLESS_EFFECTS	64
+ 
+ /* Envelope update interval in ms */
+-#define FF_ENVELOPE_INTERVAL	50
++#define FF_ENVELOPE_INTERVAL	10
+ 
+ #define FF_EFFECT_STARTED	0
+ #define FF_EFFECT_PLAYING	1

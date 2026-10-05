@@ -1,0 +1,608 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Tue, 15 Apr 2025 10:44:05 +0200
+Subject: [PATCH 076/225] ASoC: Add SC2730 PMIC audio codec support
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add a driver for the audio codec integrated into the Spreadtrum/Unisoc
+SC2730 PMIC. Only headphone and earpiece playback works at the moment.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ sound/soc/codecs/Kconfig  |   8 +
+ sound/soc/codecs/Makefile |   2 +
+ sound/soc/codecs/sc2730.c | 537 ++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 547 insertions(+)
+ create mode 100644 sound/soc/codecs/sc2730.c
+
+diff --git a/sound/soc/codecs/Kconfig b/sound/soc/codecs/Kconfig
+index 269c31ce0..7d018e045 100644
+--- a/sound/soc/codecs/Kconfig
++++ b/sound/soc/codecs/Kconfig
+@@ -245,6 +245,7 @@ config SND_SOC_ALL_CODECS
+ 	imply SND_SOC_RT9123
+ 	imply SND_SOC_RTQ9124
+ 	imply SND_SOC_RTQ9128
++	imply SND_SOC_SC2730
+ 	imply SND_SOC_SDW_MOCKUP
+ 	imply SND_SOC_SGTL5000
+ 	imply SND_SOC_SI476X
+@@ -2005,6 +2006,13 @@ config SND_SOC_RTQ9128
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called snd-soc-rtq9128.
+ 
++config SND_SOC_SC2730
++	tristate "Spreadtrum SC2730 PMIC codec"
++	depends on MFD_SC27XX_PMIC || COMPILE_TEST
++	help
++	  This driver provides support for the integrated audio codec in
++	  the SC2730 PMIC.
++
+ config SND_SOC_SDW_MOCKUP
+ 	tristate "SoundWire mockup codec"
+ 	depends on EXPERT
+diff --git a/sound/soc/codecs/Makefile b/sound/soc/codecs/Makefile
+index 172861d17..70a96bf1f 100644
+--- a/sound/soc/codecs/Makefile
++++ b/sound/soc/codecs/Makefile
+@@ -287,6 +287,7 @@ snd-soc-rt9123-y := rt9123.o
+ snd-soc-rt9123p-y := rt9123p.o
+ snd-soc-rtq9124-y := rtq9124.o
+ snd-soc-rtq9128-y := rtq9128.o
++snd-soc-sc2730-y := sc2730.o
+ snd-soc-sdw-mockup-y := sdw-mockup.o
+ snd-soc-sgtl5000-y := sgtl5000.o
+ snd-soc-alc5623-y := alc5623.o
+@@ -723,6 +724,7 @@ obj-$(CONFIG_SND_SOC_RT9123)	+= snd-soc-rt9123.o
+ obj-$(CONFIG_SND_SOC_RT9123P)	+= snd-soc-rt9123p.o
+ obj-$(CONFIG_SND_SOC_RTQ9124)	+= snd-soc-rtq9124.o
+ obj-$(CONFIG_SND_SOC_RTQ9128)	+= snd-soc-rtq9128.o
++obj-$(CONFIG_SND_SOC_SC2730)	+= snd-soc-sc2730.o
+ obj-$(CONFIG_SND_SOC_SDW_MOCKUP)     += snd-soc-sdw-mockup.o
+ obj-$(CONFIG_SND_SOC_SGTL5000)  += snd-soc-sgtl5000.o
+ obj-$(CONFIG_SND_SOC_SIGMADSP)	+= snd-soc-sigmadsp.o
+diff --git a/sound/soc/codecs/sc2730.c b/sound/soc/codecs/sc2730.c
+new file mode 100644
+index 000000000..e0d3f4dd9
+--- /dev/null
++++ b/sound/soc/codecs/sc2730.c
+@@ -0,0 +1,537 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++#include <sound/soc.h>
++#include <sound/tlv.h>
++
++#define SC2730_MODULE_EN	0x1808
++#define SC2730_CLK_EN		0x180C
++
++/* SC2730_MODULE_EN */
++#define ANA_AUD_EN		BIT(4)
++
++#define AUD_TOPA_CLK_EN		0x0100
++#define AUD_LP_MODULE_CTRL	0x0108
++#define AUD_AUDIF_CTL0		0x0140
++
++#define ANA_PMU0	0x1000
++#define ANA_PMU1	0x1004
++#define ANA_PMU2	0x1008
++#define ANA_PMU3	0x100C
++#define ANA_PMU4	0x1010
++#define ANA_PMU5	0x1014
++#define ANA_PMU6	0x1018
++#define ANA_PMU7	0x101C
++#define ANA_PMU8	0x1020
++#define ANA_PMU9	0x1024
++#define ANA_PMU10	0x1028
++#define ANA_PMU11	0x102C
++#define ANA_PMU12	0x1030
++#define ANA_PMU13	0x1034
++#define ANA_PMU14	0x1038
++#define ANA_PMU15	0x103C
++#define ANA_PMU16	0x1040
++#define ANA_PMU17	0x1044
++#define ANA_PMU18	0x1048
++#define ANA_PMU19	0x104C
++#define ANA_PMU20	0x1050
++#define ANA_PMU21	0x1054
++#define ANA_PMU22	0x1058
++#define ANA_PMU23	0x105C
++#define ANA_PMU24	0x1060
++#define ANA_RSV1	0x1064
++#define ANA_CLK0	0x1068
++#define ANA_CLK1	0x106C
++#define ANA_CLK2	0x1070
++#define ANA_CDC0	0x1074
++#define ANA_CDC1	0x1078
++#define ANA_CDC2	0x107C
++#define ANA_CDC3	0x1080
++#define ANA_CDC4	0x1084
++#define ANA_CDC5	0x1088
++#define ANA_CDC6	0x108C
++#define ANA_CDC7	0x1090
++#define ANA_CDC8	0x1094
++#define ANA_CDC9	0x1098
++#define ANA_CDC10	0x109C
++#define ANA_CDC11	0x10A0
++#define ANA_CDC12	0x10A4
++#define ANA_CDC13	0x10A8
++#define ANA_CDC14	0x10AC
++#define ANA_CDC15	0x10B0
++#define ANA_CDC16	0x10B4
++#define ANA_CDC17	0x10B8
++#define ANA_CDC18	0x10BC
++#define ANA_CDC19	0x10C0
++#define ANA_CDC20	0x10C4
++#define ANA_CDC21	0x10C8
++#define ANA_RSV3	0x10CC
++#define ANA_HDT0	0x10D0
++#define ANA_HDT1	0x10D4
++#define ANA_HDT2	0x10D8
++#define ANA_HDT3	0x10DC
++#define ANA_HDT4	0x10E0
++#define ANA_IMPD0	0x10E4
++#define ANA_IMPD1	0x10E8
++#define ANA_IMPD2	0x10EC
++#define ANA_IMPD3	0x10F0
++#define ANA_IMPD4	0x10F4
++#define ANA_RSV5	0x10F8
++#define ANA_DCL0	0x10FC
++#define ANA_DCL1	0x1100
++#define ANA_DCL2	0x1104
++#define ANA_DCL3	0x1108
++#define ANA_DCL4	0x110C
++#define ANA_DCL5	0x1110
++#define ANA_DCL6	0x1114
++#define ANA_DCL7	0x1118
++#define ANA_DCL8	0x111C
++#define ANA_DCL9	0x1120
++#define ANA_DCL10	0x1124
++#define ANA_DCL11	0x1128
++#define ANA_DCL12	0x112C
++#define ANA_DCL13	0x1130
++#define ANA_DCL14	0x1134
++#define ANA_RSV6	0x1138
++#define ANA_RSV7	0x113C
++#define ANA_RSV8	0x1140
++#define ANA_HID0	0x1144
++#define ANA_HID1	0x1148
++#define ANA_HID2	0x114C
++#define ANA_HID3	0x1150
++#define ANA_HID4	0x1154
++#define ANA_CFGA0	0x1158
++#define ANA_CFGA1	0x115C
++#define ANA_CFGA2	0x1160
++#define ANA_WR_PROT0	0x1164
++#define ANA_RSV9	0x1168
++#define ANA_DBG0	0x116C
++#define ANA_DBG1	0x1170
++#define ANA_DBG2	0x1174
++#define ANA_DBG3	0x1178
++#define ANA_DBG4	0x117C
++#define ANA_DBG5	0x1180
++#define ANA_STS0	0x1184
++#define ANA_STS1	0x1188
++#define ANA_STS2	0x118C
++#define ANA_STS3	0x1190
++#define ANA_STS4	0x1194
++#define ANA_STS5	0x1198
++#define ANA_STS6	0x119C
++#define ANA_STS7	0x11A0
++#define ANA_STS8	0x11A4
++#define ANA_STS9	0x11A8
++#define ANA_STS10	0x11AC
++#define ANA_STS11	0x11B0
++#define ANA_STS12	0x11B4
++#define ANA_STS13	0x11B8
++#define ANA_STS14	0x11BC
++#define ANA_RSV12	0x11C0
++#define ANA_DATO0	0x11C4
++#define ANA_DATO1	0x11C8
++#define ANA_DATO2	0x11CC
++#define ANA_DATO3	0x11D0
++#define ANA_DATO4	0x11D4
++#define ANA_DATO5	0x11D8
++#define ANA_DATO6	0x11DC
++#define ANA_DATO7	0x11E0
++#define ANA_DATO8	0x11E4
++#define ANA_DATO9	0x11E8
++#define ANA_DATO10	0x11EC
++#define ANA_DATO11	0x11F0
++#define ANA_INT0	0x1200
++#define ANA_INT1	0x1204
++#define ANA_INT2	0x1208
++#define ANA_INT3	0x120C
++#define ANA_INT4	0x1210
++#define ANA_INT5	0x1214
++#define ANA_INT6	0x1218
++#define ANA_INT7	0x121C
++#define ANA_INT8	0x1220
++#define ANA_INT9	0x1224
++#define ANA_INT10	0x1228
++#define ANA_INT11	0x122C
++#define ANA_INT12	0x1230
++#define ANA_INT13	0x1234
++#define ANA_INT14	0x1238
++#define ANA_INT15	0x123C
++#define ANA_INT16	0x1240
++#define ANA_INT17	0x1244
++#define ANA_INT18	0x1248
++#define ANA_INT19	0x124C
++#define ANA_INT20	0x1250
++#define ANA_INT21	0x1254
++#define ANA_INT22	0x1258
++#define ANA_INT23	0x125C
++#define ANA_INT24	0x1260
++#define ANA_INT25	0x1264
++#define ANA_INT26	0x1268
++#define ANA_INT27	0x126C
++#define ANA_INT28	0x1270
++#define ANA_INT29	0x1274
++#define ANA_INT30	0x1278
++#define ANA_INT31	0x127C
++#define ANA_INT32	0x1280
++#define ANA_INT33	0x1284
++#define ANA_INT34	0x1288
++#define ANA_INT35	0x128C
++
++/* ANA_PMU0 */
++#define CP_EN		BIT(3)
++#define CP_AD_EN	BIT(2)
++
++/* ANA_PMU7 */
++#define CP_NEG_PD_VNEG	BIT(10)
++#define CP_NEG_PD_FLYP	BIT(9)
++#define CP_NEG_PD_FLYN	BIT(8)
++
++/* ANA_DCL10 */
++#define CP_POS_SOFT_EN	BIT(11)
++#define CP_NEG_SOFT_EN	BIT(5)
++
++static const DECLARE_TLV_DB_SCALE(adc_tlv, 0, 300, 0);
++static const DECLARE_TLV_DB_SCALE(hp_ear_tlv, -2400, 300, 1);
++
++static const struct snd_kcontrol_new sc2730_codec_controls[] = {
++	SOC_DOUBLE_TLV("Capture Volume", ANA_CDC2, 3, 0, 7, 0, adc_tlv),
++	SOC_DOUBLE_TLV("Headphone Volume", ANA_CDC7, 4, 0, 15, 1, hp_ear_tlv),
++	SOC_SINGLE_TLV("Earpiece Volume", ANA_CDC7, 8, 15, 1, hp_ear_tlv),
++};
++
++static int sc2730_codec_cp_event(struct snd_soc_dapm_widget *w,
++				 struct snd_kcontrol *kcontrol,
++				 int event)
++{
++	struct snd_soc_component *codec = snd_soc_dapm_to_component(w->dapm);
++
++	switch (event) {
++	case SND_SOC_DAPM_PRE_PMU:
++		snd_soc_component_update_bits(codec, ANA_DCL10,
++					      CP_POS_SOFT_EN | CP_NEG_SOFT_EN,
++					      CP_POS_SOFT_EN | CP_NEG_SOFT_EN);
++		usleep_range(100, 110);
++		snd_soc_component_update_bits(codec, ANA_PMU7,
++					      CP_NEG_PD_VNEG |
++					      CP_NEG_PD_FLYN |
++					      CP_NEG_PD_FLYP,
++					      0);
++		snd_soc_component_update_bits(codec, ANA_PMU0, CP_AD_EN,
++					      CP_AD_EN);
++		usleep_range(50, 80);
++		snd_soc_component_update_bits(codec, ANA_PMU0, CP_EN, CP_EN);
++		break;
++	case SND_SOC_DAPM_POST_PMD:
++		snd_soc_component_update_bits(codec, ANA_PMU0,
++					      CP_EN | CP_AD_EN, 0);
++		snd_soc_component_update_bits(codec, ANA_PMU7,
++					      CP_NEG_PD_VNEG |
++					      CP_NEG_PD_FLYN |
++					      CP_NEG_PD_FLYP,
++					      CP_NEG_PD_VNEG |
++					      CP_NEG_PD_FLYN |
++					      CP_NEG_PD_FLYP);
++		break;
++	}
++
++	return 0;
++}
++
++static int sc2730_depop_event(struct snd_soc_dapm_widget *w,
++			      struct snd_kcontrol *kcontrol,
++			      int event)
++{
++	switch (event) {
++	case SND_SOC_DAPM_POST_PMU:
++		msleep(60); /* depop */
++		break;
++	}
++
++	return 0;
++}
++
++static const struct snd_kcontrol_new sc2730_hp_switch =
++	SOC_DAPM_DOUBLE("Headphone Playback Switch", ANA_CDC9, 3, 2, 1, 0);
++
++static const struct snd_kcontrol_new sc2730_ear_switch =
++	SOC_DAPM_SINGLE("Earpiece Playback Switch", ANA_CDC9, 0, 1, 0);
++
++static const struct snd_kcontrol_new sc2730_adcl_mixer_ctls[] = {
++	SOC_DAPM_SINGLE("HPMIC", ANA_CDC1, 3, 1, 0),
++	SOC_DAPM_SINGLE("MIC", ANA_CDC1, 1, 1, 0),
++};
++
++static const struct snd_kcontrol_new sc2730_adcr_mixer_ctls[] = {
++	SOC_DAPM_SINGLE("HPMIC", ANA_CDC1, 2, 1, 0),
++	SOC_DAPM_SINGLE("MIC2", ANA_CDC1, 0, 1, 0),
++};
++
++static const struct snd_soc_dapm_widget sc2730_codec_dapm_widgets[] = {
++	SND_SOC_DAPM_AIF_IN("AUDIF_IN", NULL, 0, SND_SOC_NOPM, 0, 0),
++	SND_SOC_DAPM_AIF_OUT("AUDIF_OUT", NULL, 0, SND_SOC_NOPM, 0, 0),
++
++	SND_SOC_DAPM_OUTPUT("HPL_OUT"),
++	SND_SOC_DAPM_OUTPUT("HPR_OUT"),
++	SND_SOC_DAPM_OUTPUT("EAR_OUT"),
++
++	SND_SOC_DAPM_INPUT("HPMIC_IN"),
++	SND_SOC_DAPM_INPUT("MIC2_IN"),
++	SND_SOC_DAPM_INPUT("MIC_IN"),
++
++	SND_SOC_DAPM_SUPPLY("CLK_AUD_SCLK", SC2730_CLK_EN, 7, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("CLK_AUDIF_6M5", SC2730_CLK_EN, 1, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("CLK_AUDIF", SC2730_CLK_EN, 0, 0, NULL, 0),
++
++	SND_SOC_DAPM_SUPPLY("CLK_TOPA_6M5", AUD_TOPA_CLK_EN, 1, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("ADC_EN_R", AUD_LP_MODULE_CTRL, 5, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("DAC_EN_R", AUD_LP_MODULE_CTRL, 4, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("ADC_EN_L", AUD_LP_MODULE_CTRL, 3, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("DAC_EN_L", AUD_LP_MODULE_CTRL, 2, 0, NULL, 0),
++
++	SND_SOC_DAPM_SUPPLY("ANA_CLK", ANA_CLK0, 15, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("CLK_DCL_32K", ANA_CLK0, 13, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("CLK_DCL_6M5", ANA_CLK0, 12, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("CLK_DIG_6M5", ANA_CLK0, 11, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("CLK_ADC", ANA_CLK0, 9, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("CLK_DAC", ANA_CLK0, 8, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("CLK_CP", ANA_CLK0, 7, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("VB", ANA_PMU0, 13, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("BG", ANA_PMU0, 9, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("BIAS", ANA_PMU0, 4, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("CP_LDO", ANA_PMU0, 1, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("HPMIC_BIAS", ANA_PMU1, 2, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("MIC2_BIAS", ANA_PMU1, 1, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("MIC_BIAS", ANA_PMU1, 0, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("CP", SND_SOC_NOPM, 0, 0, sc2730_codec_cp_event,
++			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
++
++	SND_SOC_DAPM_SUPPLY("DIG_CLK", ANA_DCL1, 9, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("DIG_CLK_INTC", ANA_DCL1, 8, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("DIG_CLK_HPDPOP", ANA_DCL1, 4, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("DIG_CLK_DRV_SOFT", ANA_DCL1, 1, 0, NULL, 0),
++
++	SND_SOC_DAPM_SUPPLY("Codec Supply", SND_SOC_NOPM, 0, 0, NULL, 0),
++
++	SND_SOC_DAPM_SUPPLY("ADC_IBIAS", ANA_CDC0, 11, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("ADC_VREF_BUF", ANA_CDC0, 10, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("ADCL_CLK", ANA_CDC0, 5, 0, NULL, 0),
++	SND_SOC_DAPM_SUPPLY("ADCR_CLK", ANA_CDC0, 4, 0, NULL, 0),
++
++	SND_SOC_DAPM_ADC_E("ADCL", NULL, ANA_CDC0, 7, 0,
++			   sc2730_depop_event, SND_SOC_DAPM_POST_PMU),
++	SND_SOC_DAPM_ADC_E("ADCR", NULL, ANA_CDC0, 6, 0,
++			   sc2730_depop_event, SND_SOC_DAPM_POST_PMU),
++
++	SOC_MIXER_ARRAY("ADCL Mixer", ANA_CDC0, 9, 0, sc2730_adcl_mixer_ctls),
++	SOC_MIXER_ARRAY("ADCR Mixer", ANA_CDC0, 8, 0, sc2730_adcr_mixer_ctls),
++
++	SND_SOC_DAPM_DAC("DACL", NULL, ANA_CDC5, 4, 0),
++	SND_SOC_DAPM_DAC("DACR", NULL, ANA_CDC5, 3, 0),
++
++	SND_SOC_DAPM_PGA("HP BUF", ANA_CDC10, 1, 0, NULL, 0),
++
++	SND_SOC_DAPM_SWITCH("HPL Switch", SND_SOC_NOPM, 0, 0,
++			    &sc2730_hp_switch),
++	SND_SOC_DAPM_SWITCH("HPR Switch", SND_SOC_NOPM, 0, 0,
++			    &sc2730_hp_switch),
++	SND_SOC_DAPM_MIXER_NAMED_CTL("EAR Switch", SND_SOC_NOPM, 0, 0,
++				     &sc2730_ear_switch, 1),
++
++	SND_SOC_DAPM_PGA("HPL", ANA_CDC10, 3, 0, NULL, 0),
++	SND_SOC_DAPM_PGA("HPR", ANA_CDC10, 2, 0, NULL, 0),
++	SND_SOC_DAPM_PGA("EAR", ANA_CDC10, 0, 0, NULL, 0),
++};
++
++static const struct snd_soc_dapm_route sc2730_codec_dapm_routes[] = {
++	/* Common supplies and clocks */
++	{"Codec Supply", NULL, "CLK_TOPA_6M5"},
++	{"Codec Supply", NULL, "CLK_AUDIF_6M5"},
++	{"Codec Supply", NULL, "CLK_AUDIF"},
++	{"Codec Supply", NULL, "CLK_AUD_SCLK"},
++	{"Codec Supply", NULL, "ANA_CLK"},
++	{"Codec Supply", NULL, "CLK_DCL_32K"},
++	{"Codec Supply", NULL, "CLK_DCL_6M5"},
++	{"Codec Supply", NULL, "CLK_DIG_6M5"},
++	{"Codec Supply", NULL, "VB"},
++	{"Codec Supply", NULL, "BG"},
++	{"Codec Supply", NULL, "BIAS"},
++	{"Codec Supply", NULL, "DIG_CLK"},
++	{"Codec Supply", NULL, "DIG_CLK_DRV_SOFT"},
++
++	{"CLK_ADC", NULL, "Codec Supply"},
++	{"CLK_DAC", NULL, "Codec Supply"},
++	{"CLK_CP", NULL, "Codec Supply"},
++	{"DIG_CLK_HPDPOP", NULL, "Codec Supply"},
++
++	{"ADC_IBIAS", NULL, "ADC_VREF_BUF"},
++	{"CP", NULL, "CP_LDO"},
++	{"CP", NULL, "CLK_CP"},
++
++	/* Playback routes */
++	{"AUDIF_IN", NULL, "SC2730 Playback"},
++
++	{"DACL", NULL, "AUDIF_IN"},
++	{"DACL", NULL, "DAC_EN_L"},
++	{"DACL", NULL, "CLK_DAC"},
++
++	{"DACR", NULL, "AUDIF_IN"},
++	{"DACR", NULL, "DAC_EN_R"},
++	{"DACR", NULL, "CLK_DAC"},
++
++	{"HP BUF", NULL, "DACL"},
++	{"HP BUF", NULL, "DACR"},
++
++	{"HPL Switch", "Headphone Playback Switch", "HP BUF"},
++	{"HPR Switch", "Headphone Playback Switch", "HP BUF"},
++	{"EAR Switch", "Earpiece Playback Switch", "HP BUF"},
++
++	{"HPL", NULL, "HPL Switch"},
++	{"HPL", NULL, "CP"},
++	{"HPL", NULL, "DIG_CLK_HPDPOP"},
++
++	{"HPR", NULL, "HPR Switch"},
++	{"HPR", NULL, "CP"},
++	{"HPR", NULL, "DIG_CLK_HPDPOP"},
++
++	{"EAR", NULL, "EAR Switch"},
++	{"EAR", NULL, "CP"},
++	{"EAR", NULL, "DIG_CLK_HPDPOP"},
++
++	{"HPL_OUT", NULL, "HPL"},
++	{"HPR_OUT", NULL, "HPR"},
++	{"EAR_OUT", NULL, "EAR"},
++
++	/* Capture routes */
++	{"SC2730 Capture", NULL, "AUDIF_OUT"},
++
++	{"AUDIF_OUT", NULL, "ADCL"},
++	{"AUDIF_OUT", NULL, "ADCR"},
++
++	{"ADCL_CLK", NULL, "CLK_ADC"},
++	{"ADCL", NULL, "ADCL Mixer"},
++	{"ADCL", NULL, "ADC_EN_L"},
++	{"ADCL", NULL, "ADCL_CLK"},
++	{"ADCL", NULL, "ADC_IBIAS"},
++
++	{"ADCR_CLK", NULL, "CLK_ADC"},
++	{"ADCR", NULL, "ADCR Mixer"},
++	{"ADCR", NULL, "ADC_EN_R"},
++	{"ADCR", NULL, "ADCR_CLK"},
++	{"ADCR", NULL, "ADC_IBIAS"},
++
++	{"ADCL Mixer", "HPMIC", "HPMIC_IN"},
++	{"ADCL Mixer", "MIC", "MIC_IN"},
++	{"ADCR Mixer", "HPMIC", "HPMIC_IN"},
++	{"ADCR Mixer", "MIC2", "MIC2_IN"},
++
++	{"HPMIC_IN", NULL, "HPMIC_BIAS"},
++	{"MIC2_IN", NULL, "MIC2_BIAS"},
++	{"MIC_IN", NULL, "MIC_BIAS"},
++};
++
++static int sc2730_codec_probe(struct snd_soc_component *component)
++{
++	struct regmap *regmap = dev_get_regmap(component->dev->parent, NULL);
++	int ret;
++
++	ret = regmap_set_bits(regmap, SC2730_MODULE_EN, ANA_AUD_EN);
++	if (ret)
++		return ret;
++
++	/* Needed for capture to work */
++	ret = regmap_write(regmap, AUD_AUDIF_CTL0, 0);
++	if (ret)
++		return ret;
++
++	snd_soc_component_init_regmap(component, regmap);
++
++	return 0;
++}
++
++static void sc2730_codec_remove(struct snd_soc_component *component)
++{
++	regmap_clear_bits(component->regmap, SC2730_MODULE_EN, ANA_AUD_EN);
++}
++
++static const struct snd_soc_component_driver sc2730_codec = {
++	.probe			= sc2730_codec_probe,
++	.remove			= sc2730_codec_remove,
++	.controls		= sc2730_codec_controls,
++	.num_controls		= ARRAY_SIZE(sc2730_codec_controls),
++	.dapm_widgets		= sc2730_codec_dapm_widgets,
++	.num_dapm_widgets	= ARRAY_SIZE(sc2730_codec_dapm_widgets),
++	.dapm_routes		= sc2730_codec_dapm_routes,
++	.num_dapm_routes	= ARRAY_SIZE(sc2730_codec_dapm_routes),
++	.idle_bias_on		= 1,
++	.use_pmdown_time	= 1,
++	.endianness		= 1,
++};
++
++#define SPRD_PCM_DA_RATES	(SNDRV_PCM_RATE_8000_48000 |	\
++				 SNDRV_PCM_RATE_12000 |		\
++				 SNDRV_PCM_RATE_24000 |		\
++				 SNDRV_PCM_RATE_96000)
++
++#define SPRD_PCM_AD_RATES	(SNDRV_PCM_RATE_8000 |		\
++				 SNDRV_PCM_RATE_16000 |		\
++				 SNDRV_PCM_RATE_32000 |		\
++				 SNDRV_PCM_RATE_48000)
++
++#define SPRD_PCM_FORMATS	(SNDRV_PCM_FMTBIT_S16_LE |	\
++				 SNDRV_PCM_FMTBIT_S24_LE)
++
++static struct snd_soc_dai_driver sc2730_codec_dais[] = {
++	{
++		.name = "SC2730_AUDIF_IN",
++		.id = 0,
++		.playback = {
++			.stream_name = "SC2730 Playback",
++			.rates = SPRD_PCM_DA_RATES,
++			.formats = SPRD_PCM_FORMATS,
++			.channels_min = 1,
++			.channels_max = 2,
++		},
++	},
++	{
++		.name = "SC2730_AUDIF_OUT",
++		.id = 1,
++		.capture = {
++			.stream_name = "SC2730 Capture",
++			.rates = SPRD_PCM_AD_RATES,
++			.formats = SPRD_PCM_FORMATS,
++			.channels_min = 1,
++			.channels_max = 2,
++		},
++	},
++};
++
++static int sc2730_codec_dev_probe(struct platform_device *pdev)
++{
++	return devm_snd_soc_register_component(&pdev->dev, &sc2730_codec,
++					       sc2730_codec_dais,
++					       ARRAY_SIZE(sc2730_codec_dais));
++}
++
++static const struct of_device_id sc2730_codec_match_table[] = {
++	{ .compatible = "sprd,sc2730-audio-codec" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sc2730_codec_match_table);
++
++static struct platform_driver sc2730_codec_driver = {
++	.probe = sc2730_codec_dev_probe,
++	.driver = {
++		.name = "sc2730-audio-codec",
++		.of_match_table = sc2730_codec_match_table,
++	},
++};
++
++module_platform_driver(sc2730_codec_driver);
++
++MODULE_DESCRIPTION("Spreadtrum SC2730 PMIC audio codec driver");
++MODULE_LICENSE("GPL");

@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Mon, 29 Jun 2026 04:54:26 -0500
+Subject: [PATCH 123/225] arm64: dts: sprd: rg-rotate: mark display done in
+ staging checklist
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+---
+ arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+index db08d5347..6b1b7d74f 100644
+--- a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
++++ b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+@@ -461,13 +461,11 @@ &usb {
+  *       still does not assert a gadget session on this VBUS-edge-less board).
+  *       Board &hsphy/&usb un-staged above. (memory: usb-gadget-otg-and-cleanup)
+  *
+- * [~] Display  — DT DONE, DRIVERS PENDING. Ported dpu/iommu_disp/dsi (mm bus),
+- *       disp, pwm + dphy clocks into ums512.dtsi; board framebuffer/reserved-mem/
+- *       backlight/lcd regs/panel un-staged above. STILL TODO: re-apply the
+- *       load-bearing driver hacks on the (clean) upstream sprd_dpu.c/sprd_dsi.c/
+- *       megacores_pll.c — free-run (DPI_HALT cleared + DSI_MODE_CFG=0),
+- *       prepare_prev_first cold-init + early clock-lane arm, DPI polarity. Needs
+- *       on-device validation. (memory: cold-init-prepare-prev-first;
++ * [x] Display  — DONE (on-device validation pending). DT: dpu/iommu_disp/dsi
++ *       (mm bus), disp, pwm, dphy clocks + board framebuffer/backlight/lcd-regs/
++ *       panel. Drivers: the proven 6.16 sprd_dpu/dsi/megacores_pll carried
++ *       wholesale (compile clean against 7.1 DRM) — free-run, cold-init reset +
++ *       clock prep, prepare_prev_first. (memory: cold-init-prepare-prev-first;
+  *       docs/DISPLAY-BRINGUP, DISPLAY-KNOWN-GOOD-DSI-STATE)
+  *
+  * [ ] GPU panfrost  (memory: gpu-panfrost-bringup)

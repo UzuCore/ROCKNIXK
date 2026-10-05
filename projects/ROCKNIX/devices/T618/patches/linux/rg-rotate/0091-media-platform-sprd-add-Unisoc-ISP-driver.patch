@@ -1,0 +1,3575 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Fri, 11 Jul 2025 08:23:15 +0200
+Subject: [PATCH 091/225] media: platform: sprd: add Unisoc ISP driver
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The Unisoc ISP operates as a memory-to-memory device and supports
+Bayer-to-YUV and YUV-to-YUV image format conversion, processing and
+resizing. In order to support advanced userspace configuration for the
+ISP blocks, the ISP is implemented as a media pipeline rather than a
+simple V4L M2M converter.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/media/platform/sprd/Kconfig           |    1 +
+ drivers/media/platform/sprd/Makefile          |    1 +
+ drivers/media/platform/sprd/isp/Kconfig       |   12 +
+ drivers/media/platform/sprd/isp/Makefile      |    6 +
+ drivers/media/platform/sprd/isp/isp-coeffs.c  |  103 ++
+ drivers/media/platform/sprd/isp/isp-coeffs.h  |   16 +
+ drivers/media/platform/sprd/isp/isp-config.c  |  320 +++++
+ .../media/platform/sprd/isp/isp-hw-ums9230.c  |  615 +++++++++
+ .../media/platform/sprd/isp/isp-hw-ums9230.h  | 1136 +++++++++++++++++
+ drivers/media/platform/sprd/isp/isp-video.c   |  628 +++++++++
+ drivers/media/platform/sprd/isp/isp.c         |  452 +++++++
+ drivers/media/platform/sprd/isp/isp.h         |  146 +++
+ include/uapi/linux/sprd-isp.h                 |   16 +
+ 13 files changed, 3452 insertions(+)
+ create mode 100644 drivers/media/platform/sprd/isp/Kconfig
+ create mode 100644 drivers/media/platform/sprd/isp/Makefile
+ create mode 100644 drivers/media/platform/sprd/isp/isp-coeffs.c
+ create mode 100644 drivers/media/platform/sprd/isp/isp-coeffs.h
+ create mode 100644 drivers/media/platform/sprd/isp/isp-config.c
+ create mode 100644 drivers/media/platform/sprd/isp/isp-hw-ums9230.c
+ create mode 100644 drivers/media/platform/sprd/isp/isp-hw-ums9230.h
+ create mode 100644 drivers/media/platform/sprd/isp/isp-video.c
+ create mode 100644 drivers/media/platform/sprd/isp/isp.c
+ create mode 100644 drivers/media/platform/sprd/isp/isp.h
+ create mode 100644 include/uapi/linux/sprd-isp.h
+
+diff --git a/drivers/media/platform/sprd/Kconfig b/drivers/media/platform/sprd/Kconfig
+index 313948145..d9ebfc629 100644
+--- a/drivers/media/platform/sprd/Kconfig
++++ b/drivers/media/platform/sprd/Kconfig
+@@ -3,3 +3,4 @@
+ comment "Unisoc media platform drivers"
+ 
+ source "drivers/media/platform/sprd/camsys/Kconfig"
++source "drivers/media/platform/sprd/isp/Kconfig"
+diff --git a/drivers/media/platform/sprd/Makefile b/drivers/media/platform/sprd/Makefile
+index 05b84bfcd..6167ab2a4 100644
+--- a/drivers/media/platform/sprd/Makefile
++++ b/drivers/media/platform/sprd/Makefile
+@@ -1,2 +1,3 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+ obj-y += camsys/
++obj-y += isp/
+diff --git a/drivers/media/platform/sprd/isp/Kconfig b/drivers/media/platform/sprd/isp/Kconfig
+new file mode 100644
+index 000000000..11be8b6b1
+--- /dev/null
++++ b/drivers/media/platform/sprd/isp/Kconfig
+@@ -0,0 +1,12 @@
++# SPDX-License-Identifier: GPL-2.0-only
++
++config VIDEO_SPRD_ISP
++	tristate "Unisoc ISP driver"
++	depends on V4L_PLATFORM_DRIVERS
++	depends on VIDEO_DEV
++	depends on ARCH_SPRD || COMPILE_TEST
++	select MEDIA_CONTROLLER
++	select V4L2_ISP
++	select VIDEO_V4L2_SUBDEV_API
++	select VIDEOBUF2_DMA_CONTIG
++	select VIDEOBUF2_VMALLOC
+diff --git a/drivers/media/platform/sprd/isp/Makefile b/drivers/media/platform/sprd/isp/Makefile
+new file mode 100644
+index 000000000..ed33baadd
+--- /dev/null
++++ b/drivers/media/platform/sprd/isp/Makefile
+@@ -0,0 +1,6 @@
++# SPDX-License-Identifier: GPL-2.0
++
++sprd-isp-objs := isp.o isp-coeffs.o isp-config.o isp-video.o
++sprd-isp-objs += isp-hw-ums9230.o
++
++obj-$(CONFIG_VIDEO_SPRD_ISP) += sprd-isp.o
+diff --git a/drivers/media/platform/sprd/isp/isp-coeffs.c b/drivers/media/platform/sprd/isp/isp-coeffs.c
+new file mode 100644
+index 000000000..7acefe2a3
+--- /dev/null
++++ b/drivers/media/platform/sprd/isp/isp-coeffs.c
+@@ -0,0 +1,103 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Unisoc ISP driver - coefficient tables
++ *
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#include "isp-coeffs.h"
++
++struct cce_matrix_info {
++	u16 full[9];
++	u16 lim[9];
++};
++
++static const struct cce_matrix_info cce_matrix_bt601 = {
++	.full = {
++		0x004d, 0x0096, 0x001d,
++		0x07d5, 0x07ab, 0x0080,
++		0x0080, 0x0795, 0x07eb,
++	},
++	.lim = {
++		0x0042, 0x0081, 0x0019,
++		0x07da, 0x07b6, 0x0070,
++		0x0070, 0x07a2, 0x07ee,
++	},
++};
++
++static const struct cce_matrix_info cce_matrix_bt709 = {
++	.full = {
++		0x0036, 0x00b7, 0x0012,
++		0x07e3, 0x079d, 0x0080,
++		0x0080, 0x078c, 0x07f4,
++	},
++	.lim = {
++		0x002f, 0x009d, 0x0010,
++		0x07e6, 0x07a9, 0x0071,
++		0x0070, 0x079a, 0x07f6,
++	},
++};
++
++static const struct cce_matrix_info cce_matrix_bt2020 = {
++	.full = {
++		0x0043, 0x00ae, 0x000f,
++		0x07dc, 0x07a4, 0x0080,
++		0x0080, 0x078a, 0x07f6,
++	},
++	.lim = {
++		0x003a, 0x0095, 0x000d,
++		0x07e1, 0x07af, 0x0070,
++		0x0070, 0x0799, 0x07f7,
++	},
++};
++
++static const struct cce_matrix_info cce_matrix_smpte240m = {
++	.full = {
++		0x0036, 0x00b4, 0x0016,
++		0x07e2, 0x079e, 0x0080,
++		0x0080, 0x078e, 0x07f2,
++	},
++	.lim = {
++		0x002f, 0x009a, 0x0013,
++		0x07e6, 0x07aa, 0x0070,
++		0x0070, 0x079c, 0x07f4,
++	},
++};
++
++const u16 *sprd_isp_get_cce_matrix(struct v4l2_pix_format_mplane *fmt,
++				   u16 *y_offset)
++{
++	const struct cce_matrix_info *m;
++	u32 ycbcr_enc, quantization;
++
++	ycbcr_enc = fmt->ycbcr_enc ? :
++			V4L2_MAP_YCBCR_ENC_DEFAULT(fmt->colorspace);
++
++	quantization = fmt->quantization ? :
++			V4L2_MAP_QUANTIZATION_DEFAULT(false, fmt->colorspace,
++						      fmt->ycbcr_enc);
++
++	switch (ycbcr_enc) {
++	default:
++	case V4L2_YCBCR_ENC_601:
++		m = &cce_matrix_bt601;
++		break;
++	case V4L2_YCBCR_ENC_709:
++		m = &cce_matrix_bt709;
++		break;
++	case V4L2_YCBCR_ENC_BT2020:
++		m = &cce_matrix_bt2020;
++		break;
++	case V4L2_YCBCR_ENC_SMPTE240M:
++		m = &cce_matrix_smpte240m;
++		break;
++	}
++
++	if (quantization == V4L2_QUANTIZATION_FULL_RANGE) {
++		*y_offset = 0;
++		return m->full;
++	} else {
++		*y_offset = 16;
++		return m->lim;
++	}
++}
+diff --git a/drivers/media/platform/sprd/isp/isp-coeffs.h b/drivers/media/platform/sprd/isp/isp-coeffs.h
+new file mode 100644
+index 000000000..ff71bca8b
+--- /dev/null
++++ b/drivers/media/platform/sprd/isp/isp-coeffs.h
+@@ -0,0 +1,16 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Unisoc ISP driver - coefficient tables
++ *
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#ifndef __SPRD_ISP_COEFFS_H
++#define __SPRD_ISP_COEFFS_H
++
++#include <linux/videodev2.h>
++
++const u16 *sprd_isp_get_cce_matrix(struct v4l2_pix_format_mplane *fmt,
++				   u16 *yuv_offset);
++
++#endif
+diff --git a/drivers/media/platform/sprd/isp/isp-config.c b/drivers/media/platform/sprd/isp/isp-config.c
+new file mode 100644
+index 000000000..0542430dc
+--- /dev/null
++++ b/drivers/media/platform/sprd/isp/isp-config.c
+@@ -0,0 +1,320 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Unisoc ISP driver - configuration device node
++ *
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#include <media/v4l2-ioctl.h>
++#include <media/v4l2-isp.h>
++#include <media/videobuf2-vmalloc.h>
++
++#include "isp.h"
++
++struct sprd_isp_config_buffer {
++	struct vb2_v4l2_buffer vbuf;
++	struct list_head link;
++	void *config;
++};
++
++#define to_isp_config_node(q) \
++	container_of(q, struct sprd_isp_config_node, vb2_queue)
++
++#define to_isp_config_buf(b) \
++	container_of(b, struct sprd_isp_config_buffer, vbuf)
++
++static const struct v4l2_isp_params_block_type_info
++sprd_isp_config_block_types_info[] = {
++	[SPRD_ISP_BLOCK_CCM] = {
++		.size = sizeof(struct sprd_camsys_ccm_config),
++	},
++	[SPRD_ISP_BLOCK_GAMMA] = {
++		.size = sizeof(struct sprd_camsys_gamma_config),
++	},
++};
++
++static int sprd_isp_querycap(struct file *file, void *fh,
++			     struct v4l2_capability *cap)
++{
++	strscpy(cap->driver, "sprd-isp", sizeof(cap->driver));
++	strscpy(cap->card, "Unisoc ISP", sizeof(cap->card));
++
++	return 0;
++}
++
++static int sprd_isp_cfg_enum_fmt(struct file *file, void *fh,
++				 struct v4l2_fmtdesc *f)
++{
++	if (f->index > 0)
++		return -EINVAL;
++
++	f->pixelformat = V4L2_META_FMT_SPRD_ISP_CFG;
++
++	return 0;
++}
++
++static int sprd_isp_cfg_g_fmt(struct file *file, void *fh,
++			      struct v4l2_format *f)
++{
++	static const struct v4l2_meta_format mfmt = {
++		.dataformat = V4L2_META_FMT_SPRD_ISP_CFG,
++		.buffersize = v4l2_isp_params_buffer_size(SPRD_ISP_MAX_CONFIG_SIZE),
++	};
++
++	f->fmt.meta = mfmt;
++
++	return 0;
++}
++
++static int sprd_isp_cfg_queue_setup(struct vb2_queue *q,
++				    unsigned int *num_buffers,
++				    unsigned int *num_planes,
++				    unsigned int sizes[],
++				    struct device *alloc_devs[])
++{
++	if (*num_planes && *num_planes > 1)
++		return -EINVAL;
++
++	if (sizes[0] && sizes[0] < v4l2_isp_params_buffer_size(SPRD_ISP_MAX_CONFIG_SIZE))
++		return -EINVAL;
++
++	*num_planes = 1;
++
++	if (!sizes[0])
++		sizes[0] = v4l2_isp_params_buffer_size(SPRD_ISP_MAX_CONFIG_SIZE);
++
++	return 0;
++}
++
++static int sprd_isp_cfg_buf_init(struct vb2_buffer *vb)
++{
++	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
++	struct sprd_isp_config_buffer *buf = to_isp_config_buf(vbuf);
++
++	buf->config = kvmalloc(v4l2_isp_params_buffer_size(SPRD_ISP_MAX_CONFIG_SIZE),
++			       GFP_KERNEL);
++	if (!buf->config)
++		return -ENOMEM;
++
++	return 0;
++}
++
++static void sprd_isp_cfg_buf_cleanup(struct vb2_buffer *vb)
++{
++	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
++	struct sprd_isp_config_buffer *buf = to_isp_config_buf(vbuf);
++
++	kvfree(buf->config);
++	buf->config = NULL;
++}
++
++static int sprd_isp_cfg_buf_prepare(struct vb2_buffer *vb)
++{
++	struct sprd_isp_config_node *node = to_isp_config_node(vb->vb2_queue);
++	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
++	struct sprd_isp_config_buffer *buf = to_isp_config_buf(vbuf);
++	struct v4l2_isp_params_buffer *config = vb2_plane_vaddr(vb, 0);
++	size_t buffer_size = v4l2_isp_params_buffer_size(SPRD_DCAM_MAX_CONFIG_SIZE);
++	int ret;
++
++	ret = v4l2_isp_params_validate_buffer_size(node->isp->dev, vb, buffer_size);
++	if (ret)
++		return ret;
++
++	memcpy(buf->config, config, buffer_size);
++
++	return v4l2_isp_params_validate_buffer(node->isp->dev, vb, buf->config,
++					       sprd_isp_config_block_types_info,
++					       ARRAY_SIZE(sprd_isp_config_block_types_info));
++}
++
++static void sprd_isp_cfg_buf_queue(struct vb2_buffer *vb)
++{
++	struct sprd_isp_config_node *node = to_isp_config_node(vb->vb2_queue);
++	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
++	struct sprd_isp_config_buffer *buf = to_isp_config_buf(vbuf);
++	struct sprd_isp *isp = node->isp;
++	unsigned long flags;
++
++	spin_lock_irqsave(&isp->lock, flags);
++	list_add_tail(&buf->link, &node->buf_queue);
++	spin_unlock_irqrestore(&isp->lock, flags);
++}
++
++static void sprd_isp_cfg_stop_streaming(struct vb2_queue *q)
++{
++	struct sprd_isp_config_node *node = to_isp_config_node(q);
++	struct sprd_isp_config_buffer *buf;
++	unsigned long flags;
++
++	spin_lock_irqsave(&node->isp->lock, flags);
++
++	while (!list_empty(&node->buf_queue)) {
++		buf = list_first_entry(&node->buf_queue,
++				       struct sprd_isp_config_buffer, link);
++		list_del(&buf->link);
++		vb2_buffer_done(&buf->vbuf.vb2_buf, VB2_BUF_STATE_ERROR);
++	}
++
++	spin_unlock_irqrestore(&node->isp->lock, flags);
++}
++
++static const struct vb2_ops sprd_isp_cfg_vb2_ops = {
++	.queue_setup	= sprd_isp_cfg_queue_setup,
++	.buf_init	= sprd_isp_cfg_buf_init,
++	.buf_cleanup	= sprd_isp_cfg_buf_cleanup,
++	.buf_prepare	= sprd_isp_cfg_buf_prepare,
++	.buf_queue	= sprd_isp_cfg_buf_queue,
++	.stop_streaming	= sprd_isp_cfg_stop_streaming,
++};
++
++static const struct v4l2_file_operations sprd_isp_cfg_fops = {
++	.owner          = THIS_MODULE,
++	.open           = v4l2_fh_open,
++	.release        = vb2_fop_release,
++	.poll           = vb2_fop_poll,
++	.unlocked_ioctl = video_ioctl2,
++	.mmap           = vb2_fop_mmap
++};
++
++static const struct v4l2_ioctl_ops sprd_isp_cfg_ioctl_ops = {
++	.vidioc_querycap = sprd_isp_querycap,
++	.vidioc_g_fmt_meta_out = sprd_isp_cfg_g_fmt,
++	.vidioc_try_fmt_meta_out = sprd_isp_cfg_g_fmt,
++	.vidioc_s_fmt_meta_out = sprd_isp_cfg_g_fmt,
++	.vidioc_enum_fmt_meta_out = sprd_isp_cfg_enum_fmt,
++	.vidioc_create_bufs = vb2_ioctl_create_bufs,
++	.vidioc_prepare_buf = vb2_ioctl_prepare_buf,
++	.vidioc_querybuf = vb2_ioctl_querybuf,
++	.vidioc_qbuf = vb2_ioctl_qbuf,
++	.vidioc_dqbuf = vb2_ioctl_dqbuf,
++	.vidioc_expbuf = vb2_ioctl_expbuf,
++	.vidioc_reqbufs = vb2_ioctl_reqbufs,
++	.vidioc_streamon = vb2_ioctl_streamon,
++	.vidioc_streamoff = vb2_ioctl_streamoff,
++};
++
++int sprd_isp_config_register(struct sprd_isp_config_node *node)
++{
++	struct sprd_isp *isp = node->isp;
++	struct video_device *vdev = &node->vdev;
++	struct vb2_queue *q = &node->vb2_queue;
++	struct v4l2_subdev *sd = &isp->context[node->ctx_id].sd;
++	int ret;
++
++	mutex_init(&node->lock);
++	INIT_LIST_HEAD(&node->buf_queue);
++
++	vdev->device_caps = V4L2_CAP_META_OUTPUT | V4L2_CAP_STREAMING;
++	vdev->v4l2_dev = &isp->v4l2_dev;
++	vdev->fops = &sprd_isp_cfg_fops;
++	vdev->release = video_device_release_empty;
++	vdev->ioctl_ops = &sprd_isp_cfg_ioctl_ops;
++	vdev->lock = &node->lock;
++	vdev->vfl_dir = VFL_DIR_TX;
++
++	video_set_drvdata(vdev, node);
++
++	q->type = V4L2_BUF_TYPE_META_OUTPUT;
++	q->io_modes = VB2_DMABUF | VB2_MMAP;
++	q->ops = &sprd_isp_cfg_vb2_ops;
++	q->mem_ops = &vb2_vmalloc_memops;
++	q->buf_struct_size = sizeof(struct sprd_isp_config_buffer);
++	q->min_queued_buffers = 1;
++	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
++	q->lock = &node->lock;
++	q->dev = isp->dev;
++	ret = vb2_queue_init(q);
++	if (ret) {
++		dev_err(isp->dev, "failed to init vb2 queue: %d\n", ret);
++		goto err_destroy_mutex;
++	}
++
++	vdev->queue = q;
++
++	node->pad.flags = MEDIA_PAD_FL_SOURCE;
++	ret = media_entity_pads_init(&vdev->entity, 1, &node->pad);
++	if (ret)
++		goto err_release_queue;
++
++	ret = video_register_device(vdev, VFL_TYPE_VIDEO, -1);
++	if (ret) {
++		dev_err(isp->dev, "failed to register %s: %d\n", vdev->name,
++			ret);
++		goto err_cleanup_entity;
++	}
++
++	ret = media_create_pad_link(&vdev->entity, 0,
++				    &sd->entity, SPRD_ISP_CONFIG,
++				    MEDIA_LNK_FL_IMMUTABLE |
++				    MEDIA_LNK_FL_ENABLED);
++	if (ret)
++		goto err_unregister_vdev;
++
++	return 0;
++
++err_unregister_vdev:
++	video_unregister_device(vdev);
++err_cleanup_entity:
++	media_entity_cleanup(&vdev->entity);
++err_release_queue:
++	vb2_queue_release(q);
++err_destroy_mutex:
++	mutex_destroy(&node->lock);
++	return ret;
++}
++
++void sprd_isp_config_unregister(struct sprd_isp_config_node *node)
++{
++	video_unregister_device(&node->vdev);
++	media_entity_cleanup(&node->vdev.entity);
++	vb2_queue_release(&node->vb2_queue);
++	mutex_destroy(&node->lock);
++}
++
++void sprd_isp_configure(struct sprd_isp_config_node *node)
++{
++	struct sprd_isp *isp = node->isp;
++	struct v4l2_isp_params_buffer *config;
++	struct sprd_isp_config_buffer *buf;
++	size_t block_offset = 0;
++	size_t max_offset;
++
++	lockdep_assert_held(&isp->lock);
++
++	if (list_empty(&node->buf_queue))
++		return;
++
++	buf = list_first_entry(&node->buf_queue, struct sprd_isp_config_buffer, link);
++	list_del(&buf->link);
++
++	config = buf->config;
++
++	max_offset = config->data_size;
++
++	/*
++	 * Walk the list of parameter blocks and process them. No validation is
++	 * done here, as the contents of the config buffer are already checked
++	 * when the buffer is queued.
++	 */
++	while (max_offset && block_offset < max_offset) {
++		union sprd_isp_config_block block;
++		sprd_isp_cfg_handler_t handler;
++
++		block.data = &config->data[block_offset];
++
++		handler = isp->hw->config_block[block.header->type];
++		if (handler) {
++			dev_dbg(isp->dev, "configuring block %d\n", block.header->type);
++			handler(isp, node->ctx_id, block);
++		} else {
++			dev_dbg(isp->dev, "block %d not supported by HW\n", block.header->type);
++		}
++
++		block_offset += block.header->size;
++	}
++
++	buf->vbuf.vb2_buf.timestamp = ktime_get_ns();
++	buf->vbuf.sequence = isp->context[node->ctx_id].sequence;
++	vb2_buffer_done(&buf->vbuf.vb2_buf, VB2_BUF_STATE_DONE);
++}
+diff --git a/drivers/media/platform/sprd/isp/isp-hw-ums9230.c b/drivers/media/platform/sprd/isp/isp-hw-ums9230.c
+new file mode 100644
+index 000000000..6c4ca35a7
+--- /dev/null
++++ b/drivers/media/platform/sprd/isp/isp-hw-ums9230.c
+@@ -0,0 +1,615 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Unisoc ISP driver
++ *
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#include <linux/delay.h>
++
++#include "isp.h"
++#include "isp-coeffs.h"
++#include "isp-hw-ums9230.h"
++
++static const u32 isp_intc_base_map[SPRD_ISP_NUM_CONTEXTS] = {
++	ISP_P0_INT_BASE,
++	ISP_P1_INT_BASE,
++	ISP_C0_INT_BASE,
++	ISP_C1_INT_BASE,
++};
++
++#define ISP_CFG_RANGE(first, last) \
++	((first) | (((last) + 4 - (first)) << 16))
++
++#define ISP_CFG_REG(reg) ISP_CFG_RANGE(reg, reg)
++
++/*
++ * This array is passed to the hardware and defines which registers are updated
++ * from the configuration memory. When implementing a module, make sure its
++ * full register range is included here.
++ */
++static const u32 isp_cfg_map[] = {
++	ISP_CFG_RANGE(ISP_COMMON_SPACE_SEL, ISP_COMMON_SCL_PATH_SEL),
++	ISP_CFG_RANGE(ISP_CMC10_PARAM, ISP_CMC10_MATRIX4),
++	ISP_CFG_REG(ISP_GAMMA_PARAM),
++	ISP_CFG_RANGE(ISP_FGAMMA_R_BUF0, ISP_FGAMMA_R_BUF0 + 0x3fc),
++	ISP_CFG_RANGE(ISP_FGAMMA_G_BUF0, ISP_FGAMMA_G_BUF0 + 0x3fc),
++	ISP_CFG_RANGE(ISP_FGAMMA_B_BUF0, ISP_FGAMMA_B_BUF0 + 0x3fc),
++	ISP_CFG_RANGE(ISP_FETCH_PARAM, ISP_FETCH_LINE_DLY_CTRL),
++	ISP_CFG_RANGE(ISP_DISPATCH_CH0_BAYER, ISP_DISPATCH_CH0_SIZE),
++	ISP_CFG_RANGE(ISP_YUV_SCALER_PRE_CAP_BASE + ISP_YUV_SCALER_CFG,
++		      ISP_YUV_SCALER_PRE_CAP_BASE + ISP_YUV_SCALER_FACTOR_VER),
++	ISP_CFG_RANGE(ISP_YUV_SCALER_PRE_CAP_LUMA_HCOEF0_BUF,
++		      ISP_YUV_SCALER_PRE_CAP_LUMA_HCOEF0_BUF + 0x7c),
++	ISP_CFG_RANGE(ISP_YUV_SCALER_PRE_CAP_CHROMA_HCOEF0_BUF,
++		      ISP_YUV_SCALER_PRE_CAP_CHROMA_HCOEF0_BUF + 0x3c),
++	ISP_CFG_RANGE(ISP_YUV_SCALER_PRE_CAP_LUMA_HCOEF1_BUF,
++		      ISP_YUV_SCALER_PRE_CAP_LUMA_HCOEF1_BUF + 0x7c),
++	ISP_CFG_RANGE(ISP_YUV_SCALER_PRE_CAP_CHROMA_HCOEF1_BUF,
++		      ISP_YUV_SCALER_PRE_CAP_CHROMA_HCOEF1_BUF + 0x3c),
++	ISP_CFG_RANGE(ISP_YUV_SCALER_PRE_CAP_LUMA_HCOEF2_BUF,
++		      ISP_YUV_SCALER_PRE_CAP_LUMA_HCOEF2_BUF + 0x7c),
++	ISP_CFG_RANGE(ISP_YUV_SCALER_PRE_CAP_CHROMA_HCOEF2_BUF,
++		      ISP_YUV_SCALER_PRE_CAP_CHROMA_HCOEF2_BUF + 0x3c),
++	ISP_CFG_RANGE(ISP_YUV_SCALER_PRE_CAP_LUMA_HCOEF3_BUF,
++		      ISP_YUV_SCALER_PRE_CAP_LUMA_HCOEF3_BUF + 0x7c),
++	ISP_CFG_RANGE(ISP_YUV_SCALER_PRE_CAP_CHROMA_HCOEF3_BUF,
++		      ISP_YUV_SCALER_PRE_CAP_CHROMA_HCOEF3_BUF + 0x3c),
++	ISP_CFG_RANGE(ISP_YUV_SCALER_PRE_CAP_LUMA_VCOEF0_BUF,
++		      ISP_YUV_SCALER_PRE_CAP_LUMA_VCOEF0_BUF + 0xfc),
++	ISP_CFG_RANGE(ISP_YUV_SCALER_PRE_CAP_LUMA_VCOEF1_BUF,
++		      ISP_YUV_SCALER_PRE_CAP_LUMA_VCOEF1_BUF + 0xfc),
++	ISP_CFG_RANGE(ISP_YUV_SCALER_PRE_CAP_LUMA_VCOEF2_BUF,
++		      ISP_YUV_SCALER_PRE_CAP_LUMA_VCOEF2_BUF + 0xfc),
++	ISP_CFG_RANGE(ISP_YUV_SCALER_PRE_CAP_LUMA_VCOEF3_BUF,
++		      ISP_YUV_SCALER_PRE_CAP_LUMA_VCOEF3_BUF + 0xfc),
++	ISP_CFG_RANGE(ISP_YUV_SCALER_PRE_CAP_CHROMA_VCOEF0_BUF,
++		      ISP_YUV_SCALER_PRE_CAP_CHROMA_VCOEF0_BUF + 0xfc),
++	ISP_CFG_RANGE(ISP_YUV_SCALER_PRE_CAP_CHROMA_VCOEF1_BUF,
++		      ISP_YUV_SCALER_PRE_CAP_CHROMA_VCOEF1_BUF + 0xfc),
++	ISP_CFG_RANGE(ISP_YUV_SCALER_PRE_CAP_CHROMA_VCOEF2_BUF,
++		      ISP_YUV_SCALER_PRE_CAP_CHROMA_VCOEF2_BUF + 0xfc),
++	ISP_CFG_RANGE(ISP_YUV_SCALER_PRE_CAP_CHROMA_VCOEF3_BUF,
++		      ISP_YUV_SCALER_PRE_CAP_CHROMA_VCOEF3_BUF + 0xfc),
++	ISP_CFG_RANGE(ISP_STORE_PRE_CAP_BASE + ISP_STORE_PARAM,
++		      ISP_STORE_PRE_CAP_BASE + ISP_STORE_SLICE_V_PITCH),
++};
++
++static void isp_init_regs(struct sprd_isp *isp)
++{
++	u32 i, val;
++
++	/* Set defaults */
++	writel(0x2476, isp->base + ISP_AXI_ARBITER_WQOS);
++	writel(0x0076, isp->base + ISP_AXI_ARBITER_RQOS);
++	writel(0xffff0000, isp->base + ISP_CORE_PMU_EN);
++	writel(0xffff0000, isp->base + ISP_COMMON_GCLK_CTRL_0);
++	writel(0xffff0000, isp->base + ISP_COMMON_GCLK_CTRL_1);
++	writel(0xffff0000, isp->base + ISP_COMMON_GCLK_CTRL_2);
++	writel(0xff00, isp->base + ISP_COMMON_GCLK_CTRL_3);
++	writel(0, isp->base + ISP_AXI_ISOLATION);
++	writel(0, isp->base + ISP_ARBITER_ENDIAN0);
++	writel(0, isp->base + ISP_ARBITER_ENDIAN1);
++	writel(0xf10, isp->base + ISP_ARBITER_CHK_SUM_CLR);
++	writel(0, isp->base + ISP_ARBITER_CHK_SUM0);
++	writel(1, isp->base + ISP_COMMON_PMU_RAM_MASK);
++
++	/* Disable unused modules */
++	writel(ISP_GTM_HIST_BYPASS | ISP_GTM_MAP_BYPASS,
++	       isp->base + ISP_GTM_GLB_CTRL);
++	writel(ISP_FBD_RAW_BYPASS, isp->base + ISP_FBD_RAW_SEL);
++	writel(ISP_GRGB_BYPASS, isp->base + ISP_GRGB_CTRL);
++	writel(ISP_VST_BYPASS, isp->base + ISP_VST_PARA);
++	writel(ISP_IVST_BYPASS, isp->base + ISP_IVST_PARA);
++	writel(ISP_NLM_BYPASS, isp->base + ISP_NLM_PARA);
++	writel(ISP_HSV_BYPASS, isp->base + ISP_HSV_PARAM);
++	writel(ISP_PSTRZ_BYPASS, isp->base + ISP_PSTRZ_PARAM);
++	writel(ISP_UVD_BYPASS, isp->base + ISP_UVD_PARAM);
++	writel(ISP_PRECDN_BYPASS, isp->base + ISP_PRECDN_PARAM);
++	writel(ISP_YNR_BYPASS, isp->base + ISP_YNR_CONTRL0);
++	writel(ISP_HIST_BYPASS, isp->base + ISP_HIST_PARAM);
++	writel(ISP_CDN_BYPASS, isp->base + ISP_CDN_PARAM);
++	writel(ISP_EE_BYPASS, isp->base + ISP_EE_PARAM);
++	writel(ISP_BCHS_BYPASS, isp->base + ISP_BCHS_PARAM);
++	writel(ISP_POSTCDN_DOWNSAMPLE_BYPASS | ISP_POSTCDN_BYPASS,
++	       isp->base + ISP_POSTCDN_COMMON_CTRL);
++	writel(ISP_YGAMMA_BYPASS, isp->base + ISP_YGAMMA_PARAM);
++	writel(ISP_IIRCNR_BYPASS, isp->base + ISP_IIRCNR_PARAM);
++	writel(ISP_YRANDOM_BYPASS, isp->base + ISP_YRANDOM_PARAM1);
++	writel(ISP_3DNR_MEM_CTRL_BYPASS, isp->base + ISP_3DNR_MEM_CTRL_PARAM0);
++	writel(ISP_3DNR_BLEND_BYPASS, isp->base + ISP_3DNR_BLEND_CONTROL0);
++	writel(ISP_3DNR_STORE_BYPASS, isp->base + ISP_3DNR_STORE_PARAM);
++	writel(ISP_3DNR_MEM_CTRL_PRE_BYPASS,
++	       isp->base + ISP_3DNR_MEM_CTRL_PRE_PARAM0);
++	writel(ISP_FBC_3DNR_STORE_BYPASS, isp->base + ISP_FBC_3DNR_STORE_PARAM);
++	writel(ISP_YUV_NF_BYPASS, isp->base + ISP_YUV_NF_CTRL);
++	writel(ISP_THMB_BYPASS, isp->base + ISP_THMB_CFG);
++
++	val = ISP_STORE_BYPASS;
++	writel(val, isp->base + ISP_STORE_DEBUG_BASE + ISP_STORE_PARAM);
++	writel(val, isp->base + ISP_STORE_VID_BASE + ISP_STORE_PARAM);
++
++	writel(0, isp->base + ISP_YUV_SCALER_VID_BASE + ISP_YUV_SCALER_CFG);
++
++	/* Enable the CFG module */
++	val = FIELD_PREP(ISP_CFG_NUM_OF_MOD, ARRAY_SIZE(isp_cfg_map));
++	val |= FIELD_PREP(ISP_CFG_SDW_MODE, 1);
++	val |= ISP_CFG_TM_BYPASS;
++	writel(val, isp->base + ISP_CFG_PARAMETER);
++
++	for (i = 0; i < ARRAY_SIZE(isp_cfg_map); i++) {
++		writel(isp_cfg_map[i], isp->base + ISP_CFG0_BUF + i * 4);
++		writel(isp_cfg_map[i], isp->base + ISP_CFG1_BUF + i * 4);
++	}
++
++	for (i = 0; i < SPRD_ISP_NUM_CONTEXTS; i++) {
++		struct sprd_isp_ctx *ctx = &isp->context[i];
++
++		writel(ctx->cfg_dma_addr,
++		       isp->base + ISP_CFG_PRE0_CMD_ADDR + i * 4);
++
++		/* Keep modules that need configuration disabled by default */
++		writel(ISP_CMC10_BYPASS, ctx->cfg_base + ISP_CMC10_PARAM);
++		writel(ISP_GAMMA_BYPASS, ctx->cfg_base + ISP_GAMMA_PARAM);
++	}
++
++	/* Set default debayering parameters */
++	writel(0, isp->base + ISP_CFAE_NEW_CFG0);
++
++	val = FIELD_PREP(ISP_CFAE_GRID_THR, 500);
++	writel(val, isp->base + ISP_CFAE_INTP_CFG0);
++
++	val = ISP_CFAE_WEIGHT_CONTROL_BYPASS;
++	val |= FIELD_PREP(ISP_CFAE_UNI_DIR_INTPLT_THR_NEW, 20);
++	val |= FIELD_PREP(ISP_CFAE_STRONG_EDGE_THR, 127);
++	writel(val, isp->base + ISP_CFAE_INTP_CFG1);
++
++	val = FIELD_PREP(ISP_CFAE_SMOOTH_AREA_THR, 0);
++	val |= FIELD_PREP(ISP_CFAE_CDCR_ADJ_FACTOR, 8);
++	writel(val, isp->base + ISP_CFAE_INTP_CFG2);
++
++	val = FIELD_PREP(ISP_CFAE_GRID_DIR_WEIGHT_T2, 8);
++	val |= FIELD_PREP(ISP_CFAE_GRID_DIR_WEIGHT_T1, 8);
++	val |= FIELD_PREP(ISP_CFAE_REDBLUE_HIGH_SAT_THR, 280);
++	writel(val, isp->base + ISP_CFAE_INTP_CFG3);
++
++	val = FIELD_PREP(ISP_CFAE_LOW_LUX_03_THR, 100);
++	val |= FIELD_PREP(ISP_CFAE_ROUND_DIFF_03_THR, 100);
++	writel(val, isp->base + ISP_CFAE_INTP_CFG4);
++
++	val = FIELD_PREP(ISP_CFAE_LOW_LUX_12_THR, 200);
++	val |= FIELD_PREP(ISP_CFAE_ROUND_DIFF_12_THR, 200);
++	writel(val, isp->base + ISP_CFAE_INTP_CFG5);
++
++	/* Enable interrupts */
++	for (i = 0; i < SPRD_ISP_NUM_CONTEXTS; i++) {
++		void __iomem *intc_base = isp->base + isp_intc_base_map[i];
++
++		writel(0xffffffff, intc_base + ISP_INT_EN0);
++	}
++}
++
++static int isp_set_formats(struct sprd_isp *isp, int ctx_id)
++{
++	struct sprd_isp_ctx *ctx = &isp->context[ctx_id];
++	void __iomem *store_base = ctx->cfg_base + ISP_STORE_PRE_CAP_BASE;
++	u32 val, color = ISP_DISPATCH_COLOR_YUV, bayer = 0;
++	struct v4l2_pix_format_mplane *fmt;
++	const u16 *cce_matrix;
++	u16 y_offset;
++
++	fmt = &ctx->input.fmt;
++	switch (fmt->pixelformat) {
++	case V4L2_PIX_FMT_YUV422M:
++		val = ISP_FETCH_YUV422_3FRAME;
++		break;
++	case V4L2_PIX_FMT_YUYV:
++		val = ISP_FETCH_YUYV_1FRAME;
++		break;
++	case V4L2_PIX_FMT_UYVY:
++		val = ISP_FETCH_UYVY_1FRAME;
++		break;
++	case V4L2_PIX_FMT_YVYU:
++		val = ISP_FETCH_YVYU_1FRAME;
++		break;
++	case V4L2_PIX_FMT_VYUY:
++		val = ISP_FETCH_VYUY_1FRAME;
++		break;
++	case V4L2_PIX_FMT_NV16:
++	case V4L2_PIX_FMT_NV16M:
++		val = ISP_FETCH_YUV422_2FRAME;
++		break;
++	case V4L2_PIX_FMT_NV61:
++	case V4L2_PIX_FMT_NV61M:
++		val = ISP_FETCH_YVU422_2FRAME;
++		break;
++	case V4L2_PIX_FMT_SBGGR10P:
++		color = ISP_DISPATCH_COLOR_RAW;
++		bayer = ISP_BAYER_BGGR;
++		val = ISP_FETCH_RAW_PACK_10;
++		break;
++	case V4L2_PIX_FMT_SGBRG10P:
++		color = ISP_DISPATCH_COLOR_RAW;
++		bayer = ISP_BAYER_GBRG;
++		val = ISP_FETCH_RAW_PACK_10;
++		break;
++	case V4L2_PIX_FMT_SGRBG10P:
++		color = ISP_DISPATCH_COLOR_RAW;
++		bayer = ISP_BAYER_GRBG;
++		val = ISP_FETCH_RAW_PACK_10;
++		break;
++	case V4L2_PIX_FMT_SRGGB10P:
++		color = ISP_DISPATCH_COLOR_RAW;
++		bayer = ISP_BAYER_RGGB;
++		val = ISP_FETCH_RAW_PACK_10;
++		break;
++	case V4L2_PIX_FMT_NV12:
++	case V4L2_PIX_FMT_NV12M:
++		val = ISP_FETCH_YUV420_2FRAME;
++		break;
++	case V4L2_PIX_FMT_NV21:
++	case V4L2_PIX_FMT_NV21M:
++		val = ISP_FETCH_YVU420_2FRAME;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	writel(val, ctx->cfg_base + ISP_FETCH_PARAM);
++	writel(bayer, ctx->cfg_base + ISP_DISPATCH_CH0_BAYER);
++
++	writel(8, ctx->cfg_base + ISP_FETCH_LINE_DLY_CTRL);
++
++	val = FIELD_PREP(ISP_DEBUG_PATH_SEL, ISP_SCL_PATH_DISABLE);
++	val |= FIELD_PREP(ISP_DISPATCH_COLOR, color);
++	writel(val, ctx->cfg_base + ISP_COMMON_SPACE_SEL);
++
++	fmt = &ctx->output.fmt;
++	switch (fmt->pixelformat) {
++	case V4L2_PIX_FMT_NV12:
++	case V4L2_PIX_FMT_NV12M:
++		val = ISP_STORE_YUV420_2FRAME;
++		break;
++	case V4L2_PIX_FMT_NV21:
++	case V4L2_PIX_FMT_NV21M:
++		val = ISP_STORE_YVU420_2FRAME;
++		break;
++	case V4L2_PIX_FMT_YUV420M:
++		val = ISP_STORE_YUV420_3FRAME;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	val |= ISP_STORE_SPEED_2X;
++	writel(val, store_base + ISP_STORE_PARAM);
++
++	val = ISP_SCL_RGB_PATH_DISABLE;
++	val |= FIELD_PREP(ISP_THUMB_PATH_SEL, ISP_SCL_PATH_DISABLE);
++	val |= FIELD_PREP(ISP_VID_PATH_SEL, ISP_SCL_PATH_DISABLE);
++	val |= FIELD_PREP(ISP_PRE_CAP_PATH_SEL, ISP_SCL_PATH_NORMAL);
++	writel(val, ctx->cfg_base + ISP_COMMON_SCL_PATH_SEL);
++
++	cce_matrix = sprd_isp_get_cce_matrix(fmt, &y_offset);
++
++	writel(0, isp->base + ISP_CCE_PARAM);
++
++	val = FIELD_PREP(ISP_CCE_MATRIX_Y_R, cce_matrix[0]) |
++	      FIELD_PREP(ISP_CCE_MATRIX_Y_G, cce_matrix[1]);
++	writel(val, isp->base + ISP_CCE_MATRIX0);
++	val = FIELD_PREP(ISP_CCE_MATRIX_Y_B, cce_matrix[2]) |
++	      FIELD_PREP(ISP_CCE_MATRIX_U_R, cce_matrix[3]);
++	writel(val, isp->base + ISP_CCE_MATRIX1);
++	val = FIELD_PREP(ISP_CCE_MATRIX_U_G, cce_matrix[4]) |
++	      FIELD_PREP(ISP_CCE_MATRIX_U_B, cce_matrix[5]);
++	writel(val, isp->base + ISP_CCE_MATRIX2);
++	val = FIELD_PREP(ISP_CCE_MATRIX_V_R, cce_matrix[6]) |
++	      FIELD_PREP(ISP_CCE_MATRIX_V_G, cce_matrix[7]);
++	writel(val, isp->base + ISP_CCE_MATRIX3);
++	val = FIELD_PREP(ISP_CCE_MATRIX_V_B, cce_matrix[8]);
++	writel(val, isp->base + ISP_CCE_MATRIX4);
++
++	val = FIELD_PREP(ISP_CCE_Y_OFFSET, y_offset);
++	writel(val, isp->base + ISP_CCE_SHIFT);
++
++	return 0;
++}
++
++static void isp_config_ccm(struct sprd_isp *isp, int ctx_id,
++			   union sprd_isp_config_block block)
++{
++	struct sprd_isp_ctx *ctx = &isp->context[ctx_id];
++	struct sprd_camsys_ccm_config *ccm = block.ccm;
++	u32 val;
++
++	if (block.header->flags & V4L2_ISP_PARAMS_FL_BLOCK_DISABLE) {
++		writel(ISP_CMC10_BYPASS, ctx->cfg_base + ISP_CMC10_PARAM);
++		return;
++	}
++
++	writel(0, ctx->cfg_base + ISP_CMC10_PARAM);
++
++	val = FIELD_PREP(ISP_CMC10_MATRIX_R_R, ccm->r_r) |
++	      FIELD_PREP(ISP_CMC10_MATRIX_R_G, ccm->r_g);
++	writel(val, ctx->cfg_base + ISP_CMC10_MATRIX0);
++
++	val = FIELD_PREP(ISP_CMC10_MATRIX_R_B, ccm->r_b) |
++	      FIELD_PREP(ISP_CMC10_MATRIX_G_R, ccm->g_r);
++	writel(val, ctx->cfg_base + ISP_CMC10_MATRIX1);
++
++	val = FIELD_PREP(ISP_CMC10_MATRIX_G_G, ccm->g_g) |
++	      FIELD_PREP(ISP_CMC10_MATRIX_G_B, ccm->g_b);
++	writel(val, ctx->cfg_base + ISP_CMC10_MATRIX2);
++
++	val = FIELD_PREP(ISP_CMC10_MATRIX_B_R, ccm->b_r) |
++	      FIELD_PREP(ISP_CMC10_MATRIX_B_G, ccm->b_g);
++	writel(val, ctx->cfg_base + ISP_CMC10_MATRIX3);
++
++	val = FIELD_PREP(ISP_CMC10_MATRIX_B_B, ccm->b_b);
++	writel(val, ctx->cfg_base + ISP_CMC10_MATRIX4);
++}
++
++static void isp_config_gamma(struct sprd_isp *isp, int ctx_id,
++			     union sprd_isp_config_block block)
++{
++	struct sprd_isp_ctx *ctx = &isp->context[ctx_id];
++	struct sprd_camsys_gamma_config *gamma = block.gamma;
++	void *dest;
++	u32 i;
++
++	if (block.header->flags & V4L2_ISP_PARAMS_FL_BLOCK_DISABLE) {
++		writel(ISP_GAMMA_BYPASS, ctx->cfg_base + ISP_GAMMA_PARAM);
++		return;
++	}
++
++	writel(0, ctx->cfg_base + ISP_GAMMA_PARAM);
++
++	dest = ctx->cfg_base + ISP_FGAMMA_R_BUF0;
++	for (i = 0; i < ARRAY_SIZE(gamma->r_tbl) - 1; i++) {
++		writel((gamma->r_tbl[i] << 8) | gamma->r_tbl[i + 1], dest);
++		dest += 4;
++	}
++
++	dest = ctx->cfg_base + ISP_FGAMMA_G_BUF0;
++	for (i = 0; i < ARRAY_SIZE(gamma->r_tbl) - 1; i++) {
++		writel((gamma->r_tbl[i] << 8) | gamma->r_tbl[i + 1], dest);
++		dest += 4;
++	}
++
++	dest = ctx->cfg_base + ISP_FGAMMA_B_BUF0;
++	for (i = 0; i < ARRAY_SIZE(gamma->r_tbl) - 1; i++) {
++		writel((gamma->r_tbl[i] << 8) | gamma->r_tbl[i + 1], dest);
++		dest += 4;
++	}
++}
++
++static void isp_set_scaler_coefficient_bank(void __iomem *scaler_base,
++					    void __iomem *hor_luma,
++					    void __iomem *hor_chroma,
++					    void __iomem *ver_luma,
++					    void __iomem *ver_chroma,
++					    u32 ver_tap_num)
++{
++	u32 i, val;
++
++	/*
++	 * TODO: implement interpolation
++	 *
++	 * At the moment, this just sets simplest possible coefficients to
++	 * get working video.
++	 */
++	/*
++	 * Note: half-word accesses work with the config buffer, but not with
++	 * the actual hardware registers.
++	 */
++	for (i = 0; i < 256; i++)
++		writew((i % 8) == 4 ? 0xff : 0, hor_luma + i * 2);
++
++	for (i = 0; i < 128; i++)
++		writew((i % 4) == 2 ? 0xff : 0, hor_chroma + i * 2);
++
++	for (i = 0; i < 256; i++) {
++		if ((i % ver_tap_num) == (ver_tap_num / 2))
++			val = 0xff;
++		else
++			val = 0;
++
++		writel(val, ver_luma + i * 4);
++		writel(val, ver_chroma + i * 4);
++	}
++}
++
++static void isp_config_scaler(struct sprd_isp_ctx *ctx)
++{
++	void __iomem *scaler_base = ctx->cfg_base + ISP_YUV_SCALER_PRE_CAP_BASE;
++	u32 val, ver_tap_num;
++
++	if (ctx->input.rect.height == ctx->output.rect.height &&
++	    ctx->input.rect.width == ctx->output.rect.width) {
++		val = ISP_YUV_SCALER_PATH_ENABLE;
++		val |= ISP_YUV_SCALER_WORK_MODE_420_420;
++		val |= ISP_YUV_SCALER_BYPASS_SCALE;
++		val |= ISP_YUV_SCALER_BYPASS_ALL;
++		writel(val, scaler_base + ISP_YUV_SCALER_CFG);
++		return;
++	}
++
++	ver_tap_num = clamp((ctx->input.rect.height /
++			     ctx->output.rect.height) * 2, 4, 8);
++
++	val = ISP_YUV_SCALER_PATH_ENABLE;
++	val |= ISP_YUV_SCALER_WORK_MODE_420_420;
++	val |= FIELD_PREP(ISP_YUV_SCALER_Y_VER_TAP, ver_tap_num);
++	val |= FIELD_PREP(ISP_YUV_SCALER_UV_VER_TAP, ver_tap_num);
++	val |= FIELD_PREP(ISP_YUV_SCALER_DECI_Y, 1);
++	val |= FIELD_PREP(ISP_YUV_SCALER_DECI_X, 1);
++	writel(val, scaler_base + ISP_YUV_SCALER_CFG);
++
++	val = FIELD_PREP(ISP_FACTOR_IN, ctx->input.total_width);
++	val |= FIELD_PREP(ISP_FACTOR_OUT, ctx->output.total_width);
++	writel(val, scaler_base + ISP_YUV_SCALER_FACTOR);
++
++	val = FIELD_PREP(ISP_FACTOR_IN, ctx->input.rect.height);
++	val |= FIELD_PREP(ISP_FACTOR_OUT, ctx->output.rect.height);
++	writel(val, scaler_base + ISP_YUV_SCALER_FACTOR_VER);
++
++	isp_set_scaler_coefficient_bank(scaler_base,
++		ctx->cfg_base + ISP_YUV_SCALER_PRE_CAP_LUMA_HCOEF0_BUF,
++		ctx->cfg_base + ISP_YUV_SCALER_PRE_CAP_CHROMA_HCOEF0_BUF,
++		ctx->cfg_base + ISP_YUV_SCALER_PRE_CAP_LUMA_VCOEF0_BUF,
++		ctx->cfg_base + ISP_YUV_SCALER_PRE_CAP_CHROMA_VCOEF0_BUF,
++		ver_tap_num);
++	isp_set_scaler_coefficient_bank(scaler_base,
++		ctx->cfg_base + ISP_YUV_SCALER_PRE_CAP_LUMA_HCOEF1_BUF,
++		ctx->cfg_base + ISP_YUV_SCALER_PRE_CAP_CHROMA_HCOEF1_BUF,
++		ctx->cfg_base + ISP_YUV_SCALER_PRE_CAP_LUMA_VCOEF1_BUF,
++		ctx->cfg_base + ISP_YUV_SCALER_PRE_CAP_CHROMA_VCOEF1_BUF,
++		ver_tap_num);
++	isp_set_scaler_coefficient_bank(scaler_base,
++		ctx->cfg_base + ISP_YUV_SCALER_PRE_CAP_LUMA_HCOEF2_BUF,
++		ctx->cfg_base + ISP_YUV_SCALER_PRE_CAP_CHROMA_HCOEF2_BUF,
++		ctx->cfg_base + ISP_YUV_SCALER_PRE_CAP_LUMA_VCOEF2_BUF,
++		ctx->cfg_base + ISP_YUV_SCALER_PRE_CAP_CHROMA_VCOEF2_BUF,
++		ver_tap_num);
++	isp_set_scaler_coefficient_bank(scaler_base,
++		ctx->cfg_base + ISP_YUV_SCALER_PRE_CAP_LUMA_HCOEF3_BUF,
++		ctx->cfg_base + ISP_YUV_SCALER_PRE_CAP_CHROMA_HCOEF3_BUF,
++		ctx->cfg_base + ISP_YUV_SCALER_PRE_CAP_LUMA_VCOEF3_BUF,
++		ctx->cfg_base + ISP_YUV_SCALER_PRE_CAP_CHROMA_VCOEF3_BUF,
++		ver_tap_num);
++}
++
++static int isp_start_slice(struct sprd_isp *isp, int ctx_id,
++			   dma_addr_t *in_addr, dma_addr_t *out_addr,
++			   u32 *in_pitch, u32 *out_pitch)
++{
++	struct sprd_isp_ctx *ctx = &isp->context[ctx_id];
++	void __iomem *scaler_base = ctx->cfg_base + ISP_YUV_SCALER_PRE_CAP_BASE;
++	void __iomem *store_base = ctx->cfg_base + ISP_STORE_PRE_CAP_BASE;
++	u32 pix = ctx->input.fmt.pixelformat;
++	u32 val;
++
++	val = FIELD_PREP(ISP_DIM_Y, ctx->input.rect.height);
++	val |= FIELD_PREP(ISP_DIM_X, ctx->input.rect.width);
++	writel(val, ctx->cfg_base + ISP_FETCH_SLICE_SIZE);
++	writel(val, ctx->cfg_base + ISP_DISPATCH_CH0_SIZE);
++	writel(val, scaler_base + ISP_YUV_SCALER_SRC_SIZE);
++	writel(val, scaler_base + ISP_YUV_SCALER_TRIM0_SIZE);
++
++	if (pix == V4L2_PIX_FMT_SBGGR10P || pix == V4L2_PIX_FMT_SGBRG10P ||
++	    pix == V4L2_PIX_FMT_SGRBG10P || pix == V4L2_PIX_FMT_SRGGB10P) {
++		u32 start = ctx->input.rect.left;
++		u32 end = ctx->input.rect.left + ctx->input.rect.width;
++		u32 start_word = ((start / 4) * 5 + (start % 4)) / 4;
++		u32 end_word = DIV_ROUND_UP(DIV_ROUND_UP(end, 4) * 5, 4);
++		u32 rel_pos = ctx->input.rect.left % 16;
++
++		dev_dbg(isp->dev,
++			"addr %08llx, mipi start %u end %u, rel_pos %u\n",
++			in_addr[0], start_word, end_word, rel_pos);
++
++		val = FIELD_PREP(ISP_FETCH_MIPI_WORD_NUM,
++				 end_word - start_word);
++		val |= FIELD_PREP(ISP_FETCH_MIPI_BYTE_REL_POS, rel_pos);
++		writel(val, ctx->cfg_base + ISP_FETCH_MIPI_INFO);
++	}
++
++	writel(in_addr[0], ctx->cfg_base + ISP_FETCH_SLICE_Y_ADDR);
++	writel(in_addr[1], ctx->cfg_base + ISP_FETCH_SLICE_U_ADDR);
++	writel(in_addr[2], ctx->cfg_base + ISP_FETCH_SLICE_V_ADDR);
++	writel(in_pitch[0], ctx->cfg_base + ISP_FETCH_SLICE_Y_PITCH);
++	writel(in_pitch[1], ctx->cfg_base + ISP_FETCH_SLICE_U_PITCH);
++	writel(in_pitch[2], ctx->cfg_base + ISP_FETCH_SLICE_V_PITCH);
++
++	/*
++	 * Configure the scaling ratio only for the first slice since it
++	 * should not change until the next frame.
++	 */
++	if (ctx->slice_idx == 0)
++		isp_config_scaler(ctx);
++
++	val = FIELD_PREP(ISP_DIM_Y, ctx->output.rect.height);
++	val |= FIELD_PREP(ISP_DIM_X, ctx->output.rect.width);
++	writel(val, store_base + ISP_STORE_SLICE_SIZE);
++	writel(val, scaler_base + ISP_YUV_SCALER_DES_SIZE);
++	writel(val, scaler_base + ISP_YUV_SCALER_TRIM1_SIZE);
++
++	writel(out_addr[0], store_base + ISP_STORE_SLICE_Y_ADDR);
++	writel(out_addr[1], store_base + ISP_STORE_SLICE_U_ADDR);
++	writel(out_addr[2], store_base + ISP_STORE_SLICE_V_ADDR);
++	writel(out_pitch[0], store_base + ISP_STORE_SLICE_Y_PITCH);
++	writel(out_pitch[1], store_base + ISP_STORE_SLICE_U_PITCH);
++	writel(out_pitch[2], store_base + ISP_STORE_SLICE_V_PITCH);
++
++	writel(1, isp->base + ISP_CFG_PRE0_START + ctx_id * 4);
++
++	return 0;
++}
++
++static void isp_stop(struct sprd_isp *isp)
++{
++	u32 i, val;
++
++	val = readl(isp->base + ISP_AXI_ITI2AXIM_CTRL);
++	val |= ISP_AXI_STOP;
++	writel(val, isp->base + ISP_AXI_ITI2AXIM_CTRL);
++
++	udelay(10);
++	for (i = 0; i < SPRD_ISP_NUM_CONTEXTS; i++) {
++		void __iomem *intc_base = isp->base + isp_intc_base_map[i];
++
++		writel(0xffffffff, intc_base + ISP_INT_CLR0);
++	}
++
++	reset_control_assert(isp->reset);
++	reset_control_assert(isp->ahb_reset);
++	udelay(10);
++	reset_control_deassert(isp->ahb_reset);
++	reset_control_deassert(isp->reset);
++}
++
++static irqreturn_t isp_handle_irq(int irq, void *devdata)
++{
++	struct sprd_isp *isp = devdata;
++	u32 i, int_sts;
++
++	if (irq == isp->irq[0])
++		i = 0;
++	else if (irq == isp->irq[1])
++		i = 1;
++	else
++		return IRQ_NONE;
++
++	for (; i < SPRD_ISP_NUM_CONTEXTS; i += 2) {
++		void __iomem *intc_base = isp->base + isp_intc_base_map[i];
++
++		int_sts = readl(intc_base + ISP_INT_INT0);
++		writel(int_sts, intc_base + ISP_INT_CLR0);
++
++		dev_dbg(isp->dev, "ctx%d status %08x\n", i, int_sts);
++
++		if (int_sts & ISP_IRQ_ALL_DONE) {
++			spin_lock(&isp->lock);
++			sprd_isp_process(isp, i);
++			spin_unlock(&isp->lock);
++		}
++	}
++
++	return IRQ_HANDLED;
++}
++
++const struct sprd_isp_hardware ums9230_isp_hw = {
++	.config_block = {
++		[SPRD_ISP_BLOCK_CCM] = isp_config_ccm,
++		[SPRD_ISP_BLOCK_GAMMA] = isp_config_gamma,
++	},
++
++	.init_regs = isp_init_regs,
++	.set_formats = isp_set_formats,
++	.start_slice = isp_start_slice,
++	.stop = isp_stop,
++	.handle_irq = isp_handle_irq,
++
++	.max_width = 2560,
++	.max_height = 9000,
++};
+diff --git a/drivers/media/platform/sprd/isp/isp-hw-ums9230.h b/drivers/media/platform/sprd/isp/isp-hw-ums9230.h
+new file mode 100644
+index 000000000..87216b0ce
+--- /dev/null
++++ b/drivers/media/platform/sprd/isp/isp-hw-ums9230.h
+@@ -0,0 +1,1136 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/*
++ * Unisoc ISP register definitions
++ * 
++ * Copyright (C) 2025 Otto Pflüger
++ * Copyright (C) 2021-2022 UNISOC Communications Inc.
++ */
++
++#ifndef __SPRD_ISP_HW_UMS9230_H
++#define __SPRD_ISP_HW_UMS9230_H
++
++/* ISP_DIM type */
++#define ISP_DIM_Y					GENMASK(31, 16)
++#define ISP_DIM_X					GENMASK(15, 0)
++
++/* ISP module */
++#define ISP_P0_INT_BASE					0x00000
++
++#define ISP_FETCH_PARAM					0x00110
++#define ISP_FETCH_FMT					GENMASK(7, 4)
++#define ISP_FETCH_YUV422_3FRAME				(0 << 4)
++#define ISP_FETCH_YUYV_1FRAME				(1 << 4)
++#define ISP_FETCH_UYVY_1FRAME				(2 << 4)
++#define ISP_FETCH_YVYU_1FRAME				(3 << 4)
++#define ISP_FETCH_VYUY_1FRAME				(4 << 4)
++#define ISP_FETCH_YUV422_2FRAME				(5 << 4)
++#define ISP_FETCH_YVU422_2FRAME				(6 << 4)
++#define ISP_FETCH_RAW_HALFWORD				(7 << 4)
++#define ISP_FETCH_RAW_PACK_10				(8 << 4)
++#define ISP_FETCH_FULL_RGB10				(9 << 4)
++#define ISP_FETCH_YUV420_2FRAME				(10 << 4)
++#define ISP_FETCH_YVU420_2FRAME				(11 << 4)
++
++#define ISP_FETCH_SLICE_SIZE				0x00114
++#define ISP_FETCH_SLICE_Y_ADDR				0x00118
++#define ISP_FETCH_SLICE_Y_PITCH				0x0011C
++#define ISP_FETCH_SLICE_U_ADDR				0x00120
++#define ISP_FETCH_SLICE_U_PITCH				0x00124
++#define ISP_FETCH_SLICE_V_ADDR				0x00128
++#define ISP_FETCH_SLICE_V_PITCH				0x0012C
++
++#define ISP_FETCH_MIPI_INFO				0x00130
++#define ISP_FETCH_MIPI_BYTE_REL_POS			GENMASK(19, 16)
++#define ISP_FETCH_MIPI_WORD_NUM				GENMASK(15, 0)
++
++#define ISP_FETCH_LINE_DLY_CTRL				0x00134
++#define ISP_FETCH_PARAM1				0x00138
++#define ISP_FETCH_START					0x0013C
++
++#define ISP_STORE_DEBUG_BASE				0x00200
++
++#define ISP_DISPATCH_CH0_BAYER				0x00310
++#define ISP_BAYER_GRBG					(0)
++#define ISP_BAYER_RGGB					(1)
++#define ISP_BAYER_BGGR					(2)
++#define ISP_BAYER_GBRG					(3)
++
++#define ISP_DISPATCH_CH0_SIZE				0x00314
++#define ISP_DISPATCH_DLY				0x00318
++#define ISP_DISPATCH_LINE_DLY1				0x00320
++#define ISP_DISPATCH_PIPE_BUF_CTRL_CH0			0x00324
++#define ISP_DISPATCH_CHK_SUM				0x00328
++
++#define ISP_ARBITER_WR_STATUS				0x00400
++#define ISP_ARBITER_RD_STATUS				0x00404
++#define ISP_ARBITER_ENDIAN_COMM				0x00410
++#define ISP_ARBITER_ENDIAN0				0x00414
++#define ISP_ARBITER_ENDIAN1				0x00418
++#define ISP_ARBITER_WR_PARAM0				0x0041C
++#define ISP_ARBITER_WR_PARAM1				0x00420
++#define ISP_ARBITER_WR_PARAM2				0x00424
++#define ISP_ARBITER_WR_PARAM3				0x00428
++#define ISP_ARBITER_WR_PARAM4				0x0042C
++#define ISP_ARBITER_RD_PARAM0				0x0043C
++#define ISP_ARBITER_RD_PARAM1				0x00440
++#define ISP_ARBITER_RD_PARAM2				0x00444
++#define ISP_ARBITER_RD_PARAM3				0x00448
++#define ISP_ARBITER_RD_PARAM4				0x0044C
++#define ISP_ARBITER_RD_PARAM5				0x00450
++#define ISP_ARBITER_RD_PARAM6				0x00454
++#define ISP_ARBITER_CHK_SUM_CLR				0x00460
++#define ISP_ARBITER_CHK_SUM0				0x00464
++
++#define ISP_AXI_WR_MASTER_STATUS			0x00500
++#define ISP_AXI_RD_MASTER_STATUS			0x00504
++
++#define ISP_AXI_ITI2AXIM_CTRL				0x00510
++#define ISP_AXI_STOP					BIT(26)
++
++#define ISP_AXI_ARBITER_WQOS				0x00514
++#define ISP_AXI_ARBITER_RQOS				0x00518
++#define ISP_AXI_ISOLATION				0x0051C
++#define ISP_AXI_PARAM0					0x00520
++#define ISP_AXI_PARAM1					0x00524
++#define ISP_AXI_PARAM2					0x00528
++#define ISP_AXI_PARAM3					0x0052C
++#define ISP_AXI_CACHE_ACTIVE				0x0052C
++#define ISP_AXI_CHK_SUM_CTRL				0x0052C
++#define ISP_AXI_TIMEOUT_PARAM				0x00558
++
++#define ISP_COMMON_VERSION				0x00700
++
++#define ISP_COMMON_SPACE_SEL				0x00710
++#define ISP_DEBUG_PATH_SEL				GENMASK(3, 2)	/* unconfirmed */
++#define ISP_DISPATCH_COLOR				GENMASK(1, 0)
++#define ISP_DISPATCH_COLOR_RAW				(0)
++#define ISP_DISPATCH_COLOR_RGB				(1)
++#define ISP_DISPATCH_COLOR_YUV				(2)
++
++#define ISP_COMMON_SCL_PATH_SEL				0x00714
++#define ISP_FETCH_FBD_PATH_SEL				BIT(10)
++#define ISP_3DNR_PATH_SEL				BIT(8)
++#define ISP_SCL_YUV_PATH_DISABLE			BIT(7)
++#define ISP_SCL_RGB_PATH_DISABLE			BIT(6)	/* unconfirmed */
++#define ISP_THUMB_PATH_SEL				GENMASK(5, 4)
++#define ISP_VID_PATH_SEL				GENMASK(3, 2)
++#define ISP_PRE_CAP_PATH_SEL				GENMASK(1, 0)
++
++#define ISP_COMMON_FMCU0_PATH_SEL			0x00718
++#define ISP_COMMON_GCLK_CTRL_0				0x0071C
++#define ISP_COMMON_GCLK_CTRL_1				0x00720
++#define ISP_COMMON_GCLK_CTRL_2				0x00724
++#define ISP_COMMON_GCLK_CTRL_3				0x00728
++#define ISP_COMMON_FMCU1_PATH_SEL			0x0072C
++#define ISP_COMMON_SHADOW_CTRL_CH0			0x00730
++#define ISP_COMMON_PMU_RAM_MASK				0x00734
++#define ISP_WORK_CTRL					0x00738
++#define ISP_BLOCK_MODE					0x0073C
++
++#define ISP_NLM_STATUS					0x00800
++
++#define ISP_IIRCNR_STATUS				0x00A74
++#define ISP_GTM_STATUS0					0x00A78
++#define ISP_GTM_STATUS1					0x00A7C
++#define ISP_GTM_STATUS2					0x00A80
++#define ISP_GTM_STATUS3					0x00A84
++#define ISP_GTM_STATUS4					0x00A88
++#define ISP_GTM_STATUS5					0x00A8C
++
++#define ISP_FBD_RAW_SEL					0x00C10
++#define ISP_FBD_RAW_BYPASS				BIT(0)
++
++#define ISP_FBD_RAW_SLICE_SIZE				0x00C14
++#define ISP_FBD_RAW_PARAM0				0x00C18
++#define ISP_FBD_RAW_PARAM1				0x00C1C
++#define ISP_FBD_RAW_PARAM2				0x00C20
++#define ISP_FBD_RAW_PARAM3				0x00C24
++#define ISP_FBD_RAW_PARAM4				0x00C28
++#define ISP_FBD_RAW_PARAM5				0x00C2C
++#define ISP_FBD_RAW_PARAM6				0x00C30
++#define ISP_FBD_RAW_LOW_PARAM0				0x00C34
++#define ISP_FBD_RAW_LOW_PARAM1				0x00C38
++#define ISP_FBD_RAW_START				0x00C3C
++#define ISP_FBD_RAW_HBLANK				0x00C40
++#define ISP_FBD_RAW_LOW_4BIT_PARAM0			0x00C44
++#define ISP_FBD_RAW_LOW_4BIT_PARAM1			0x00C48
++
++#define ISP_P1_INT_BASE					0x00D00
++#define ISP_C0_INT_BASE					0x00E00
++#define ISP_C1_INT_BASE					0x00F00
++
++#define ISP_GTM_GLB_CTRL				0x01610
++#define ISP_GTM_HIST_BYPASS				BIT(2)
++#define ISP_GTM_MAP_BYPASS				BIT(1)
++#define ISP_GTM_ENABLE					BIT(0)
++
++#define ISP_GTM_HIST_CTRL0				0x01614
++#define ISP_GTM_HIST_CTRL1				0x01618
++#define ISP_GTM_HIST_YMIN				0x0161C
++#define ISP_GTM_HIST_CTRL2				0x01620
++#define ISP_GTM_HIST_CTRL3				0x01624
++#define ISP_GTM_HIST_CTRL4				0x01628
++#define ISP_GTM_HIST_CTRL5				0x0162C
++#define ISP_GTM_HIST_CTRL6				0x01630
++#define ISP_GTM_HIST_CTRL7				0x01634
++#define ISP_GTM_LOG_DIFF				0x01638
++#define ISP_GTM_TM_YMIN_SMOOTH				0x0163C
++#define ISP_GTM_TM_LUMAFILTER0				0x01640
++#define ISP_GTM_TM_LUMAFILTER1				0x01644
++#define ISP_GTM_TM_LUMAFILTER2				0x01648
++#define ISP_GTM_TM_RGB2TCOEFF0				0x0164C
++#define ISP_GTM_TM_RGB2TCOEFF1				0x01650
++#define ISP_GTM_HW_YMIN					0x01654
++#define ISP_GTM_HW_YMAX					0x01658
++#define ISP_GTM_HW_YAVG					0x0165C
++#define ISP_GTM_HW_TARGET_NORM				0x01660
++#define ISP_GTM_SLICE_LINE_STARTPOS			0x01674
++#define ISP_GTM_SLICE_LINE_ENDPOS			0x01678
++#define ISP_GTM_HIST_XPTS_0				0x01680
++
++#define ISP_BWU_PARAM					0x01A10
++
++#define ISP_GRGB_STATUS					0x01B00
++
++#define ISP_GRGB_CTRL					0x01B10
++#define ISP_GRGB_BYPASS					BIT(0)
++
++#define ISP_GRGB_CFG0					0x01B14
++#define ISP_GRGB_LUM_FLAT_T				0x01B18
++#define ISP_GRGB_LUM_FLAT_R				0x01B1C
++#define ISP_GRGB_LUM_EDGE_T				0x01B20
++#define ISP_GRGB_LUM_EDGE_R				0x01B24
++#define ISP_GRGB_LUM_TEX_T				0x01B28
++#define ISP_GRGB_LUM_TEX_R				0x01B2C
++#define ISP_GRGB_FREZ_FLAT_T				0x01B30
++#define ISP_GRGB_FREZ_FLAT_R				0x01B34
++#define ISP_GRGB_FREZ_EDGE_T				0x01B38
++#define ISP_GRGB_FREZ_EDGE_R				0x01B3C
++#define ISP_GRGB_FREZ_TEX_T				0x01B40
++#define ISP_GRGB_FREZ_TEX_R				0x01B44
++
++#define ISP_VST_PARA					0x01C10
++#define ISP_VST_BYPASS					BIT(0)
++
++#define ISP_IVST_PARA					0x01E10
++#define ISP_IVST_BYPASS					BIT(0)
++
++#define ISP_NLM_IMBLANCE_CTRL				0x01F10
++#define ISP_NLM_IMBLANCE_PARA1				0x01F14
++#define ISP_NLM_IMBLANCE_PARA2				0x01F18
++#define ISP_NLM_IMBLANCE_PARA3				0x01F1C
++#define ISP_NLM_IMBLANCE_PARA4				0x01F20
++#define ISP_NLM_IMBLANCE_PARA5				0x01F24
++#define ISP_NLM_IMBLANCE_PARA6				0x01F28
++#define ISP_NLM_IMBLANCE_PARA7				0x01F2C
++#define ISP_NLM_IMBLANCE_PARA8				0x01F30
++#define ISP_NLM_IMBLANCE_PARA9				0x01F34
++#define ISP_NLM_IMBLANCE_PARA10				0x01F38
++#define ISP_NLM_IMBLANCE_PARA11				0x01F3C
++#define ISP_NLM_IMBLANCE_PARA12				0x01F40
++#define ISP_NLM_IMBLANCE_PARA13				0x01F44
++#define ISP_NLM_IMBLANCE_PARA14				0x01F48
++#define ISP_NLM_IMBLANCE_PARA15				0x01F4C
++#define ISP_NLM_IMBLANCE_PARA16				0x01F50
++#define ISP_NLM_IMBLANCE_PARA17				0x01F54
++#define ISP_NLM_IMBLANCE_PARA18				0x01F58
++#define ISP_NLM_IMBLANCE_PARA19				0x01F5C
++#define ISP_NLM_IMBLANCE_PARA20				0x01F60
++#define ISP_NLM_IMBLANCE_PARA21				0x01F64
++#define ISP_NLM_IMBLANCE_PARA22				0x01F68
++#define ISP_NLM_IMBLANCE_PARA23				0x01F6C
++#define ISP_NLM_IMBLANCE_PARA24				0x01F70
++#define ISP_NLM_IMBLANCE_PARA25				0x01F74
++#define ISP_NLM_IMBLANCE_PARA26				0x01F78
++#define ISP_NLM_IMBLANCE_PARA27				0x01F7C
++#define ISP_NLM_IMBLANCE_PARA28				0x01F80
++#define ISP_NLM_IMBLANCE_PARA29				0x01F84
++#define ISP_NLM_IMBLANCE_PARA30				0x01F88
++#define ISP_NLM_IMBLANCE_PARA31				0x01F8C
++#define ISP_NLM_IMBLANCE_PARA32				0x01F90
++
++#define ISP_NLM_PARA					0x02010
++#define ISP_NLM_BYPASS					BIT(0)
++
++#define ISP_NLM_MODE_CNT				0x02014
++#define ISP_NLM_SIMPLE_BPC				0x02018
++#define ISP_NLM_LUM_THRESHOLD				0x0201C
++#define ISP_NLM_DIRECTION_TH				0x02020
++#define ISP_NLM_IS_FLAT					0x02024
++#define ISP_NLM_LUT_W_0					0x02028
++#define ISP_NLM_LUM0_FLAT0_PARAM			0x02088
++#define ISP_NLM_LUM0_FLAT0_ADDBACK			0x0208C
++#define ISP_NLM_LUM0_FLAT1_PARAM			0x02090
++#define ISP_NLM_LUM0_FLAT1_ADDBACK			0x02094
++#define ISP_NLM_LUM0_FLAT2_PARAM			0x02098
++#define ISP_NLM_LUM0_FLAT2_ADDBACK			0x0209C
++#define ISP_NLM_LUM0_FLAT3_PARAM			0x020A0
++#define ISP_NLM_LUM0_FLAT3_ADDBACK			0x020A4
++#define ISP_NLM_ADDBACK3				0x020E8
++#define ISP_NLM_RADIAL_1D_PARAM				0x020EC
++#define ISP_NLM_RADIAL_1D_DIST				0x020F0
++#define ISP_NLM_RADIAL_1D_THRESHOLD			0x020F4
++#define ISP_NLM_RADIAL_1D_THR0				0x020F8
++#define ISP_NLM_RADIAL_1D_RATIO				0x0211C
++#define ISP_NLM_RADIAL_1D_GAIN_MAX			0x0214C
++#define ISP_NLM_RADIAL_1D_ADDBACK00			0x02150
++
++#define ISP_CFAE_STATUS					0x03000
++
++#define ISP_CFAE_NEW_CFG0				0x03010
++#define ISP_CFAE_BYPASS					BIT(0)
++
++#define ISP_CFAE_INTP_CFG0				0x03014
++#define ISP_CFAE_GRID_THR				GENMASK(15, 0)
++
++#define ISP_CFAE_INTP_CFG1				0x03018
++#define ISP_CFAE_WEIGHT_CONTROL_BYPASS			BIT(31)
++#define ISP_CFAE_UNI_DIR_INTPLT_THR_NEW			GENMASK(23, 12)
++#define ISP_CFAE_STRONG_EDGE_THR			GENMASK(11, 4)
++
++#define ISP_CFAE_INTP_CFG2				0x0301C
++#define ISP_CFAE_SMOOTH_AREA_THR			GENMASK(24, 8)
++#define ISP_CFAE_CDCR_ADJ_FACTOR			GENMASK(6, 0)
++
++#define ISP_CFAE_INTP_CFG3				0x03020
++#define ISP_CFAE_GRID_DIR_WEIGHT_T2			GENMASK(24, 20)
++#define ISP_CFAE_GRID_DIR_WEIGHT_T1			GENMASK(16, 12)
++#define ISP_CFAE_REDBLUE_HIGH_SAT_THR			GENMASK(9, 0)
++
++#define ISP_CFAE_INTP_CFG4				0x03024
++#define ISP_CFAE_LOW_LUX_03_THR				GENMASK(25, 16)
++#define ISP_CFAE_ROUND_DIFF_03_THR			GENMASK(11, 0)
++
++#define ISP_CFAE_INTP_CFG5				0x03028
++#define ISP_CFAE_LOW_LUX_12_THR				GENMASK(25, 16)
++#define ISP_CFAE_ROUND_DIFF_12_THR			GENMASK(11, 0)
++
++#define ISP_CFAE_CSS_CFG0				0x0302C
++#define ISP_CFAE_CSS_CFG1				0x03030
++#define ISP_CFAE_CSS_CFG2				0x03034
++#define ISP_CFAE_CSS_CFG3				0x03038
++#define ISP_CFAE_CSS_CFG4				0x0303C
++#define ISP_CFAE_CSS_CFG5				0x03040
++#define ISP_CFAE_CSS_CFG6				0x03044
++#define ISP_CFAE_CSS_CFG7				0x03048
++#define ISP_CFAE_CSS_CFG8				0x0304C
++#define ISP_CFAE_CSS_CFG9				0x03050
++#define ISP_CFAE_CSS_CFG10				0x03054
++#define ISP_CFAE_CSS_CFG11				0x03058
++
++#define ISP_CMC10_PARAM					0x03110
++#define ISP_CMC10_BYPASS				BIT(0)
++
++#define ISP_CMC10_MATRIX0				0x03114
++#define ISP_CMC10_MATRIX_R_G				GENMASK(27, 14)
++#define ISP_CMC10_MATRIX_R_R				GENMASK(13, 0)
++
++#define ISP_CMC10_MATRIX1				0x03118
++#define ISP_CMC10_MATRIX_G_R				GENMASK(27, 14)
++#define ISP_CMC10_MATRIX_R_B				GENMASK(13, 0)
++
++#define ISP_CMC10_MATRIX2				0x0311C
++#define ISP_CMC10_MATRIX_G_B				GENMASK(27, 14)
++#define ISP_CMC10_MATRIX_G_G				GENMASK(13, 0)
++
++#define ISP_CMC10_MATRIX3				0x03120
++#define ISP_CMC10_MATRIX_B_G				GENMASK(27, 14)
++#define ISP_CMC10_MATRIX_B_R				GENMASK(13, 0)
++
++#define ISP_CMC10_MATRIX4				0x03124
++#define ISP_CMC10_MATRIX_B_B				GENMASK(13, 0)
++
++#define ISP_GAMMA_STATUS				0x03200
++
++#define ISP_GAMMA_PARAM					0x03210
++#define ISP_GAMMA_BYPASS				BIT(0)
++
++#define ISP_HSV_PARAM					0x03310
++#define ISP_HSV_BYPASS					BIT(0)
++
++#define ISP_HSV_CFG0					0x03314
++#define ISP_HSV_CFG1					0x03318
++#define ISP_HSV_CFG2					0x0331C
++#define ISP_HSV_CFG3					0x03320
++#define ISP_HSV_CFG4					0x03324
++#define ISP_HSV_CFG5					0x03328
++#define ISP_HSV_CFG6					0x0332C
++#define ISP_HSV_CFG7					0x03330
++#define ISP_HSV_CFG8					0x03334
++#define ISP_HSV_CFG9					0x03338
++#define ISP_HSV_CFG10					0x0333C
++#define ISP_HSV_CFG11					0x03340
++#define ISP_HSV_CFG12					0x03344
++#define ISP_HSV_CFG13					0x03348
++#define ISP_HSV_CFG14					0x0334C
++#define ISP_HSV_CFG15					0x03350
++#define ISP_HSV_CFG16					0x03354
++#define ISP_HSV_CFG17					0x03358
++#define ISP_HSV_CFG18					0x0335C
++#define ISP_HSV_CFG19					0x03360
++#define ISP_HSV_CFG20					0x03364
++#define ISP_HSV_CFG21					0x03368
++
++#define ISP_PSTRZ_PARAM					0x03410
++#define ISP_PSTRZ_BYPASS				BIT(0)
++
++#define ISP_CCE_STATUS0					0x03500
++#define ISP_CCE_STATUS1					0x03504
++
++#define ISP_CCE_PARAM					0x03510
++#define ISP_CCE_BYPASS					BIT(0)
++
++#define ISP_CCE_MATRIX0					0x03514
++#define ISP_CCE_MATRIX_Y_G				GENMASK(21, 11)
++#define ISP_CCE_MATRIX_Y_R				GENMASK(10, 0)
++
++#define ISP_CCE_MATRIX1					0x03518
++#define ISP_CCE_MATRIX_U_R				GENMASK(21, 11)
++#define ISP_CCE_MATRIX_Y_B				GENMASK(10, 0)
++
++#define ISP_CCE_MATRIX2					0x0351C
++#define ISP_CCE_MATRIX_U_B				GENMASK(21, 11)
++#define ISP_CCE_MATRIX_U_G				GENMASK(10, 0)
++
++#define ISP_CCE_MATRIX3					0x03520
++#define ISP_CCE_MATRIX_V_G				GENMASK(21, 11)
++#define ISP_CCE_MATRIX_V_R				GENMASK(10, 0)
++
++#define ISP_CCE_MATRIX4					0x03524
++#define ISP_CCE_MATRIX_V_B				GENMASK(10, 0)
++
++#define ISP_CCE_SHIFT					0x03528
++#define ISP_CCE_V_OFFSET				GENMASK(26, 18)
++#define ISP_CCE_U_OFFSET				GENMASK(17, 9)
++#define ISP_CCE_Y_OFFSET				GENMASK(8, 0)
++
++#define ISP_UVD_STATUS0					0x03600
++#define ISP_UVD_STATUS1					0x03604
++
++#define ISP_UVD_PARAM					0x03610
++#define ISP_UVD_BYPASS					BIT(0)
++
++#define ISP_UVD_PARAM0					0x03614
++#define ISP_UVD_PARAM1					0x03618
++#define ISP_UVD_PARAM2					0x0361C
++#define ISP_UVD_PARAM3					0x03620
++#define ISP_UVD_PARAM4					0x03624
++#define ISP_UVD_PARAM5					0x03628
++
++#define ISP_HIST2_STATUS				0x03700
++#define ISP_HIST2_PARAM					0x03710
++#define ISP_HIST2_ROI_S0				0x03714
++#define ISP_HIST2_ROI_E0				0x03718
++#define ISP_HIST2_CFG_RDY				0x0371C
++#define ISP_HIST2_SKIP_CLR				0x03720
++
++#define ISP_LTM_HIST_RGB_BASE				0x03800
++
++#define ISP_LTM_MAP_RGB_BASE				0x03900
++
++#define ISP_PRECDN_STATUS0				0x05000
++#define ISP_PRECDN_STATUS1				0x05004
++
++#define ISP_PRECDN_PARAM				0x05010
++#define ISP_PRECDN_BYPASS				BIT(0)
++
++#define ISP_PRECDN_MEDIAN_THRUV01			0x05014
++#define ISP_PRECDN_THRYUV				0x05018
++#define ISP_PRECDN_SEGU_0				0x0501C
++#define ISP_PRECDN_SEGU_1				0x05020
++#define ISP_PRECDN_SEGU_2				0x05024
++#define ISP_PRECDN_SEGU_3				0x05028
++#define ISP_PRECDN_SEGV_0				0x0502C
++#define ISP_PRECDN_SEGV_1				0x05030
++#define ISP_PRECDN_SEGV_2				0x05034
++#define ISP_PRECDN_SEGV_3				0x05038
++#define ISP_PRECDN_SEGY_0				0x0503C
++#define ISP_PRECDN_SEGY_1				0x05040
++#define ISP_PRECDN_SEGY_2				0x05044
++#define ISP_PRECDN_SEGY_3				0x05048
++#define ISP_PRECDN_DISTW0				0x0504C
++#define ISP_PRECDN_DISTW1				0x05050
++#define ISP_PRECDN_DISTW2				0x05054
++#define ISP_PRECDN_DISTW3				0x05058
++
++#define ISP_YNR_CONTRL0					0x05110
++#define ISP_YNR_BYPASS					BIT(0)
++
++#define ISP_YNR_CFG0					0x05114
++#define ISP_YNR_CFG1					0x05118
++#define ISP_YNR_CFG2					0x0511C
++#define ISP_YNR_CFG3					0x05120
++#define ISP_YNR_CFG4					0x05124
++#define ISP_YNR_CFG5					0x05128
++#define ISP_YNR_CFG6					0x0512C
++#define ISP_YNR_CFG7					0x05130
++#define ISP_YNR_CFG8					0x05134
++#define ISP_YNR_CFG9					0x05138
++#define ISP_YNR_CFG10					0x0513C
++#define ISP_YNR_CFG11					0x05140
++#define ISP_YNR_CFG12					0x05144
++#define ISP_YNR_CFG13					0x05148
++#define ISP_YNR_CFG14					0x0514C
++#define ISP_YNR_CFG15					0x05150
++#define ISP_YNR_CFG16					0x05154
++#define ISP_YNR_CFG17					0x05158
++#define ISP_YNR_CFG18					0x0515C
++#define ISP_YNR_CFG19					0x05160
++#define ISP_YNR_CFG20					0x05164
++#define ISP_YNR_CFG21					0x05168
++#define ISP_YNR_CFG22					0x0516C
++#define ISP_YNR_CFG23					0x05170
++#define ISP_YNR_CFG24					0x05174
++#define ISP_YNR_CFG25					0x05178
++#define ISP_YNR_CFG26					0x0517C
++#define ISP_YNR_CFG27					0x05180
++#define ISP_YNR_CFG28					0x05184
++#define ISP_YNR_CFG29					0x05188
++#define ISP_YNR_CFG30					0x0518C
++#define ISP_YNR_CFG31					0x05190
++#define ISP_YNR_CFG32					0x05194
++#define ISP_YNR_CFG33					0x05198
++
++#define ISP_HIST_PARAM					0x05410
++#define ISP_HIST_BYPASS					BIT(0)
++
++#define ISP_HIST_CFG_READY				0x05414
++#define ISP_HIST_SKIP_NUM_CLR				0x05418
++
++#define ISP_LTM_HIST_YUV_BASE				0x05500
++
++#define ISP_CDN_STATUS0					0x05600
++#define ISP_CDN_STATUS1					0x05604
++
++#define ISP_CDN_PARAM					0x05610
++#define ISP_CDN_BYPASS					BIT(0)
++
++#define ISP_CDN_THRUV					0x05614
++#define ISP_CDN_U_RANWEI_0				0x05618
++#define ISP_CDN_U_RANWEI_7				0x05634
++#define ISP_CDN_V_RANWEI_0				0x05638
++#define ISP_CDN_V_RANWEI_7				0x05654
++
++#define ISP_EE_STATUS					0x05700
++
++#define ISP_EE_PARAM					0x05710
++#define ISP_EE_BYPASS					BIT(0)
++
++#define ISP_EE_CFG0					0x05714
++#define ISP_EE_CFG1					0x05718
++#define ISP_EE_CFG2					0x0571C
++#define ISP_EE_ADP_CFG0					0x05720
++#define ISP_EE_ADP_CFG1					0x05724
++#define ISP_EE_ADP_CFG2					0x05728
++#define ISP_EE_IPD_CFG0					0x0572C
++#define ISP_EE_IPD_CFG1					0x05730
++#define ISP_EE_IPD_CFG2					0x05734
++#define ISP_EE_LUM_CFG0					0x05738
++#define ISP_EE_LUM_CFG1					0x0573C
++#define ISP_EE_LUM_CFG2					0x05740
++#define ISP_EE_LUM_CFG3					0x05744
++#define ISP_EE_LUM_CFG4					0x05748
++#define ISP_EE_LUM_CFG5					0x0574C
++#define ISP_EE_LUM_CFG6					0x05750
++#define ISP_EE_LUM_CFG7					0x05754
++#define ISP_EE_LUM_CFG8					0x05758
++#define ISP_EE_LUM_CFG9					0x0575C
++#define ISP_EE_LUM_CFG10				0x05760
++#define ISP_EE_LUM_CFG11				0x05764
++#define ISP_EE_LUM_CFG12				0x05768
++#define ISP_EE_LUM_CFG13				0x0576C
++#define ISP_EE_LUM_CFG14				0x05770
++#define ISP_EE_LUM_CFG15				0x05774
++#define ISP_EE_LUM_CFG16				0x05778
++#define ISP_EE_LUM_CFG17				0x0577C
++#define ISP_EE_LUM_CFG18				0x05780
++#define ISP_EE_RATIO					0x05784
++#define ISP_EE_OFFSET_THR_LAYER0_POS			0x05788
++#define ISP_EE_OFFSET_RATIO_LAYER0_CURVE_POS		0x0578C
++#define ISP_EE_OFFSET_CLIP_LAYER0_POS			0x05790
++#define ISP_EE_OFFSET_THR_LAYER0_NEG			0x05794
++#define ISP_EE_OFFSET_RATIO_LAYER0_CURVE_NEG		0x05798
++#define ISP_EE_OFFSET_CLIP_LAYER0_CURVE_NEG		0x0579C
++#define ISP_EE_OFFSET_RATIO_LAYER0_LUM_CURVE		0x057A0
++#define ISP_EE_OFFSET_RATIO_LAYER0_FREQ_CURVE		0x057A4
++#define ISP_EE_OFFSET_THR_LAYER1_POS			0x057A8
++#define ISP_EE_OFFSET_RATIO_LAYER1_CURVE_POS		0x057AC
++#define ISP_EE_OFFSET_CLIP_LAYER1_POS			0x057B0
++#define ISP_EE_OFFSET_THR_LAYER1_NEG			0x057B4
++#define ISP_EE_OFFSET_RATIO_LAYER1_CURVE_NEG		0x057B8
++#define ISP_EE_OFFSET_CLIP_LAYER1_CURVE_NEG		0x057BC
++#define ISP_EE_OFFSET_RATIO_LAYER1_LUM_CURVE		0x057C0
++#define ISP_EE_OFFSET_RATIO_LAYER1_FREQ_CURVE		0x057C4
++#define ISP_EE_OFFSET_THR_LAYER2_POS			0x057C8
++#define ISP_EE_OFFSET_RATIO_LAYER2_CURVE_POS		0x057CC
++#define ISP_EE_OFFSET_CLIP_LAYER2_POS			0x057D0
++#define ISP_EE_OFFSET_THR_LAYER2_NEG			0x057D4
++#define ISP_EE_OFFSET_RATIO_LAYER2_CURVE_NEG		0x057D8
++#define ISP_EE_OFFSET_CLIP_LAYER2_CURVE_NEG		0x057DC
++#define ISP_EE_OFFSET_RATIO_LAYER2_LUM_CURVE		0x057E0
++#define ISP_EE_OFFSET_RATIO_LAYER2_FREQ_CURVE		0x057E4
++
++#define ISP_BCHS_PARAM					0x05910
++#define ISP_CONTRAST_EN					BIT(4)
++#define ISP_BRIGHTNESS_EN				BIT(3)
++#define ISP_HUE_EN					BIT(2)
++#define ISP_SATURATION_EN				BIT(1)
++#define ISP_BCHS_BYPASS					BIT(0)
++
++#define ISP_CONTRAST_FACTOR				0x05914
++#define ISP_BRIGHTNESS_FACTOR				0x05918
++
++#define ISP_HUE_FACTOR					0x05920
++#define ISP_HUE_COS					GENMASK(24, 16)
++#define ISP_HUE_SIN					GENMASK(8, 0)
++
++#define ISP_SATURATION_FACTOR				0x05924
++#define ISP_SATURATION_U				GENMASK(15, 8)
++#define ISP_SATURATION_V				GENMASK(7, 0)
++
++#define ISP_POSTCDN_STATUS				0x05A00
++
++#define ISP_POSTCDN_COMMON_CTRL				0x05A10
++#define ISP_POSTCDN_DOWNSAMPLE_BYPASS			BIT(1)
++#define ISP_POSTCDN_BYPASS				BIT(0)
++
++#define ISP_POSTCDN_ADPT_THR				0x05A14
++#define ISP_POSTCDN_UVTHR				0x05A18
++#define ISP_POSTCDN_THRU				0x05A1C
++#define ISP_POSTCDN_THRV				0x05A20
++#define ISP_POSTCDN_RSEGU01				0x05A24
++#define ISP_POSTCDN_RSEGU23				0x05A28
++#define ISP_POSTCDN_RSEGU45				0x05A2C
++#define ISP_POSTCDN_RSEGU6				0x05A30
++#define ISP_POSTCDN_RSEGV01				0x05A34
++#define ISP_POSTCDN_RSEGV23				0x05A38
++#define ISP_POSTCDN_RSEGV45				0x05A3C
++#define ISP_POSTCDN_RSEGV6				0x05A40
++#define ISP_POSTCDN_R_DISTW0				0x05A44
++#define ISP_POSTCDN_SLICE_CTRL				0x05A80
++
++#define ISP_YGAMMA_STATUS				0x05B00
++
++#define ISP_YGAMMA_PARAM				0x05B10
++#define ISP_YGAMMA_BYPASS				BIT(0)
++
++#define ISP_YDELAY_STATUS				0x05C00
++#define ISP_YDELAY_PARAM				0x05C10
++#define ISP_YDELAY_STEP					0x05C14
++
++#define ISP_IIRCNR_STATUS0				0x05D00
++#define ISP_IIRCNR_STATUS1				0x05D04
++
++#define ISP_IIRCNR_PARAM				0x05D10
++#define ISP_IIRCNR_BYPASS				BIT(0)
++
++#define ISP_IIRCNR_PARAM1				0x05D14
++#define ISP_IIRCNR_PARAM2				0x05D18
++#define ISP_IIRCNR_PARAM3				0x05D1C
++#define ISP_IIRCNR_PARAM4				0x05D20
++#define ISP_IIRCNR_PARAM5				0x05D24
++#define ISP_IIRCNR_PARAM6				0x05D28
++#define ISP_IIRCNR_PARAM7				0x05D2C
++#define ISP_IIRCNR_PARAM8				0x05D30
++#define ISP_IIRCNR_PARAM9				0x05D34
++#define ISP_YUV_IIRCNR_NEW_0				0x05D38
++#define ISP_YUV_IIRCNR_NEW_1				0x05D3C
++#define ISP_YUV_IIRCNR_NEW_2				0x05D40
++#define ISP_YUV_IIRCNR_NEW_3				0x05D44
++#define ISP_YUV_IIRCNR_NEW_4				0x05D48
++#define ISP_YUV_IIRCNR_NEW_5				0x05D4C
++#define ISP_YUV_IIRCNR_NEW_6				0x05D50
++#define ISP_YUV_IIRCNR_NEW_7				0x05D54
++#define ISP_YUV_IIRCNR_NEW_8				0x05D58
++#define ISP_YUV_IIRCNR_NEW_9				0x05D5C
++#define ISP_YUV_IIRCNR_NEW_10				0x05D60
++#define ISP_YUV_IIRCNR_NEW_11				0x05D64
++#define ISP_YUV_IIRCNR_NEW_12				0x05D68
++#define ISP_YUV_IIRCNR_NEW_13				0x05D6C
++#define ISP_YUV_IIRCNR_NEW_14				0x05D70
++#define ISP_YUV_IIRCNR_NEW_15				0x05D74
++#define ISP_YUV_IIRCNR_NEW_16				0x05D78
++#define ISP_YUV_IIRCNR_NEW_17				0x05D7C
++#define ISP_YUV_IIRCNR_NEW_18				0x05D80
++#define ISP_YUV_IIRCNR_NEW_19				0x05D84
++#define ISP_YUV_IIRCNR_NEW_20				0x05D88
++#define ISP_YUV_IIRCNR_NEW_21				0x05D8C
++#define ISP_YUV_IIRCNR_NEW_22				0x05D90
++#define ISP_YUV_IIRCNR_NEW_23				0x05D94
++#define ISP_YUV_IIRCNR_NEW_24				0x05D98
++#define ISP_YUV_IIRCNR_NEW_25				0x05D9C
++#define ISP_YUV_IIRCNR_NEW_26				0x05DA0
++#define ISP_YUV_IIRCNR_NEW_27				0x05DA4
++#define ISP_YUV_IIRCNR_NEW_28				0x05DA8
++#define ISP_YUV_IIRCNR_NEW_29				0x05DAC
++#define ISP_YUV_IIRCNR_NEW_30				0x05DB0
++#define ISP_YUV_IIRCNR_NEW_31				0x05DB4
++#define ISP_YUV_IIRCNR_NEW_32				0x05DB8
++#define ISP_YUV_IIRCNR_NEW_33				0x05DBC
++#define ISP_YUV_IIRCNR_NEW_34				0x05DC0
++#define ISP_YUV_IIRCNR_NEW_35				0x05DC4
++#define ISP_YUV_IIRCNR_NEW_36				0x05DC8
++#define ISP_YUV_IIRCNR_NEW_37				0x05DCC
++#define ISP_YUV_IIRCNR_NEW_38				0x05DD0
++#define ISP_YUV_IIRCNR_NEW_39				0x05DD4
++
++#define ISP_YRANDOM_PARAM1				0x05E10
++#define ISP_YRANDOM_BYPASS				BIT(0)
++
++#define ISP_YRANDOM_PARAM2				0x05E14
++#define ISP_YRANDOM_PARAM3				0x05E18
++#define ISP_YRANDOM_INIT				0x05E24
++
++#define ISP_LTM_MAP_YUV_BASE				0x05F00
++
++#define ISP_CORE_STATUS					0x08000
++#define ISP_CORE_PMU_EN					0x08010
++#define ISP_CORE_BUSY_ON				0x08014
++
++#define ISP_CFG_STATUS0					0x08100
++#define ISP_CFG_STATUS1					0x08104
++#define ISP_CFG_STATUS2					0x08108
++#define ISP_CFG_STATUS3					0x0810C
++
++#define ISP_CFG_PARAMETER				0x08110
++#define ISP_PRE1_CMD_READY_MODE				BIT(27)
++#define ISP_PRE0_CMD_READY_MODE				BIT(26)
++#define ISP_CAP1_CMD_READY_MODE				BIT(25)
++#define ISP_CAP0_CMD_READY_MODE				BIT(24)
++#define ISP_BP_CAP1_PIXEL_RDY				BIT(23)
++#define ISP_BP_CAP0_PIXEL_RDY				BIT(22)
++#define ISP_BP_PRE1_PIXEL_RDY				BIT(21)
++#define ISP_BP_PRE0_PIXEL_RDY				BIT(20)
++#define ISP_CFG_MAIN_SEL				GENMASK(19, 16)
++#define ISP_CFG_NUM_OF_MOD				GENMASK(15, 8)
++#define ISP_CFG_SDW_MODE				GENMASK(7, 5)
++#define ISP_CFG_TM_BYPASS				BIT(4)
++#define ISP_CFG_BYPASS					BIT(0)
++
++#define ISP_CFG_TM_NUM					0x08114
++#define ISP_CFG_CAP0_TH					0x08118
++#define ISP_CFG_CAP1_TH					0x0811C
++#define ISP_CFG_PRE0_CMD_ADDR				0x08120
++#define ISP_CFG_PRE1_CMD_ADDR				0x08124
++#define ISP_CFG_CAP0_CMD_ADDR				0x08128
++#define ISP_CFG_CAP1_CMD_ADDR				0x0812C
++#define ISP_CFG_PRE0_START				0x08130
++#define ISP_CFG_PRE1_START				0x08134
++#define ISP_CFG_CAP0_START				0x08138
++#define ISP_CFG_CAP1_START				0x0813C
++#define ISP_CFG_AUTO_CG_EN				0x08140
++#define ISP_CFG_CAP_FMCU_RDY				0x08144
++#define ISP_CFG_STATUS4					0x08150
++
++#define ISP_3DNR_MEM_CTRL_PARAM0			0x09010
++#define ISP_3DNR_MEM_CTRL_BYPASS			BIT(0)
++
++#define ISP_3DNR_MEM_CTRL_LINE_MODE			0x09014
++#define ISP_3DNR_MEM_CTRL_PARAM1			0x09018
++#define ISP_3DNR_MEM_CTRL_PARAM2			0x0901C
++#define ISP_3DNR_MEM_CTRL_PARAM3			0x09020
++#define ISP_3DNR_MEM_CTRL_PARAM4			0x09024
++#define ISP_3DNR_MEM_CTRL_PARAM5			0x09028
++#define ISP_3DNR_MEM_CTRL_PARAM7			0x0902C
++#define ISP_3DNR_MEM_CTRL_FT_CUR_LUMA_ADDR		0x09030
++#define ISP_3DNR_MEM_CTRL_FT_CUR_CHROMA_ADDR		0x09034
++#define ISP_3DNR_MEM_CTRL_FT_CTRL_PITCH			0x09038
++#define ISP_3DNR_MEM_CTRL_PARAM8			0x0903C
++#define ISP_3DNR_MEM_CTRL_PARAM9			0x09040
++#define ISP_3DNR_MEM_CTRL_PARAM10			0x09044
++#define ISP_3DNR_MEM_CTRL_PARAM11			0x09048
++#define ISP_3DNR_MEM_CTRL_PARAM12			0x0904C
++#define ISP_3DNR_MEM_CTRL_PARAM13			0x09050
++
++#define ISP_3DNR_BLEND_CONTROL0				0x09110
++#define ISP_3DNR_BLEND_BYPASS				BIT(0)
++
++#define ISP_3DNR_BLEND_CFG1				0x09114
++#define ISP_3DNR_BLEND_CFG2				0x09118
++#define ISP_3DNR_BLEND_CFG3				0x0911C
++#define ISP_3DNR_BLEND_CFG4				0x09120
++#define ISP_3DNR_BLEND_CFG5				0x09124
++#define ISP_3DNR_BLEND_CFG6				0x09128
++#define ISP_3DNR_BLEND_CFG7				0x0912C
++#define ISP_3DNR_BLEND_CFG8				0x09130
++#define ISP_3DNR_BLEND_CFG9				0x09134
++#define ISP_3DNR_BLEND_CFG10				0x09138
++#define ISP_3DNR_BLEND_CFG11				0x0913C
++#define ISP_3DNR_BLEND_CFG12				0x09140
++#define ISP_3DNR_BLEND_CFG13				0x09144
++#define ISP_3DNR_BLEND_CFG14				0x09148
++#define ISP_3DNR_BLEND_CFG15				0x0914C
++#define ISP_3DNR_BLEND_CFG16				0x09150
++#define ISP_3DNR_BLEND_CFG17				0x09154
++#define ISP_3DNR_BLEND_CFG18				0x09158
++#define ISP_3DNR_BLEND_CFG19				0x0915C
++#define ISP_3DNR_BLEND_CFG20				0x09160
++#define ISP_3DNR_BLEND_CFG21				0x09164
++#define ISP_3DNR_BLEND_CFG22				0x09168
++#define ISP_3DNR_BLEND_CFG23				0x0916C
++#define ISP_3DNR_BLEND_CFG24				0x09170
++
++#define ISP_3DNR_STORE_PARAM				0x09210
++#define ISP_3DNR_STORE_BYPASS				BIT(0)
++
++#define ISP_3DNR_STORE_SIZE				0x09214
++#define ISP_3DNR_STORE_LUMA_ADDR			0x09218
++#define ISP_3DNR_STORE_CHROMA_ADDR			0x0921C
++#define ISP_3DNR_STORE_PITCH				0x09220
++#define ISP_3DNR_STORE_SHADOW_CLR			0x09224
++
++#define ISP_3DNR_MEM_CTRL_PRE_PARAM0			0x09310
++#define ISP_3DNR_MEM_CTRL_PRE_BYPASS			BIT(0)
++
++#define ISP_3DNR_MEM_CTRL_PRE_PARAM1			0x09314
++#define ISP_3DNR_MEM_CTRL_PRE_PARAM2			0x09318
++#define ISP_3DNR_MEM_CTRL_PRE_PARAM3			0x0931C
++
++#define ISP_FBC_3DNR_STORE_PARAM			0x09410
++#define ISP_FBC_3DNR_STORE_BYPASS			BIT(0)
++
++#define ISP_FBC_3DNR_STORE_SLICE_SIZE			0x09414
++#define ISP_FBC_3DNR_STORE_SLICE_YADDR			0x09418
++#define ISP_FBC_3DNR_STORE_SLICE_CADDR			0x0941C
++#define ISP_FBC_3DNR_STORE_TILE_PITCH			0x09420
++#define ISP_FBC_3DNR_STORE_SLICE_YHEADER		0x09424
++#define ISP_FBC_3DNR_STORE_SLICE_CHEADER		0x09428
++#define ISP_FBC_3DNR_STORE_CONSTANT			0x0942C
++#define ISP_FBC_3DNR_STORE_BITS				0x09430
++#define ISP_FBC_3DNR_STORE_TILE_NUM			0x09434
++#define ISP_FBC_3DNR_STORE_NFULL_LEVEL			0x09438
++
++#define ISP_FBD_NR3_PARAM0				0x09510
++#define ISP_FBD_NR3_PARAM1				0x09514
++#define ISP_FBD_NR3_PARAM2				0x09518
++#define ISP_FBD_NR3_T_ADDR_Y				0x0951C
++#define ISP_FBD_NR3_H_ADDR_Y				0x09520
++#define ISP_FBD_NR3_T_ADDR_C				0x09524
++#define ISP_FBD_NR3_H_ADDR_C				0x09528
++#define ISP_FBD_NR3_SIZE_Y				0x0952C
++#define ISP_FBD_NR3_SIZE_C				0x09530
++#define ISP_FBD_NR3_START_Y				0x09534
++#define ISP_FBD_NR3_START_C				0x09538
++#define ISP_FBD_NR3_TILE_SIZE_Y				0x0953C
++#define ISP_FBD_NR3_TILE_SIZE_C				0x09540
++#define ISP_FBD_NR3_SLICE_TILE_PARAM			0x09544
++#define ISP_FBD_NR3_READ_SPECIAL			0x09548
++
++#define ISP_YUV_SCALER_PRE_CAP_BASE			0x0C000
++#define ISP_STORE_PRE_CAP_BASE				0x0C100
++
++#define ISP_YUV_NF_CTRL					0x0C210
++#define ISP_YUV_NF_BYPASS				BIT(0)
++
++#define ISP_YUV_NF_SEED0				0x0C214
++#define ISP_YUV_NF_SEED1				0x0C218
++#define ISP_YUV_NF_SEED2				0x0C21C
++#define ISP_YUV_NF_SEED3				0x0C220
++#define ISP_YUV_NF_TB4					0x0C224
++#define ISP_YUV_NF_SF					0x0C228
++#define ISP_YUV_NF_THR					0x0C22C
++#define ISP_YUV_NF_CV_T12				0x0C230
++#define ISP_YUV_NF_CV_R					0x0C234
++#define ISP_YUV_NF_CLIP					0x0C238
++#define ISP_YUV_NF_SEED0_OUT				0x0C23C
++#define ISP_YUV_NF_SEED_INIT				0x0C24C
++#define ISP_YUV_NF_CV_T34				0x0C250
++
++#define ISP_FBC_STORE_PRE_CAP_BASE			0x0C300
++
++#define ISP_YUV_SCALER_PRE_CAP_LUMA_HCOEF0_BUF		0x0C410
++#define ISP_YUV_SCALER_PRE_CAP_CHROMA_HCOEF0_BUF	0x0C490
++#define ISP_YUV_SCALER_PRE_CAP_LUMA_HCOEF1_BUF		0x0C510
++#define ISP_YUV_SCALER_PRE_CAP_CHROMA_HCOEF1_BUF	0x0C590
++#define ISP_YUV_SCALER_PRE_CAP_LUMA_HCOEF2_BUF		0x0C610
++#define ISP_YUV_SCALER_PRE_CAP_CHROMA_HCOEF2_BUF	0x0C690
++#define ISP_YUV_SCALER_PRE_CAP_LUMA_HCOEF3_BUF		0x0C710
++#define ISP_YUV_SCALER_PRE_CAP_CHROMA_HCOEF3_BUF	0x0C790
++
++#define ISP_YUV_SCALER_VID_BASE				0x0D000
++#define ISP_STORE_VID_BASE				0x0D100
++
++#define ISP_FBC_STORE_VID_BASE				0x0D300
++
++#define ISP_YUV_SCALER_VID_LUMA_HCOEF0_BUF		0x0D410
++#define ISP_YUV_SCALER_VID_CHROMA_HCOEF0_BUF		0x0D490
++#define ISP_YUV_SCALER_VID_LUMA_HCOEF1_BUF		0x0D510
++#define ISP_YUV_SCALER_VID_CHROMA_HCOEF1_BUF		0x0D590
++#define ISP_YUV_SCALER_VID_LUMA_HCOEF2_BUF		0x0D610
++#define ISP_YUV_SCALER_VID_CHROMA_HCOEF2_BUF		0x0D690
++#define ISP_YUV_SCALER_VID_LUMA_HCOEF3_BUF		0x0D710
++#define ISP_YUV_SCALER_VID_CHROMA_HCOEF3_BUF		0x0D790
++
++#define ISP_THMB_CFG					0x0E010
++#define ISP_THMB_BYPASS					BIT(0)
++
++#define ISP_THMB_BEFORE_TRIM_SIZE			0x0E014
++#define ISP_THMB_Y_SLICE_SRC_SIZE			0x0E018
++#define ISP_THMB_Y_DES_SIZE				0x0E01C
++#define ISP_THMB_Y_TRIM0_START				0x0E020
++#define ISP_THMB_Y_TRIM0_SIZE				0x0E024
++#define ISP_THMB_Y_INIT_PHASE				0x0E028
++#define ISP_THMB_Y_FACTOR_HOR				0x0E02C
++#define ISP_THMB_Y_FACTOR_VER				0x0E030
++#define ISP_THMB_UV_SLICE_SRC_SIZE			0x0E034
++#define ISP_THMB_UV_DES_SIZE				0x0E038
++#define ISP_THMB_UV_TRIM0_START				0x0E03C
++#define ISP_THMB_UV_TRIM0_SIZE				0x0E040
++#define ISP_THMB_UV_INIT_PHASE				0x0E044
++#define ISP_THMB_UV_FACTOR_HOR				0x0E048
++#define ISP_THMB_UV_FACTOR_VER				0x0E04C
++#define ISP_THMB_SHRINK_CFG				0x0E050
++#define ISP_THMB_EFFECT_CFG				0x0E054
++#define ISP_THMB_REGULAR_CFG				0x0E058
++#define ISP_THMB_SCL_DEBUG				0x0E05C
++#define ISP_THMB_FRM_CNT_CLR				0x0E060
++
++#define ISP_STORE_THUMB_BASE				0x0E100
++
++#define ISP_FMCU0_BASE					0x0F000
++#define ISP_FMCU1_BASE					0x0F100
++
++/* ISP buffer base addresses */
++#define ISP_GTM_HIST_BUF0_CH0				0x15000
++#define ISP_HIST2_BUF0_ADDR				0x16000
++#define ISP_HSV_A_BUF0_CH0				0x18000
++#define ISP_HSV_B_BUF0_CH0				0x18200
++#define ISP_HSV_C_BUF0_CH0				0x18400
++#define ISP_HSV_D_BUF0_CH0				0x18600
++#define ISP_VST_BUF0_ADDR				0x19000
++#define ISP_FGAMMA_R_BUF0				0x1B000
++#define ISP_PSTRZ_R_BUF0				0x1B400
++#define ISP_FGAMMA_G_BUF0				0x1C000
++#define ISP_PSTRZ_G_BUF0				0x1C400
++#define ISP_FGAMMA_B_BUF0				0x1D000
++#define ISP_PSTRZ_B_BUF0				0x1D400
++#define ISP_YGAMMA_BUF0					0x1E000
++#define ISP_LTM_RGB_HIST_BUF0_ADDR			0x1F000
++#define ISP_LTM_YUV_HIST_BUF0_ADDR			0x1F400
++
++#define ISP_HSV_A_BUF1_CH0				0x21000
++#define ISP_HSV_B_BUF1_CH0				0x21200
++#define ISP_HSV_C_BUF1_CH0				0x21400
++#define ISP_HSV_D_BUF1_CH0				0x21600
++#define ISP_VST_BUF1_ADDR				0x22000
++#define ISP_FGAMMA_R_BUF1				0x24000
++#define ISP_PSTRZ_R_BUF1				0x24400
++#define ISP_FGAMMA_G_BUF1				0x25000
++#define ISP_PSTRZ_G_BUF1				0x25400
++#define ISP_FGAMMA_B_BUF1				0x26000
++#define ISP_PSTRZ_B_BUF1				0x26400
++#define ISP_YGAMMA_BUF1					0x27000
++#define ISP_LTM_RGB_HIST_BUF1				0x28000
++#define ISP_LTM_YUV_HIST_BUF1				0x28400
++#define ISP_IVST_BUF0					0x29000
++#define ISP_IVST_BUF1					0x2B000
++
++#define ISP_CFG0_BUF					0x36C00
++#define ISP_CFG1_BUF					0x36E00
++
++#define ISP_YUV_SCALER_VID_LUMA_VCOEF0_BUF		0x384F0
++#define ISP_YUV_SCALER_VID_LUMA_VCOEF1_BUF		0x385F0
++#define ISP_YUV_SCALER_VID_LUMA_VCOEF2_BUF		0x386F0
++#define ISP_YUV_SCALER_VID_LUMA_VCOEF3_BUF		0x387F0
++#define ISP_YUV_SCALER_VID_CHROMA_VCOEF0_BUF		0x388F0
++#define ISP_YUV_SCALER_VID_CHROMA_VCOEF1_BUF		0x389F0
++#define ISP_YUV_SCALER_VID_CHROMA_VCOEF2_BUF		0x38AF0
++#define ISP_YUV_SCALER_VID_CHROMA_VCOEF3_BUF		0x38BF0
++
++#define ISP_YUV_SCALER_PRE_CAP_LUMA_VCOEF0_BUF		0x394F0
++#define ISP_YUV_SCALER_PRE_CAP_LUMA_VCOEF1_BUF		0x395F0
++#define ISP_YUV_SCALER_PRE_CAP_LUMA_VCOEF2_BUF		0x396F0
++#define ISP_YUV_SCALER_PRE_CAP_LUMA_VCOEF3_BUF		0x397F0
++#define ISP_YUV_SCALER_PRE_CAP_CHROMA_VCOEF0_BUF	0x398F0
++#define ISP_YUV_SCALER_PRE_CAP_CHROMA_VCOEF1_BUF	0x399F0
++#define ISP_YUV_SCALER_PRE_CAP_CHROMA_VCOEF2_BUF	0x39AF0
++#define ISP_YUV_SCALER_PRE_CAP_CHROMA_VCOEF3_BUF	0x39BF0
++
++/* ISP_SCL_PATH type */
++#define ISP_SCL_PATH_NORMAL				(0)
++#define ISP_SCL_PATH_FULL_RGB				(2)
++#define ISP_SCL_PATH_DISABLE				(3)
++
++/* ISP_IRQ type */
++#define ISP_IRQ_ALL_DONE				BIT(0)
++#define ISP_IRQ_SHADOW_DONE				BIT(1)
++#define ISP_IRQ_DISPATCH_DONE				BIT(2)
++#define ISP_IRQ_STORE_DONE_OUT				BIT(3)
++#define ISP_IRQ_STORE_DONE_PRE				BIT(4)
++#define ISP_IRQ_STORE_DONE_VID				BIT(5)
++#define ISP_IRQ_STORE_DONE_VID_SKIP			BIT(6)
++#define ISP_IRQ_NR3_ALL_DONE				BIT(7)
++#define ISP_IRQ_NR3_SHADOW_DONE				BIT(8)
++#define ISP_IRQ_STORE_DONE_THUMB			BIT(9)
++#define ISP_IRQ_RGB_GTMHISTS_DONE			BIT(10)
++#define ISP_IRQ_FMCU_LOAD_DONE				BIT(11)
++#define ISP_IRQ_FMCU_CONFIG_DONE			BIT(12)
++#define ISP_IRQ_FMCU_SHADOW_DONE			BIT(13)
++#define ISP_IRQ_FMCU_CMD_X				BIT(14)
++#define ISP_IRQ_FMCU_TIMEOUT				BIT(15)
++#define ISP_IRQ_FMCU_CMD_ERROR				BIT(16)
++#define ISP_IRQ_FMCU_STOP_DONE				BIT(17)
++#define ISP_IRQ_HIST_CAL_DONE				BIT(18)
++#define ISP_IRQ_FBD_FETCH_ERR				BIT(19)
++#define ISP_IRQ_NR3_FBD_ERR				BIT(20)
++#define ISP_IRQ_NR3_FBC_ERR				BIT(21)
++#define ISP_IRQ_RGB_LTMHISTS_DONE			BIT(22)
++#define ISP_IRQ_AXI_TIMEOUT				BIT(23)
++#define ISP_IRQ_CFG_ERR					BIT(30)
++#define ISP_IRQ_MMU_ERR					BIT(31)
++
++/* ISP_INT module */
++#define ISP_INT_STATUS					0x0000
++#define ISP_INT_STATUS1					0x0004
++#define ISP_INT_EN0					0x0010
++#define ISP_INT_CLR0					0x0014
++#define ISP_INT_RAW0					0x0018
++#define ISP_INT_INT0					0x001C
++#define ISP_INT_EN1					0x0020
++#define ISP_INT_CLR1					0x0024
++#define ISP_INT_RAW1					0x0028
++#define ISP_INT_INT1					0x002C
++#define ISP_INT_ALL_DONE_CTRL				0x0030
++#define ISP_INT_SKIP_CTRL				0x0034
++#define ISP_INT_SKIP_CTRL1				0x0038
++#define ISP_INT_ALL_DONE_SRC_CTRL			0x003C
++
++/* ISP_FMCU module */
++#define ISP_FMCU_CTRL					0x0014
++#define ISP_FMCU_DDR_ADDR				0x0018
++#define ISP_FMCU_AHB_ARB				0x001C
++#define ISP_FMCU_START					0x0020
++#define ISP_FMCU_TIME_OUT_THD				0x0024
++#define ISP_FMCU_CMD_READY				0x0028
++#define ISP_FMCU_ISP_REG_REGION				0x002C
++#define ISP_FMCU_CMD					0x0030
++#define ISP_FMCU_STOP					0x0034
++#define ISP_FMCU_SW_TRIGGER				0x003C
++
++/* ISP_LTM_MAP module */
++#define ISP_LTM_MAP_PARAM0				0x0010
++#define ISP_LTM_MAP_BYPASS				BIT(0)
++
++#define ISP_LTM_MAP_PARAM1				0x0014
++#define ISP_LTM_MAP_PARAM2				0x0018
++#define ISP_LTM_MAP_PARAM3				0x001C
++#define ISP_LTM_MAP_PARAM4				0x0020
++#define ISP_LTM_MAP_PARAM5				0x0024
++
++/* ISP_LTM_HIST module */
++#define ISP_LTM_HIST_STATUS				0x0000
++
++#define ISP_LTM_HIST_PARAM				0x0010
++#define ISP_LTM_HIST_BYPASS				BIT(0)
++
++#define ISP_LTM_HIST_ROI_START				0x0014
++#define ISP_LTM_HIST_TILE_RANGE				0x0018
++#define ISP_LTM_HIST_CLIP_LIMIT				0x0020
++#define ISP_LTM_HIST_THRES				0x0024
++#define ISP_LTM_HIST_ADDR				0x0028
++#define ISP_LTM_HIST_PITCH				0x002C
++
++/* ISP_FACTOR type */
++#define ISP_FACTOR_IN					GENMASK(29, 16)
++#define ISP_FACTOR_OUT					GENMASK(13, 0)
++
++/* ISP_YUV_SCALER module */
++#define ISP_YUV_SCALER_CFG				0x0010
++#define ISP_YUV_SCALER_PATH_ENABLE			BIT(31)
++#define ISP_YUV_SCALER_WORK_MODE			GENMASK(21, 20)
++#define ISP_YUV_SCALER_WORK_MODE_422_422		(0 << 20)
++#define ISP_YUV_SCALER_WORK_MODE_422_420		(1 << 20)
++#define ISP_YUV_SCALER_WORK_MODE_420_420		(2 << 20)
++#define ISP_YUV_SCALER_Y_VER_TAP			GENMASK(19, 16)
++#define ISP_YUV_SCALER_UV_VER_TAP			GENMASK(15, 11)
++#define ISP_YUV_SCALER_DECI_Y_EB			BIT(9)
++#define ISP_YUV_SCALER_DECI_Y				GENMASK(8, 7)
++#define ISP_YUV_SCALER_DECI_X_EB			BIT(6)
++#define ISP_YUV_SCALER_DECI_X				GENMASK(5, 4)
++#define ISP_YUV_SCALER_PATH_STOP			BIT(2)
++#define ISP_YUV_SCALER_BYPASS_SCALE			BIT(1)
++#define ISP_YUV_SCALER_BYPASS_ALL			BIT(0)
++
++#define ISP_YUV_SCALER_SRC_SIZE				0x0014
++#define ISP_YUV_SCALER_DES_SIZE				0x0018
++#define ISP_YUV_SCALER_TRIM0_START			0x001C
++#define ISP_YUV_SCALER_TRIM0_SIZE			0x0020
++#define ISP_YUV_SCALER_IP				0x0024
++#define ISP_YUV_SCALER_CIP				0x0028
++#define ISP_YUV_SCALER_FACTOR				0x002C
++#define ISP_YUV_SCALER_TRIM1_START			0x0030
++#define ISP_YUV_SCALER_TRIM1_SIZE			0x0034
++#define ISP_YUV_SCALER_IP_VER				0x0038
++#define ISP_YUV_SCALER_CIP_VER				0x003C
++#define ISP_YUV_SCALER_FACTOR_VER			0x0040
++#define ISP_YUV_SCALER_DEBUG				0x0044
++#define ISP_YUV_SCALER_HBLANK				0x0048
++#define ISP_YUV_SCALER_FRAME_CNT_CLR			0x004C
++#define ISP_YUV_SCALER_RES				0x0050
++#define ISP_YUV_SCALER_SHRINK_UV			0x0054
++#define ISP_YUV_SCALER_SHRINK_Y				0x0058
++#define ISP_YUV_SCALER_EFFECT_UV			0x005C
++#define ISP_YUV_SCALER_EFFECT_Y				0x0060
++#define ISP_YUV_SCALER_REGULAR_CFG			0x0064
++
++/* ISP_STORE module */
++#define ISP_STORE_PARAM					0x0010
++#define ISP_STORE_ENDIAN				GENMASK(9, 8)
++#define ISP_STORE_FMT					GENMASK(7, 4)
++#define ISP_STORE_UYVY_1FRAME				(0 << 4)
++#define ISP_STORE_YUV422_2FRAME				(1 << 4)
++#define ISP_STORE_YVU422_2FRAME				(2 << 4)
++#define ISP_STORE_YUV422_3FRAME				(3 << 4)
++#define ISP_STORE_YUV420_2FRAME				(4 << 4)
++#define ISP_STORE_YVU420_2FRAME				(5 << 4)
++#define ISP_STORE_YUV420_3FRAME				(6 << 4)
++#define ISP_STORE_FULL_RGB14				(7 << 4)
++#define ISP_STORE_MIRROR_EN				BIT(3)
++#define ISP_STORE_SPEED_2X				BIT(2)
++#define ISP_STORE_MAX_LEN_SEL				BIT(1)
++#define ISP_STORE_BYPASS				BIT(0)
++
++#define ISP_STORE_SLICE_SIZE				0x0014
++
++#define ISP_STORE_BORDER				0x0018
++#define ISP_STORE_BORDER_RIGHT				GENMASK(31, 24)
++#define ISP_STORE_BORDER_LEFT				GENMASK(23, 16)
++#define ISP_STORE_BORDER_BOTTOM				GENMASK(15, 8)
++#define ISP_STORE_BORDER_TOP				GENMASK(7, 0)
++
++#define ISP_STORE_SLICE_Y_ADDR				0x001C
++#define ISP_STORE_SLICE_Y_PITCH				0x0020
++#define ISP_STORE_SLICE_U_ADDR				0x0024
++#define ISP_STORE_SLICE_U_PITCH				0x0028
++#define ISP_STORE_SLICE_V_ADDR				0x002C
++#define ISP_STORE_SLICE_V_PITCH				0x0030
++#define ISP_STORE_READ_CTRL				0x0034
++#define ISP_STORE_SHADOW_CLR_SEL			0x0038
++#define ISP_STORE_SHADOW_CLR				0x003C
++
++/* ISP_FBC_STORE module */
++#define ISP_FBC_STORE_PARAM				0x0010
++#define ISP_FBC_STORE_SLICE_SIZE			0x0014
++#define ISP_FBC_STORE_BORDER				0x0018
++#define ISP_FBC_STORE_SLICE_YADDR			0x001C
++#define ISP_FBC_STORE_SLICE_CADDR			0x0020
++#define ISP_FBC_STORE_P0				0x0024
++#define ISP_FBC_STORE_TILE_PITCH			0x0028
++#define ISP_FBC_STORE_SLICE_YHEADER			0x002C
++#define ISP_FBC_STORE_SLICE_CHEADER			0x0030
++#define ISP_FBC_STORE_CONSTANT				0x0034
++#define ISP_FBC_STORE_TILE_NUM				0x0038
++#define ISP_FBC_STORE_NFULL_LEVEL			0x003C
++
++/* ISP_AFBC_STORE module */
++#define ISP_AFBC_STORE_PARAM				0x0010
++#define ISP_AFBC_STORE_SLICE_SIZE			0x0014
++#define ISP_AFBC_STORE_BORDER				0x0018
++#define ISP_AFBC_STORE_SLICE_HEADER_OFFSET_ADDR		0x001C
++#define ISP_AFBC_STORE_SLICE_Y_ADDR			0x0020
++#define ISP_AFBC_STORE_SLICE_Y_HEADER			0x0024
++#define ISP_AFBC_STORE_TILE_PITCH			0x0028
++#define ISP_AFBC_STORE_NFULL_LEVEL			0x002C
++#define ISP_AFBC_STORE_P0				0x0030
++
++#endif
+diff --git a/drivers/media/platform/sprd/isp/isp-video.c b/drivers/media/platform/sprd/isp/isp-video.c
+new file mode 100644
+index 000000000..4c5384f75
+--- /dev/null
++++ b/drivers/media/platform/sprd/isp/isp-video.c
+@@ -0,0 +1,628 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Unisoc ISP driver - video device node
++ *
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#include <linux/pm_runtime.h>
++#include <media/v4l2-ioctl.h>
++#include <media/videobuf2-dma-contig.h>
++
++#include "isp.h"
++
++#define SPRD_ISP_MAX_SLICES 8
++
++struct sprd_isp_format {
++	u32 fourcc;
++	unsigned int hsize_unit;
++	unsigned int num_planes;
++	struct {
++		unsigned int bpp_line;
++		unsigned int bpp_image;
++	} plane[3];
++};
++
++static const struct sprd_isp_format sprd_isp_supported_input_fmts[] = {
++	{ V4L2_PIX_FMT_YUYV,	1, 1, {{ 16, 16 }} },
++	{ V4L2_PIX_FMT_UYVY,	1, 1, {{ 16, 16 }} },
++	{ V4L2_PIX_FMT_YVYU,	1, 1, {{ 16, 16 }} },
++	{ V4L2_PIX_FMT_VYUY,	1, 1, {{ 16, 16 }} },
++	{ V4L2_PIX_FMT_YUV422M,	1, 3, {{ 8, 8 }, { 4, 4 }, { 4, 4 }} },
++	{ V4L2_PIX_FMT_NV16M,	1, 2, {{ 8, 8 }, { 8, 8 }} },
++	{ V4L2_PIX_FMT_NV16,	1, 1, {{ 8, 16 }} },
++	{ V4L2_PIX_FMT_NV61M,	1, 2, {{ 8, 8 }, { 8, 8 }} },
++	{ V4L2_PIX_FMT_NV61,	1, 1, {{ 8, 16 }} },
++	{ V4L2_PIX_FMT_NV12M,	1, 2, {{ 8, 8 }, { 8, 4 }} },
++	{ V4L2_PIX_FMT_NV12,	1, 1, {{ 8, 12 }} },
++	{ V4L2_PIX_FMT_NV21M,	1, 2, {{ 8, 8 }, { 8, 4 }} },
++	{ V4L2_PIX_FMT_NV21,	1, 1, {{ 8, 12 }} },
++	{ V4L2_PIX_FMT_SBGGR10P, 4, 1, {{ 10, 10 }} },
++	{ V4L2_PIX_FMT_SGBRG10P, 4, 1, {{ 10, 10 }} },
++	{ V4L2_PIX_FMT_SGRBG10P, 4, 1, {{ 10, 10 }} },
++	{ V4L2_PIX_FMT_SRGGB10P, 4, 1, {{ 10, 10 }} },
++};
++
++static const struct sprd_isp_format sprd_isp_supported_output_fmts[] = {
++	{ V4L2_PIX_FMT_YUV420M,	1, 3, {{ 8, 8 }, { 4, 4 }, { 4, 4 }} },
++	{ V4L2_PIX_FMT_NV12M,	1, 2, {{ 8, 8 }, { 8, 4 }} },
++	{ V4L2_PIX_FMT_NV12,	1, 1, {{ 8, 12 }} },
++	{ V4L2_PIX_FMT_NV21M,	1, 2, {{ 8, 8 }, { 8, 4 }} },
++	{ V4L2_PIX_FMT_NV21,	1, 1, {{ 8, 12 }} },
++};
++
++struct sprd_isp_video_buffer {
++	struct vb2_v4l2_buffer vbuf;
++	struct list_head link;
++};
++
++#define to_isp_video_node(q) \
++	container_of(q, struct sprd_isp_video_node, vb2_queue)
++
++#define to_isp_video_buf(b) \
++	container_of(b, struct sprd_isp_video_buffer, vbuf)
++
++static int sprd_isp_querycap(struct file *file, void *fh,
++			     struct v4l2_capability *cap)
++{
++	strscpy(cap->driver, "sprd-isp", sizeof(cap->driver));
++	strscpy(cap->card, "Unisoc ISP", sizeof(cap->card));
++
++	return 0;
++}
++
++static int sprd_isp_enum_fmt(struct file *file, void *fh,
++			     struct v4l2_fmtdesc *f)
++{
++	struct sprd_isp_video_node *node = video_drvdata(file);
++	const struct sprd_isp_format *formats;
++	unsigned int num_formats;
++
++	if (node->index == SPRD_ISP_INPUT) {
++		num_formats = ARRAY_SIZE(sprd_isp_supported_input_fmts);
++		formats = sprd_isp_supported_input_fmts;
++	} else if (node->index == SPRD_ISP_OUTPUT) {
++		num_formats = ARRAY_SIZE(sprd_isp_supported_output_fmts);
++		formats = sprd_isp_supported_output_fmts;
++	} else {
++		return -EINVAL;
++	}
++
++	if (f->index >= num_formats)
++		return -EINVAL;
++
++	f->pixelformat = formats[f->index].fourcc;
++
++	return 0;
++}
++
++static int sprd_isp_enum_framesizes(struct file *file, void *fh,
++				    struct v4l2_frmsizeenum *fsize)
++{
++	struct sprd_isp_video_node *node = video_drvdata(file);
++
++	if (fsize->index)
++		return -EINVAL;
++
++	fsize->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
++	fsize->stepwise.min_width = SPRD_ISP_MAX_SLICES * 2;
++	fsize->stepwise.max_width = node->isp->hw->max_width * SPRD_ISP_MAX_SLICES;
++	fsize->stepwise.min_height = 2;
++	fsize->stepwise.max_height = node->isp->hw->max_height;
++	fsize->stepwise.step_width = 2;
++	fsize->stepwise.step_height = 2;
++
++	return 0;
++}
++
++static int sprd_isp_g_fmt(struct file *file, void *fh, struct v4l2_format *f)
++{
++	struct sprd_isp_video_node *node = video_drvdata(file);
++
++	f->fmt.pix_mp = node->fmt;
++
++	return 0;
++}
++
++static const struct sprd_isp_format *
++__sprd_isp_try_fmt(struct sprd_isp_video_node *node,
++		   struct v4l2_format *f)
++{
++	struct v4l2_pix_format_mplane *pix_mp = &f->fmt.pix_mp;
++	const struct sprd_isp_format *formats, *fmt;
++	unsigned int i, num_formats;
++	u32 bpl;
++
++	if (node->index == SPRD_ISP_INPUT) {
++		num_formats = ARRAY_SIZE(sprd_isp_supported_input_fmts);
++		formats = sprd_isp_supported_input_fmts;
++	} else if (node->index == SPRD_ISP_OUTPUT) {
++		num_formats = ARRAY_SIZE(sprd_isp_supported_output_fmts);
++		formats = sprd_isp_supported_output_fmts;
++	} else {
++		return NULL;
++	}
++
++	for (i = 0; i < num_formats; i++) {
++		fmt = &formats[i];
++
++		if (fmt->fourcc == pix_mp->pixelformat)
++			break;
++	}
++
++	if (i == num_formats)
++		fmt = &formats[0];
++
++	pix_mp->pixelformat = fmt->fourcc;
++	pix_mp->num_planes = fmt->num_planes;
++	pix_mp->width = clamp_t(u32, ALIGN(pix_mp->width, 2), 1,
++				node->isp->hw->max_width *
++				SPRD_ISP_MAX_SLICES);
++	pix_mp->height = clamp_t(u32, ALIGN(pix_mp->height, 2), 1,
++				 node->isp->hw->max_height);
++
++	for (i = 0; i < fmt->num_planes; i++) {
++		struct v4l2_plane_pix_format *p = &pix_mp->plane_fmt[i];
++
++		bpl = DIV_ROUND_UP(pix_mp->width, fmt->hsize_unit) *
++			fmt->hsize_unit * fmt->plane[i].bpp_line / 8;
++		bpl = max(p->bytesperline, bpl);
++		bpl = ALIGN(bpl, 4);
++
++		p->bytesperline = bpl;
++		p->sizeimage = pix_mp->height * bpl *
++				fmt->plane[i].bpp_image /
++				fmt->plane[i].bpp_line;
++	}
++
++	pix_mp->field = V4L2_FIELD_NONE;
++
++	if (!pix_mp->colorspace)
++		pix_mp->colorspace = V4L2_COLORSPACE_SRGB;
++
++	return fmt;
++}
++
++static int sprd_isp_s_fmt(struct file *file, void *fh, struct v4l2_format *f)
++{
++	struct sprd_isp_video_node *node = video_drvdata(file);
++
++	if (vb2_is_busy(&node->vb2_queue))
++		return -EBUSY;
++
++	node->format_info = __sprd_isp_try_fmt(node, f);
++	node->fmt = f->fmt.pix_mp;
++
++	if (node->index == SPRD_ISP_INPUT) {
++		struct v4l2_rect crop;
++
++		crop.top = 0;
++		crop.left = 0;
++		crop.width = node->fmt.width;
++		crop.height = node->fmt.height;
++		node->isp->context[node->ctx_id].crop_rect = crop;
++	}
++
++	return 0;
++}
++
++static int sprd_isp_try_fmt(struct file *file, void *fh, struct v4l2_format *f)
++{
++	struct sprd_isp_video_node *node = video_drvdata(file);
++
++	__sprd_isp_try_fmt(node, f);
++
++	return 0;
++}
++
++static int sprd_isp_g_selection(struct file *file, void *fh,
++				struct v4l2_selection *s)
++{
++	struct sprd_isp_video_node *node = video_drvdata(file);
++
++	if (node->index != SPRD_ISP_INPUT)
++		return -EINVAL;
++
++	switch (s->target) {
++	case V4L2_SEL_TGT_CROP:
++		s->r = node->isp->context[node->ctx_id].crop_rect;
++		break;
++	case V4L2_SEL_TGT_CROP_BOUNDS:
++	case V4L2_SEL_TGT_CROP_DEFAULT:
++		s->r.width = node->fmt.width;
++		s->r.height = node->fmt.height;
++		s->r.left = 0;
++		s->r.top = 0;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++static int sprd_isp_s_selection(struct file *file, void *fh,
++				struct v4l2_selection *s)
++{
++	struct sprd_isp_video_node *node = video_drvdata(file);
++
++	if (node->index != SPRD_ISP_INPUT)
++		return -EINVAL;
++
++	switch (s->target) {
++	case V4L2_SEL_TGT_CROP:
++		s->r.left = min_t(u32, ALIGN_DOWN(s->r.left, 2),
++				  node->fmt.width - 2);
++		s->r.top = min_t(u32, ALIGN_DOWN(s->r.top, 2),
++				 node->fmt.height - 2);
++		s->r.width = min(ALIGN(s->r.width, 2),
++				 node->fmt.width - s->r.left);
++		s->r.height = min(ALIGN(s->r.height, 2),
++				  node->fmt.height - s->r.top);
++		node->isp->context[node->ctx_id].crop_rect = s->r;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++static int sprd_isp_queue_setup(struct vb2_queue *q, unsigned int *nbuffers,
++				unsigned int *nplanes, unsigned int sizes[],
++				struct device *alloc_devs[])
++{
++	struct sprd_isp_video_node *node = to_isp_video_node(q);
++	unsigned int i;
++
++	if (*nplanes) {
++		if (*nplanes != node->fmt.num_planes)
++			return -EINVAL;
++
++		for (i = 0; i < *nplanes; i++) {
++			if (sizes[i] < node->fmt.plane_fmt[i].sizeimage)
++				return -EINVAL;
++		}
++
++		return 0;
++	}
++
++	*nplanes = node->fmt.num_planes;
++	for (i = 0; i < *nplanes; i++)
++		sizes[i] = node->fmt.plane_fmt[i].sizeimage;
++
++	return 0;
++}
++
++static int sprd_isp_buf_prepare(struct vb2_buffer *vb)
++{
++	struct sprd_isp_video_node *node = to_isp_video_node(vb->vb2_queue);
++	unsigned int i;
++
++	for (i = 0; i < node->fmt.num_planes; i++) {
++		if (vb2_plane_size(vb, i) < node->fmt.plane_fmt[i].sizeimage)
++			return -EINVAL;
++
++		vb2_set_plane_payload(vb, i, node->fmt.plane_fmt[i].sizeimage);
++	}
++
++	return 0;
++}
++
++static void sprd_isp_buf_queue(struct vb2_buffer *vb)
++{
++	struct sprd_isp_video_node *node = to_isp_video_node(vb->vb2_queue);
++	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
++	struct sprd_isp_video_buffer *buffer = to_isp_video_buf(vbuf);
++	struct sprd_isp *isp = node->isp;
++	unsigned long flags;
++
++	spin_lock_irqsave(&isp->lock, flags);
++
++	list_add_tail(&buffer->link, &node->buf_queue);
++
++	if (isp->context[node->ctx_id].streaming & BIT(node->index))
++		sprd_isp_schedule(node->isp, node->ctx_id);
++
++	spin_unlock_irqrestore(&isp->lock, flags);
++}
++
++static void sprd_isp_flush_queue(struct sprd_isp_video_node *node,
++				 enum vb2_buffer_state state)
++{
++	struct sprd_isp_video_buffer *buf;
++	unsigned long flags;
++
++	spin_lock_irqsave(&node->isp->lock, flags);
++
++	while (!list_empty(&node->buf_queue)) {
++		buf = list_first_entry(&node->buf_queue,
++				       struct sprd_isp_video_buffer, link);
++		list_del(&buf->link);
++		vb2_buffer_done(&buf->vbuf.vb2_buf, state);
++	}
++
++	spin_unlock_irqrestore(&node->isp->lock, flags);
++}
++
++static int sprd_isp_start_streaming(struct vb2_queue *q, unsigned int count)
++{
++	struct sprd_isp_video_node *node = to_isp_video_node(q);
++	struct sprd_isp *isp = node->isp;
++	struct sprd_isp_ctx *ctx = &isp->context[node->ctx_id];
++	unsigned long flags;
++	int ret;
++
++	ret = pm_runtime_resume_and_get(isp->dev);
++	if (ret < 0)
++		goto err_return_buffers;
++
++	spin_lock_irqsave(&isp->lock, flags);
++
++	ctx->streaming |= BIT(node->index);
++
++	if (((ctx->streaming & BIT(SPRD_ISP_INPUT)) &&
++	     node->index == SPRD_ISP_OUTPUT) ||
++	    ((ctx->streaming & BIT(SPRD_ISP_OUTPUT)) &&
++	     node->index == SPRD_ISP_INPUT)) {
++		ret = sprd_isp_start(isp, node->ctx_id);
++		if (ret) {
++			spin_unlock_irqrestore(&isp->lock, flags);
++			goto err_pm_put;
++		}
++	}
++
++	spin_unlock_irqrestore(&isp->lock, flags);
++
++	return 0;
++
++err_pm_put:
++	pm_runtime_put_autosuspend(isp->dev);
++err_return_buffers:
++	sprd_isp_flush_queue(node, VB2_BUF_STATE_QUEUED);
++	return ret;
++}
++
++static void sprd_isp_next_buffer(struct sprd_isp_video_node *node)
++{
++	struct sprd_isp_video_buffer *buf;
++
++	buf = list_first_entry_or_null(&node->buf_queue,
++				       struct sprd_isp_video_buffer, link);
++	if (buf)
++		list_del(&buf->link);
++
++	node->current_buf = buf;
++}
++
++bool sprd_isp_get_addrs(struct sprd_isp_video_node *node,
++			dma_addr_t *addr, u32 *pitch)
++{
++	const struct sprd_isp_format *fmt = node->format_info;
++	struct vb2_buffer *vb;
++	unsigned int i;
++
++	lockdep_assert_held(&node->isp->lock);
++
++	if (!node->current_buf)
++		sprd_isp_next_buffer(node);
++
++	if (!node->current_buf)
++		return false;
++
++	vb = &node->current_buf->vbuf.vb2_buf;
++
++	for (i = 0; i < node->fmt.num_planes; i++) {
++		addr[i] = vb2_dma_contig_plane_dma_addr(vb, i);
++		addr[i] += node->fmt.plane_fmt[i].bytesperline * node->rect.top;
++		addr[i] += (node->rect.left / fmt->hsize_unit) *
++			fmt->hsize_unit * fmt->plane[i].bpp_line / 8;
++		/* For MIPI packed formats, point to the pixel's first byte */
++		addr[i] += node->rect.left % fmt->hsize_unit;
++
++		pitch[i] = node->fmt.plane_fmt[i].bytesperline;
++	}
++
++	if (node->fmt.pixelformat == V4L2_PIX_FMT_NV16 ||
++	    node->fmt.pixelformat == V4L2_PIX_FMT_NV61 ||
++	    node->fmt.pixelformat == V4L2_PIX_FMT_NV12 ||
++	    node->fmt.pixelformat == V4L2_PIX_FMT_NV21) {
++		unsigned int uv_div =
++			(node->fmt.pixelformat == V4L2_PIX_FMT_NV16 ||
++			 node->fmt.pixelformat == V4L2_PIX_FMT_NV61) ? 1 : 2;
++
++		addr[1] = vb2_dma_contig_plane_dma_addr(vb, 0);
++		addr[1] += node->fmt.plane_fmt[0].bytesperline *
++			(node->fmt.height + node->rect.top / uv_div);
++		addr[1] += node->rect.left;
++
++		pitch[1] = pitch[0];
++	}
++
++	return true;
++}
++
++void sprd_isp_video_done(struct sprd_isp_video_node *node)
++{
++	struct sprd_isp_video_buffer *buf = node->current_buf;
++
++	lockdep_assert_held(&node->isp->lock);
++
++	if (!buf)
++		return;
++
++	buf->vbuf.sequence = node->isp->context[node->ctx_id].sequence;
++	buf->vbuf.vb2_buf.timestamp = ktime_get_boottime_ns();
++	vb2_buffer_done(&buf->vbuf.vb2_buf, VB2_BUF_STATE_DONE);
++
++	node->current_buf = NULL;
++}
++
++void sprd_isp_video_cancel(struct sprd_isp_video_node *node)
++{
++	struct sprd_isp_video_buffer *buf = node->current_buf;
++
++	lockdep_assert_held(&node->isp->lock);
++
++	if (!buf)
++		return;
++
++	vb2_buffer_done(&buf->vbuf.vb2_buf, VB2_BUF_STATE_ERROR);
++
++	node->current_buf = NULL;
++}
++
++static void sprd_isp_stop_streaming(struct vb2_queue *q)
++{
++	struct sprd_isp_video_node *node = to_isp_video_node(q);
++	struct sprd_isp *isp = node->isp;
++
++	sprd_isp_flush_queue(node, VB2_BUF_STATE_ERROR);
++
++	sprd_isp_try_stop(isp, node->ctx_id, node->index);
++
++	/*
++	 * The hardware does not support stopping a single context immediately,
++	 * so we need to wait for all buffers to be returned. If this is the
++	 * last context being stopped, all buffers should have been returned
++	 * in sprd_isp_try_stop by now.
++	 */
++	vb2_wait_for_all_buffers(&node->vb2_queue);
++
++	pm_runtime_mark_last_busy(isp->dev);
++	pm_runtime_put_autosuspend(isp->dev);
++}
++
++static const struct vb2_ops sprd_isp_vb2_ops = {
++	.queue_setup	 = sprd_isp_queue_setup,
++	.buf_prepare	 = sprd_isp_buf_prepare,
++	.buf_queue	 = sprd_isp_buf_queue,
++	.start_streaming = sprd_isp_start_streaming,
++	.stop_streaming	 = sprd_isp_stop_streaming,
++};
++
++static const struct v4l2_file_operations sprd_isp_fops = {
++	.owner          = THIS_MODULE,
++	.open           = v4l2_fh_open,
++	.release        = vb2_fop_release,
++	.poll           = vb2_fop_poll,
++	.unlocked_ioctl = video_ioctl2,
++	.mmap           = vb2_fop_mmap
++};
++
++static const struct v4l2_ioctl_ops sprd_isp_ioctl_ops = {
++	.vidioc_querycap = sprd_isp_querycap,
++	.vidioc_g_fmt_vid_cap_mplane = sprd_isp_g_fmt,
++	.vidioc_g_fmt_vid_out_mplane = sprd_isp_g_fmt,
++	.vidioc_try_fmt_vid_cap_mplane = sprd_isp_try_fmt,
++	.vidioc_try_fmt_vid_out_mplane = sprd_isp_try_fmt,
++	.vidioc_s_fmt_vid_cap_mplane = sprd_isp_s_fmt,
++	.vidioc_s_fmt_vid_out_mplane = sprd_isp_s_fmt,
++	.vidioc_enum_fmt_vid_cap = sprd_isp_enum_fmt,
++	.vidioc_enum_fmt_vid_out = sprd_isp_enum_fmt,
++	.vidioc_enum_framesizes = sprd_isp_enum_framesizes,
++	.vidioc_g_selection = sprd_isp_g_selection,
++	.vidioc_s_selection = sprd_isp_s_selection,
++	.vidioc_create_bufs = vb2_ioctl_create_bufs,
++	.vidioc_prepare_buf = vb2_ioctl_prepare_buf,
++	.vidioc_querybuf = vb2_ioctl_querybuf,
++	.vidioc_qbuf = vb2_ioctl_qbuf,
++	.vidioc_dqbuf = vb2_ioctl_dqbuf,
++	.vidioc_expbuf = vb2_ioctl_expbuf,
++	.vidioc_reqbufs = vb2_ioctl_reqbufs,
++	.vidioc_streamon = vb2_ioctl_streamon,
++	.vidioc_streamoff = vb2_ioctl_streamoff,
++};
++
++int sprd_isp_video_register(struct sprd_isp_video_node *node)
++{
++	struct v4l2_format format = {
++		.fmt.pix = {
++			.width = 1280,
++			.height = 960,
++			.pixelformat = V4L2_PIX_FMT_NV12,
++		},
++	};
++	struct sprd_isp *isp = node->isp;
++	struct video_device *vdev = &node->vdev;
++	struct vb2_queue *q = &node->vb2_queue;
++	struct v4l2_subdev *sd = &isp->context[node->ctx_id].sd;
++	int ret;
++
++	mutex_init(&node->lock);
++	INIT_LIST_HEAD(&node->buf_queue);
++
++	vdev->v4l2_dev = &isp->v4l2_dev;
++	vdev->fops = &sprd_isp_fops;
++	vdev->release = video_device_release_empty;
++	vdev->ioctl_ops = &sprd_isp_ioctl_ops;
++	vdev->lock = &node->lock;
++
++	video_set_drvdata(vdev, node);
++
++	q->io_modes = VB2_DMABUF | VB2_MMAP;
++	q->ops = &sprd_isp_vb2_ops;
++	q->mem_ops = &vb2_dma_contig_memops;
++	q->buf_struct_size = sizeof(struct sprd_isp_video_buffer);
++	q->min_queued_buffers = 1;
++	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
++	q->lock = &node->lock;
++	q->dev = isp->dev;
++	ret = vb2_queue_init(q);
++	if (ret) {
++		dev_err(isp->dev, "failed to init vb2 queue: %d\n", ret);
++		goto err_destroy_mutex;
++	}
++
++	vdev->queue = q;
++
++	node->pad.flags = vdev->vfl_dir == VFL_DIR_TX
++		? MEDIA_PAD_FL_SOURCE : MEDIA_PAD_FL_SINK;
++	ret = media_entity_pads_init(&vdev->entity, 1, &node->pad);
++	if (ret)
++		goto err_release_queue;
++
++	format.type = q->type;
++	__sprd_isp_try_fmt(node, &format);
++	node->fmt = format.fmt.pix_mp;
++
++	ret = video_register_device(vdev, VFL_TYPE_VIDEO, -1);
++	if (ret) {
++		dev_err(isp->dev, "failed to register %s: %d\n", vdev->name,
++			ret);
++		goto err_cleanup_entity;
++	}
++
++	if (vdev->vfl_dir == VFL_DIR_TX)
++		ret = media_create_pad_link(&vdev->entity, 0,
++					    &sd->entity, node->index,
++					    MEDIA_LNK_FL_IMMUTABLE |
++					    MEDIA_LNK_FL_ENABLED);
++	else
++		ret = media_create_pad_link(&sd->entity, node->index,
++					    &vdev->entity, 0,
++					    MEDIA_LNK_FL_IMMUTABLE |
++					    MEDIA_LNK_FL_ENABLED);
++	if (ret)
++		goto err_unregister_vdev;
++
++	return 0;
++
++err_unregister_vdev:
++	video_unregister_device(vdev);
++err_cleanup_entity:
++	media_entity_cleanup(&vdev->entity);
++err_release_queue:
++	vb2_queue_release(q);
++err_destroy_mutex:
++	mutex_destroy(&node->lock);
++	return ret;
++}
++
++void sprd_isp_video_unregister(struct sprd_isp_video_node *node)
++{
++	video_unregister_device(&node->vdev);
++	media_entity_cleanup(&node->vdev.entity);
++	vb2_queue_release(&node->vb2_queue);
++	mutex_destroy(&node->lock);
++}
+diff --git a/drivers/media/platform/sprd/isp/isp.c b/drivers/media/platform/sprd/isp/isp.c
+new file mode 100644
+index 000000000..503efb05b
+--- /dev/null
++++ b/drivers/media/platform/sprd/isp/isp.c
+@@ -0,0 +1,452 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Unisoc ISP driver
++ *
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#include <linux/clk.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/pm_runtime.h>
++#include <uapi/linux/sprd-isp.h>
++
++#include "isp.h"
++
++static void sprd_isp_update_crop(struct sprd_isp *isp,
++				 struct sprd_isp_ctx *ctx)
++{
++	unsigned int slice_width;
++
++	ctx->output.rect.left = 0;
++	ctx->output.rect.top = 0;
++	ctx->output.total_width = ctx->output.fmt.width;
++	ctx->output.rect.height = ctx->output.fmt.height;
++
++	ctx->input.rect.left = ctx->crop_rect.left;
++	ctx->input.rect.top = ctx->crop_rect.top;
++	ctx->input.total_width = ctx->crop_rect.width;
++	ctx->input.rect.height = ctx->crop_rect.height;
++
++	if (ctx->input.total_width > ctx->output.total_width)
++		ctx->num_slices = DIV_ROUND_UP(ctx->input.total_width,
++					       isp->hw->max_width);
++	else
++		ctx->num_slices = DIV_ROUND_UP(ctx->output.total_width,
++					       isp->hw->max_width);
++
++	ctx->slice_idx = 0;
++
++	slice_width = DIV_ROUND_UP(ctx->input.total_width, ctx->num_slices);
++	ctx->input.rect.width = min(ALIGN(slice_width + 16, 2),
++				    ctx->input.total_width);
++
++	slice_width = DIV_ROUND_UP(ctx->output.total_width, ctx->num_slices);
++	ctx->output.rect.width = min(ALIGN(slice_width + 16, 2),
++				     ctx->output.total_width);
++
++	dev_dbg(isp->dev, "new frame: %ux%u -> %ux%u\n",
++		ctx->input.total_width, ctx->input.rect.height,
++		ctx->output.total_width, ctx->output.rect.height);
++	dev_dbg(isp->dev, "slice 1/%u: %u+%u -> %u+%u\n",
++		ctx->num_slices, ctx->input.rect.left, ctx->input.rect.width,
++		ctx->output.rect.left, ctx->output.rect.width);
++}
++
++void sprd_isp_schedule(struct sprd_isp *isp, int ctx_id)
++{
++	struct sprd_isp_ctx *ctx = &isp->context[ctx_id];
++	dma_addr_t in_addr[3], out_addr[3];
++	u32 in_pitch[3], out_pitch[3];
++
++	lockdep_assert_held(&isp->lock);
++
++	if (ctx->running)
++		return;
++
++	if (sprd_isp_get_addrs(&ctx->input, in_addr, in_pitch) &&
++	    sprd_isp_get_addrs(&ctx->output, out_addr, out_pitch)) {
++		isp->hw->start_slice(isp, ctx_id, in_addr, out_addr,
++				     in_pitch, out_pitch);
++		ctx->running = true;
++	}
++}
++
++void sprd_isp_process(struct sprd_isp *isp, int ctx_id)
++{
++	struct sprd_isp_ctx *ctx = &isp->context[ctx_id];
++
++	lockdep_assert_held(&isp->lock);
++
++	ctx->slice_idx++;
++
++	if (ctx->slice_idx < ctx->num_slices) {
++		unsigned int remaining;
++
++		ctx->input.rect.left = ctx->crop_rect.left +
++			ALIGN(ctx->input.total_width *
++			      ctx->slice_idx / ctx->num_slices, 2);
++		ctx->output.rect.left =
++			ALIGN(ctx->output.total_width *
++			      ctx->slice_idx / ctx->num_slices, 2);
++
++		remaining = ctx->input.total_width - ctx->input.rect.left;
++		if (remaining < ctx->input.rect.width)
++			ctx->input.rect.width = remaining;
++
++		remaining = ctx->output.total_width - ctx->output.rect.left;
++		if (remaining < ctx->output.rect.width)
++			ctx->output.rect.width = remaining;
++
++		dev_dbg(isp->dev,
++			"slice %u/%u: %u+%u -> %u+%u\n",
++			ctx->slice_idx + 1, ctx->num_slices,
++			ctx->input.rect.left, ctx->input.rect.width,
++			ctx->output.rect.left, ctx->output.rect.width);
++	} else {
++		sprd_isp_video_done(&ctx->input);
++		sprd_isp_video_done(&ctx->output);
++		ctx->sequence++;
++		sprd_isp_update_crop(isp, ctx);
++		sprd_isp_configure(&ctx->config);
++	}
++
++	ctx->running = false;
++	sprd_isp_schedule(isp, ctx_id);
++}
++
++int sprd_isp_start(struct sprd_isp *isp, int ctx_id)
++{
++	struct sprd_isp_ctx *ctx = &isp->context[ctx_id];
++	int ret;
++
++	lockdep_assert_held(&isp->lock);
++
++	ctx->sequence = 0;
++
++	ret = isp->hw->set_formats(isp, ctx_id);
++	if (ret)
++		return ret;
++
++	sprd_isp_update_crop(isp, ctx);
++	sprd_isp_configure(&ctx->config);
++	sprd_isp_schedule(isp, ctx_id);
++
++	return 0;
++}
++
++void sprd_isp_try_stop(struct sprd_isp *isp, int ctx_id, int node_idx)
++{
++	struct sprd_isp_ctx *ctx = &isp->context[ctx_id];
++	unsigned long flags;
++	int i;
++
++	spin_lock_irqsave(&isp->lock, flags);
++
++	/*
++	 * If the context being stopped has pending buffers that are not in
++	 * use by the ISP, cancel them immediately.
++	 */
++	if (!ctx->running) {
++		sprd_isp_video_cancel(&ctx->input);
++		sprd_isp_video_cancel(&ctx->output);
++	}
++
++	ctx->streaming &= ~BIT(node_idx);
++
++	/* Only stop the ISP if no other context is streaming. */
++	for (i = 0; i < SPRD_ISP_NUM_CONTEXTS; i++) {
++		if (isp->context[i].streaming)
++			goto out;
++	}
++
++	isp->hw->stop(isp);
++
++	/* Return remaining buffers that were being processed. */
++	for (i = 0; i < SPRD_ISP_NUM_CONTEXTS; i++) {
++		ctx = &isp->context[i];
++
++		sprd_isp_video_cancel(&ctx->input);
++		sprd_isp_video_cancel(&ctx->output);
++	}
++
++out:
++	spin_unlock_irqrestore(&isp->lock, flags);
++}
++
++static const struct v4l2_subdev_pad_ops sprd_isp_pad_ops = {
++	.link_validate = v4l2_subdev_link_validate_default,
++};
++
++static const struct v4l2_subdev_ops sprd_isp_subdev_ops = {
++	.pad = &sprd_isp_pad_ops,
++};
++
++static int sprd_isp_ctx_register(struct sprd_isp *isp, int ctx_id)
++{
++	struct sprd_isp_ctx *ctx = &isp->context[ctx_id];
++	struct v4l2_subdev *sd = &ctx->sd;
++	struct sprd_isp_config_node *cfg;
++	struct sprd_isp_video_node *node;
++	int ret;
++
++	ctx->cfg_base = dmam_alloc_coherent(isp->dev, SPRD_ISP_REG_SIZE,
++					    &ctx->cfg_dma_addr, GFP_KERNEL);
++	if (!ctx->cfg_base)
++		return -ENOMEM;
++
++	v4l2_subdev_init(sd, &sprd_isp_subdev_ops);
++	sd->entity.function = MEDIA_ENT_F_PROC_VIDEO_ISP;
++	sd->owner = THIS_MODULE;
++	sd->dev = isp->dev;
++	snprintf(sd->name, sizeof(sd->name), "sprd_isp_%d", ctx_id);
++
++	ctx->pad[SPRD_ISP_CONFIG].flags = MEDIA_PAD_FL_SINK;
++	ctx->pad[SPRD_ISP_INPUT].flags = MEDIA_PAD_FL_SINK;
++	ctx->pad[SPRD_ISP_OUTPUT].flags = MEDIA_PAD_FL_SOURCE;
++
++	ret = media_entity_pads_init(&sd->entity, SPRD_ISP_NUM_NODES,
++				     ctx->pad);
++	if (ret)
++		return ret;
++
++	ret = v4l2_device_register_subdev(&isp->v4l2_dev, sd);
++	if (ret)
++		goto err_cleanup_entity;
++
++	cfg = &ctx->config;
++	cfg->isp = isp;
++	cfg->ctx_id = ctx_id;
++	snprintf(cfg->vdev.name, sizeof(cfg->vdev.name),
++		 "%s_config", sd->name);
++	ret = sprd_isp_config_register(cfg);
++	if (ret)
++		goto err_unregister_subdev;
++
++	node = &ctx->input;
++	node->isp = isp;
++	node->ctx_id = ctx_id;
++	node->index = SPRD_ISP_INPUT;
++	node->vdev.device_caps = V4L2_CAP_VIDEO_OUTPUT_MPLANE | V4L2_CAP_STREAMING;
++	node->vdev.vfl_dir = VFL_DIR_TX;
++	node->vb2_queue.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
++	snprintf(node->vdev.name, sizeof(node->vdev.name),
++		 "%s_input", sd->name);
++	ret = sprd_isp_video_register(node);
++	if (ret)
++		goto err_unregister_config;
++
++	node = &ctx->output;
++	node->isp = isp;
++	node->ctx_id = ctx_id;
++	node->index = SPRD_ISP_OUTPUT;
++	node->vdev.device_caps = V4L2_CAP_VIDEO_CAPTURE_MPLANE | V4L2_CAP_STREAMING;
++	node->vdev.vfl_dir = VFL_DIR_RX;
++	node->vb2_queue.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
++	snprintf(node->vdev.name, sizeof(node->vdev.name),
++		 "%s_output", sd->name);
++	ret = sprd_isp_video_register(node);
++	if (ret)
++		goto err_unregister_input;
++
++	return 0;
++
++err_unregister_input:
++	sprd_isp_video_unregister(&ctx->input);
++err_unregister_config:
++	sprd_isp_config_unregister(&ctx->config);
++err_unregister_subdev:
++	v4l2_device_unregister_subdev(sd);
++err_cleanup_entity:
++	media_entity_cleanup(&sd->entity);
++	return ret;
++}
++
++static void sprd_isp_ctx_unregister(struct sprd_isp *isp, int ctx_id)
++{
++	struct sprd_isp_ctx *ctx = &isp->context[ctx_id];
++
++	sprd_isp_video_unregister(&ctx->output);
++	sprd_isp_video_unregister(&ctx->input);
++	sprd_isp_config_unregister(&ctx->config);
++	v4l2_device_unregister_subdev(&ctx->sd);
++	media_entity_cleanup(&ctx->sd.entity);
++}
++
++static int sprd_isp_probe(struct platform_device *pdev)
++{
++	struct sprd_isp *isp;
++	int i, ret;
++
++	isp = devm_kzalloc(&pdev->dev, sizeof(*isp), GFP_KERNEL);
++	if (!isp)
++		return -ENOMEM;
++
++	spin_lock_init(&isp->lock);
++	isp->dev = &pdev->dev;
++
++	platform_set_drvdata(pdev, isp);
++
++	isp->hw = of_device_get_match_data(&pdev->dev);
++	if (!isp->hw)
++		return -EINVAL;
++
++	isp->base = devm_platform_ioremap_resource(pdev, 0);
++	if (IS_ERR(isp->base))
++		return PTR_ERR(isp->base);
++
++	for (i = 0; i < SPRD_ISP_NUM_IRQS; i++) {
++		char name[32];
++
++		isp->irq[i] = platform_get_irq(pdev, i);
++		if (isp->irq[i] <= 0)
++			return -EINVAL;
++
++		snprintf(name, sizeof(name), "sprd-isp-ch%d", i);
++
++		ret = devm_request_irq(&pdev->dev, isp->irq[i],
++				       isp->hw->handle_irq,
++				       0, name, isp);
++		if (ret) {
++			dev_err(&pdev->dev, "failed to request irq[%d]\n", i);
++			return ret;
++		}
++	}
++
++	isp->clk = devm_clk_get(&pdev->dev, NULL);
++	if (IS_ERR(isp->clk))
++		return dev_err_probe(&pdev->dev, PTR_ERR(isp->clk),
++				     "failed to get clock");
++
++	ret = clk_prepare_enable(isp->clk);
++	if (ret) {
++		dev_err(&pdev->dev, "failed to enable clock\n");
++		return ret;
++	}
++
++	isp->reset = devm_reset_control_get_optional(&pdev->dev, "core");
++	if (IS_ERR(isp->reset)) {
++		ret = dev_err_probe(&pdev->dev, PTR_ERR(isp->reset),
++				    "failed to get core reset");
++		goto err_disable_clk;
++	}
++
++	isp->ahb_reset = devm_reset_control_get_optional(&pdev->dev, "ahb");
++	if (IS_ERR(isp->ahb_reset)) {
++		ret = dev_err_probe(&pdev->dev, PTR_ERR(isp->ahb_reset),
++				    "failed to get AHB reset");
++		goto err_disable_clk;
++	}
++
++	isp->mdev.dev = &pdev->dev;
++	strscpy(isp->mdev.model, "sprd-isp", sizeof(isp->mdev.model));
++	media_device_init(&isp->mdev);
++
++	isp->v4l2_dev.mdev = &isp->mdev;
++	strscpy(isp->v4l2_dev.name, "sprd-isp", sizeof(isp->v4l2_dev.name));
++
++	ret = v4l2_device_register(&pdev->dev, &isp->v4l2_dev);
++	if (ret < 0) {
++		dev_err(&pdev->dev, "failed to register V4L2 device\n");
++		goto err_cleanup_mdev;
++	}
++
++	for (i = 0; i < SPRD_ISP_NUM_CONTEXTS; i++) {
++		ret = sprd_isp_ctx_register(isp, i);
++		if (ret)
++			goto err_unregister_contexts;
++	}
++
++	ret = media_device_register(&isp->mdev);
++	if (ret)
++		goto err_unregister_contexts;
++
++	isp->hw->init_regs(isp);
++
++	pm_runtime_set_autosuspend_delay(&pdev->dev, 200);
++	pm_runtime_use_autosuspend(&pdev->dev);
++	pm_runtime_set_active(&pdev->dev);
++	ret = devm_pm_runtime_enable(&pdev->dev);
++	if (ret)
++		goto err_unregister_mdev;
++
++	return 0;
++
++err_unregister_mdev:
++	media_device_unregister(&isp->mdev);
++err_unregister_contexts:
++	while (i-- > 0)
++		sprd_isp_ctx_unregister(isp, i);
++	v4l2_device_unregister(&isp->v4l2_dev);
++err_cleanup_mdev:
++	media_device_cleanup(&isp->mdev);
++err_disable_clk:
++	clk_disable_unprepare(isp->clk);
++	return ret;
++}
++
++static void sprd_isp_remove(struct platform_device *pdev)
++{
++	struct sprd_isp *isp = platform_get_drvdata(pdev);
++	int i;
++
++	media_device_unregister(&isp->mdev);
++
++	for (i = SPRD_ISP_NUM_CONTEXTS - 1; i >= 0; i--)
++		sprd_isp_ctx_unregister(isp, i);
++
++	v4l2_device_unregister(&isp->v4l2_dev);
++	media_device_cleanup(&isp->mdev);
++}
++
++static int sprd_isp_runtime_suspend(struct device *dev)
++{
++	struct sprd_isp *isp = dev_get_drvdata(dev);
++
++	clk_disable_unprepare(isp->clk);
++
++	return 0;
++}
++
++static int sprd_isp_runtime_resume(struct device *dev)
++{
++	struct sprd_isp *isp = dev_get_drvdata(dev);
++	int ret;
++
++	ret = clk_prepare_enable(isp->clk);
++	if (ret) {
++		dev_err(dev, "failed to enable clock\n");
++		return ret;
++	}
++
++	isp->hw->init_regs(isp);
++
++	return 0;
++}
++
++static const struct dev_pm_ops sprd_isp_pm_ops = {
++	SET_RUNTIME_PM_OPS(sprd_isp_runtime_suspend,
++			   sprd_isp_runtime_resume, NULL)
++};
++
++static const struct of_device_id sprd_isp_of_match[] = {
++	{ .compatible = "sprd,ums9230-isp", .data = &ums9230_isp_hw },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sprd_isp_of_match);
++
++static struct platform_driver sprd_isp_driver = {
++	.probe = sprd_isp_probe,
++	.remove = sprd_isp_remove,
++	.driver = {
++		.name = "sprd-isp",
++		.of_match_table = sprd_isp_of_match,
++		.pm = &sprd_isp_pm_ops,
++	},
++};
++
++module_platform_driver(sprd_isp_driver);
++
++MODULE_DESCRIPTION("Unisoc ISP driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/media/platform/sprd/isp/isp.h b/drivers/media/platform/sprd/isp/isp.h
+new file mode 100644
+index 000000000..5e74f0374
+--- /dev/null
++++ b/drivers/media/platform/sprd/isp/isp.h
+@@ -0,0 +1,146 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Unisoc ISP driver
++ *
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#ifndef __SPRD_ISP_H
++#define __SPRD_ISP_H
++
++#include <linux/reset.h>
++#include <media/v4l2-device.h>
++#include <media/videobuf2-v4l2.h>
++#include <uapi/linux/media/sprd/camsys-config.h>
++
++#define SPRD_ISP_NUM_IRQS	2
++#define SPRD_ISP_NUM_CONTEXTS	4
++
++#define SPRD_ISP_REG_SIZE	0x40000
++
++union sprd_isp_config_block {
++	struct v4l2_isp_params_block_header *header;
++	struct sprd_camsys_ccm_config *ccm;
++	struct sprd_camsys_gamma_config *gamma;
++	void *data;
++};
++
++struct sprd_isp_config_node {
++	struct sprd_isp *isp;
++	unsigned int ctx_id;
++
++	struct mutex lock;
++	struct video_device vdev;
++	struct media_pad pad;
++
++	struct vb2_queue vb2_queue;
++	struct list_head buf_queue;
++};
++
++struct sprd_isp_video_node {
++	struct sprd_isp *isp;
++	unsigned int ctx_id;
++	unsigned int index;
++
++	struct mutex lock;
++	struct video_device vdev;
++	struct media_pad pad;
++
++	struct vb2_queue vb2_queue;
++	struct list_head buf_queue;
++
++	struct sprd_isp_video_buffer *current_buf;
++
++	const struct sprd_isp_format *format_info;
++	struct v4l2_pix_format_mplane fmt;
++
++	struct v4l2_rect rect;
++	unsigned int total_width;
++};
++
++enum {
++	SPRD_ISP_CONFIG,
++	SPRD_ISP_INPUT,
++	SPRD_ISP_OUTPUT,
++	SPRD_ISP_NUM_NODES
++};
++
++struct sprd_isp_ctx {
++	struct v4l2_subdev sd;
++	struct media_pad pad[SPRD_ISP_NUM_NODES];
++
++	struct sprd_isp_config_node config;
++	struct sprd_isp_video_node input;
++	struct sprd_isp_video_node output;
++
++	struct v4l2_rect crop_rect;
++	unsigned int slice_idx;
++	unsigned int num_slices;
++
++	unsigned int sequence;
++	u32 streaming;
++	bool running;
++	void *cfg_base;
++	dma_addr_t cfg_dma_addr;
++};
++
++struct sprd_isp {
++	struct device *dev;
++	const struct sprd_isp_hardware *hw;
++
++	struct v4l2_device v4l2_dev;
++	struct media_device mdev;
++
++	struct reset_control *reset;
++	struct reset_control *ahb_reset;
++	struct clk *clk;
++	int irq[SPRD_ISP_NUM_IRQS];
++	void __iomem *base;
++
++	spinlock_t lock;
++	struct sprd_isp_ctx context[SPRD_ISP_NUM_CONTEXTS];
++};
++
++/* Used by the video device implementation */
++void sprd_isp_schedule(struct sprd_isp *isp, int ctx_id);
++int sprd_isp_start(struct sprd_isp *isp, int ctx_id);
++void sprd_isp_try_stop(struct sprd_isp *isp, int ctx_id, int node_idx);
++
++/* Provided by the video device implementation */
++int sprd_isp_video_register(struct sprd_isp_video_node *node);
++void sprd_isp_video_unregister(struct sprd_isp_video_node *node);
++
++bool sprd_isp_get_addrs(struct sprd_isp_video_node *node,
++			dma_addr_t *addr, u32 *pitch);
++void sprd_isp_video_done(struct sprd_isp_video_node *node);
++void sprd_isp_video_cancel(struct sprd_isp_video_node *node);
++
++int sprd_isp_config_register(struct sprd_isp_config_node *node);
++void sprd_isp_config_unregister(struct sprd_isp_config_node *node);
++
++void sprd_isp_configure(struct sprd_isp_config_node *node);
++
++/* Used by hardware-specific code */
++void sprd_isp_process(struct sprd_isp *isp, int ctx_id);
++
++typedef void (*sprd_isp_cfg_handler_t)(struct sprd_isp *isp, int ctx_id,
++				       union sprd_isp_config_block block);
++
++struct sprd_isp_hardware {
++	void (*init_regs)(struct sprd_isp *isp);
++	int (*set_formats)(struct sprd_isp *isp, int ctx_id);
++	int (*start_slice)(struct sprd_isp *isp, int ctx_id,
++			   dma_addr_t *in_addr, dma_addr_t *out_addr,
++			   u32 *in_pitch, u32 *out_pitch);
++	void (*stop)(struct sprd_isp *isp);
++	irqreturn_t (*handle_irq)(int irq, void *devdata);
++
++	sprd_isp_cfg_handler_t config_block[SPRD_ISP_BLOCK_NUM];
++
++	unsigned int max_width;
++	unsigned int max_height;
++};
++
++extern const struct sprd_isp_hardware ums9230_isp_hw;
++
++#endif
+diff --git a/include/uapi/linux/sprd-isp.h b/include/uapi/linux/sprd-isp.h
+new file mode 100644
+index 000000000..60dc8931b
+--- /dev/null
++++ b/include/uapi/linux/sprd-isp.h
+@@ -0,0 +1,16 @@
++/* SPDX-License-Identifier: ((GPL-2.0+ WITH Linux-syscall-note) OR MIT) */
++/*
++ * Unisoc ISP driver userspace API
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#ifndef _UAPI_SPRD_ISP_H
++#define _UAPI_SPRD_ISP_H
++
++#include <linux/types.h>
++
++struct sprd_isp_cfg {
++	__u32 version;
++};
++
++#endif

@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sun, 22 Feb 2026 12:37:56 +0100
+Subject: [PATCH 004/225] regulator: sc2731: Add platform_device_id table
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Make the regulator driver for the SC2731 probe automatically. Using a
+platform_device_id table instead of DT compatible matching avoids the
+need for a separate compatible property in the "regulators" node, which
+simplifies the DT bindings and makes the parent MFD device responsible
+for selecting the correct regulator driver for the PMIC.
+
+However, this means that the parent MFD node (rather than the
+"regulators" sub-node) becomes the main DT node of the regulator device.
+Set the .regulators_node member in all regulator definitions to account
+for this when searching for individual regulators in the device tree.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/regulator/sc2731-regulator.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/regulator/sc2731-regulator.c b/drivers/regulator/sc2731-regulator.c
+index 5447e1a47..0d0090d73 100644
+--- a/drivers/regulator/sc2731-regulator.c
++++ b/drivers/regulator/sc2731-regulator.c
+@@ -131,6 +131,7 @@ static const struct regulator_ops sc2731_regu_linear_ops = {
+ 			  vstep, vmin, vmax) {			\
+ 	.name			= #_id,				\
+ 	.of_match		= of_match_ptr(#_id),		\
++	.regulators_node	= of_match_ptr("regulators"),	\
+ 	.ops			= &sc2731_regu_linear_ops,	\
+ 	.type			= REGULATOR_VOLTAGE,		\
+ 	.id			= SC2731_##_id,			\
+@@ -242,6 +243,12 @@ static int sc2731_regulator_probe(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
++static const struct platform_device_id sc2731_regulator_id_table[] = {
++	{ "sc2731-regulator" },
++	{ }
++};
++MODULE_DEVICE_TABLE(platform, sc2731_regulator_id_table);
++
+ static struct platform_driver sc2731_regulator_driver = {
+ 	.driver = {
+ 		.name = "sc27xx-regulator",

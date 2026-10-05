@@ -1,0 +1,153 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sun, 8 Dec 2024 19:52:20 +0100
+Subject: [PATCH 021/225] drm: panfrost: add an optional memory clock
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Unisoc SoCs with Mali GPUs require an additional clock called
+GPU_MEM_CLK to enable the GPU.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/gpu/drm/panfrost/panfrost_device.c | 62 ++++++++++++++++------
+ drivers/gpu/drm/panfrost/panfrost_device.h |  1 +
+ 2 files changed, 46 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/gpu/drm/panfrost/panfrost_device.c b/drivers/gpu/drm/panfrost/panfrost_device.c
+index dedc13e56..4eac934b6 100644
+--- a/drivers/gpu/drm/panfrost/panfrost_device.c
++++ b/drivers/gpu/drm/panfrost/panfrost_device.c
+@@ -70,8 +70,27 @@ static int panfrost_clk_init(struct panfrost_device *pfdev)
+ 			goto disable_clock;
+ 	}
+ 
++	pfdev->mem_clock = devm_clk_get_optional(pfdev->base.dev, "mem");
++	if (IS_ERR(pfdev->mem_clock)) {
++		dev_err(pfdev->base.dev, "get mem_clock failed %ld\n",
++			PTR_ERR(pfdev->mem_clock));
++		err = PTR_ERR(pfdev->mem_clock);
++		goto disable_bus_clock;
++	}
++
++	if (pfdev->mem_clock) {
++		rate = clk_get_rate(pfdev->mem_clock);
++		dev_info(pfdev->base.dev, "mem_clock rate = %lu\n", rate);
++
++		err = clk_prepare_enable(pfdev->mem_clock);
++		if (err)
++			goto disable_bus_clock;
++	}
++
+ 	return 0;
+ 
++disable_bus_clock:
++	clk_disable_unprepare(pfdev->bus_clock);
+ disable_clock:
+ 	clk_disable_unprepare(pfdev->clock);
+ 
+@@ -80,6 +99,7 @@ static int panfrost_clk_init(struct panfrost_device *pfdev)
+ 
+ static void panfrost_clk_fini(struct panfrost_device *pfdev)
+ {
++	clk_disable_unprepare(pfdev->mem_clock);
+ 	clk_disable_unprepare(pfdev->bus_clock);
+ 	clk_disable_unprepare(pfdev->clock);
+ }
+@@ -429,11 +449,13 @@ static int panfrost_device_runtime_resume(struct device *dev)
+ 		if (ret)
+ 			goto err_clk;
+ 
+-		if (pfdev->bus_clock) {
+-			ret = clk_enable(pfdev->bus_clock);
+-			if (ret)
+-				goto err_bus_clk;
+-		}
++		ret = clk_enable(pfdev->bus_clock);
++		if (ret)
++			goto err_bus_clk;
++
++		ret = clk_enable(pfdev->mem_clock);
++		if (ret)
++			goto err_mem_clk;
+ 	}
+ 
+ 	panfrost_device_reset(pfdev, true);
+@@ -441,6 +463,9 @@ static int panfrost_device_runtime_resume(struct device *dev)
+ 
+ 	return 0;
+ 
++err_mem_clk:
++	if (pfdev->comp->pm_features & BIT(GPU_PM_RT))
++		clk_disable(pfdev->bus_clock);
+ err_bus_clk:
+ 	if (pfdev->comp->pm_features & BIT(GPU_PM_RT))
+ 		clk_disable(pfdev->clock);
+@@ -464,9 +489,8 @@ static int panfrost_device_runtime_suspend(struct device *dev)
+ 	panfrost_gpu_power_off(pfdev);
+ 
+ 	if (pfdev->comp->pm_features & BIT(GPU_PM_RT)) {
+-		if (pfdev->bus_clock)
+-			clk_disable(pfdev->bus_clock);
+-
++		clk_disable(pfdev->mem_clock);
++		clk_disable(pfdev->bus_clock);
+ 		clk_disable(pfdev->clock);
+ 		reset_control_assert(pfdev->rstc);
+ 	}
+@@ -495,11 +519,13 @@ static int panfrost_device_resume(struct device *dev)
+ 		if (ret)
+ 			goto err_clk;
+ 
+-		if (pfdev->bus_clock) {
+-			ret = clk_enable(pfdev->bus_clock);
+-			if (ret)
+-				goto err_bus_clk;
+-		}
++		ret = clk_enable(pfdev->bus_clock);
++		if (ret)
++			goto err_bus_clk;
++
++		ret = clk_enable(pfdev->mem_clock);
++		if (ret)
++			goto err_mem_clk;
+ 	}
+ 
+ 	ret = pm_runtime_force_resume(dev);
+@@ -509,7 +535,10 @@ static int panfrost_device_resume(struct device *dev)
+ 	return 0;
+ 
+ err_resume:
+-	if (pfdev->comp->pm_features & BIT(GPU_PM_CLK_DIS) && pfdev->bus_clock)
++	if (pfdev->comp->pm_features & BIT(GPU_PM_CLK_DIS))
++		clk_disable(pfdev->mem_clock);
++err_mem_clk:
++	if (pfdev->comp->pm_features & BIT(GPU_PM_CLK_DIS))
+ 		clk_disable(pfdev->bus_clock);
+ err_bus_clk:
+ 	if (pfdev->comp->pm_features & BIT(GPU_PM_CLK_DIS))
+@@ -530,9 +559,8 @@ static int panfrost_device_suspend(struct device *dev)
+ 		return ret;
+ 
+ 	if (pfdev->comp->pm_features & BIT(GPU_PM_CLK_DIS)) {
+-		if (pfdev->bus_clock)
+-			clk_disable(pfdev->bus_clock);
+-
++		clk_disable(pfdev->mem_clock);
++		clk_disable(pfdev->bus_clock);
+ 		clk_disable(pfdev->clock);
+ 	}
+ 
+diff --git a/drivers/gpu/drm/panfrost/panfrost_device.h b/drivers/gpu/drm/panfrost/panfrost_device.h
+index 0f3992412..c0564b8dd 100644
+--- a/drivers/gpu/drm/panfrost/panfrost_device.h
++++ b/drivers/gpu/drm/panfrost/panfrost_device.h
+@@ -136,6 +136,7 @@ struct panfrost_device {
+ 	void __iomem *iomem;
+ 	struct clk *clock;
+ 	struct clk *bus_clock;
++	struct clk *mem_clock;
+ 	struct regulator_bulk_data *regulators;
+ 	struct reset_control *rstc;
+ 	/* pm_domains for devices with more than one. */

@@ -1,0 +1,114 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Thu, 21 Nov 2024 13:30:52 +0100
+Subject: [PATCH 056/225] pinctrl: sprd: Move register defines to SoC driver
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The register layout varies between SoCs. Move the corresponding
+constants to the SoC-specific code.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/pinctrl/sprd/pinctrl-sprd-sc9860.c |  7 ++++++-
+ drivers/pinctrl/sprd/pinctrl-sprd.c        | 14 +++++++++-----
+ drivers/pinctrl/sprd/pinctrl-sprd.h        |  3 ++-
+ 3 files changed, 17 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/pinctrl/sprd/pinctrl-sprd-sc9860.c b/drivers/pinctrl/sprd/pinctrl-sprd-sc9860.c
+index d14f382f2..c4edb2390 100644
+--- a/drivers/pinctrl/sprd/pinctrl-sprd-sc9860.c
++++ b/drivers/pinctrl/sprd/pinctrl-sprd-sc9860.c
+@@ -10,6 +10,9 @@
+ 
+ #include "pinctrl-sprd.h"
+ 
++#define PINCTRL_REG_OFFSET		0x20
++#define PINCTRL_REG_MISC_OFFSET		0x4020
++
+ enum sprd_sc9860_pins {
+ 	/* pin global control register 0 */
+ 	SC9860_VIO28_0_IRTE = SPRD_PIN_INFO(0, GLOBAL_CTRL_PIN, 11, 1, 0),
+@@ -926,7 +929,9 @@ static struct sprd_pins_info sprd_sc9860_pins_info[] = {
+ static int sprd_pinctrl_probe(struct platform_device *pdev)
+ {
+ 	return sprd_pinctrl_core_probe(pdev, sprd_sc9860_pins_info,
+-				       ARRAY_SIZE(sprd_sc9860_pins_info));
++				       ARRAY_SIZE(sprd_sc9860_pins_info),
++				       PINCTRL_REG_OFFSET,
++				       PINCTRL_REG_MISC_OFFSET);
+ }
+ 
+ static const struct of_device_id sprd_pinctrl_of_match[] = {
+diff --git a/drivers/pinctrl/sprd/pinctrl-sprd.c b/drivers/pinctrl/sprd/pinctrl-sprd.c
+index 16cf9d15f..ce623e346 100644
+--- a/drivers/pinctrl/sprd/pinctrl-sprd.c
++++ b/drivers/pinctrl/sprd/pinctrl-sprd.c
+@@ -29,8 +29,6 @@
+ #include "pinctrl-sprd.h"
+ 
+ #define PINCTRL_BIT_MASK(width)		(~(~0UL << (width)))
+-#define PINCTRL_REG_OFFSET		0x20
+-#define PINCTRL_REG_MISC_OFFSET		0x4020
+ #define PINCTRL_REG_LEN			0x4
+ 
+ #define PIN_FUNC_MASK			(BIT(4) | BIT(5))
+@@ -153,6 +151,8 @@ struct sprd_pinctrl {
+ 	struct pinctrl_dev *pctl;
+ 	void __iomem *base;
+ 	struct sprd_pinctrl_soc_info *info;
++	u32 common_pin_offset;
++	u32 misc_pin_offset;
+ };
+ 
+ #define SPRD_PIN_CONFIG_CONTROL		(PIN_CONFIG_END + 1)
+@@ -1013,12 +1013,12 @@ static int sprd_pinctrl_add_pins(struct sprd_pinctrl *sprd_pctl,
+ 			ctrl_pin++;
+ 		} else if (pin->type == COMMON_PIN) {
+ 			pin->reg = (unsigned long)sprd_pctl->base +
+-				PINCTRL_REG_OFFSET + PINCTRL_REG_LEN *
++				sprd_pctl->common_pin_offset + PINCTRL_REG_LEN *
+ 				(i - ctrl_pin);
+ 			com_pin++;
+ 		} else if (pin->type == MISC_PIN) {
+ 			pin->reg = (unsigned long)sprd_pctl->base +
+-				PINCTRL_REG_MISC_OFFSET + PINCTRL_REG_LEN *
++				sprd_pctl->misc_pin_offset + PINCTRL_REG_LEN *
+ 				(i - ctrl_pin - com_pin);
+ 		}
+ 	}
+@@ -1035,7 +1035,9 @@ static int sprd_pinctrl_add_pins(struct sprd_pinctrl *sprd_pctl,
+ 
+ int sprd_pinctrl_core_probe(struct platform_device *pdev,
+ 			    struct sprd_pins_info *sprd_soc_pin_info,
+-			    int pins_cnt)
++			    int pins_cnt,
++			    u32 common_pin_offset,
++			    u32 misc_pin_offset)
+ {
+ 	struct sprd_pinctrl *sprd_pctl;
+ 	struct sprd_pinctrl_soc_info *pinctrl_info;
+@@ -1059,6 +1061,8 @@ int sprd_pinctrl_core_probe(struct platform_device *pdev,
+ 
+ 	sprd_pctl->info = pinctrl_info;
+ 	sprd_pctl->dev = &pdev->dev;
++	sprd_pctl->common_pin_offset = common_pin_offset;
++	sprd_pctl->misc_pin_offset = misc_pin_offset;
+ 	platform_set_drvdata(pdev, sprd_pctl);
+ 
+ 	ret = sprd_pinctrl_add_pins(sprd_pctl, sprd_soc_pin_info, pins_cnt);
+diff --git a/drivers/pinctrl/sprd/pinctrl-sprd.h b/drivers/pinctrl/sprd/pinctrl-sprd.h
+index 190bcdb3b..d0fd454a8 100644
+--- a/drivers/pinctrl/sprd/pinctrl-sprd.h
++++ b/drivers/pinctrl/sprd/pinctrl-sprd.h
+@@ -52,7 +52,8 @@ struct sprd_pins_info {
+ 
+ int sprd_pinctrl_core_probe(struct platform_device *pdev,
+ 			    struct sprd_pins_info *sprd_soc_pin_info,
+-			    int pins_cnt);
++			    int pins_cnt, u32 common_pin_offset,
++			    u32 misc_pin_offset);
+ void sprd_pinctrl_remove(struct platform_device *pdev);
+ void sprd_pinctrl_shutdown(struct platform_device *pdev);
+ 

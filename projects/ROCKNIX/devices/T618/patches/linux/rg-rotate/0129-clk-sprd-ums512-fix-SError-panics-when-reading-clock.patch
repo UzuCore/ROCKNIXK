@@ -1,0 +1,104 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Thu, 2 Jul 2026 12:16:57 -0500
+Subject: [PATCH 129/225] clk: sprd: ums512: fix SError panics when reading
+ clocks in powered-off domains
+
+Reading /sys/kernel/debug/clk/clk_summary reliably panicked with a
+synchronous external abort in sprd_gate_is_enabled(). Two stacked causes:
+
+1. The gpu_clk (0x60100000), mm_gate (0x62200000) and mm_clk (0x62100000)
+   controllers live inside the GPU_TOP/MM power domains, which the PMU
+   genpd now genuinely powers off (MM at late-init, GPU_TOP on panfrost
+   idle). The controllers had no power-domains in DT and the ums512 probe
+   never enabled runtime PM, so the clk core's guards
+   (clk_pm_runtime_get_all() before the summary walk, the rpm check in
+   clk_core_is_enabled()) never engaged and the walk read powered-off
+   register files. Mirror ums9230_clk_probe (pm_runtime_set_active +
+   devm_pm_runtime_enable) and wire power-domains on all three nodes.
+
+2. The mm_clk CKG block additionally requires MM_CKG_EB: proven on
+   silicon that with the MM domain forced on, 0x62200000 reads fine but
+   0x62100000 still bus-faults until mm_gate bit7 is set. U-Boot leaves
+   it on, clk_disable_unused turned it off ~9.7s into boot, after which
+   the mipi_csi* gate reads aborted. Give mm_clk the optional "enable"
+   clock (<&mm_gate CLK_MM_CKG_EB>), same wiring as ums9230's mm_clk.
+
+Verified on HW: clk_summary now reads cleanly both at idle and during a
+held playback stream. Trade-off (matches ums9230 behavior): prepared
+clocks hold their provider runtime-active, so GPU_TOP/MM stay powered.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+---
+ arch/arm64/boot/dts/sprd/ums512.dtsi | 12 ++++++++++--
+ drivers/clk/sprd/ums512-clk.c        | 13 +++++++++++++
+ 2 files changed, 23 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/sprd/ums512.dtsi b/arch/arm64/boot/dts/sprd/ums512.dtsi
+index e70e74b17..e8ea35987 100644
+--- a/arch/arm64/boot/dts/sprd/ums512.dtsi
++++ b/arch/arm64/boot/dts/sprd/ums512.dtsi
+@@ -1172,6 +1172,7 @@ gpu_clk: clock-controller@0 {
+ 				clocks = <&ext_26m>;
+ 				clock-names = "ext-26m";
+ 				reg = <0x0 0x100>;
++				power-domains = <&pmu UMS512_POWER_DOMAIN_GPU_TOP>;
+ 				#clock-cells = <1>;
+ 				#reset-cells = <1>;
+ 			};
+@@ -1237,6 +1238,7 @@ mm_ahb_regs: syscon@62200000 {
+ 			mm_gate: clock-controller@0 {
+ 				compatible = "sprd,ums512-mm-gate-clk";
+ 				reg = <0x0 0x3000>;
++				power-domains = <&pmu UMS512_POWER_DOMAIN_MM>;
+ 				#clock-cells = <1>;
+ 			};
+ 		};
+@@ -1277,8 +1279,14 @@ aon_clk: clock-controller@32080000 {
+ 		mm_clk: clock-controller@62100000 {
+ 			compatible = "sprd,ums512-mm-clk";
+ 			reg = <0 0x62100000 0 0x1000>;
+-			clocks = <&ext_26m>;
+-			clock-names = "ext-26m";
++			/*
++			 * The MM CKG register file needs MM_CKG_EB in addition
++			 * to the MM power domain being on; without it any read
++			 * of this block bus-faults (mirrors ums9230's mm_clk).
++			 */
++			clocks = <&ext_26m>, <&mm_gate CLK_MM_CKG_EB>;
++			clock-names = "ext-26m", "enable";
++			power-domains = <&pmu UMS512_POWER_DOMAIN_MM>;
+ 			#clock-cells = <1>;
+ 		};
+ 
+diff --git a/drivers/clk/sprd/ums512-clk.c b/drivers/clk/sprd/ums512-clk.c
+index ffb25edb3..287140f3d 100644
+--- a/drivers/clk/sprd/ums512-clk.c
++++ b/drivers/clk/sprd/ums512-clk.c
+@@ -12,6 +12,7 @@
+ #include <linux/mod_devicetable.h>
+ #include <linux/module.h>
+ #include <linux/platform_device.h>
++#include <linux/pm_runtime.h>
+ #include <linux/slab.h>
+ 
+ #include <dt-bindings/clock/sprd,ums512-clk.h>
+@@ -2196,6 +2197,18 @@ static int ums512_clk_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		return ret;
+ 
++	/*
++	 * Controllers inside switchable power domains (gpu_clk, mm_gate,
++	 * mm_clk take power-domains in DT) must not have their registers
++	 * touched while the domain is off: the clk core skips .is_enabled
++	 * and resumes the provider around prepare only when the provider
++	 * device has runtime PM enabled (mirrors ums9230_clk_probe).
++	 */
++	pm_runtime_set_active(&pdev->dev);
++	ret = devm_pm_runtime_enable(&pdev->dev);
++	if (ret)
++		return ret;
++
+ 	if (desc->num_resets > 0) {
+ 		struct sprd_clk_drvdata *data = platform_get_drvdata(pdev);
+ 

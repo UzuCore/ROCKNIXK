@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sat, 1 Mar 2025 14:41:58 +0100
+Subject: [PATCH 039/225] dmaengine: sprd: use correct mask when setting enable
+ registers
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Instead of using the value being set as the mask, which does not clear
+other bits, use the correct bit mask when setting the registers.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/dma/sprd-dma.c | 23 +++++++++++++++++++----
+ 1 file changed, 19 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/dma/sprd-dma.c b/drivers/dma/sprd-dma.c
+index 087fea3af..48b1a6899 100644
+--- a/drivers/dma/sprd-dma.c
++++ b/drivers/dma/sprd-dma.c
+@@ -68,6 +68,7 @@
+ #define SPRD_DMA_GLB_TRANS_DONE_TRG	BIT(18)
+ #define SPRD_DMA_GLB_BLOCK_DONE_TRG	BIT(17)
+ #define SPRD_DMA_GLB_FRAG_DONE_TRG	BIT(16)
++#define SPRD_DMA_GLB_TRG_MASK		GENMASK(19, 16)
+ #define SPRD_DMA_GLB_TRG_OFFSET		16
+ #define SPRD_DMA_GLB_DEST_CHN_MASK	GENMASK(13, 8)
+ #define SPRD_DMA_GLB_DEST_CHN_OFFSET	8
+@@ -444,7 +445,11 @@ static int sprd_dma_set_2stage_config(struct sprd_dma_chn *schan)
+ 		if (schan->int_type != SPRD_DMA_NO_INT)
+ 			val |= SPRD_DMA_GLB_SRC_INT;
+ 
+-		sprd_dma_glb_update(sdev, SPRD_DMA_GLB_2STAGE_GRP1, val, val);
++		sprd_dma_glb_update(sdev, SPRD_DMA_GLB_2STAGE_GRP1,
++				    SPRD_DMA_GLB_2STAGE_EN |
++				    SPRD_DMA_GLB_SRC_INT |
++				    SPRD_DMA_GLB_TRG_MASK |
++				    SPRD_DMA_GLB_SRC_CHN_MASK, val);
+ 		break;
+ 
+ 	case SPRD_DMA_SRC_CHN1:
+@@ -454,7 +459,11 @@ static int sprd_dma_set_2stage_config(struct sprd_dma_chn *schan)
+ 		if (schan->int_type != SPRD_DMA_NO_INT)
+ 			val |= SPRD_DMA_GLB_SRC_INT;
+ 
+-		sprd_dma_glb_update(sdev, SPRD_DMA_GLB_2STAGE_GRP2, val, val);
++		sprd_dma_glb_update(sdev, SPRD_DMA_GLB_2STAGE_GRP2,
++				    SPRD_DMA_GLB_2STAGE_EN |
++				    SPRD_DMA_GLB_SRC_INT |
++				    SPRD_DMA_GLB_TRG_MASK |
++				    SPRD_DMA_GLB_SRC_CHN_MASK, val);
+ 		break;
+ 
+ 	case SPRD_DMA_DST_CHN0:
+@@ -464,7 +473,10 @@ static int sprd_dma_set_2stage_config(struct sprd_dma_chn *schan)
+ 		if (schan->int_type != SPRD_DMA_NO_INT)
+ 			val |= SPRD_DMA_GLB_DEST_INT;
+ 
+-		sprd_dma_glb_update(sdev, SPRD_DMA_GLB_2STAGE_GRP1, val, val);
++		sprd_dma_glb_update(sdev, SPRD_DMA_GLB_2STAGE_GRP1,
++				    SPRD_DMA_GLB_2STAGE_EN |
++				    SPRD_DMA_GLB_DEST_INT |
++				    SPRD_DMA_GLB_DEST_CHN_MASK, val);
+ 		break;
+ 
+ 	case SPRD_DMA_DST_CHN1:
+@@ -474,7 +486,10 @@ static int sprd_dma_set_2stage_config(struct sprd_dma_chn *schan)
+ 		if (schan->int_type != SPRD_DMA_NO_INT)
+ 			val |= SPRD_DMA_GLB_DEST_INT;
+ 
+-		sprd_dma_glb_update(sdev, SPRD_DMA_GLB_2STAGE_GRP2, val, val);
++		sprd_dma_glb_update(sdev, SPRD_DMA_GLB_2STAGE_GRP2,
++				    SPRD_DMA_GLB_2STAGE_EN |
++				    SPRD_DMA_GLB_DEST_INT |
++				    SPRD_DMA_GLB_DEST_CHN_MASK, val);
+ 		break;
+ 
+ 	default:

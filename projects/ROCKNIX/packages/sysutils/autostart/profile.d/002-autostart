@@ -3,10 +3,11 @@
 # Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
 
 ### Apply device quirks
+# "strings" (binutils) is not in the image, so read the NUL-terminated sysfs strings with tr.
 if [ -e "/sys/firmware/devicetree/base/model" ]
 then
-  export QUIRK_DEVICE="$(strings /sys/firmware/devicetree/base/model)"
+  export QUIRK_DEVICE="$(tr -d '\0' < /sys/firmware/devicetree/base/model)"
 else
-  export QUIRK_DEVICE="$(strings /sys/class/dmi/id/sys_vendor) $(strings /sys/class/dmi/id/product_name)"
+  export QUIRK_DEVICE="$(tr -d '\0' < /sys/class/dmi/id/sys_vendor) $(tr -d '\0' < /sys/class/dmi/id/product_name)"
 fi
 export QUIRK_DEVICE="$(echo ${QUIRK_DEVICE} | sed -e "s#[/]#-#g")"

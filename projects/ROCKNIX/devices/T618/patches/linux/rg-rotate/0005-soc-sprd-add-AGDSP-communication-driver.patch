@@ -1,0 +1,462 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Tue, 15 Apr 2025 09:29:16 +0200
+Subject: [PATCH 005/225] soc: sprd: add AGDSP communication driver
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add an IPC driver for the audio DSP found in the Unisoc UMS9230 SoC. The
+DSP uses a simple IPC protocol based on a fixed-size command ring buffer
+and needs to be woken up using a mailbox. Since the DSP also manages the
+power domain for the entire audio subsystem and needs to be woken up
+using the same mailbox channel to power it on, this driver also acts as
+a power domain driver for the audio subsystem.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/soc/Kconfig            |   1 +
+ drivers/soc/Makefile           |   1 +
+ drivers/soc/sprd/Kconfig       |  13 ++
+ drivers/soc/sprd/Makefile      |   3 +
+ drivers/soc/sprd/sprd-agdsp.c  | 334 +++++++++++++++++++++++++++++++++
+ include/linux/soc/sprd/agdsp.h |  35 ++++
+ 6 files changed, 387 insertions(+)
+ create mode 100644 drivers/soc/sprd/Kconfig
+ create mode 100644 drivers/soc/sprd/Makefile
+ create mode 100644 drivers/soc/sprd/sprd-agdsp.c
+ create mode 100644 include/linux/soc/sprd/agdsp.h
+
+diff --git a/drivers/soc/Kconfig b/drivers/soc/Kconfig
+index a2d65adff..5011c4c6c 100644
+--- a/drivers/soc/Kconfig
++++ b/drivers/soc/Kconfig
+@@ -24,6 +24,7 @@ source "drivers/soc/renesas/Kconfig"
+ source "drivers/soc/rockchip/Kconfig"
+ source "drivers/soc/samsung/Kconfig"
+ source "drivers/soc/sophgo/Kconfig"
++source "drivers/soc/sprd/Kconfig"
+ source "drivers/soc/sunxi/Kconfig"
+ source "drivers/soc/tegra/Kconfig"
+ source "drivers/soc/ti/Kconfig"
+diff --git a/drivers/soc/Makefile b/drivers/soc/Makefile
+index c9e689080..2a38a5bb9 100644
+--- a/drivers/soc/Makefile
++++ b/drivers/soc/Makefile
+@@ -30,6 +30,7 @@ obj-y				+= renesas/
+ obj-y				+= rockchip/
+ obj-$(CONFIG_SOC_SAMSUNG)	+= samsung/
+ obj-y				+= sophgo/
++obj-y				+= sprd/
+ obj-y				+= sunxi/
+ obj-$(CONFIG_ARCH_TEGRA)	+= tegra/
+ obj-y				+= ti/
+diff --git a/drivers/soc/sprd/Kconfig b/drivers/soc/sprd/Kconfig
+new file mode 100644
+index 000000000..9288a9c4a
+--- /dev/null
++++ b/drivers/soc/sprd/Kconfig
+@@ -0,0 +1,13 @@
++# SPDX-License-Identifier: GPL-2.0-only
++
++menu "Spreadtrum and Unisoc SoC drivers"
++
++config SPRD_AGDSP
++	tristate "Audio DSP support"
++	depends on ARCH_SPRD || COMPILE_TEST
++	depends on MAILBOX
++	help
++	  Say y here to enable support for communication with the audio
++	  DSP found in Spreadtrum/Unisoc SoCs.
++
++endmenu
+diff --git a/drivers/soc/sprd/Makefile b/drivers/soc/sprd/Makefile
+new file mode 100644
+index 000000000..661b85ab2
+--- /dev/null
++++ b/drivers/soc/sprd/Makefile
+@@ -0,0 +1,3 @@
++# SPDX-License-Identifier: GPL-2.0-only
++
++obj-$(CONFIG_SPRD_AGDSP) += sprd-agdsp.o
+diff --git a/drivers/soc/sprd/sprd-agdsp.c b/drivers/soc/sprd/sprd-agdsp.c
+new file mode 100644
+index 000000000..6b122b97e
+--- /dev/null
++++ b/drivers/soc/sprd/sprd-agdsp.c
+@@ -0,0 +1,334 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (C) 2026 Otto Pflüger
++ */
++
++#include <linux/io.h>
++#include <linux/mailbox_client.h>
++#include <linux/mfd/syscon.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/of_reserved_mem.h>
++#include <linux/platform_device.h>
++#include <linux/pm_domain.h>
++#include <linux/regmap.h>
++#include <linux/reset.h>
++#include <linux/soc/sprd/agdsp.h>
++
++#define UMS9230_AON_AGDSP_ACCESS_REG	0x014C
++#define UMS9230_AON_AGDSP_ACCESS_EN	BIT(5)
++
++/* These sizes are required by the DSP firmware */
++#define CMD_PARAM_BUF_SIZE	1024
++#define SMSG_BUF_SIZE		64
++
++struct agdsp_ring_msg {
++	u16 cmd;
++	u16 channel;
++	u32 param[4];
++} __packed;
++
++struct agdsp_smem {
++	u8 param_buf[CMD_PARAM_BUF_SIZE];
++	struct agdsp_ring_msg tx_msg[SMSG_BUF_SIZE];
++	struct agdsp_ring_msg rx_msg[SMSG_BUF_SIZE];
++	u32 tx_rdptr;
++	u32 tx_wrptr;
++	u32 rx_rdptr;
++	u32 rx_wrptr;
++} __packed;
++
++struct agdsp_shm_params {
++	u32 id;
++	u32 type;
++	u32 phy_addr;
++	u32 size;
++} __packed;
++
++struct sprd_agdsp_ipc {
++	struct generic_pm_domain genpd;
++	struct regmap *aon_apb_regs;
++	struct mbox_client mbox_client;
++	struct mbox_chan *mbox_chan;
++	phys_addr_t smem_phys;
++	struct agdsp_smem __iomem *smem_virt;
++	spinlock_t msg_lock;
++	struct mutex cmd_lock;
++	u16 last_cmd;
++	u16 last_channel;
++	struct completion cmd_response;
++};
++
++static u64 agdsp_wakeup_msg = 1;
++
++static void agdsp_ipc_callback(struct mbox_client *mbox_client, void *msg_data)
++{
++	struct sprd_agdsp_ipc *ipc = container_of(mbox_client, struct sprd_agdsp_ipc, mbox_client);
++	u32 rdptr;
++
++	rdptr = readl_relaxed(&ipc->smem_virt->rx_rdptr);
++
++	while (rdptr != readl_relaxed(&ipc->smem_virt->rx_wrptr)) {
++		struct agdsp_ring_msg msg;
++
++		memcpy_fromio(&msg,
++			      &ipc->smem_virt->rx_msg[rdptr % SMSG_BUF_SIZE],
++			      sizeof(msg));
++
++		if (msg.cmd == ipc->last_cmd && msg.channel == ipc->last_channel)
++			complete_all(&ipc->cmd_response);
++
++		rdptr += 1;
++	}
++
++	writel_relaxed(rdptr, &ipc->smem_virt->rx_rdptr);
++}
++
++int sprd_agdsp_send_msg(struct sprd_agdsp_ipc *ipc, u16 channel, u16 cmd,
++			u32 param0, u32 param1, u32 param2, u32 param3)
++{
++	struct agdsp_ring_msg msg;
++	unsigned long flags;
++	u32 wrptr;
++	int ret;
++
++	msg.channel = channel;
++	msg.cmd = cmd;
++	msg.param[0] = param0;
++	msg.param[1] = param1;
++	msg.param[2] = param2;
++	msg.param[3] = param3;
++
++	spin_lock_irqsave(&ipc->msg_lock, flags);
++
++	wrptr = readl_relaxed(&ipc->smem_virt->tx_wrptr);
++
++	memcpy_toio(&ipc->smem_virt->tx_msg[wrptr % SMSG_BUF_SIZE],
++		    &msg, sizeof(msg));
++
++	writel(wrptr + 1, &ipc->smem_virt->tx_wrptr);
++
++	ret = mbox_send_message(ipc->mbox_chan, &agdsp_wakeup_msg);
++
++	spin_unlock_irqrestore(&ipc->msg_lock, flags);
++
++	if (ret < 0)
++		return ret;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(sprd_agdsp_send_msg);
++
++int sprd_agdsp_send_cmd(struct sprd_agdsp_ipc *ipc, u16 channel, u16 cmd,
++			s32 id, s32 stream, void *params, size_t param_size)
++{
++	int ret;
++
++	if (param_size > CMD_PARAM_BUF_SIZE)
++		return -E2BIG;
++
++	mutex_lock(&ipc->cmd_lock);
++
++	memcpy_toio(ipc->smem_virt->param_buf, params, param_size);
++
++	ipc->last_cmd = cmd;
++	ipc->last_channel = channel;
++	reinit_completion(&ipc->cmd_response);
++
++	ret = sprd_agdsp_send_msg(ipc, channel, cmd, id, stream,
++				  ipc->smem_phys, 0);
++	if (ret)
++		goto out;
++
++	ret = wait_for_completion_timeout(&ipc->cmd_response, 5 * HZ);
++	if (ret == 0) {
++		ret = -ETIMEDOUT;
++		goto out;
++	}
++
++	ret = 0;
++
++out:
++	mutex_unlock(&ipc->cmd_lock);
++	return ret;
++}
++EXPORT_SYMBOL_GPL(sprd_agdsp_send_cmd);
++
++int sprd_agdsp_shm_cmd(struct sprd_agdsp_ipc *ipc, u16 channel, u16 cmd,
++		       s32 id, s32 stream, u32 type, dma_addr_t addr,
++		       size_t size)
++{
++	struct agdsp_shm_params params = {
++		.id = id,
++		.type = type,
++		.phy_addr = addr,
++		.size = size,
++	};
++
++	return sprd_agdsp_send_cmd(ipc, channel, cmd, id, stream, &params,
++				   sizeof(params));
++}
++EXPORT_SYMBOL_GPL(sprd_agdsp_shm_cmd);
++
++static int agdsp_power_on(struct generic_pm_domain *genpd)
++{
++	struct sprd_agdsp_ipc *ipc =
++		container_of(genpd, struct sprd_agdsp_ipc, genpd);
++	int ret;
++
++	regmap_set_bits(ipc->aon_apb_regs, UMS9230_AON_AGDSP_ACCESS_REG,
++			UMS9230_AON_AGDSP_ACCESS_EN);
++
++	ret = mbox_send_message(ipc->mbox_chan, &agdsp_wakeup_msg);
++	if (ret < 0)
++		return ret;
++
++	usleep_range(100, 200);
++	dev_dbg(ipc->mbox_client.dev, "power on complete\n");
++
++	return 0;
++}
++
++static int agdsp_power_off(struct generic_pm_domain *genpd)
++{
++	struct sprd_agdsp_ipc *ipc =
++		container_of(genpd, struct sprd_agdsp_ipc, genpd);
++
++	regmap_clear_bits(ipc->aon_apb_regs, UMS9230_AON_AGDSP_ACCESS_REG,
++			  UMS9230_AON_AGDSP_ACCESS_EN);
++
++	return 0;
++}
++
++static int sprd_agdsp_probe(struct platform_device *pdev)
++{
++	struct sprd_agdsp_ipc *ipc;
++	struct device_node *region;
++	struct reserved_mem *rmem;
++	int ret;
++
++	ipc = devm_kzalloc(&pdev->dev, sizeof(*ipc), GFP_KERNEL);
++	if (!ipc)
++		return -ENOMEM;
++
++	spin_lock_init(&ipc->msg_lock);
++	mutex_init(&ipc->cmd_lock);
++	init_completion(&ipc->cmd_response);
++
++	ipc->aon_apb_regs = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
++							    "sprd,syscon-aon-apb");
++	if (IS_ERR(ipc->aon_apb_regs)) {
++		dev_err(&pdev->dev, "failed to get AON APB syscon\n");
++		return PTR_ERR(ipc->aon_apb_regs);
++	}
++
++	region = of_parse_phandle(pdev->dev.of_node, "memory-region", 0);
++	if (IS_ERR(region)) {
++		dev_err(&pdev->dev, "failed to parse memory-region handle\n");
++		return PTR_ERR(region);
++	}
++
++	rmem = of_reserved_mem_lookup(region);
++	of_node_put(region);
++
++	if (!rmem) {
++		dev_err(&pdev->dev, "failed to look up memory region\n");
++		return -ENOMEM;
++	}
++
++	if (rmem->size < sizeof(struct agdsp_smem)) {
++		dev_err(&pdev->dev, "reserved memory region is too small\n");
++		return -ENOMEM;
++	}
++
++	ipc->smem_phys = rmem->base;
++	ipc->smem_virt = devm_ioremap(&pdev->dev, rmem->base, rmem->size);
++	if (!ipc->smem_virt) {
++		dev_err(&pdev->dev, "failed to map memory region\n");
++		return -ENOMEM;
++	}
++
++	ipc->genpd.name = dev_name(&pdev->dev);
++	ipc->genpd.power_on = agdsp_power_on;
++	ipc->genpd.power_off = agdsp_power_off;
++
++	ret = pm_genpd_init(&ipc->genpd, NULL, true);
++	if (ret < 0) {
++		dev_err(&pdev->dev, "failed to initialize power domain\n");
++		return ret;
++	}
++
++	ret = of_genpd_add_provider_simple(pdev->dev.of_node, &ipc->genpd);
++	if (ret < 0) {
++		dev_err(&pdev->dev, "failed to add power domain provider\n");
++		return ret;
++	}
++
++	ipc->mbox_client.dev = &pdev->dev;
++	ipc->mbox_client.rx_callback = agdsp_ipc_callback;
++
++	/* Receive any messages that might be in the buffer */
++	agdsp_ipc_callback(&ipc->mbox_client, NULL);
++
++	ipc->mbox_chan = mbox_request_channel(&ipc->mbox_client, 0);
++	if (IS_ERR(ipc->mbox_chan)) {
++		of_genpd_del_provider(pdev->dev.of_node);
++		pm_genpd_remove(&ipc->genpd);
++		return dev_err_probe(&pdev->dev, PTR_ERR(ipc->mbox_chan),
++				     "failed to request mailbox\n");
++	}
++
++	platform_set_drvdata(pdev, ipc);
++
++	return 0;
++}
++
++static void sprd_agdsp_remove(struct platform_device *pdev)
++{
++	struct sprd_agdsp_ipc *ipc = platform_get_drvdata(pdev);
++
++	mbox_free_channel(ipc->mbox_chan);
++}
++
++static const struct of_device_id sprd_agdsp_of_match[] = {
++	{ .compatible = "sprd,ums9230-agdsp" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sprd_agdsp_of_match);
++
++static struct platform_driver sprd_agdsp_driver = {
++	.probe = sprd_agdsp_probe,
++	.remove = sprd_agdsp_remove,
++	.driver = {
++		.name = "sprd-agdsp",
++		.of_match_table = sprd_agdsp_of_match,
++	},
++};
++module_platform_driver(sprd_agdsp_driver);
++
++struct sprd_agdsp_ipc *sprd_get_agdsp_ipc(struct device_node *node, const char *name)
++{
++	struct device_node *agdsp_np;
++	struct device *dev;
++
++	agdsp_np = of_parse_phandle(node, name, 0);
++	if (!agdsp_np)
++		return ERR_PTR(-ENODEV);
++
++	dev = driver_find_device_by_of_node(&sprd_agdsp_driver.driver, agdsp_np);
++	of_node_put(agdsp_np);
++	if (!dev)
++		return ERR_PTR(-EPROBE_DEFER);
++
++	return dev_get_drvdata(dev);
++}
++EXPORT_SYMBOL_GPL(sprd_get_agdsp_ipc);
++
++void sprd_put_agdsp_ipc(struct sprd_agdsp_ipc *ipc)
++{
++	put_device(ipc->mbox_client.dev);
++}
++EXPORT_SYMBOL_GPL(sprd_put_agdsp_ipc);
++
++MODULE_DESCRIPTION("Unisoc audio DSP communication driver");
++MODULE_LICENSE("GPL");
+diff --git a/include/linux/soc/sprd/agdsp.h b/include/linux/soc/sprd/agdsp.h
+new file mode 100644
+index 000000000..dd1d86222
+--- /dev/null
++++ b/include/linux/soc/sprd/agdsp.h
+@@ -0,0 +1,35 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef __SOC_SPRD_AGDSP_H
++#define __SOC_SPRD_AGDSP_H
++
++struct sprd_agdsp_ipc;
++
++enum {
++	AGDSP_CH_VBC_CTL,
++	AGDSP_CH_MP3_OFFLOAD,
++	AGDSP_CH_DSP_ASSERT_CTL,
++	AGDSP_CH_DSP_PCM,
++	AGDSP_CH_DSP_LOG,
++	AGDSP_CH_DSP_MEM,
++	AGDSP_CH_MP3_OFFLOAD_DRAIN,
++	AGDSP_CH_DSP_GET_PARAM_FROM_SMSG_NOREPLY,
++	AGDSP_CH_EFFECT_OFFLOAD,
++	AGDSP_CH_RECORD_PROCESS,
++	AGDSP_CH_DVFS,
++	AGDSP_CH_DSP_BTHAL,
++	AGDSP_CH_DSP_HIFI,
++};
++
++int sprd_agdsp_send_msg(struct sprd_agdsp_ipc *ipc, u16 channel, u16 cmd,
++			u32 param0, u32 param1, u32 param2, u32 param3);
++int sprd_agdsp_send_cmd(struct sprd_agdsp_ipc *ipc, u16 channel, u16 cmd,
++			s32 id, s32 stream, void *params, size_t param_size);
++int sprd_agdsp_shm_cmd(struct sprd_agdsp_ipc *ipc, u16 channel, u16 cmd,
++		       s32 id, s32 stream, u32 type, dma_addr_t addr,
++		       size_t size);
++
++struct sprd_agdsp_ipc *sprd_get_agdsp_ipc(struct device_node *node,
++					  const char *name);
++void sprd_put_agdsp_ipc(struct sprd_agdsp_ipc *ipc);
++
++#endif

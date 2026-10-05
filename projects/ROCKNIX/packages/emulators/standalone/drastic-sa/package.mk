@@ -32,6 +32,7 @@ makeinstall_target() {
 
 post_install() {
   case ${DEVICE} in
+    T618) HOTKEY="export HOTKEY=\"guide\"" ;;
     RK3588) HOTKEY="export HOTKEY="guide"" ;;
     *) HOTKEY="" ;;
   esac

@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sat, 17 May 2025 20:35:16 +0200
+Subject: [PATCH 058/225] dt-bindings: gpio: add bindings for Unisoc UMS9230
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+UMS9230 uses the same GPIO controllers as previous SoCs, but has more
+EIC banks. Increase the maximum number of banks and add compatible
+strings.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ Documentation/devicetree/bindings/gpio/sprd,gpio-eic.yaml | 8 ++++++--
+ Documentation/devicetree/bindings/gpio/sprd,gpio.yaml     | 1 +
+ 2 files changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/gpio/sprd,gpio-eic.yaml b/Documentation/devicetree/bindings/gpio/sprd,gpio-eic.yaml
+index 99fcf9707..f18dae6ba 100644
+--- a/Documentation/devicetree/bindings/gpio/sprd,gpio-eic.yaml
++++ b/Documentation/devicetree/bindings/gpio/sprd,gpio-eic.yaml
+@@ -52,18 +52,22 @@ properties:
+       - items:
+           - enum:
+               - sprd,ums512-eic-debounce
++              - sprd,ums9230-eic-debounce
+           - const: sprd,sc9860-eic-debounce
+       - items:
+           - enum:
+               - sprd,ums512-eic-latch
++              - sprd,ums9230-eic-latch
+           - const: sprd,sc9860-eic-latch
+       - items:
+           - enum:
+               - sprd,ums512-eic-async
++              - sprd,ums9230-eic-async
+           - const: sprd,sc9860-eic-async
+       - items:
+           - enum:
+               - sprd,ums512-eic-sync
++              - sprd,ums9230-eic-sync
+           - const: sprd,sc9860-eic-sync
+       - items:
+           - enum:
+@@ -72,9 +76,9 @@ properties:
+ 
+   reg:
+     minItems: 1
+-    maxItems: 3
++    maxItems: 6
+     description:
+-      EIC controller can support maximum 3 banks which has its own
++      EIC controller can support maximum 6 banks which has its own
+       address base.
+ 
+   gpio-controller: true
+diff --git a/Documentation/devicetree/bindings/gpio/sprd,gpio.yaml b/Documentation/devicetree/bindings/gpio/sprd,gpio.yaml
+index 483168838..d3e65eeb2 100644
+--- a/Documentation/devicetree/bindings/gpio/sprd,gpio.yaml
++++ b/Documentation/devicetree/bindings/gpio/sprd,gpio.yaml
+@@ -24,6 +24,7 @@ properties:
+       - items:
+           - enum:
+               - sprd,ums512-gpio
++              - sprd,ums9230-gpio
+           - const: sprd,sc9860-gpio
+ 
+   reg:

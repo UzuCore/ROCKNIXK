@@ -1,0 +1,151 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Mon, 18 Aug 2025 15:40:40 +0200
+Subject: [PATCH 066/225] power: reset: sc27xx: Add reboot support for SC2730
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Unlike SC2731, the SC2730 PMIC also provides dedicated registers for
+resetting the hardware. Use them to implement reboot support.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/power/reset/sc27xx-poweroff.c | 89 +++++++++++++++++++++++++++
+ 1 file changed, 89 insertions(+)
+
+diff --git a/drivers/power/reset/sc27xx-poweroff.c b/drivers/power/reset/sc27xx-poweroff.c
+index 7be1d8fef..37b43e18c 100644
+--- a/drivers/power/reset/sc27xx-poweroff.c
++++ b/drivers/power/reset/sc27xx-poweroff.c
+@@ -18,16 +18,42 @@
+ #define SC2730_SLP_CTRL		0x1a48
+ #define SC2730_LDO_XTL_EN	BIT(2)
+ 
++#define SC2730_SOFT_RST_HW	0x1824
++#define SC2730_RST_STATUS	0x1bac
++#define SC2730_SWRST_CTRL0	0x1bf8
++
+ #define SC2731_PWR_PD_HW	0xc2c
+ #define SC2731_SLP_CTRL		0xdf0
+ #define SC2731_LDO_XTL_EN	BIT(3)
+ 
+ #define SC27XX_PWR_OFF_EN	BIT(0)
++#define SC27XX_SOFT_RST_EN	BIT(4)
++#define SC27XX_RESET		BIT(0)
++
++#define HWRST_STATUS_SECURITY		0x02
++#define HWRST_STATUS_RECOVERY		0x20
++#define HWRST_STATUS_NORMAL		0x40
++#define HWRST_STATUS_ALARM		0x50
++#define HWRST_STATUS_SLEEP		0x60
++#define HWRST_STATUS_FASTBOOT		0x30
++#define HWRST_STATUS_SPECIAL		0x70
++#define HWRST_STATUS_PANIC		0x80
++#define HWRST_STATUS_CFTREBOOT		0x90
++#define HWRST_STATUS_AUTODLOADER	0xa0
++#define HWRST_STATUS_IQMODE		0xb0
++#define HWRST_STATUS_SPRDISK		0xc0
++#define HWRST_STATUS_FACTORYTEST	0xe0
++#define HWRST_STATUS_WATCHDOG		0xf0
++#define HWRST_STATUS_MASK		0xf0
+ 
+ struct sc27xx_poweroff_reg_info {
+ 	u32 poweroff_reg;
+ 	u32 slp_ctrl_reg;
+ 	u32 ldo_xtl_en;
++
++	u32 reset_reg;
++	u32 rst_sts_reg;
++	u32 swrst_ctrl_reg;
+ };
+ 
+ struct sc27xx_poweroff_data {
+@@ -82,10 +108,60 @@ static int sc27xx_poweroff_do_poweroff(struct sys_off_data *off_data)
+ 	return NOTIFY_DONE;
+ }
+ 
++static int sc27xx_restart(struct sys_off_data *off_data)
++{
++	struct sc27xx_poweroff_data *data = off_data->cb_data;
++	u32 reboot_mode = 0;
++
++	if (!off_data->cmd)
++		reboot_mode = HWRST_STATUS_NORMAL;
++	else if (!strcmp(off_data->cmd, "recovery"))
++		reboot_mode = HWRST_STATUS_RECOVERY;
++	else if (!strcmp(off_data->cmd, "alarm"))
++		reboot_mode = HWRST_STATUS_ALARM;
++	else if (!strcmp(off_data->cmd, "fastsleep"))
++		reboot_mode = HWRST_STATUS_SLEEP;
++	else if (!strcmp(off_data->cmd, "bootloader"))
++		reboot_mode = HWRST_STATUS_FASTBOOT;
++	else if (!strcmp(off_data->cmd, "panic"))
++		reboot_mode = HWRST_STATUS_PANIC;
++	else if (!strcmp(off_data->cmd, "special"))
++		reboot_mode = HWRST_STATUS_SPECIAL;
++	else if (!strcmp(off_data->cmd, "cftreboot"))
++		reboot_mode = HWRST_STATUS_CFTREBOOT;
++	else if (!strcmp(off_data->cmd, "autodloader"))
++		reboot_mode = HWRST_STATUS_AUTODLOADER;
++	else if (!strcmp(off_data->cmd, "iqmode"))
++		reboot_mode = HWRST_STATUS_IQMODE;
++	else if (!strcmp(off_data->cmd, "sprdisk"))
++		reboot_mode = HWRST_STATUS_SPRDISK;
++	else if (!strcmp(off_data->cmd, "tospanic"))
++		reboot_mode = HWRST_STATUS_SECURITY;
++	else if (!strcmp(off_data->cmd, "factorytest"))
++		reboot_mode = HWRST_STATUS_FACTORYTEST;
++	else
++		reboot_mode = HWRST_STATUS_NORMAL;
++
++	regmap_update_bits(data->regmap, data->regs->rst_sts_reg,
++			   HWRST_STATUS_MASK, reboot_mode);
++
++	regmap_set_bits(data->regmap, data->regs->swrst_ctrl_reg,
++			SC27XX_SOFT_RST_EN);
++
++	regmap_write(data->regmap, data->regs->reset_reg, SC27XX_RESET);
++
++	mdelay(1000);
++
++	pr_emerg("Unable to restart system\n");
++
++	return NOTIFY_DONE;
++}
++
+ static int sc27xx_poweroff_probe(struct platform_device *pdev)
+ {
+ 	const struct platform_device_id *id = platform_get_device_id(pdev);
+ 	struct sc27xx_poweroff_data *data;
++	int ret;
+ 
+ 	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
+ 	if (!data)
+@@ -99,6 +175,15 @@ static int sc27xx_poweroff_probe(struct platform_device *pdev)
+ 
+ 	register_syscore(&poweroff_syscore);
+ 
++	if (data->regs->reset_reg) {
++		ret = devm_register_sys_off_handler(&pdev->dev,
++						    SYS_OFF_MODE_RESTART,
++						    192, sc27xx_restart,
++						    data);
++		if (ret)
++			return ret;
++	}
++
+ 	return devm_register_sys_off_handler(&pdev->dev,
+ 					     SYS_OFF_MODE_POWER_OFF,
+ 					     SYS_OFF_PRIO_DEFAULT,
+@@ -110,6 +195,10 @@ static const struct sc27xx_poweroff_reg_info sc2730_pwr_regs = {
+ 	.poweroff_reg = SC2730_PWR_PD_HW,
+ 	.slp_ctrl_reg = SC2730_SLP_CTRL,
+ 	.ldo_xtl_en = SC2730_LDO_XTL_EN,
++
++	.reset_reg = SC2730_SOFT_RST_HW,
++	.rst_sts_reg = SC2730_RST_STATUS,
++	.swrst_ctrl_reg = SC2730_SWRST_CTRL0,
+ };
+ 
+ static const struct sc27xx_poweroff_reg_info sc2731_pwr_regs = {

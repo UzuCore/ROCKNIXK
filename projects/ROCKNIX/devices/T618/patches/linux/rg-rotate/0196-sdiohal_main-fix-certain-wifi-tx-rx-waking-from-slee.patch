@@ -1,0 +1,72 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Thu, 30 Jul 2026 20:55:29 -0500
+Subject: [PATCH 196/225] sdiohal_main: fix certain wifi tx/rx waking from
+ sleep
+
+---
+ .../net/wireless/sprdwcn/sdio/sdiohal_main.c  | 31 +++++++++++++++++--
+ 1 file changed, 29 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/sprdwcn/sdio/sdiohal_main.c b/drivers/net/wireless/sprdwcn/sdio/sdiohal_main.c
+index 3be9927f1..7e5dd0bbb 100644
+--- a/drivers/net/wireless/sprdwcn/sdio/sdiohal_main.c
++++ b/drivers/net/wireless/sprdwcn/sdio/sdiohal_main.c
+@@ -1035,6 +1035,14 @@ static int sdiohal_suspend(struct device *dev)
+         goto fail_to_suspend;
+     }
+ 
++	/*
++	 * Only armed on the success path, and mirrored in sdiohal_resume():
++	 * a device whose .suspend fails never reaches dpm_suspended_list, so
++	 * .resume is not called for it and the pair stays balanced.
++	 */
++	if (device_may_wakeup(dev))
++		enable_irq_wake(p_data->irq_num);
++
+ 	/* WARNING: wait for sending to complete? */
+ 	pr_info("[%s]done xmit_lock:%d\n", __func__, mutex_is_locked(&p_data->xmit_lock));
+ 	return 0;
+@@ -1075,6 +1083,9 @@ static int sdiohal_resume(struct device *dev)
+ 
+ 	pr_info("[%s]enter xmit_lock:%d\n", __func__, mutex_is_locked(&p_data->xmit_lock));
+ 
++	if (device_may_wakeup(dev))
++		disable_irq_wake(p_data->irq_num);
++
+ 	if (WCN_CARD_EXIST(&p_data->xmit_cnt)) {
+ 		func = container_of(dev, struct sdio_func, dev);
+ 		func->card->host->pm_flags &= ~MMC_PM_KEEP_POWER;
+@@ -1216,14 +1227,30 @@ static int sdiohal_probe(struct sdio_func *func,
+ 
+ 	sdiohal_set_cp_pin_status();
+ 
++	/*
++	 * No IRQF_NO_SUSPEND: nothing in sdiohal_suspend() needs this line,
++	 * because it all runs before suspend_device_irqs(). The flag only
++	 * covered the noirq window, where an RX assertion from the CP resumed
++	 * the whole AP -- and, being outside the wakeup accounting, did so
++	 * without ever showing up in /sys/power/pm_wakeup_irq. Let the line
++	 * suspend normally instead; the CP holds it high and the RX thread
++	 * drains it once resume_device_irqs() replays it.
++	 */
+ 	ret = request_irq(p_data->irq_num, sdiohal_irq_handler,
+-			  IRQF_TRIGGER_HIGH | IRQF_NO_SUSPEND,
+-			  "sdiohal_irq", &func->dev);
++			  IRQF_TRIGGER_HIGH, "sdiohal_irq", &func->dev);
+ 	if (ret != 0) {
+ 		pr_err("request irq err gpio is %d\n", p_data->irq_num);
+ 		return ret;
+ 	}
+ 
++	/*
++	 * Wake-capable but disabled by default, so RX traffic cannot pull the
++	 * device out of deep sleep unless userspace opts in via
++	 * /sys/bus/sdio/devices/.../power/wakeup.
++	 */
++	device_set_wakeup_capable(&func->dev, true);
++	device_wakeup_disable(&func->dev);
++
+ 	disable_irq(p_data->irq_num);
+ 	complete(&p_data->scan_done);
+ 

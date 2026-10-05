@@ -1,0 +1,4157 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sat, 17 May 2025 18:29:01 +0200
+Subject: [PATCH 090/225] media: platform: sprd: Add Unisoc camera subsystem
+ driver
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add a driver for the camera subsystem found in the UMS9230 SoC.
+The camera subsystem contains three CSI receivers which can be
+independently connected to different CSI PHY ports and three DCAM
+blocks which can be connected to the CSI receivers. The third DCAM block
+has a reduced feature set and is not supported by this driver at the
+moment.
+
+Besides writing raw frames to memory, the full-featured DCAM blocks also
+provide some simple ISP features. Black level correction, white balance
+gain control, lens shading correction and statistics for automatic
+exposure and autofocus are implemented in this driver. There is also a
+separate ISP used for debayering, color correction and denoising, which
+operates as a memory-to-memory device and is going to be supported by a
+separate driver.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/media/platform/Kconfig                |   1 +
+ drivers/media/platform/Makefile               |   1 +
+ drivers/media/platform/sprd/Kconfig           |   5 +
+ drivers/media/platform/sprd/Makefile          |   2 +
+ drivers/media/platform/sprd/camsys/Kconfig    |  13 +
+ drivers/media/platform/sprd/camsys/Makefile   |   6 +
+ drivers/media/platform/sprd/camsys/camsys.c   | 363 ++++++++++++
+ drivers/media/platform/sprd/camsys/camsys.h   | 314 ++++++++++
+ drivers/media/platform/sprd/camsys/capture.c  | 524 +++++++++++++++++
+ drivers/media/platform/sprd/camsys/config.c   | 312 ++++++++++
+ drivers/media/platform/sprd/camsys/csi-regs.h |  59 ++
+ drivers/media/platform/sprd/camsys/csi.c      | 292 ++++++++++
+ .../platform/sprd/camsys/dcam-regs-ums9230.h  | 551 ++++++++++++++++++
+ .../media/platform/sprd/camsys/dcam-ums9230.c | 433 ++++++++++++++
+ drivers/media/platform/sprd/camsys/dcam.c     | 378 ++++++++++++
+ .../media/platform/sprd/camsys/hw-ums9230.c   | 159 +++++
+ drivers/media/platform/sprd/camsys/lsc.c      | 267 +++++++++
+ drivers/media/platform/sprd/camsys/stats.c    | 297 ++++++++++
+ 18 files changed, 3977 insertions(+)
+ create mode 100644 drivers/media/platform/sprd/Kconfig
+ create mode 100644 drivers/media/platform/sprd/Makefile
+ create mode 100644 drivers/media/platform/sprd/camsys/Kconfig
+ create mode 100644 drivers/media/platform/sprd/camsys/Makefile
+ create mode 100644 drivers/media/platform/sprd/camsys/camsys.c
+ create mode 100644 drivers/media/platform/sprd/camsys/camsys.h
+ create mode 100644 drivers/media/platform/sprd/camsys/capture.c
+ create mode 100644 drivers/media/platform/sprd/camsys/config.c
+ create mode 100644 drivers/media/platform/sprd/camsys/csi-regs.h
+ create mode 100644 drivers/media/platform/sprd/camsys/csi.c
+ create mode 100644 drivers/media/platform/sprd/camsys/dcam-regs-ums9230.h
+ create mode 100644 drivers/media/platform/sprd/camsys/dcam-ums9230.c
+ create mode 100644 drivers/media/platform/sprd/camsys/dcam.c
+ create mode 100644 drivers/media/platform/sprd/camsys/hw-ums9230.c
+ create mode 100644 drivers/media/platform/sprd/camsys/lsc.c
+ create mode 100644 drivers/media/platform/sprd/camsys/stats.c
+
+diff --git a/drivers/media/platform/Kconfig b/drivers/media/platform/Kconfig
+index 3f0b7bb68..733e728a7 100644
+--- a/drivers/media/platform/Kconfig
++++ b/drivers/media/platform/Kconfig
+@@ -84,6 +84,7 @@ source "drivers/media/platform/raspberrypi/Kconfig"
+ source "drivers/media/platform/renesas/Kconfig"
+ source "drivers/media/platform/rockchip/Kconfig"
+ source "drivers/media/platform/samsung/Kconfig"
++source "drivers/media/platform/sprd/Kconfig"
+ source "drivers/media/platform/st/Kconfig"
+ source "drivers/media/platform/sunxi/Kconfig"
+ source "drivers/media/platform/synopsys/Kconfig"
+diff --git a/drivers/media/platform/Makefile b/drivers/media/platform/Makefile
+index 6d5f79ddf..0abae934c 100644
+--- a/drivers/media/platform/Makefile
++++ b/drivers/media/platform/Makefile
+@@ -27,6 +27,7 @@ obj-y += raspberrypi/
+ obj-y += renesas/
+ obj-y += rockchip/
+ obj-y += samsung/
++obj-y += sprd/
+ obj-y += st/
+ obj-y += sunxi/
+ obj-y += synopsys/
+diff --git a/drivers/media/platform/sprd/Kconfig b/drivers/media/platform/sprd/Kconfig
+new file mode 100644
+index 000000000..313948145
+--- /dev/null
++++ b/drivers/media/platform/sprd/Kconfig
+@@ -0,0 +1,5 @@
++# SPDX-License-Identifier: GPL-2.0-only
++
++comment "Unisoc media platform drivers"
++
++source "drivers/media/platform/sprd/camsys/Kconfig"
+diff --git a/drivers/media/platform/sprd/Makefile b/drivers/media/platform/sprd/Makefile
+new file mode 100644
+index 000000000..05b84bfcd
+--- /dev/null
++++ b/drivers/media/platform/sprd/Makefile
+@@ -0,0 +1,2 @@
++# SPDX-License-Identifier: GPL-2.0-only
++obj-y += camsys/
+diff --git a/drivers/media/platform/sprd/camsys/Kconfig b/drivers/media/platform/sprd/camsys/Kconfig
+new file mode 100644
+index 000000000..c0dc5fa28
+--- /dev/null
++++ b/drivers/media/platform/sprd/camsys/Kconfig
+@@ -0,0 +1,13 @@
++# SPDX-License-Identifier: GPL-2.0-only
++
++config VIDEO_SPRD_CAMSYS
++	tristate "Unisoc Camera Subsystem driver"
++	depends on V4L_PLATFORM_DRIVERS
++	depends on VIDEO_DEV
++	depends on ARCH_SPRD || COMPILE_TEST
++	select MEDIA_CONTROLLER
++	select V4L2_FWNODE
++	select V4L2_ISP
++	select VIDEO_V4L2_SUBDEV_API
++	select VIDEOBUF2_DMA_CONTIG
++	select VIDEOBUF2_VMALLOC
+diff --git a/drivers/media/platform/sprd/camsys/Makefile b/drivers/media/platform/sprd/camsys/Makefile
+new file mode 100644
+index 000000000..b70bd79eb
+--- /dev/null
++++ b/drivers/media/platform/sprd/camsys/Makefile
+@@ -0,0 +1,6 @@
++# SPDX-License-Identifier: GPL-2.0
++
++sprd-camsys-objs := camsys.o capture.o config.o csi.o dcam.o lsc.o stats.o
++sprd-camsys-objs += dcam-ums9230.o hw-ums9230.o
++
++obj-$(CONFIG_VIDEO_SPRD_CAMSYS) += sprd-camsys.o
+diff --git a/drivers/media/platform/sprd/camsys/camsys.c b/drivers/media/platform/sprd/camsys/camsys.c
+new file mode 100644
+index 000000000..fb29c10fe
+--- /dev/null
++++ b/drivers/media/platform/sprd/camsys/camsys.c
+@@ -0,0 +1,363 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Unisoc camera subsystem media device driver
++ *
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#include <linux/clk.h>
++#include <linux/mfd/syscon.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/of_graph.h>
++#include <linux/of_platform.h>
++#include <linux/platform_device.h>
++#include <media/v4l2-mc.h>
++#include <media/v4l2-fwnode.h>
++
++#include "camsys.h"
++
++static int sprd_camsys_link_entities(struct sprd_camsys *cs)
++{
++	unsigned int i, j;
++	int ret;
++
++	for (i = 0; i < SPRD_CSI_NUM; i++) {
++		for (j = 0; j < SPRD_DCAM_NUM; j++) {
++			ret = media_create_pad_link(
++				&cs->csi[i].subdev.entity,
++				SPRD_CSI_PAD_SRC,
++				&cs->dcam[j].subdev.entity,
++				SPRD_DCAM_PAD_INPUT, 0);
++			if (ret < 0) {
++				dev_err(&cs->pdev->dev,
++					"Failed to link CSI%d to DCAM%d\n",
++					i, j);
++				return ret;
++			}
++		}
++	}
++
++	for (i = 0; i < SPRD_DCAM_NUM; i++) {
++		ret = media_create_pad_link(&cs->dcam[i].config.vdev.entity,
++					    SPRD_CONFIG_PAD_SRC,
++					    &cs->dcam[i].subdev.entity,
++					    SPRD_DCAM_PAD_CONFIG,
++					    MEDIA_LNK_FL_IMMUTABLE |
++					    MEDIA_LNK_FL_ENABLED);
++		if (ret < 0) {
++			dev_err(&cs->pdev->dev,
++				"Failed to link config vdev to DCAM%d\n", i);
++			return ret;
++		}
++
++		ret = media_create_pad_link(&cs->dcam[i].lsc.vdev.entity,
++					    SPRD_LSC_PAD_SRC,
++					    &cs->dcam[i].subdev.entity,
++					    SPRD_DCAM_PAD_LSC,
++					    MEDIA_LNK_FL_IMMUTABLE |
++					    MEDIA_LNK_FL_ENABLED);
++		if (ret < 0) {
++			dev_err(&cs->pdev->dev,
++				"Failed to link LSC vdev to DCAM%d\n", i);
++			return ret;
++		}
++
++		ret = media_create_pad_link(&cs->dcam[i].subdev.entity,
++					    SPRD_DCAM_PAD_CAPTURE,
++					    &cs->dcam[i].capture.vdev.entity,
++					    SPRD_CAPTURE_PAD_SINK,
++					    MEDIA_LNK_FL_IMMUTABLE |
++					    MEDIA_LNK_FL_ENABLED);
++		if (ret < 0) {
++			dev_err(&cs->pdev->dev,
++				"Failed to link DCAM%d to capture vdev\n", i);
++			return ret;
++		}
++
++		ret = media_create_pad_link(&cs->dcam[i].subdev.entity,
++					    SPRD_DCAM_PAD_STATS,
++					    &cs->dcam[i].stats.vdev.entity,
++					    SPRD_STATS_PAD_SINK,
++					    MEDIA_LNK_FL_IMMUTABLE |
++					    MEDIA_LNK_FL_ENABLED);
++		if (ret < 0) {
++			dev_err(&cs->pdev->dev,
++				"Failed to link DCAM%d to stats vdev\n", i);
++			return ret;
++		}
++	}
++
++	return 0;
++}
++
++static int sprd_camsys_parse_ports(struct sprd_camsys *cs)
++{
++	struct device_node *node, *remote;
++	struct v4l2_fwnode_endpoint vep = { };
++	int ret;
++
++	for_each_endpoint_of_node(cs->mdev.dev->of_node, node) {
++		struct sprd_camsys_sensor_link *sl;
++
++		remote = of_graph_get_remote_port_parent(node);
++		if (!remote) {
++			dev_err(&cs->pdev->dev, "%pOF: cannot get remote\n",
++				node);
++			ret = -EINVAL;
++			goto err_out;
++		}
++
++		sl = v4l2_async_nf_add_fwnode(&cs->notifier,
++					      of_fwnode_handle(remote),
++					      struct sprd_camsys_sensor_link);
++		of_node_put(remote);
++		if (IS_ERR(sl)) {
++			ret = PTR_ERR(sl);
++			goto err_out;
++		}
++
++		ret = v4l2_fwnode_endpoint_parse(of_fwnode_handle(node), &vep);
++		if (ret)
++			goto err_out;
++
++		sl->phy_id = vep.base.port;
++
++		ret = sprd_csi_port_get_lane_count(vep.base.port);
++		if (ret < 0) {
++			dev_err(&cs->pdev->dev, "%pOF: invalid PHY id %d\n",
++				node, vep.base.port);
++			goto err_out;
++		}
++
++		if (vep.bus.mipi_csi2.num_data_lanes != ret) {
++			dev_err(&cs->pdev->dev,
++				"%pOF: port should have %d data lanes\n",
++				node, ret);
++			ret = -EINVAL;
++			goto err_out;
++		}
++	}
++
++	return 0;
++
++err_out:
++	of_node_put(node);
++	return ret;
++}
++
++static int sprd_camsys_subdev_bound(struct v4l2_async_notifier *notifier,
++				    struct v4l2_subdev *subdev,
++				    struct v4l2_async_connection *async)
++{
++	struct sprd_camsys_sensor_link *sl =
++		container_of(async, struct sprd_camsys_sensor_link, async);
++
++	subdev->host_priv = sl;
++
++	return 0;
++}
++
++static int sprd_camsys_subdev_complete(struct v4l2_async_notifier *notifier)
++{
++	struct sprd_camsys *cs =
++		container_of(notifier, struct sprd_camsys, notifier);
++	struct v4l2_subdev *sd;
++	struct media_entity *sensor;
++	unsigned int i, sensor_pad;
++	int ret;
++
++	list_for_each_entry(sd, &cs->v4l2_dev.subdevs, list) {
++		struct sprd_camsys_sensor_link *sl = sd->host_priv;
++
++		if (!sl)
++			continue;
++
++		sensor = &sd->entity;
++
++		for (i = 0; i < sensor->num_pads; i++) {
++			if (sensor->pads[i].flags & MEDIA_PAD_FL_SOURCE)
++				break;
++		}
++		if (i == sensor->num_pads) {
++			dev_err(cs->mdev.dev,
++				"No source pad in external entity\n");
++			return -EINVAL;
++		}
++		sensor_pad = i;
++
++		for (i = 0; i < SPRD_CSI_NUM; i++) {
++			ret = media_create_pad_link(sensor, sensor_pad,
++				&cs->csi[i].subdev.entity,
++				SPRD_CSI_PAD_SINK, 0);
++			if (ret < 0) {
++				dev_err(cs->mdev.dev,
++					"Failed to link %s to CSI%d\n",
++					sensor->name, i);
++				return ret;
++			}
++		}
++	}
++
++	ret = v4l2_device_register_subdev_nodes(&cs->v4l2_dev);
++	if (ret < 0)
++		return ret;
++
++	return media_device_register(&cs->mdev);
++}
++
++static const struct v4l2_async_notifier_operations sprd_camsys_notifier_ops = {
++	.bound = sprd_camsys_subdev_bound,
++	.complete = sprd_camsys_subdev_complete,
++};
++
++static const struct media_device_ops sprd_camsys_media_ops = {
++	.link_notify = v4l2_pipeline_link_notify,
++};
++
++static int sprd_camsys_probe(struct platform_device *pdev)
++{
++	struct sprd_camsys *cs;
++	unsigned int i;
++	int ret;
++
++	cs = devm_kzalloc(&pdev->dev, sizeof(*cs), GFP_KERNEL);
++	if (!cs)
++		return -ENOMEM;
++
++	cs->hw = of_device_get_match_data(&pdev->dev);
++	if (!cs->hw)
++		return -EINVAL;
++
++	cs->pdev = pdev;
++	platform_set_drvdata(pdev, cs);
++
++	cs->cam_ahb_regs = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
++						"sprd,syscon-mm-ahb");
++	if (IS_ERR(cs->cam_ahb_regs)) {
++		dev_err(&pdev->dev, "cannot get MM AHB syscon\n");
++		return PTR_ERR(cs->cam_ahb_regs);
++	}
++
++	cs->anlg_phy_regs = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
++						"sprd,syscon-anlg-phy");
++	if (IS_ERR(cs->anlg_phy_regs)) {
++		dev_err(&pdev->dev, "cannot get PHY syscon\n");
++		return PTR_ERR(cs->anlg_phy_regs);
++	}
++
++	cs->dcam_clk = devm_clk_get(&pdev->dev, "dcam");
++	if (IS_ERR(cs->dcam_clk))
++		return dev_err_probe(&pdev->dev, PTR_ERR(cs->dcam_clk),
++				     "cannot get DCAM clock\n");
++
++	cs->cphy_cfg_en = devm_clk_get(&pdev->dev, "cphy_cfg_en");
++	if (IS_ERR(cs->cphy_cfg_en))
++		return dev_err_probe(&pdev->dev, PTR_ERR(cs->cphy_cfg_en),
++				     "cannot get CPHY_CFG_EN clock\n");
++
++	cs->mipi_gate = devm_clk_get(&pdev->dev, "mipi_gate");
++	if (IS_ERR(cs->mipi_gate))
++		return dev_err_probe(&pdev->dev, PTR_ERR(cs->mipi_gate),
++				     "cannot get MIPI gate clock\n");
++
++	strscpy(cs->mdev.model, "sprd-camsys", sizeof(cs->mdev.model));
++	cs->mdev.dev = &pdev->dev;
++	cs->mdev.ops = &sprd_camsys_media_ops;
++	media_device_init(&cs->mdev);
++
++	strscpy(cs->v4l2_dev.name, "sprd-camsys", sizeof(cs->v4l2_dev.name));
++	cs->v4l2_dev.mdev = &cs->mdev;
++
++	ret = v4l2_device_register(&pdev->dev, &cs->v4l2_dev);
++	if (ret < 0) {
++		dev_err(&pdev->dev,
++			"failed to register V4L2 device: %d\n", ret);
++		goto err_cleanup_mdev;
++	}
++
++	v4l2_async_nf_init(&cs->notifier, &cs->v4l2_dev);
++	cs->notifier.ops = &sprd_camsys_notifier_ops;
++
++	ret = sprd_camsys_parse_ports(cs);
++	if (ret)
++		goto err_unregister_v4l2;
++
++	for (i = 0; i < SPRD_CSI_NUM; i++) {
++		ret = sprd_csi_register(cs, i);
++		if (ret)
++			goto err_unregister_csi;
++	}
++
++	for (i = 0; i < SPRD_DCAM_NUM; i++) {
++		ret = sprd_dcam_register(cs, i);
++		if (ret)
++			goto err_unregister_dcam;
++	}
++
++	ret = sprd_camsys_link_entities(cs);
++	if (ret)
++		goto err_unregister_dcam;
++
++	ret = v4l2_async_nf_register(&cs->notifier);
++	if (ret) {
++		dev_err(&pdev->dev,
++			"failed to register async subdev notifier: %d\n",
++			ret);
++		goto err_unregister_dcam;
++	}
++
++	return 0;
++
++err_unregister_dcam:
++	while (i--)
++		sprd_dcam_unregister(cs, i);
++	i = SPRD_CSI_NUM;
++err_unregister_csi:
++	while (i--)
++		sprd_csi_unregister(cs, i);
++err_unregister_v4l2:
++	v4l2_device_unregister(&cs->v4l2_dev);
++err_cleanup_mdev:
++	media_device_cleanup(&cs->mdev);
++
++	return ret;
++}
++
++static void sprd_camsys_remove(struct platform_device *pdev)
++{
++	struct sprd_camsys *cs = platform_get_drvdata(pdev);
++	unsigned int i;
++
++	v4l2_async_nf_unregister(&cs->notifier);
++	v4l2_async_nf_cleanup(&cs->notifier);
++
++	for (i = 0; i < SPRD_DCAM_NUM; i++)
++		sprd_dcam_unregister(cs, i);
++	for (i = 0; i < SPRD_CSI_NUM; i++)
++		sprd_csi_unregister(cs, i);
++
++	v4l2_device_unregister(&cs->v4l2_dev);
++	media_device_unregister(&cs->mdev);
++	media_device_cleanup(&cs->mdev);
++}
++
++static const struct of_device_id sprd_camsys_of_match[] = {
++	{ .compatible = "sprd,ums9230-camsys", .data = &ums9230_camsys_info },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sprd_camsys_of_match);
++
++static struct platform_driver sprd_camsys_driver = {
++	.probe = sprd_camsys_probe,
++	.remove = sprd_camsys_remove,
++	.driver = {
++		.name = "sprd-camsys",
++		.of_match_table = sprd_camsys_of_match,
++	},
++};
++
++module_platform_driver(sprd_camsys_driver);
++
++MODULE_DESCRIPTION("Unisoc Camera Subsystem media device driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/media/platform/sprd/camsys/camsys.h b/drivers/media/platform/sprd/camsys/camsys.h
+new file mode 100644
+index 000000000..572c79330
+--- /dev/null
++++ b/drivers/media/platform/sprd/camsys/camsys.h
+@@ -0,0 +1,314 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/*
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#ifndef __SPRD_CAMSYS_COMMON_H
++#define __SPRD_CAMSYS_COMMON_H
++
++#include <dt-bindings/media/sprd-camsys.h>
++#include <media/media-device.h>
++#include <media/v4l2-device.h>
++#include <media/videobuf2-v4l2.h>
++#include <uapi/linux/media/sprd/camsys-config.h>
++
++#define SPRD_CSI_NUM		3
++#define SPRD_DCAM_NUM		2
++
++#define SPRD_DCAM_PITCH_STEP	16
++
++struct sprd_camsys_fmt_config {
++	u32 mbus_code;
++	u32 pixelformat;
++	unsigned int hsize_unit;
++	unsigned int bits;
++};
++
++#define SPRD_CAMSYS_FMT(_code, _fmt, _hsize_unit, _bits)	\
++{								\
++	.mbus_code = MEDIA_BUS_FMT_##_code,			\
++	.pixelformat = V4L2_PIX_FMT_##_fmt,			\
++	.hsize_unit = _hsize_unit,				\
++	.bits = _bits,						\
++}
++
++union sprd_camsys_config_block {
++	struct v4l2_isp_params_block_header *header;
++	struct sprd_camsys_ae_config *ae;
++	struct sprd_camsys_af_config *af;
++	struct sprd_camsys_awb_config *awb;
++	struct sprd_camsys_blc_config *blc;
++	struct sprd_camsys_lsc_config *lsc;
++	void *data;
++};
++
++struct sprd_config_buffer {
++	struct vb2_v4l2_buffer vbuf;
++	struct list_head link;
++	void *config;
++};
++
++enum {
++	SPRD_CONFIG_PAD_SRC,
++	SPRD_CONFIG_PAD_NUM
++};
++
++struct sprd_config_vdev {
++	struct video_device vdev;
++	struct vb2_queue queue;
++	struct media_pad pads[SPRD_CONFIG_PAD_NUM];
++	struct mutex lock;
++
++	struct sprd_camsys *camsys;
++
++	spinlock_t buf_lock;
++	struct list_head buf_queue;
++};
++
++struct sprd_lsc_buffer {
++	struct vb2_v4l2_buffer vbuf;
++	struct list_head link;
++	dma_addr_t addr;
++};
++
++enum {
++	SPRD_LSC_PAD_SRC,
++	SPRD_LSC_PAD_NUM
++};
++
++struct sprd_lsc_vdev {
++	struct video_device vdev;
++	struct vb2_queue queue;
++	struct media_pad pads[SPRD_LSC_PAD_NUM];
++	struct mutex lock;
++
++	struct sprd_camsys *camsys;
++
++	spinlock_t buf_lock;
++	struct list_head buf_queue;
++	struct sprd_lsc_buffer *current_buf;
++};
++
++struct sprd_capture_buffer {
++	struct vb2_v4l2_buffer vbuf;
++	struct list_head link;
++	dma_addr_t addr;
++};
++
++enum {
++	SPRD_CAPTURE_PAD_SINK,
++	SPRD_CAPTURE_PAD_NUM
++};
++
++struct sprd_capture_vdev {
++	struct video_device vdev;
++	struct vb2_queue queue;
++	struct media_pad pads[SPRD_CAPTURE_PAD_NUM];
++	struct v4l2_pix_format fmt;
++	struct mutex lock;
++
++	struct sprd_camsys *camsys;
++
++	spinlock_t buf_lock;
++	struct list_head buf_queue;
++	struct sprd_capture_buffer *current_buf;
++	struct sprd_capture_buffer *next_buf;
++};
++
++enum {
++	SPRD_CAMSYS_STATS_AE = BIT(0),
++	SPRD_CAMSYS_STATS_AF = BIT(1),
++};
++
++struct sprd_stats_buffer {
++	struct vb2_v4l2_buffer vbuf;
++	struct list_head link;
++	unsigned long blocks_pending;
++	dma_addr_t ae_addr;
++	dma_addr_t af_addr;
++};
++
++enum {
++	SPRD_STATS_PAD_SINK,
++	SPRD_STATS_PAD_NUM
++};
++
++struct sprd_stats_vdev {
++	struct video_device vdev;
++	struct vb2_queue queue;
++	struct media_pad pads[SPRD_STATS_PAD_NUM];
++	struct mutex lock;
++
++	struct sprd_camsys *camsys;
++
++	spinlock_t buf_lock;
++	struct list_head buf_queue;
++	struct sprd_stats_buffer *current_buf;
++	struct sprd_stats_buffer *next_buf;
++	unsigned long blocks_enabled;
++};
++
++enum {
++	SPRD_CSI_PAD_SINK,
++	SPRD_CSI_PAD_SRC,
++	SPRD_CSI_PAD_NUM
++};
++
++struct sprd_csi {
++	const struct sprd_csi_hw_ops *hw;
++	struct sprd_camsys *camsys;
++	struct device *dev;
++	int index;
++
++	struct v4l2_subdev subdev;
++	struct media_pad pads[SPRD_CSI_PAD_NUM];
++
++	struct clk *clk;
++	struct clk *mipi_clk;
++	void __iomem *regs;
++	unsigned int phy_id;
++	unsigned int dcam_id;
++};
++
++struct sprd_csi_hw_ops {
++	void (*power_phy)(struct sprd_csi *csi, int enable);
++	void (*setup_phy)(struct sprd_csi *csi, int enable);
++	void (*connect_dcam)(struct sprd_csi *csi, int enable);
++};
++
++enum {
++	SPRD_DCAM_PAD_INPUT,
++	SPRD_DCAM_PAD_CONFIG,
++	SPRD_DCAM_PAD_LSC,
++	SPRD_DCAM_PAD_CAPTURE,
++	SPRD_DCAM_PAD_STATS,
++	SPRD_DCAM_PAD_NUM
++};
++
++struct sprd_dcam {
++	struct v4l2_subdev subdev;
++	struct media_pad pads[SPRD_DCAM_PAD_NUM];
++	struct sprd_config_vdev config;
++	struct sprd_lsc_vdev lsc;
++	struct sprd_capture_vdev capture;
++	struct sprd_stats_vdev stats;
++
++	const struct sprd_dcam_hw_ops *hw;
++	struct sprd_camsys *camsys;
++	struct device *dev;
++	int index;
++
++	struct reset_control *reset;
++	void __iomem *regs;
++	int irq;
++
++	unsigned int sequence;
++};
++
++typedef void (*sprd_dcam_cfg_handler_t)(struct sprd_dcam *dcam,
++					union sprd_camsys_config_block block);
++
++struct sprd_dcam_hw_ops {
++	sprd_dcam_cfg_handler_t config_block[SPRD_DCAM_BLOCK_NUM];
++
++	void (*set_path)(struct sprd_dcam *dcam, u32 mbus_code, u32 width,
++			 u32 height);
++	void (*set_lsc_buf)(struct sprd_dcam *dcam,
++			    struct sprd_lsc_buffer *buf);
++	void (*set_capture_buf)(struct sprd_dcam *dcam,
++				struct sprd_capture_buffer *buf);
++	void (*set_stats_buf)(struct sprd_dcam *dcam,
++			      struct sprd_stats_buffer *buf);
++	void (*start)(struct sprd_dcam *dcam);
++	void (*stop)(struct sprd_dcam *dcam);
++	irqreturn_t (*handle_irq)(int irq, void *irqdata);
++};
++
++struct sprd_camsys_sensor_link {
++	struct v4l2_async_connection async;
++	unsigned int phy_id;
++};
++
++struct sprd_camsys {
++	const struct sprd_camsys_hardware *hw;
++	struct media_device mdev;
++	struct v4l2_device v4l2_dev;
++	struct v4l2_async_notifier notifier;
++	struct sprd_csi csi[SPRD_CSI_NUM];
++	struct sprd_dcam dcam[SPRD_DCAM_NUM];
++
++	struct platform_device *pdev;
++	struct regmap *cam_ahb_regs;
++	struct regmap *anlg_phy_regs;
++	struct clk *dcam_clk;
++	struct clk *cphy_cfg_en;
++	struct clk *mipi_gate;
++};
++
++struct sprd_camsys_hardware {
++	const struct sprd_csi_hw_ops *csi_ops;
++	const struct sprd_dcam_hw_ops *dcam_ops;
++	unsigned int max_width;
++	unsigned int max_height;
++	const struct sprd_camsys_fmt_config *formats;
++	unsigned int num_formats;
++};
++
++extern const struct sprd_dcam_hw_ops ums9230_dcam_ops;
++extern const struct sprd_camsys_hardware ums9230_camsys_info;
++
++static inline int sprd_csi_port_get_lane_count(unsigned int port)
++{
++	switch (port) {
++	case CAMSYS_CSI_4LANE:
++	case CAMSYS_CSI_M_S:
++	case CAMSYS_CSI_RO_M_S:
++		return 4;
++	case CAMSYS_CSI_M:
++	case CAMSYS_CSI_S:
++	case CAMSYS_CSI_RO_M:
++	case CAMSYS_CSI_RO_S:
++		return 2;
++	default:
++		return -EINVAL;
++	}
++}
++
++int sprd_csi_register(struct sprd_camsys *cs, unsigned int index);
++void sprd_csi_unregister(struct sprd_camsys *cs, unsigned int index);
++
++int sprd_dcam_register(struct sprd_camsys *cs, unsigned int index);
++void sprd_dcam_unregister(struct sprd_camsys *cs, unsigned int index);
++
++int sprd_config_vdev_register(struct sprd_config_vdev *cap);
++void sprd_config_vdev_unregister(struct sprd_config_vdev *cap);
++
++int sprd_lsc_vdev_register(struct sprd_lsc_vdev *cap);
++void sprd_lsc_vdev_unregister(struct sprd_lsc_vdev *cap);
++
++int sprd_capture_vdev_register(struct sprd_capture_vdev *cap);
++void sprd_capture_vdev_unregister(struct sprd_capture_vdev *cap);
++
++int sprd_stats_vdev_register(struct sprd_stats_vdev *cap);
++void sprd_stats_vdev_unregister(struct sprd_stats_vdev *cap);
++
++void sprd_dcam_sof(struct sprd_dcam *dcam);
++
++void sprd_config_next_frame(struct sprd_dcam *dcam);
++
++struct sprd_lsc_buffer *sprd_lsc_next_frame(struct sprd_lsc_vdev *lsc);
++
++void sprd_lsc_done(struct sprd_lsc_vdev *lsc, unsigned int sequence);
++
++struct sprd_capture_buffer *
++sprd_capture_next_frame(struct sprd_capture_vdev *cap);
++
++void sprd_capture_done(struct sprd_capture_vdev *cap, unsigned int sequence);
++
++struct sprd_stats_buffer *
++sprd_stats_next_frame(struct sprd_stats_vdev *stats);
++
++void sprd_stats_done(struct sprd_stats_vdev *stats, unsigned int sequence,
++		     unsigned int block);
++
++#endif
+diff --git a/drivers/media/platform/sprd/camsys/capture.c b/drivers/media/platform/sprd/camsys/capture.c
+new file mode 100644
+index 000000000..7c260ea36
+--- /dev/null
++++ b/drivers/media/platform/sprd/camsys/capture.c
+@@ -0,0 +1,524 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Unisoc camera fronted driver - video capture node
++ *
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#include <media/v4l2-ioctl.h>
++#include <media/v4l2-mc.h>
++#include <media/videobuf2-dma-contig.h>
++
++#include "camsys.h"
++
++#define to_sprd_capture_vdev(q) \
++	container_of(q, struct sprd_capture_vdev, queue)
++
++#define to_sprd_capture_buf(b) \
++	container_of(b, struct sprd_capture_buffer, vbuf)
++
++static int sprd_cap_querycap(struct file *file, void *fh,
++			     struct v4l2_capability *cap)
++{
++	strscpy(cap->driver, "sprd-camsys", sizeof(cap->driver));
++	strscpy(cap->card, "Unisoc Camera Subsystem", sizeof(cap->card));
++
++	return 0;
++}
++
++static int sprd_cap_enum_fmt(struct file *file, void *fh,
++			     struct v4l2_fmtdesc *f)
++{
++	struct sprd_capture_vdev *cap = video_drvdata(file);
++	const struct sprd_camsys_fmt_config *fmt;
++	int i, n = -1;
++
++	for (i = 0; i < cap->camsys->hw->num_formats; i++) {
++		fmt = &cap->camsys->hw->formats[i];
++
++		if (f->mbus_code && fmt->mbus_code != f->mbus_code)
++			continue;
++
++		if (++n == f->index)
++			break;
++	}
++
++	if (n < f->index)
++		return -EINVAL;
++
++	f->pixelformat = fmt->pixelformat;
++
++	return 0;
++}
++
++static int sprd_cap_enum_framesizes(struct file *file, void *fh,
++				    struct v4l2_frmsizeenum *fsize)
++{
++	struct sprd_capture_vdev *cap = video_drvdata(file);
++
++	if (fsize->index)
++		return -EINVAL;
++
++	fsize->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
++	fsize->stepwise.min_width = 64;
++	fsize->stepwise.max_width = cap->camsys->hw->max_width;
++	fsize->stepwise.min_height = 64;
++	fsize->stepwise.max_height = cap->camsys->hw->max_height;
++	fsize->stepwise.step_width = 1;
++	fsize->stepwise.step_height = 1;
++
++	return 0;
++}
++
++static int sprd_cap_g_fmt(struct file *file, void *fh, struct v4l2_format *f)
++{
++	struct sprd_capture_vdev *cap = video_drvdata(file);
++
++	f->fmt.pix = cap->fmt;
++
++	return 0;
++}
++
++static void __sprd_cap_try_fmt(struct sprd_capture_vdev *cap,
++			       struct v4l2_format *f)
++{
++	struct v4l2_pix_format *pix = &f->fmt.pix;
++	const struct sprd_camsys_fmt_config *fmt;
++	u32 bpl;
++	int i;
++
++	for (i = 0; i < cap->camsys->hw->num_formats; i++) {
++		fmt = &cap->camsys->hw->formats[i];
++
++		if (fmt->pixelformat == pix->pixelformat)
++			break;
++	}
++
++	if (i == cap->camsys->hw->num_formats)
++		fmt = &cap->camsys->hw->formats[0];
++
++	pix->pixelformat = fmt->pixelformat;
++	pix->width = clamp_t(u32, pix->width, 1,
++			     cap->camsys->hw->max_width);
++	pix->height = clamp_t(u32, pix->height, 1,
++			      cap->camsys->hw->max_height);
++
++	bpl = DIV_ROUND_UP(pix->width, fmt->hsize_unit) *
++		fmt->hsize_unit * fmt->bits / 8;
++	bpl = ALIGN(bpl, SPRD_DCAM_PITCH_STEP);
++	pix->bytesperline = bpl;
++	pix->sizeimage = pix->height * bpl;
++
++	pix->field = V4L2_FIELD_NONE;
++	pix->colorspace = V4L2_COLORSPACE_DEFAULT;
++	pix->ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
++	pix->quantization = V4L2_QUANTIZATION_DEFAULT;
++}
++
++static int sprd_cap_s_fmt(struct file *file, void *fh, struct v4l2_format *f)
++{
++	struct sprd_capture_vdev *cap = video_drvdata(file);
++
++	if (vb2_is_busy(&cap->queue))
++		return -EBUSY;
++
++	__sprd_cap_try_fmt(cap, f);
++
++	cap->fmt = f->fmt.pix;
++
++	return 0;
++}
++
++static int sprd_cap_try_fmt(struct file *file, void *fh, struct v4l2_format *f)
++{
++	struct sprd_capture_vdev *cap = video_drvdata(file);
++
++	__sprd_cap_try_fmt(cap, f);
++
++	return 0;
++}
++
++static int sprd_cap_queue_setup(struct vb2_queue *q,
++				unsigned int *num_buffers,
++				unsigned int *num_planes,
++				unsigned int sizes[],
++				struct device *alloc_devs[])
++{
++	struct sprd_capture_vdev *cap = to_sprd_capture_vdev(q);
++	const struct v4l2_pix_format *pix = &cap->fmt;
++
++	if (*num_planes) {
++		if (*num_planes != 1 || sizes[0] < pix->sizeimage)
++			return -EINVAL;
++	} else {
++		*num_planes = 1;
++		sizes[0] = pix->sizeimage;
++	}
++
++	return 0;
++}
++
++static int sprd_cap_buf_init(struct vb2_buffer *vb)
++{
++	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
++	struct sprd_capture_buffer *buf = to_sprd_capture_buf(vbuf);
++
++	buf->addr = vb2_dma_contig_plane_dma_addr(vb, 0);
++
++	return 0;
++}
++
++static int sprd_cap_buf_prepare(struct vb2_buffer *vb)
++{
++	struct sprd_capture_vdev *cap = to_sprd_capture_vdev(vb->vb2_queue);
++	const struct v4l2_pix_format *pix = &cap->fmt;
++
++	if (vb2_plane_size(vb, 0) < pix->sizeimage)
++		return -EINVAL;
++
++	vb2_set_plane_payload(vb, 0, pix->sizeimage);
++
++	return 0;
++}
++
++static void sprd_cap_buf_queue(struct vb2_buffer *vb)
++{
++	struct sprd_capture_vdev *cap = to_sprd_capture_vdev(vb->vb2_queue);
++	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
++	struct sprd_capture_buffer *buf = to_sprd_capture_buf(vbuf);
++	unsigned long flags;
++
++	spin_lock_irqsave(&cap->buf_lock, flags);
++	list_add_tail(&buf->link, &cap->buf_queue);
++	spin_unlock_irqrestore(&cap->buf_lock, flags);
++}
++
++static void sprd_cap_cancel_stream(struct sprd_capture_vdev *cap,
++				   enum vb2_buffer_state state)
++{
++	struct sprd_capture_buffer *buf;
++	unsigned long flags;
++
++	spin_lock_irqsave(&cap->buf_lock, flags);
++
++	while (!list_empty(&cap->buf_queue)) {
++		buf = list_first_entry(&cap->buf_queue, struct sprd_capture_buffer, link);
++		list_del(&buf->link);
++		vb2_buffer_done(&buf->vbuf.vb2_buf, state);
++	}
++
++	if (cap->current_buf) {
++		vb2_buffer_done(&cap->current_buf->vbuf.vb2_buf, state);
++		cap->current_buf = NULL;
++	}
++
++	if (cap->next_buf) {
++		vb2_buffer_done(&cap->next_buf->vbuf.vb2_buf, state);
++		cap->next_buf = NULL;
++	}
++
++	spin_unlock_irqrestore(&cap->buf_lock, flags);
++}
++
++static int sprd_cap_start_streaming(struct vb2_queue *q, unsigned int count)
++{
++	struct sprd_capture_vdev *cap = to_sprd_capture_vdev(q);
++	struct video_device *vdev = &cap->vdev;
++	struct media_entity *entity;
++	struct media_pad *pad;
++	struct v4l2_subdev *subdev;
++	int ret;
++
++	ret = video_device_pipeline_alloc_start(vdev);
++	if (ret < 0) {
++		dev_err(q->dev, "failed to start media pipeline: %d\n", ret);
++		goto err_flush;
++	}
++
++	ret = v4l2_pipeline_pm_get(&vdev->entity);
++	if (ret) {
++		dev_err(q->dev, "failed to power up pipeline: %d\n", ret);
++		goto err_stop;
++	}
++
++	entity = &vdev->entity;
++	while (1) {
++		pad = &entity->pads[0];
++		if (!(pad->flags & MEDIA_PAD_FL_SINK))
++			break;
++
++		pad = media_pad_remote_pad_first(pad);
++		if (!pad || !is_media_entity_v4l2_subdev(pad->entity))
++			break;
++
++		entity = pad->entity;
++		subdev = media_entity_to_v4l2_subdev(entity);
++
++		ret = v4l2_subdev_call(subdev, video, s_stream, 1);
++		if (ret < 0 && ret != -ENOIOCTLCMD)
++			goto err_pm_put;
++	}
++
++	return 0;
++
++err_pm_put:
++	v4l2_pipeline_pm_put(&vdev->entity);
++err_stop:
++	video_device_pipeline_stop(vdev);
++err_flush:
++	sprd_cap_cancel_stream(cap, VB2_BUF_STATE_QUEUED);
++	return ret;
++}
++
++static void sprd_cap_stop_streaming(struct vb2_queue *q)
++{
++	struct sprd_capture_vdev *cap = to_sprd_capture_vdev(q);
++	struct video_device *vdev = &cap->vdev;
++	struct media_entity *entity;
++	struct media_pad *pad;
++	struct v4l2_subdev *subdev;
++	int ret;
++
++	entity = &vdev->entity;
++	while (1) {
++		pad = &entity->pads[0];
++		if (!(pad->flags & MEDIA_PAD_FL_SINK))
++			break;
++
++		pad = media_pad_remote_pad_first(pad);
++		if (!pad || !is_media_entity_v4l2_subdev(pad->entity))
++			break;
++
++		entity = pad->entity;
++		subdev = media_entity_to_v4l2_subdev(entity);
++
++		ret = v4l2_subdev_call(subdev, video, s_stream, 0);
++		if (ret < 0 && ret != -ENOIOCTLCMD)
++			dev_err(cap->queue.dev,
++				"subdev %s failed to stop: %d\n", subdev->name,
++				ret);
++	}
++
++	v4l2_pipeline_pm_put(&vdev->entity);
++	video_device_pipeline_stop(vdev);
++
++	sprd_cap_cancel_stream(cap, VB2_BUF_STATE_ERROR);
++}
++
++static int sprd_cap_link_validate(struct media_link *link)
++{
++	struct video_device *vdev =
++		media_entity_to_video_device(link->sink->entity);
++	struct v4l2_subdev *sd =
++		media_entity_to_v4l2_subdev(link->source->entity);
++	struct sprd_capture_vdev *cap = video_get_drvdata(vdev);
++	const struct sprd_camsys_fmt_config *fmt;
++	struct v4l2_subdev_format sd_fmt = {
++		.which = V4L2_SUBDEV_FORMAT_ACTIVE,
++		.pad = link->source->index,
++	};
++	int i, ret;
++
++	ret = v4l2_subdev_call(sd, pad, get_fmt, NULL, &sd_fmt);
++	if (ret)
++		return ret;
++
++	if (sd_fmt.format.height != cap->fmt.height ||
++	    sd_fmt.format.width != cap->fmt.width) {
++		dev_err(cap->queue.dev,
++			"link \"%s\":%u -> \"%s\":%u size mismatch: %ux%u != %ux%u\n",
++			link->source->entity->name, link->source->index,
++			link->sink->entity->name, link->sink->index,
++			sd_fmt.format.width, sd_fmt.format.height,
++			cap->fmt.width, cap->fmt.height);
++		return -EPIPE;
++	}
++
++	for (i = 0; i < cap->camsys->hw->num_formats; i++) {
++		fmt = &cap->camsys->hw->formats[i];
++
++		if (fmt->mbus_code == sd_fmt.format.code &&
++		    fmt->pixelformat == cap->fmt.pixelformat)
++			break;
++	}
++
++	if (i == cap->camsys->hw->num_formats) {
++		dev_err(cap->queue.dev,
++			"link \"%s\":%u -> \"%s\":%u format mismatch\n",
++			link->source->entity->name, link->source->index,
++			link->sink->entity->name, link->sink->index);
++		return -EPIPE;
++	}
++
++	return 0;
++}
++
++static const struct v4l2_ioctl_ops sprd_capture_ioctl_ops = {
++	.vidioc_querycap		= sprd_cap_querycap,
++	.vidioc_enum_fmt_vid_cap	= sprd_cap_enum_fmt,
++	.vidioc_enum_framesizes		= sprd_cap_enum_framesizes,
++	.vidioc_g_fmt_vid_cap		= sprd_cap_g_fmt,
++	.vidioc_s_fmt_vid_cap		= sprd_cap_s_fmt,
++	.vidioc_try_fmt_vid_cap		= sprd_cap_try_fmt,
++	.vidioc_reqbufs			= vb2_ioctl_reqbufs,
++	.vidioc_querybuf		= vb2_ioctl_querybuf,
++	.vidioc_qbuf			= vb2_ioctl_qbuf,
++	.vidioc_expbuf			= vb2_ioctl_expbuf,
++	.vidioc_dqbuf			= vb2_ioctl_dqbuf,
++	.vidioc_create_bufs		= vb2_ioctl_create_bufs,
++	.vidioc_prepare_buf		= vb2_ioctl_prepare_buf,
++	.vidioc_streamon		= vb2_ioctl_streamon,
++	.vidioc_streamoff		= vb2_ioctl_streamoff,
++};
++
++static const struct v4l2_file_operations sprd_capture_fops = {
++	.owner		= THIS_MODULE,
++	.unlocked_ioctl	= video_ioctl2,
++	.open		= v4l2_fh_open,
++	.release	= vb2_fop_release,
++	.poll		= vb2_fop_poll,
++	.mmap		= vb2_fop_mmap,
++};
++
++static const struct vb2_ops sprd_capture_vb2_ops = {
++	.queue_setup	 = sprd_cap_queue_setup,
++	.buf_init	 = sprd_cap_buf_init,
++	.buf_prepare	 = sprd_cap_buf_prepare,
++	.buf_queue	 = sprd_cap_buf_queue,
++	.start_streaming = sprd_cap_start_streaming,
++	.stop_streaming	 = sprd_cap_stop_streaming,
++};
++
++static const struct media_entity_operations sprd_capture_media_ops = {
++	.link_validate = sprd_cap_link_validate,
++};
++
++int sprd_capture_vdev_register(struct sprd_capture_vdev *cap)
++{
++	struct v4l2_format format = {
++		.type = V4L2_BUF_TYPE_VIDEO_CAPTURE,
++		.fmt.pix = {
++			.width = 1280,
++			.height = 960,
++			.pixelformat = cap->camsys->hw->formats[0].pixelformat,
++		},
++	};
++	struct sprd_camsys *cs = cap->camsys;
++	struct video_device *vdev = &cap->vdev;
++	struct vb2_queue *q = &cap->queue;
++	int ret;
++
++	mutex_init(&cap->lock);
++	spin_lock_init(&cap->buf_lock);
++	INIT_LIST_HEAD(&cap->buf_queue);
++
++	/* vdev->name is set by the caller */
++	vdev->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING |
++			    V4L2_CAP_IO_MC;
++	vdev->v4l2_dev = &cs->v4l2_dev;
++	vdev->fops = &sprd_capture_fops;
++	vdev->release = video_device_release_empty;
++	vdev->ioctl_ops = &sprd_capture_ioctl_ops;
++	vdev->lock = &cap->lock;
++	vdev->entity.ops = &sprd_capture_media_ops;
++	vdev->vfl_dir = VFL_DIR_RX;
++
++	video_set_drvdata(vdev, cap);
++
++	q->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
++	q->io_modes = VB2_DMABUF | VB2_MMAP;
++	q->ops = &sprd_capture_vb2_ops;
++	q->mem_ops = &vb2_dma_contig_memops;
++	q->buf_struct_size = sizeof(struct sprd_capture_buffer);
++	q->min_queued_buffers = 1;
++	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
++	q->lock = &cap->lock;
++	q->dev = &cs->pdev->dev;
++	ret = vb2_queue_init(q);
++	if (ret) {
++		dev_err(&cs->pdev->dev, "failed to init vb2 queue: %d\n", ret);
++		goto err_destroy_mutex;
++	}
++
++	vdev->queue = q;
++
++	cap->pads[SPRD_CAPTURE_PAD_SINK].flags = MEDIA_PAD_FL_SINK;
++	ret = media_entity_pads_init(&vdev->entity, SPRD_CAPTURE_PAD_NUM,
++				     cap->pads);
++	if (ret)
++		goto err_release_queue;
++
++	__sprd_cap_try_fmt(cap, &format);
++	cap->fmt = format.fmt.pix;
++
++	ret = video_register_device(vdev, VFL_TYPE_VIDEO, -1);
++	if (ret) {
++		dev_err(&cs->pdev->dev, "failed to register %s: %d\n",
++			vdev->name, ret);
++		goto err_cleanup_entity;
++	}
++
++	return 0;
++
++err_cleanup_entity:
++	media_entity_cleanup(&vdev->entity);
++err_release_queue:
++	vb2_queue_release(q);
++err_destroy_mutex:
++	mutex_destroy(&cap->lock);
++	return ret;
++}
++
++void sprd_capture_vdev_unregister(struct sprd_capture_vdev *cap)
++{
++	video_unregister_device(&cap->vdev);
++	media_entity_cleanup(&cap->vdev.entity);
++	vb2_queue_release(&cap->queue);
++	mutex_destroy(&cap->lock);
++}
++
++struct sprd_capture_buffer *
++sprd_capture_next_frame(struct sprd_capture_vdev *cap)
++{
++	struct sprd_capture_buffer *buf;
++	unsigned long flags;
++
++	spin_lock_irqsave(&cap->buf_lock, flags);
++
++	if (cap->current_buf) {
++		dev_warn_ratelimited(&cap->camsys->pdev->dev,
++			"capture buffer was not done before next frame!\n");
++		vb2_buffer_done(&cap->current_buf->vbuf.vb2_buf,
++				VB2_BUF_STATE_ERROR);
++	}
++
++	/* The previously staged buffer is now being processed. */
++	cap->current_buf = cap->next_buf;
++
++	/* Stage a new buffer. */
++	buf = list_first_entry_or_null(&cap->buf_queue, struct sprd_capture_buffer, link);
++	if (buf)
++		list_del(&buf->link);
++
++	cap->next_buf = buf;
++
++	spin_unlock_irqrestore(&cap->buf_lock, flags);
++
++	return buf;
++}
++
++void sprd_capture_done(struct sprd_capture_vdev *cap, unsigned int sequence)
++{
++	struct sprd_capture_buffer *buf;
++
++	spin_lock(&cap->buf_lock);
++	buf = cap->current_buf;
++	cap->current_buf = NULL;
++	spin_unlock(&cap->buf_lock);
++
++	if (buf) {
++		buf->vbuf.vb2_buf.timestamp = ktime_get_ns();
++		buf->vbuf.sequence = sequence;
++		vb2_buffer_done(&buf->vbuf.vb2_buf, VB2_BUF_STATE_DONE);
++	}
++}
+diff --git a/drivers/media/platform/sprd/camsys/config.c b/drivers/media/platform/sprd/camsys/config.c
+new file mode 100644
+index 000000000..c5645bbb9
+--- /dev/null
++++ b/drivers/media/platform/sprd/camsys/config.c
+@@ -0,0 +1,312 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Unisoc camera frontend driver - configuration node
++ *
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#include <media/v4l2-ioctl.h>
++#include <media/v4l2-isp.h>
++#include <media/v4l2-mc.h>
++#include <media/videobuf2-vmalloc.h>
++
++#include "camsys.h"
++
++#define to_sprd_config_vdev(q) \
++	container_of(q, struct sprd_config_vdev, queue)
++
++#define to_sprd_config_buf(b) \
++	container_of(b, struct sprd_config_buffer, vbuf)
++
++static const struct v4l2_isp_params_block_type_info
++sprd_dcam_config_block_types_info[] = {
++	[SPRD_DCAM_BLOCK_AE] = {
++		.size = sizeof(struct sprd_camsys_ae_config),
++	},
++	[SPRD_DCAM_BLOCK_AF] = {
++		.size = sizeof(struct sprd_camsys_af_config),
++	},
++	[SPRD_DCAM_BLOCK_AWB] = {
++		.size = sizeof(struct sprd_camsys_awb_config),
++	},
++	[SPRD_DCAM_BLOCK_BLC] = {
++		.size = sizeof(struct sprd_camsys_blc_config),
++	},
++	[SPRD_DCAM_BLOCK_LSC] = {
++		.size = sizeof(struct sprd_camsys_lsc_config),
++	},
++};
++
++static int sprd_config_querycap(struct file *file, void *fh,
++				struct v4l2_capability *cap)
++{
++	strscpy(cap->driver, "sprd-camsys", sizeof(cap->driver));
++	strscpy(cap->card, "Unisoc Camera Subsystem", sizeof(cap->card));
++
++	return 0;
++}
++
++static int sprd_config_enum_fmt(struct file *file, void *fh,
++				struct v4l2_fmtdesc *f)
++{
++	if (f->index > 0)
++		return -EINVAL;
++
++	f->pixelformat = V4L2_META_FMT_SPRD_DCAM_CFG;
++
++	return 0;
++}
++
++static int sprd_config_g_fmt(struct file *file, void *fh, struct v4l2_format *f)
++{
++	static const struct v4l2_meta_format mfmt = {
++		.dataformat = V4L2_META_FMT_SPRD_DCAM_CFG,
++		.buffersize = v4l2_isp_params_buffer_size(SPRD_DCAM_MAX_CONFIG_SIZE),
++	};
++
++	f->fmt.meta = mfmt;
++
++	return 0;
++}
++
++static int sprd_config_queue_setup(struct vb2_queue *q,
++				   unsigned int *num_buffers,
++				   unsigned int *num_planes,
++				   unsigned int sizes[],
++				   struct device *alloc_devs[])
++{
++	if (*num_planes && *num_planes > 1)
++		return -EINVAL;
++
++	if (sizes[0] && sizes[0] < v4l2_isp_params_buffer_size(SPRD_DCAM_MAX_CONFIG_SIZE))
++		return -EINVAL;
++
++	*num_planes = 1;
++
++	if (!sizes[0])
++		sizes[0] = v4l2_isp_params_buffer_size(SPRD_DCAM_MAX_CONFIG_SIZE);
++
++	return 0;
++}
++
++static int sprd_config_buf_init(struct vb2_buffer *vb)
++{
++	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
++	struct sprd_config_buffer *buf = to_sprd_config_buf(vbuf);
++
++	buf->config = kvmalloc(v4l2_isp_params_buffer_size(SPRD_DCAM_MAX_CONFIG_SIZE),
++			       GFP_KERNEL);
++	if (!buf->config)
++		return -ENOMEM;
++
++	return 0;
++}
++
++static void sprd_config_buf_cleanup(struct vb2_buffer *vb)
++{
++	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
++	struct sprd_config_buffer *buf = to_sprd_config_buf(vbuf);
++
++	kvfree(buf->config);
++	buf->config = NULL;
++}
++
++static int sprd_config_buf_prepare(struct vb2_buffer *vb)
++{
++	struct sprd_config_vdev *cfg = to_sprd_config_vdev(vb->vb2_queue);
++	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
++	struct sprd_config_buffer *buf = to_sprd_config_buf(vbuf);
++	struct v4l2_isp_params_buffer *config = vb2_plane_vaddr(vb, 0);
++	size_t buffer_size = v4l2_isp_params_buffer_size(SPRD_DCAM_MAX_CONFIG_SIZE);
++	int ret;
++
++	ret = v4l2_isp_params_validate_buffer_size(&cfg->camsys->pdev->dev, vb, buffer_size);
++	if (ret)
++		return ret;
++
++	memcpy(buf->config, config, buffer_size);
++
++	return v4l2_isp_params_validate_buffer(&cfg->camsys->pdev->dev, vb, buf->config,
++					       sprd_dcam_config_block_types_info,
++					       ARRAY_SIZE(sprd_dcam_config_block_types_info));
++}
++
++static void sprd_config_buf_queue(struct vb2_buffer *vb)
++{
++	struct sprd_config_vdev *cfg = to_sprd_config_vdev(vb->vb2_queue);
++	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
++	struct sprd_config_buffer *buf = to_sprd_config_buf(vbuf);
++	unsigned long flags;
++
++	spin_lock_irqsave(&cfg->buf_lock, flags);
++	list_add_tail(&buf->link, &cfg->buf_queue);
++	spin_unlock_irqrestore(&cfg->buf_lock, flags);
++}
++
++static void sprd_config_stop_streaming(struct vb2_queue *q)
++{
++	struct sprd_config_vdev *cfg = to_sprd_config_vdev(q);
++	struct sprd_config_buffer *buf;
++	unsigned long flags;
++
++	spin_lock_irqsave(&cfg->buf_lock, flags);
++
++	while (!list_empty(&cfg->buf_queue)) {
++		buf = list_first_entry(&cfg->buf_queue, struct sprd_config_buffer, link);
++		list_del(&buf->link);
++		vb2_buffer_done(&buf->vbuf.vb2_buf, VB2_BUF_STATE_ERROR);
++	}
++
++	spin_unlock_irqrestore(&cfg->buf_lock, flags);
++}
++
++static const struct v4l2_ioctl_ops sprd_config_ioctl_ops = {
++	.vidioc_querycap		= sprd_config_querycap,
++	.vidioc_enum_fmt_meta_out	= sprd_config_enum_fmt,
++	.vidioc_g_fmt_meta_out		= sprd_config_g_fmt,
++	.vidioc_s_fmt_meta_out		= sprd_config_g_fmt,
++	.vidioc_try_fmt_meta_out	= sprd_config_g_fmt,
++	.vidioc_reqbufs			= vb2_ioctl_reqbufs,
++	.vidioc_querybuf		= vb2_ioctl_querybuf,
++	.vidioc_qbuf			= vb2_ioctl_qbuf,
++	.vidioc_expbuf			= vb2_ioctl_expbuf,
++	.vidioc_dqbuf			= vb2_ioctl_dqbuf,
++	.vidioc_create_bufs		= vb2_ioctl_create_bufs,
++	.vidioc_prepare_buf		= vb2_ioctl_prepare_buf,
++	.vidioc_streamon		= vb2_ioctl_streamon,
++	.vidioc_streamoff		= vb2_ioctl_streamoff,
++};
++
++static const struct v4l2_file_operations sprd_config_fops = {
++	.owner		= THIS_MODULE,
++	.unlocked_ioctl	= video_ioctl2,
++	.open		= v4l2_fh_open,
++	.release	= vb2_fop_release,
++	.poll		= vb2_fop_poll,
++	.mmap		= vb2_fop_mmap,
++};
++
++static const struct vb2_ops sprd_config_vb2_ops = {
++	.queue_setup	= sprd_config_queue_setup,
++	.buf_init	= sprd_config_buf_init,
++	.buf_cleanup	= sprd_config_buf_cleanup,
++	.buf_prepare	= sprd_config_buf_prepare,
++	.buf_queue	= sprd_config_buf_queue,
++	.stop_streaming	= sprd_config_stop_streaming,
++};
++
++int sprd_config_vdev_register(struct sprd_config_vdev *cfg)
++{
++	struct sprd_camsys *cs = cfg->camsys;
++	struct video_device *vdev = &cfg->vdev;
++	struct vb2_queue *q = &cfg->queue;
++	int ret;
++
++	mutex_init(&cfg->lock);
++	spin_lock_init(&cfg->buf_lock);
++	INIT_LIST_HEAD(&cfg->buf_queue);
++
++	/* vdev->name is set by the caller */
++	vdev->device_caps = V4L2_CAP_META_OUTPUT | V4L2_CAP_STREAMING;
++	vdev->v4l2_dev = &cs->v4l2_dev;
++	vdev->fops = &sprd_config_fops;
++	vdev->release = video_device_release_empty;
++	vdev->ioctl_ops = &sprd_config_ioctl_ops;
++	vdev->lock = &cfg->lock;
++	vdev->vfl_dir = VFL_DIR_TX;
++
++	video_set_drvdata(vdev, cfg);
++
++	q->type = V4L2_BUF_TYPE_META_OUTPUT;
++	q->io_modes = VB2_DMABUF | VB2_MMAP;
++	q->ops = &sprd_config_vb2_ops;
++	q->mem_ops = &vb2_vmalloc_memops;
++	q->buf_struct_size = sizeof(struct sprd_config_buffer);
++	q->min_queued_buffers = 1;
++	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
++	q->lock = &cfg->lock;
++	q->dev = &cs->pdev->dev;
++	ret = vb2_queue_init(q);
++	if (ret) {
++		dev_err(&cs->pdev->dev, "failed to init vb2 queue: %d\n", ret);
++		goto err_destroy_mutex;
++	}
++
++	vdev->queue = q;
++
++	cfg->pads[SPRD_CONFIG_PAD_SRC].flags = MEDIA_PAD_FL_SOURCE;
++	ret = media_entity_pads_init(&vdev->entity, SPRD_CONFIG_PAD_NUM, cfg->pads);
++	if (ret)
++		goto err_release_queue;
++
++	ret = video_register_device(vdev, VFL_TYPE_VIDEO, -1);
++	if (ret) {
++		dev_err(&cs->pdev->dev, "failed to register %s: %d\n",
++			vdev->name, ret);
++		goto err_cleanup_entity;
++	}
++
++	return 0;
++
++err_cleanup_entity:
++	media_entity_cleanup(&vdev->entity);
++err_release_queue:
++	vb2_queue_release(q);
++err_destroy_mutex:
++	mutex_destroy(&cfg->lock);
++	return ret;
++}
++
++void sprd_config_vdev_unregister(struct sprd_config_vdev *cfg)
++{
++	video_unregister_device(&cfg->vdev);
++	media_entity_cleanup(&cfg->vdev.entity);
++	vb2_queue_release(&cfg->queue);
++	mutex_destroy(&cfg->lock);
++}
++
++void sprd_config_next_frame(struct sprd_dcam *dcam)
++{
++	struct sprd_config_vdev *cfg = &dcam->config;
++	struct v4l2_isp_params_buffer *config;
++	struct sprd_config_buffer *buf;
++	size_t block_offset = 0;
++	size_t max_offset;
++
++	spin_lock(&cfg->buf_lock);
++	buf = list_first_entry_or_null(&cfg->buf_queue, struct sprd_config_buffer, link);
++	if (buf)
++		list_del(&buf->link);
++	spin_unlock(&cfg->buf_lock);
++
++	if (!buf)
++		return;
++
++	config = buf->config;
++
++	max_offset = config->data_size;
++
++	/*
++	 * Walk the list of parameter blocks and process them. No validation is
++	 * done here, as the contents of the config buffer are already checked
++	 * when the buffer is queued.
++	 */
++	while (max_offset && block_offset < max_offset) {
++		union sprd_camsys_config_block block;
++
++		block.data = &config->data[block_offset];
++
++		if (dcam->hw->config_block[block.header->type]) {
++			dev_dbg(dcam->dev, "configuring block %d\n", block.header->type);
++			dcam->hw->config_block[block.header->type](dcam, block);
++		} else {
++			dev_dbg(dcam->dev, "block %d not supported by HW\n", block.header->type);
++		}
++
++		block_offset += block.header->size;
++	}
++
++	buf->vbuf.vb2_buf.timestamp = ktime_get_ns();
++	buf->vbuf.sequence = dcam->sequence;
++	vb2_buffer_done(&buf->vbuf.vb2_buf, VB2_BUF_STATE_DONE);
++}
+diff --git a/drivers/media/platform/sprd/camsys/csi-regs.h b/drivers/media/platform/sprd/camsys/csi-regs.h
+new file mode 100644
+index 000000000..cae2c26f9
+--- /dev/null
++++ b/drivers/media/platform/sprd/camsys/csi-regs.h
+@@ -0,0 +1,59 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/*
++ * Unisoc CSI receiver register definitions
++ * 
++ * Copyright (C) 2025 Otto Pflüger
++ * Copyright (C) 2021-2022 UNISOC Communications Inc.
++ */
++
++#ifndef __SPRD_CSI_REGS_H
++#define __SPRD_CSI_REGS_H
++
++/* CSI module */
++#define CSI_IP_REVISION					0x0000
++#define CSI_LANE_NUMBER					0x0004
++#define CSI_PHY_PD_N					0x0008
++#define CSI_RST_DPHY_N					0x000C
++#define CSI_RST_CSI2_N					0x0010
++#define CSI_IPG_MODE_CFG				0x0014
++
++#define CSI_PHY_STATE					0x0018
++#define CSI_ERR0					0x0020
++#define CSI_ERR1					0x0024
++#define CSI_MASK0					0x0028
++#define CSI_MASK1					0x002C
++#define CSI_ERR0_CLR					0x0030
++#define CSI_ERR1_CLR					0x0034
++#define CSI_CAL_DONE					0x0038
++#define CSI_CAL_FAILED					0x003C
++#define CSI_MSK_CAL_DONE				0x0040
++#define CSI_MSK_CAL_FAILED				0x0044
++
++#define CSI_PHY_TEST_CTRL0				0x0048
++#define CSI_PHY_REG_SEL					BIT(2)
++#define CSI_PHY_TESTCLK					BIT(1)
++#define CSI_PHY_TESTCLR					BIT(0)
++
++#define CSI_PHY_TEST_CTRL1				0x004C
++#define CSI_PHY_TESTEN					BIT(16)
++
++#define CSI_IPG_RAW10_CFG0				0x0050
++#define CSI_IPG_RAW10_CFG1				0x0054
++#define CSI_IPG_RAW10_CFG2				0x0058
++#define CSI_IPG_RAW10_CFG3				0x005C
++#define CSI_IPG_YUV422_8_CFG0				0x0060
++#define CSI_IPG_YUV422_8_CFG4				0x0064
++#define CSI_IPG_YUV422_8_CFG8				0x0068
++#define CSI_IPG_OTHER_CFG0				0x006C
++
++#define CSI_PHY_SEL					0x0070
++#define CSI_CPHY_ERR2					0x0074
++#define CSI_CPHY_ERR2_MASK				0x0078
++#define CSI_CPHY_ERR2_CLR				0x007C
++#define CSI_PHY_TRANS_FLAG				0x0080
++#define CSI_PHY_PH_ERR_NUM				0x0084
++#define CSI_PHY_DEBUG_EN				0x0088
++#define CSI_PHY_LINE_START_DELAY			0x008C
++#define CSI_PHY_IPG_CFG_ADD				0x0090
++
++#endif
+diff --git a/drivers/media/platform/sprd/camsys/csi.c b/drivers/media/platform/sprd/camsys/csi.c
+new file mode 100644
+index 000000000..f02e55291
+--- /dev/null
++++ b/drivers/media/platform/sprd/camsys/csi.c
+@@ -0,0 +1,292 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Unisoc CSI controller driver
++ *
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#include <linux/clk.h>
++#include <linux/regmap.h>
++
++#include "camsys.h"
++#include "csi-regs.h"
++
++static const u32 sprd_csi_formats[] = {
++	MEDIA_BUS_FMT_SBGGR8_1X8,
++	MEDIA_BUS_FMT_SGBRG8_1X8,
++	MEDIA_BUS_FMT_SGRBG8_1X8,
++	MEDIA_BUS_FMT_SRGGB8_1X8,
++	MEDIA_BUS_FMT_SBGGR10_1X10,
++	MEDIA_BUS_FMT_SGBRG10_1X10,
++	MEDIA_BUS_FMT_SGRBG10_1X10,
++	MEDIA_BUS_FMT_SRGGB10_1X10,
++};
++
++static int sprd_csi_s_power(struct v4l2_subdev *sd, int enable)
++{
++	struct sprd_csi *csi = container_of(sd, struct sprd_csi, subdev);
++	int ret;
++
++	dev_dbg(csi->dev, "%s(%d)\n", __func__, enable);
++
++	if (enable) {
++		csi->hw->power_phy(csi, 1);
++
++		ret = clk_prepare_enable(csi->camsys->cphy_cfg_en);
++		if (ret)
++			return ret;
++		ret = clk_prepare_enable(csi->camsys->mipi_gate);
++		if (ret)
++			return ret;
++		ret = clk_prepare_enable(csi->mipi_clk);
++		if (ret)
++			return ret;
++		ret = clk_prepare_enable(csi->clk);
++		if (ret)
++			return ret;
++	} else {
++		clk_disable_unprepare(csi->clk);
++		clk_disable_unprepare(csi->mipi_clk);
++		clk_disable_unprepare(csi->camsys->mipi_gate);
++		clk_disable_unprepare(csi->camsys->cphy_cfg_en);
++		csi->hw->power_phy(csi, 0);
++	}
++
++	return 0;
++}
++
++static int sprd_csi_s_stream(struct v4l2_subdev *sd, int enable)
++{
++	struct sprd_csi *csi = container_of(sd, struct sprd_csi, subdev);
++	int ret;
++
++	dev_dbg(csi->dev, "%s(%d)\n", __func__, enable);
++
++	if (!media_pad_remote_pad_first(&csi->pads[SPRD_CSI_PAD_SINK]))
++		return -ENOLINK;
++
++	if (enable) {
++		csi->hw->connect_dcam(csi, 1);
++
++		writel(0, csi->regs + CSI_RST_CSI2_N);
++		writel(1, csi->regs + CSI_RST_CSI2_N);
++		writel(1, csi->regs + CSI_PHY_PD_N);
++		writel(0, csi->regs + CSI_RST_DPHY_N);
++		writel(1, csi->regs + CSI_RST_DPHY_N);
++
++		csi->hw->setup_phy(csi, 1);
++
++		ret = sprd_csi_port_get_lane_count(csi->phy_id);
++		if (ret < 0)
++			return ret;
++		writel(ret - 1, csi->regs + CSI_LANE_NUMBER);
++	} else {
++		writel(0, csi->regs + CSI_PHY_PD_N);
++		csi->hw->setup_phy(csi, 0);
++		csi->hw->connect_dcam(csi, 0);
++	}
++
++	return 0;
++}
++
++static int sprd_csi_enum_mbus_code(struct v4l2_subdev *sd,
++				   struct v4l2_subdev_state *sd_state,
++				   struct v4l2_subdev_mbus_code_enum *code)
++{
++	if (code->index >= ARRAY_SIZE(sprd_csi_formats))
++		return -EINVAL;
++
++	code->code = sprd_csi_formats[code->index];
++
++	return 0;
++}
++
++static int sprd_csi_set_fmt(struct v4l2_subdev *sd,
++			    struct v4l2_subdev_state *sd_state,
++			    struct v4l2_subdev_format *fmt)
++{
++	struct v4l2_mbus_framefmt *sink_fmt, *src_fmt;
++	int i;
++
++	sink_fmt = v4l2_subdev_state_get_format(sd_state, SPRD_CSI_PAD_SINK);
++
++	for (i = 0; i < ARRAY_SIZE(sprd_csi_formats); i++) {
++		if (sprd_csi_formats[i] == fmt->format.code) {
++			sink_fmt->code = fmt->format.code;
++			break;
++		}
++	}
++
++	sink_fmt->width = fmt->format.width;
++	sink_fmt->height = fmt->format.height;
++
++	/* Propagate the format to the source pad. */
++	src_fmt = v4l2_subdev_state_get_format(sd_state, SPRD_CSI_PAD_SRC);
++	*src_fmt = *sink_fmt;
++
++	return 0;
++}
++
++static int sprd_csi_init_state(struct v4l2_subdev *sd,
++			       struct v4l2_subdev_state *sd_state)
++{
++	struct v4l2_mbus_framefmt *sink_fmt, *src_fmt;
++
++	sink_fmt = v4l2_subdev_state_get_format(sd_state, SPRD_CSI_PAD_SINK);
++	src_fmt = v4l2_subdev_state_get_format(sd_state, SPRD_CSI_PAD_SRC);
++
++	sink_fmt->width = 1280;
++	sink_fmt->height = 960;
++	sink_fmt->field = V4L2_FIELD_NONE;
++	sink_fmt->code = sprd_csi_formats[0];
++
++	*src_fmt = *sink_fmt;
++
++	return 0;
++}
++
++static int sprd_csi_link_setup(struct media_entity *entity,
++			       const struct media_pad *local,
++			       const struct media_pad *remote, u32 flags)
++{
++	struct v4l2_subdev *sd = media_entity_to_v4l2_subdev(entity);
++	struct sprd_csi *csi = container_of(sd, struct sprd_csi, subdev);
++
++	if (flags & MEDIA_LNK_FL_ENABLED)
++		if (media_pad_remote_pad_first(local))
++			return -EBUSY;
++
++	if ((local->flags & MEDIA_PAD_FL_SINK) &&
++	    (flags & MEDIA_LNK_FL_ENABLED)) {
++		struct v4l2_subdev *remote_sd;
++		struct sprd_camsys_sensor_link *sl;
++
++		if (media_pad_remote_pad_first(remote))
++			return -EBUSY;
++
++		remote_sd = media_entity_to_v4l2_subdev(remote->entity);
++		sl = remote_sd->host_priv;
++
++		dev_dbg(csi->dev, "using PHY %d for %s\n",
++			sl->phy_id, remote->entity->name);
++		csi->phy_id = sl->phy_id;
++	}
++
++	if ((local->flags & MEDIA_PAD_FL_SOURCE) &&
++	    (flags & MEDIA_LNK_FL_ENABLED)) {
++		struct v4l2_subdev *remote_sd;
++		struct sprd_dcam *dcam;
++
++		if (media_pad_remote_pad_first(remote))
++			return -EBUSY;
++
++		remote_sd = media_entity_to_v4l2_subdev(remote->entity);
++		dcam = container_of(remote_sd, struct sprd_dcam, subdev);
++
++		dev_dbg(csi->dev, "connecting csi%d to dcam%d\n",
++			csi->index, dcam->index);
++		csi->dcam_id = dcam->index;
++	}
++
++	return 0;
++}
++
++static const struct v4l2_subdev_core_ops sprd_csi_core_ops = {
++	.s_power = sprd_csi_s_power,
++};
++
++static const struct v4l2_subdev_video_ops sprd_csi_video_ops = {
++	.s_stream = sprd_csi_s_stream,
++};
++
++static const struct v4l2_subdev_pad_ops sprd_csi_pad_ops = {
++	.enum_mbus_code = sprd_csi_enum_mbus_code,
++	.get_fmt = v4l2_subdev_get_fmt,
++	.set_fmt = sprd_csi_set_fmt,
++};
++
++static const struct v4l2_subdev_ops sprd_csi_subdev_ops = {
++	.core = &sprd_csi_core_ops,
++	.video = &sprd_csi_video_ops,
++	.pad = &sprd_csi_pad_ops,
++};
++
++static const struct v4l2_subdev_internal_ops sprd_csi_internal_ops = {
++	.init_state = sprd_csi_init_state,
++};
++
++static const struct media_entity_operations sprd_csi_media_ops = {
++	.link_setup = sprd_csi_link_setup,
++	.link_validate = v4l2_subdev_link_validate,
++};
++
++int sprd_csi_register(struct sprd_camsys *cs, unsigned int index)
++{
++	struct sprd_csi *csi = &cs->csi[index];
++	struct v4l2_subdev *sd = &csi->subdev;
++	char name[16];
++	int ret;
++
++	csi->hw = cs->hw->csi_ops;
++	csi->camsys = cs;
++	csi->dev = &cs->pdev->dev;
++	csi->index = index;
++
++	v4l2_subdev_init(sd, &sprd_csi_subdev_ops);
++	snprintf(sd->name, sizeof(sd->name), "sprd_csi%d", csi->index);
++
++	snprintf(name, sizeof(name), "csi%d", csi->index);
++	csi->regs = devm_platform_ioremap_resource_byname(cs->pdev, name);
++	if (IS_ERR(csi->regs))
++		return PTR_ERR(csi->regs);
++
++	csi->clk = devm_clk_get(csi->dev, name);
++	if (IS_ERR(csi->clk))
++		return dev_err_probe(csi->dev, PTR_ERR(csi->clk),
++				     "cannot get %s clock\n", name);
++
++	snprintf(name, sizeof(name), "mipi_csi%d", csi->index);
++	csi->mipi_clk = devm_clk_get(csi->dev, name);
++	if (IS_ERR(csi->mipi_clk))
++		return dev_err_probe(csi->dev, PTR_ERR(csi->mipi_clk),
++				     "cannot get %s clock\n", name);
++
++	sd->internal_ops = &sprd_csi_internal_ops;
++	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
++	sd->entity.ops = &sprd_csi_media_ops;
++	sd->entity.function = MEDIA_ENT_F_VID_IF_BRIDGE;
++	sd->owner = THIS_MODULE;
++
++	csi->pads[SPRD_CSI_PAD_SINK].flags = MEDIA_PAD_FL_SINK;
++	csi->pads[SPRD_CSI_PAD_SRC].flags = MEDIA_PAD_FL_SOURCE;
++	ret = media_entity_pads_init(&sd->entity, SPRD_CSI_PAD_NUM, csi->pads);
++	if (ret)
++		return ret;
++
++	ret = v4l2_subdev_init_finalize(sd);
++	if (ret)
++		goto err_cleanup_entity;
++
++	ret = v4l2_device_register_subdev(&cs->v4l2_dev, sd);
++	if (ret) {
++		dev_err(csi->dev, "failed to register %s\n", sd->name);
++		goto err_cleanup_subdev;
++	}
++
++	return 0;
++
++err_cleanup_subdev:
++	v4l2_subdev_cleanup(sd);
++err_cleanup_entity:
++	media_entity_cleanup(&sd->entity);
++	return ret;
++}
++
++void sprd_csi_unregister(struct sprd_camsys *cs, unsigned int index)
++{
++	struct sprd_csi *csi = &cs->csi[index];
++
++	v4l2_device_unregister_subdev(&csi->subdev);
++	v4l2_subdev_cleanup(&csi->subdev);
++	media_entity_cleanup(&csi->subdev.entity);
++}
+diff --git a/drivers/media/platform/sprd/camsys/dcam-regs-ums9230.h b/drivers/media/platform/sprd/camsys/dcam-regs-ums9230.h
+new file mode 100644
+index 000000000..53fa31a2f
+--- /dev/null
++++ b/drivers/media/platform/sprd/camsys/dcam-regs-ums9230.h
+@@ -0,0 +1,551 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/*
++ * Unisoc DCAM register definitions
++ * 
++ * Copyright (C) 2025 Otto Pflüger
++ * Copyright (C) 2021-2022 UNISOC Communications Inc.
++ */
++
++#ifndef __SPRD_DCAM_REGS_H
++#define __SPRD_DCAM_REGS_H
++
++/* DCAM_DIM type */
++#define DCAM_DIM_Y					GENMASK(31, 16)
++#define DCAM_DIM_X					GENMASK(15, 0)
++
++/* UMS9230_DCAM_IRQ type */
++#define UMS9230_DCAM_IRQ_SENSOR_SOF			BIT(0)
++#define UMS9230_DCAM_IRQ_SENSOR_EOF			BIT(1)
++#define UMS9230_DCAM_IRQ_CAP_SOF			BIT(2)
++#define UMS9230_DCAM_IRQ_CAP_EOF			BIT(3)
++#define UMS9230_DCAM_IRQ_DCAM_OVF			BIT(4)
++#define UMS9230_DCAM_IRQ_CAP_LINE_ERR			BIT(5)
++#define UMS9230_DCAM_IRQ_CAP_FRM_ERR			BIT(6)
++#define UMS9230_DCAM_IRQ_FETCH_SOF			BIT(7)
++#define UMS9230_DCAM_IRQ_ISP_ENABLE_PULSE		BIT(8)
++#define UMS9230_DCAM_IRQ_PREVIEW_SOF			BIT(9)
++#define UMS9230_DCAM_IRQ_PDAF_SOF			BIT(10)
++#define UMS9230_DCAM_IRQ_AEM_SOF			BIT(11)
++#define UMS9230_DCAM_IRQ_HIST_SOF			BIT(12)
++#define UMS9230_DCAM_IRQ_AFL_SOF			BIT(13)
++#define UMS9230_DCAM_IRQ_AFM_SOF			BIT(14)
++#define UMS9230_DCAM_IRQ_LSCM_SOF			BIT(15)
++#define UMS9230_DCAM_IRQ_FULL_PATH_TX_DONE		BIT(16)
++#define UMS9230_DCAM_IRQ_PREV_PATH_TX_DONE		BIT(17)
++#define UMS9230_DCAM_IRQ_PDAF_PATH_TX_DONE		BIT(18)
++#define UMS9230_DCAM_IRQ_VCH2_PATH_TX_DONE		BIT(19)
++#define UMS9230_DCAM_IRQ_VCH3_PATH_TX_DONE		BIT(20)
++#define UMS9230_DCAM_IRQ_AEM_TX_DONE			BIT(21)
++#define UMS9230_DCAM_IRQ_HIST_TX_DONE			BIT(22)
++#define UMS9230_DCAM_IRQ_AFL_TX_DONE			BIT(23)
++#define UMS9230_DCAM_IRQ_BPC_MAP_DONE			BIT(24)
++#define UMS9230_DCAM_IRQ_BPC_POS_DONE			BIT(25)
++#define UMS9230_DCAM_IRQ_AFM_TILE_DONE			BIT(26)
++#define UMS9230_DCAM_IRQ_AFM_ALL_DONE			BIT(27)
++#define UMS9230_DCAM_IRQ_NR3_TX_DONE			BIT(28)
++#define UMS9230_DCAM_IRQ_LSCM_TX_DONE			BIT(29)
++#define UMS9230_DCAM_IRQ_GTM_TX_DONE			BIT(30)
++#define UMS9230_DCAM_IRQ_MMU_INT			BIT(31)
++
++/* DCAM_HWFMT type */
++#define DCAM_HWFMT_RAW_PACK_10				(0)
++#define DCAM_HWFMT_RAW_HALFWORD_10			(1)
++#define DCAM_HWFMT_RAW_HALFWORD_14			(2)
++#define DCAM_HWFMT_RAW_8				(3)
++
++/* DCAM module */
++#define DCAM_IP_REVISION				0x0000
++
++#define DCAM_CONTROL					0x0004
++#define DCAM_FORCE_COPY_ALL				(0x15551)
++#define DCAM_AUTO_COPY_ALL				(0x2AAA2)
++
++#define DCAM_APB_SRAM_CTRL				0x0008
++#define DCAM_SPARE_CTRL					0x000C
++
++#define DCAM_MIPI_CAP_CFG				0x0010
++#define DCAM_MIPI_CAP_CPHY				BIT(31)
++#define DCAM_MIPI_Y_FACTOR				GENMASK(19, 18)
++#define DCAM_MIPI_X_FACTOR				GENMASK(17, 16)
++#define DCAM_MIPI_CAP_FMT				GENMASK(15, 14)
++#define DCAM_MIPI_CAP_HREF				BIT(13)
++#define DCAM_MIPI_CAP_FETCH				BIT(12)
++#define DCAM_MIPI_FRM_SKIP				GENMASK(11, 8)
++#define DCAM_MIPI_FRM_DECI				GENMASK(7, 6)
++#define DCAM_MIPI_CAP_MODE				BIT(3)
++#define DCAM_MIPI_CAP_RAW				BIT(1)
++#define DCAM_MIPI_CAP_EN				BIT(0)
++
++#define DCAM_MIPI_CAP_START				0x0014
++#define DCAM_MIPI_CAP_END				0x0018
++
++#define DCAM_IMAGE_CONTROL				0x001C
++#define DCAM_IMAGE_VC					GENMASK(17, 16)
++#define DCAM_IMAGE_DATA_TYPE				GENMASK(13, 8)
++#define DCAM_IMG_TYPE_YUV				(0x1E << 8)
++#define DCAM_IMG_TYPE_RAW8				(0x2A << 8)
++#define DCAM_IMG_TYPE_RAW10				(0x2B << 8)
++#define DCAM_IMAGE_MODE					GENMASK(1, 0)
++
++#define DCAM_MIPI_REDUNDANT				0x0020
++#define DCAM_CAP_FRM_CLR				0x0024
++#define DCAM_CAP_RAW_SIZE				0x0028
++#define DCAM_INT_MASK					0x0030
++#define DCAM_INT_EN					0x0034
++#define DCAM_INT_CLR					0x0038
++#define DCAM_INT_RAW					0x003C
++#define DCAM_3A_INT_MASK				0x0040
++#define DCAM_3A_INT_EN					0x0044
++#define DCAM_3A_INT_CLR					0x0048
++#define DCAM_3A_INT_RAW					0x004C
++#define DCAM_PATH_OVF					0x0050
++#define DCAM_PATH_BUSY					0x0054
++#define DCAM_PATH_STOP					0x0058
++
++#define DCAM_PATH_ENDIAN				0x005C
++#define DCAM_PATH_FULL_ENDIAN				GENMASK(17, 16)
++
++/* DCAM fetch/store pointer registers */
++#define DCAM_FBC_PAYLOAD_WADDR				0x0060
++#define DCAM_FBC_MID_WADDR				0x0064
++#define DCAM_FULL_BASE_WADDR				0x0068
++#define DCAM_BIN_BASE_WADDR0				0x0070
++#define DCAM_BIN_BASE_WADDR1				0x0074
++#define DCAM_BIN_BASE_WADDR2				0x0078
++#define DCAM_BIN_BASE_WADDR3				0x007C
++#define DCAM_PDAF_BASE_WADDR				0x0080
++#define DCAM_VCH2_BASE_WADDR				0x0084
++#define DCAM_VCH3_BASE_WADDR				0x0088
++#define DCAM_PPE_RIGHT_WADDR				0x008C
++#define DCAM_LENS_BASE_RADDR				0x0090
++#define DCAM_LSCM_BASE_WADDR				0x0094
++#define DCAM_AEM_BASE_WADDR				0x00A0
++#define DCAM_AEM_BASE_WADDR1				0x00A4
++#define DCAM_AEM_BASE_WADDR2				0x00A8
++#define DCAM_AEM_BASE_WADDR3				0x00AC
++#define DCAM_HIST_BASE_WADDR				0x00C0
++#define DCAM_HIST_BASE_WADDR1				0x00C4
++#define DCAM_HIST_BASE_WADDR2				0x00C8
++#define DCAM_HIST_BASE_WADDR3				0x00CC
++#define DCAM_ISP_AFL_GLB_WADDR				0x00D0
++#define DCAM_ISP_AFL_REGION_WADDR			0x00D4
++#define DCAM_ISP_BPC_MAP_ADDR				0x00D8
++#define DCAM_ISP_BPC_OUT_ADDR				0x00DC
++#define DCAM_ISP_AFM_BASE_WADDR				0x00E0
++#define DCAM_ISP_NR3_WADDR				0x00E4
++
++#define DCAM_FBC_CTRL					0x00F0
++#define DCAM_FBC_CTRL0					0x00F4
++#define DCAM_FBC_CTRL1					0x00F8
++
++#define DCAM_FULL_CFG					0x0100
++#define DCAM_FULL_PITCH					GENMASK(30, 20)
++#define DCAM_FULL_SRC_SEL				BIT(4)
++#define DCAM_FULL_HWFMT					GENMASK(3, 2)
++#define DCAM_FULL_CROP_EN				BIT(1)
++#define DCAM_FULL_PATH_EN				BIT(0)
++
++#define DCAM_FULL_CROP_START				0x0104
++#define DCAM_FULL_CROP_SIZE				0x0108
++#define DCAM_FULL_PATH_STATUS				0x010C
++
++#define DCAM_CAM_BIN_CFG				0x0120
++#define DCAM_CAM_BIN_CROP_START				0x0124
++#define DCAM_CAM_BIN_CROP_SIZE				0x0128
++#define DCAM_RDS_DES_SIZE				0x012C
++#define DCAM_RDS_SLICE_CTRL0				0x0130
++#define DCAM_RDS_SLICE_CTRL1				0x0134
++#define DCAM_RDS_SLICE_CTRL2				0x0138
++#define DCAM_RDS_SLICE_CTRL3				0x013C
++#define DCAM_BIN_PATH_STATUS				0x0140
++
++#define DCAM_VC2_CONTROL				0x0160
++#define DCAM_VC3_CONTROL				0x0170
++#define DCAM_VCH2_PATH_STATUS				0x0164
++#define DCAM_VCH3_PATH_STATUS				0x0174
++
++#define DCAM_BAYER_INFO_CFG				0x0180
++#define DCAM_BAYER_BITS					GENMASK(20, 16)
++#define DCAM_BAYER_8BIT					(0x00 << 16)
++#define DCAM_BAYER_10BIT				(0x11 << 16)
++#define DCAM_BAYER_12BIT				(0x0A << 16)
++#define DCAM_BAYER_14BIT				(0x13 << 16)
++#define DCAM_BAYER_PATTERN				GENMASK(5, 4)
++#define DCAM_BAYER_GRBG					(0 << 4)
++#define DCAM_BAYER_RGGB					(1 << 4)
++#define DCAM_BAYER_BGGR					(2 << 4)
++#define DCAM_BAYER_GBRG					(3 << 4)
++
++#define DCAM_BLC_PARA_R_B				0x0184
++#define DCAM_BLC_BYPASS					BIT(31)
++#define DCAM_BLC_PARA_B					GENMASK(29, 16)
++#define DCAM_BLC_PARA_R					GENMASK(13, 0)
++
++#define DCAM_BLC_PARA_G					0x0188
++#define DCAM_BLC_PARA_GB				GENMASK(29, 16)
++#define DCAM_BLC_PARA_GR				GENMASK(13, 0)
++
++#define DCAM_ISP_RGBG_RB				0x01A0
++#define DCAM_ISP_RGBG_R_GAIN				GENMASK(31, 16)
++#define DCAM_ISP_RGBG_B_GAIN				GENMASK(15, 0)
++
++#define DCAM_ISP_RGBG_G					0x01A4
++#define DCAM_ISP_RGBG_G_GAIN				GENMASK(31, 16)
++#define DCAM_ISP_RGBG_GLOBAL_GAIN			GENMASK(15, 0)
++
++#define DCAM_ISP_RGBG_YRANDOM_PARAMETER0		0x01A8
++#define DCAM_ISP_RGBG_YRANDOM_PARAMETER1		0x01AC
++#define DCAM_ISP_RGBG_YRANDOM_PARAMETER2		0x01B0
++#define DCAM_ISP_RGBG_YUV_YRANDOM_STATUS0		0x01B4
++#define DCAM_ISP_RGBG_YUV_YRANDOM_STATUS1		0x01B8
++#define DCAM_ISP_RGBG_YUV_YRANDOM_STATUS2		0x01BC
++
++#define DCAM_PDAF_CONTROL				0x0200
++#define DCAM_PPE_FRM_CTRL0				0x0204
++#define DCAM_PPE_FRM_CTRL1				0x0208
++#define DCAM_PPE_STATUS					0x020C
++#define DCAM_PDAF_PATH_STATUS				0x0210
++#define DCAM_ISP_PPI_PARAM				0x0214
++#define DCAM_ISP_PPI_BLOCK_COL				0x0218
++#define DCAM_ISP_PPI_BLOCK_ROW				0x021C
++#define DCAM_ISP_PPI_GLB_START				0x0220
++#define DCAM_ISP_PPI_AF_WIN_START			0x0230
++#define DCAM_ISP_PPI_AF_WIN_END				0x0234
++#define DCAM_ISP_PPI_PATTERN01				0x0238
++
++#define DCAM_LSCM_FRM_CTRL0				0x02C0
++#define DCAM_LSCM_FRM_CTRL1				0x02C4
++#define DCAM_LSCM_OFFSET				0x02C8
++#define DCAM_LSCM_BLK_NUM				0x02CC
++#define DCAM_LSCM_BLK_SIZE				0x02D0
++
++#define DCAM_LENS_GRID_NUMBER				0x02E0
++#define DCAM_LENS_GRID_NUM_T				GENMASK(14, 0)
++
++#define DCAM_LENS_GRID_SIZE				0x02E4
++#define DCAM_LENS_GRID_WIDTH				GENMASK(24, 16)
++#define DCAM_LENS_GRID_Y_NUM				GENMASK(15, 8)
++#define DCAM_LENS_GRID_X_NUM				GENMASK(7, 0)
++
++#define DCAM_LENS_LOAD_ENABLE				0x02E8
++#define DCAM_LENS_LOAD_DONE				BIT(2)
++#define DCAM_LENS_LOAD_BUF_SEL				BIT(1)
++#define DCAM_LENS_BYPASS				BIT(0)
++
++#define DCAM_LENS_LOAD_TRIGGER				0x02EC
++#define DCAM_LENS_LOAD_NEXT_SOF				BIT(2)
++#define DCAM_LENS_LOAD_DONE_ACK				BIT(1)
++#define DCAM_LENS_LOAD_START				BIT(0)
++
++#define DCAM_LENS_SLICE_CTRL0				0x02F0
++#define DCAM_LENS_SLICE_CTRL1				0x02F4
++#define DCAM_LENS_STATUS				0x02F8
++
++#define DCAM_AEM_FRM_CTRL0				0x0300
++#define DCAM_AEM_FRM_SKIP_NUM				GENMASK(7, 4)
++#define DCAM_AEM_FRM_TRIGGER_EN				BIT(3)
++#define DCAM_AEM_FRM_MODE_MULTI				BIT(2)
++#define DCAM_AEM_BYPASS					BIT(0)
++
++#define DCAM_AEM_FRM_CTRL1				0x0304
++#define DCAM_AEM_FRM_SKIP_CNT_CLR			BIT(1)
++#define DCAM_AEM_FRM_SINGLE_START			BIT(0)
++
++#define DCAM_AEM_OFFSET					0x0308
++
++#define DCAM_AEM_BLK_NUM				0x030C
++#define DCAM_AEM_BLK_NUM_Y				GENMASK(15, 8)
++#define DCAM_AEM_BLK_NUM_X				GENMASK(7, 0)
++
++#define DCAM_AEM_BLK_SIZE				0x0310
++#define DCAM_AEM_BLK_HEIGHT				GENMASK(15, 8)
++#define DCAM_AEM_BLK_WIDTH				GENMASK(7, 0)
++
++#define DCAM_AEM_RED_THR				0x0314
++#define DCAM_AEM_RED_THR_LOW				GENMASK(25, 16)
++#define DCAM_AEM_RED_THR_HIGH				GENMASK(9, 0)
++
++#define DCAM_AEM_BLUE_THR				0x0318
++#define DCAM_AEM_BLUE_THR_LOW				GENMASK(25, 16)
++#define DCAM_AEM_BLUE_THR_HIGH				GENMASK(9, 0)
++
++#define DCAM_AEM_GREEN_THR				0x031C
++#define DCAM_AEM_GREEN_THR_LOW				GENMASK(25, 16)
++#define DCAM_AEM_GREEN_THR_HIGH				GENMASK(9, 0)
++
++#define DCAM_AEM_STATUS					0x0320
++
++#define DCAM_HIST_FRM_CTRL0				0x0340
++#define DCAM_HIST_FRM_CTRL1				0x0344
++#define DCAM_BAYER_HIST_START				0x0348
++#define DCAM_BAYER_HIST_END				0x034C
++#define DCAM_HIST_STATUS				0x0350
++
++#define DCAM_ISP_AFL_FRM_CTRL0				0x0360
++#define DCAM_ISP_AFL_FRM_CTRL1				0x0364
++#define DCAM_ISP_AFL_PARAM0				0x0368
++#define DCAM_ISP_AFL_PARAM1				0x036C
++#define DCAM_ISP_AFL_PARAM2				0x0370
++#define DCAM_ISP_AFL_COL_POS				0x0374
++#define DCAM_ISP_AFL_REGION0				0x0378
++#define DCAM_ISP_AFL_REGION1				0x037C
++#define DCAM_ISP_AFL_REGION2				0x0380
++#define DCAM_ISP_AFL_SUM1				0x0384
++#define DCAM_ISP_AFL_SUM2				0x0388
++#define DCAM_ISP_AFL_STATUS0				0x038C
++#define DCAM_ISP_AFL_STATUS1				0x0390
++#define DCAM_ISP_AFL_STATUS2				0x0394
++#define DCAM_ISP_AFL_SLICE1				0x0398
++#define DCAM_ISP_AFL_SLICE2				0x039C
++#define DCAM_ISP_AFL_SLICE3				0x03A0
++#define DCAM_ISP_AFL_SLICE4				0x03A4
++#define DCAM_ISP_AFL_ADDR_STATUS			0x03A8
++
++#define DCAM_CROP0_START				0x03C0
++#define DCAM_CROP0_SIZE					0x03C4
++
++#define DCAM_ISP_AWBC_GAIN0				0x03D0
++#define DCAM_ISP_AWBC_BYPASS				BIT(31)
++#define DCAM_ISP_AWBC_GAIN_B				GENMASK(29, 16)
++#define DCAM_ISP_AWBC_GAIN_R				GENMASK(13, 0)
++
++#define DCAM_ISP_AWBC_GAIN1				0x03D4
++#define DCAM_ISP_AWBC_GAIN_GB				GENMASK(29, 16)
++#define DCAM_ISP_AWBC_GAIN_GR				GENMASK(13, 0)
++
++#define DCAM_ISP_AWBC_THRD				0x03D8
++#define DCAM_ISP_AWBC_THRD1				0x03DC
++
++#define DCAM_ISP_AWBC_OFFSET0				0x03E0
++#define DCAM_ISP_AWBC_OFFSET_B				GENMASK(26, 16)
++#define DCAM_ISP_AWBC_OFFSET_R				GENMASK(10, 0)
++
++#define DCAM_ISP_AWBC_OFFSET1				0x03E4
++#define DCAM_ISP_AWBC_OFFSET_GB				GENMASK(26, 16)
++#define DCAM_ISP_AWBC_OFFSET_GR				GENMASK(10, 0)
++
++#define DCAM_ISP_AWBC_STATUS				0x03E8
++
++#define DCAM_ISP_BPC_PARAM				0x0400
++#define DCAM_ISP_BPC_MAP_CTRL				0x0404
++#define DCAM_ISP_BPC_BAD_PIXEL_TH0			0x0408
++#define DCAM_ISP_BPC_BAD_PIXEL_TH1			0x040C
++#define DCAM_ISP_BPC_BAD_PIXEL_TH2			0x0410
++#define DCAM_ISP_BPC_BAD_PIXEL_TH3			0x0414
++#define DCAM_ISP_BPC_FLAT_TH				0x0418
++#define DCAM_ISP_BPC_EDGE_RATIO				0x041C
++#define DCAM_ISP_BPC_BAD_PIXEL_PARAM			0x0420
++#define DCAM_ISP_BPC_BAD_PIXEL_COEFF			0x0424
++#define DCAM_ISP_BPC_LUTWORD0				0x0428
++#define DCAM_ISP_BPC_LUTWORD1				0x042C
++#define DCAM_ISP_BPC_LUTWORD2				0x0430
++#define DCAM_ISP_BPC_LUTWORD3				0x0434
++#define DCAM_ISP_BPC_LUTWORD4				0x0438
++#define DCAM_ISP_BPC_LUTWORD5				0x043C
++#define DCAM_ISP_BPC_LUTWORD6				0x0440
++#define DCAM_ISP_BPC_LUTWORD7				0x0444
++#define DCAM_ISP_BPC_PPI_RANG				0x0448
++#define DCAM_ISP_BPC_PPI_RANG1				0x044C
++#define DCAM_ISP_BPC_PPI_GLB_START			0x0450
++#define DCAM_ISP_BPC_SLICE_ROI_S			0x0454
++#define DCAM_ISP_BPC_SLICE_ROI_R			0x0458
++#define DCAM_ISP_BPC_LAST_ADDR				0x045C
++#define DCAM_ISP_BPC_STATUS0				0x0460
++#define DCAM_ISP_BPC_STATUS1				0x0464
++
++#define DCAM_ISP_AFM_FRM_CTRL0				0x0480
++#define DCAM_ISP_AFM_FRM_SKIP_NUM			GENMASK(7, 4)
++#define DCAM_ISP_AFM_FRM_TRIGGER_EN			BIT(3)
++#define DCAM_ISP_AFM_FRM_MODE_MULTI			BIT(2)
++#define DCAM_ISP_AFM_BYPASS				BIT(0)
++
++#define DCAM_ISP_AFM_FRM_CTRL1				0x0484
++#define DCAM_ISP_AFM_FRM_SKIP_CNT_CLR			BIT(1)
++#define DCAM_ISP_AFM_FRM_SINGLE_START			BIT(0)
++
++#define DCAM_ISP_AFM_PARAMETERS				0x0488
++#define DCAM_ISP_AFM_DONE_TILE_NUM_X			GENMASK(16, 12)
++#define DCAM_ISP_AFM_DONE_TILE_NUM_Y			GENMASK(11, 8)
++#define DCAM_ISP_AFM_LUM_STAT_CHN_SEL			GENMASK(5, 4)
++#define DCAM_ISP_AFM_IIR_ENABLE				BIT(2)
++#define DCAM_ISP_AFM_CROP_ENABLE			BIT(1)
++#define DCAM_ISP_AFM_CG_DIS				BIT(0)
++
++#define DCAM_ISP_AFM_ENHANCE_CTRL			0x048C
++#define DCAM_ISP_AFM_FV1_SHIFT				GENMASK(14, 12)
++#define DCAM_ISP_AFM_FV0_SHIFT				GENMASK(10, 8)
++#define DCAM_ISP_AFM_CLIP_EN1				BIT(7)
++#define DCAM_ISP_AFM_CLIP_EN0				BIT(6)
++#define DCAM_ISP_AFM_CENTER_WEIGHT			GENMASK(5, 4)
++#define DCAM_ISP_AFM_DENOISE_MODE			GENMASK(3, 2)
++#define DCAM_ISP_AFM_CHANNEL_SEL			GENMASK(1, 0)
++
++#define DCAM_ISP_AFM_CROP_START				0x0490
++#define DCAM_ISP_AFM_CROP_SIZE				0x0494
++#define DCAM_ISP_AFM_WIN_OFFSET				0x0498
++#define DCAM_ISP_AFM_WIN_SIZE				0x049C
++#define DCAM_ISP_AFM_WIN_NUM				0x04A0
++
++#define DCAM_ISP_AFM_IIR_FILTER0			0x04A4
++#define DCAM_ISP_AFM_IIR_FILTER1			0x04A8
++#define DCAM_ISP_AFM_IIR_FILTER2			0x04AC
++#define DCAM_ISP_AFM_IIR_FILTER3			0x04B0
++#define DCAM_ISP_AFM_IIR_FILTER4			0x04B4
++#define DCAM_ISP_AFM_IIR_FILTER5			0x04B8
++
++#define DCAM_ISP_AFM_ENHANCE_FV0_THD			0x04BC
++#define DCAM_ISP_AFM_ENHANCE_FV0_THD_MAX		GENMASK(31, 12)
++#define DCAM_ISP_AFM_ENHANCE_FV0_THD_MIN		GENMASK(11, 0)
++
++#define DCAM_ISP_AFM_ENHANCE_FV1_THD			0x04C0
++#define DCAM_ISP_AFM_ENHANCE_FV1_THD_MAX		GENMASK(31, 12)
++#define DCAM_ISP_AFM_ENHANCE_FV1_THD_MIN		GENMASK(11, 0)
++
++#define DCAM_ISP_AFM_ENHANCE_FV1_COEFF00		0x04C4
++#define DCAM_ISP_AFM_ENHANCE_FV1_COEFF01		0x04C8
++#define DCAM_ISP_AFM_ENHANCE_FV1_COEFF10		0x04CC
++#define DCAM_ISP_AFM_ENHANCE_FV1_COEFF11		0x04D0
++#define DCAM_ISP_AFM_ENHANCE_FV1_COEFF20		0x04D4
++#define DCAM_ISP_AFM_ENHANCE_FV1_COEFF21		0x04D8
++#define DCAM_ISP_AFM_ENHANCE_FV1_COEFF30		0x04DC
++#define DCAM_ISP_AFM_ENHANCE_FV1_COEFF31		0x04E0
++
++#define DCAM_ISP_AFM_TILE_CNT_OUT			0x04E4
++#define DCAM_ISP_AFM_CNT_OUT				0x04E8
++#define DCAM_ISP_AFM_STATUS0				0x04EC
++#define DCAM_ISP_AFM_STATUS1				0x04F0
++
++#define DCAM_NR3_FAST_ME_PARAM				0x0500
++#define DCAM_NR3_FAST_ME_BAYER_PATTERN			GENMASK(7, 6)
++
++#define DCAM_NR3_FAST_ME_ROI_PARAM0			0x0504
++#define DCAM_NR3_FAST_ME_ROI_PARAM1			0x0508
++#define DCAM_NR3_FAST_ME_OUT0				0x050C
++#define DCAM_NR3_FAST_ME_OUT1				0x0510
++#define DCAM_NR3_FAST_ME_STATUS				0x0514
++
++#define DCAM_LENS_WEIGHT_TABLE				0x0900
++
++/* DCAM_AXIM module */
++#define DCAM_AXIM_AXIM_CTRL				0x0000
++#define DCAM_AXIM_AXIM_DBG_STS				0x0004
++#define DCAM_AXIM_CAP_SENSOR_CTRL			0x0008
++#define DCAM_AXIM_AXIM_WORD_ENDIAN			0x000C
++#define DCAM_AXIM_DCAM_LBUF_SHARE_MODE			0x0010
++
++#define DCAM_AXIM_DCAM_SPARE_REG_0			0x0014
++#define DCAM_AXIM_AXIM_SPARE_REG_0			0x0018
++#define DCAM_AXIM_SPARE_REG_ICG				0x001C
++
++#define DCAM_AXIM_FETCH_CTRL				0x0020
++#define DCAM_AXIM_FETCH_HWFMT				GENMASK(1, 0)
++#define DCAM_AXIM_FETCH_ENDIAN				GENMASK(3, 2)
++
++#define DCAM_AXIM_FETCH_SIZE				0x0024
++
++#define DCAM_AXIM_FETCH_OFFSET				0x0028
++#define DCAM_AXIM_FETCH_PITCH				GENMASK(31, 16)
++#define DCAM_AXIM_FETCH_START_X				GENMASK(15, 0)
++
++#define DCAM_AXIM_FETCH_START				0x002C
++#define DCAM_AXIM_FETCH_RADDR				0x0030
++
++#define DCAM_AXIM_DCAM_PORT_CFG				0x0040
++#define DCAM_AXIM_ZZHDR_SHADOW_CTRL			0x00FC
++#define DCAM_AXIM_HDR_GLB_CTRL				0x0100
++#define DCAM_AXIM_HDR_EXPO_RATIO			0x0104
++#define DCAM_AXIM_HDR_INTERP_CTRL0			0x0108
++#define DCAM_AXIM_HDR_INTERP_CTRL1			0x010C
++#define DCAM_AXIM_HDR_INTERP_CTRL2			0x0110
++#define DCAM_AXIM_HDR_INTERP_CTRL3			0x0114
++#define DCAM_AXIM_HDR_INTERP_CTRL5			0x011C
++#define DCAM_AXIM_HDR_INTERP_CTRL6			0x0120
++#define DCAM_AXIM_HDR_INTERP_CTRL7			0x0124
++#define DCAM_AXIM_HDR_INTERP_CTRL8			0x0128
++#define DCAM_AXIM_HDR_INTERP_CTRL9			0x012C
++#define DCAM_AXIM_HDR_INTERP_CTRL10			0x0130
++#define DCAM_AXIM_HDR_INTERP_CTRL11			0x0134
++#define DCAM_AXIM_HDR_GETESTACT_CTRL			0x0138
++#define DCAM_AXIM_HDR_GETESTMOT_CTRL			0x013C
++#define DCAM_AXIM_HDR_T2SMOOTHING_CTRL0			0x0140
++#define DCAM_AXIM_HDR_T2SMOOTHING_CTRL1			0x0144
++#define DCAM_AXIM_HDR_T2SMOOTHING_CTRL2			0x0148
++#define DCAM_AXIM_HDR_REC_CTRL				0x014C
++#define DCAM_AXIM_HDR_HIST_CTRL0			0x0150
++#define DCAM_AXIM_HDR_HIST_CTRL1			0x0154
++#define DCAM_AXIM_HDR_HIST_CTRL2			0x0158
++#define DCAM_AXIM_HDR_HIST_CTRL3			0x015C
++#define DCAM_AXIM_HDR_HIST_CTRL4			0x0160
++#define DCAM_AXIM_HDR_HIST_CTRL5			0x0164
++#define DCAM_AXIM_HDR_HIST_CTRL6			0x0168
++#define DCAM_AXIM_HDR_HIST_CTRL7			0x016C
++#define DCAM_AXIM_HDR_LOG_DIFF				0x0170
++#define DCAM_AXIM_HDR_TM_YMIN_SMOOTH			0x0174
++#define DCAM_AXIM_HDR_TM_LUMAFILTER0			0x0178
++#define DCAM_AXIM_HDR_TM_LUMAFILTER1			0x017C
++#define DCAM_AXIM_HDR_HIST_XPTS_0			0x0180
++#define DCAM_AXIM_HDR_HIST_XPTS_2			0x0184
++#define DCAM_AXIM_HDR_HIST_XPTS_4			0x0188
++#define DCAM_AXIM_HDR_HIST_XPTS_6			0x018C
++#define DCAM_AXIM_HDR_HIST_XPTS_8			0x0190
++#define DCAM_AXIM_HDR_HIST_XPTS_10			0x0194
++#define DCAM_AXIM_HDR_HIST_XPTS_12			0x0198
++#define DCAM_AXIM_HDR_HIST_XPTS_14			0x019C
++#define DCAM_AXIM_HDR_HIST_XPTS_16			0x01A0
++#define DCAM_AXIM_HDR_HIST_XPTS_18			0x01A4
++#define DCAM_AXIM_HDR_HIST_XPTS_20			0x01A8
++#define DCAM_AXIM_HDR_HIST_XPTS_22			0x01AC
++#define DCAM_AXIM_HDR_HIST_XPTS_24			0x01B0
++#define DCAM_AXIM_HDR_HIST_XPTS_26			0x01B4
++#define DCAM_AXIM_HDR_HIST_XPTS_28			0x01B8
++#define DCAM_AXIM_HDR_HIST_XPTS_30			0x01BC
++#define DCAM_AXIM_HDR_HIST_XPTS_32			0x01C0
++#define DCAM_AXIM_HDR_HIST_XPTS_34			0x01C4
++#define DCAM_AXIM_HDR_HIST_XPTS_36			0x01C8
++#define DCAM_AXIM_HDR_HIST_XPTS_38			0x01CC
++#define DCAM_AXIM_HDR_HIST_XPTS_40			0x01D0
++#define DCAM_AXIM_HDR_HIST_XPTS_42			0x01D4
++#define DCAM_AXIM_HDR_HIST_XPTS_44			0x01D8
++#define DCAM_AXIM_HDR_HIST_XPTS_46			0x01DC
++#define DCAM_AXIM_HDR_HIST_XPTS_48			0x01E0
++#define DCAM_AXIM_HDR_HIST_XPTS_50			0x01E4
++#define DCAM_AXIM_HDR_HIST_XPTS_52			0x01E8
++#define DCAM_AXIM_HDR_HIST_XPTS_54			0x01EC
++#define DCAM_AXIM_HDR_HIST_XPTS_56			0x01F0
++#define DCAM_AXIM_HDR_HIST_XPTS_58			0x01F4
++#define DCAM_AXIM_HDR_HIST_XPTS_60			0x01F8
++#define DCAM_AXIM_HDR_HIST_XPTS_62			0x01FC
++#define DCAM_AXIM_HDR_HIST_XPTS_64			0x0200
++#define DCAM_AXIM_HDR_HIST_XPTS_66			0x0204
++#define DCAM_AXIM_HDR_HIST_XPTS_68			0x0208
++#define DCAM_AXIM_HDR_HIST_XPTS_70			0x020C
++#define DCAM_AXIM_HDR_HIST_XPTS_72			0x0210
++#define DCAM_AXIM_HDR_HIST_XPTS_74			0x0214
++#define DCAM_AXIM_HDR_HIST_XPTS_76			0x0218
++#define DCAM_AXIM_HDR_HIST_XPTS_78			0x021C
++#define DCAM_AXIM_HDR_HIST_XPTS_80			0x0220
++#define DCAM_AXIM_HDR_HIST_XPTS_82			0x0224
++#define DCAM_AXIM_HDR_HIST_XPTS_84			0x0228
++#define DCAM_AXIM_HDR_HIST_XPTS_86			0x022C
++#define DCAM_AXIM_HDR_HIST_XPTS_88			0x0230
++#define DCAM_AXIM_HDR_HIST_XPTS_90			0x0234
++#define DCAM_AXIM_HDR_HIST_XPTS_92			0x0238
++#define DCAM_AXIM_HDR_HIST_XPTS_94			0x023C
++#define DCAM_AXIM_HDR_HIST_XPTS_96			0x0240
++#define DCAM_AXIM_HDR_HIST_XPTS_98			0x0244
++#define DCAM_AXIM_HDR_HIST_XPTS_100			0x0248
++#define DCAM_AXIM_HDR_HIST_XPTS_102			0x024C
++#define DCAM_AXIM_HDR_HIST_XPTS_104			0x0250
++#define DCAM_AXIM_HDR_HIST_XPTS_106			0x0254
++#define DCAM_AXIM_HDR_HIST_XPTS_108			0x0258
++#define DCAM_AXIM_HDR_HIST_XPTS_110			0x025C
++#define DCAM_AXIM_HDR_HIST_XPTS_112			0x0260
++#define DCAM_AXIM_HDR_HIST_XPTS_114			0x0264
++#define DCAM_AXIM_HDR_HIST_XPTS_116			0x0268
++#define DCAM_AXIM_HDR_HIST_XPTS_118			0x026C
++#define DCAM_AXIM_HDR_HIST_XPTS_120			0x0270
++#define DCAM_AXIM_HDR_HIST_XPTS_122			0x0274
++#define DCAM_AXIM_HDR_HIST_XPTS_124			0x0278
++#define DCAM_AXIM_HDR_HIST_XPTS_126			0x027C
++
++#endif
+diff --git a/drivers/media/platform/sprd/camsys/dcam-ums9230.c b/drivers/media/platform/sprd/camsys/dcam-ums9230.c
+new file mode 100644
+index 000000000..497d43989
+--- /dev/null
++++ b/drivers/media/platform/sprd/camsys/dcam-ums9230.c
+@@ -0,0 +1,433 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Unisoc camera frontend driver - UMS9230 platform
++ *
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#include <linux/iopoll.h>
++
++#include "camsys.h"
++#include "dcam-regs-ums9230.h"
++
++static void ums9230_dcam_set_path(struct sprd_dcam *dcam, u32 mbus_code,
++				  u32 width, u32 height)
++{
++	u32 val, hwfmt, imgtype, bayer;
++
++	switch (mbus_code) {
++	default:
++	case MEDIA_BUS_FMT_SBGGR8_1X8:
++	case MEDIA_BUS_FMT_SGBRG8_1X8:
++	case MEDIA_BUS_FMT_SGRBG8_1X8:
++	case MEDIA_BUS_FMT_SRGGB8_1X8:
++		hwfmt = DCAM_HWFMT_RAW_8;
++		imgtype = DCAM_IMG_TYPE_RAW8;
++		bayer = DCAM_BAYER_8BIT;
++		break;
++	case MEDIA_BUS_FMT_SBGGR10_1X10:
++	case MEDIA_BUS_FMT_SGBRG10_1X10:
++	case MEDIA_BUS_FMT_SGRBG10_1X10:
++	case MEDIA_BUS_FMT_SRGGB10_1X10:
++		hwfmt = DCAM_HWFMT_RAW_PACK_10;
++		imgtype = DCAM_IMG_TYPE_RAW10;
++		bayer = DCAM_BAYER_10BIT;
++		break;
++	}
++
++	switch (mbus_code) {
++	default:
++	case MEDIA_BUS_FMT_SBGGR8_1X8:
++	case MEDIA_BUS_FMT_SBGGR10_1X10:
++		bayer |= DCAM_BAYER_BGGR;
++		break;
++	case MEDIA_BUS_FMT_SGBRG8_1X8:
++	case MEDIA_BUS_FMT_SGBRG10_1X10:
++		bayer |= DCAM_BAYER_GBRG;
++		break;
++	case MEDIA_BUS_FMT_SGRBG8_1X8:
++	case MEDIA_BUS_FMT_SGRBG10_1X10:
++		bayer |= DCAM_BAYER_GRBG;
++		break;
++	case MEDIA_BUS_FMT_SRGGB8_1X8:
++	case MEDIA_BUS_FMT_SRGGB10_1X10:
++		bayer |= DCAM_BAYER_RGGB;
++		break;
++	}
++
++	val = DCAM_MIPI_CAP_MODE | DCAM_MIPI_CAP_RAW;
++	writel(val, dcam->regs + DCAM_MIPI_CAP_CFG);
++
++	val = readl(dcam->regs + DCAM_BAYER_INFO_CFG);
++	val &= ~(DCAM_BAYER_BITS | DCAM_BAYER_PATTERN);
++	val |= bayer;
++	writel(val, dcam->regs + DCAM_BAYER_INFO_CFG);
++
++	val = FIELD_PREP(DCAM_DIM_Y, height - 1) |
++	      FIELD_PREP(DCAM_DIM_X, width - 1);
++	writel(val, dcam->regs + DCAM_MIPI_CAP_END);
++
++	val = DCAM_FULL_SRC_SEL | FIELD_PREP(DCAM_FULL_HWFMT, hwfmt);
++	writel(val, dcam->regs + DCAM_FULL_CFG);
++
++	val = imgtype | FIELD_PREP(DCAM_IMAGE_MODE, 1);
++	writel(val, dcam->regs + DCAM_IMAGE_CONTROL);
++}
++
++static void ums9230_dcam_config_ae(struct sprd_dcam *dcam,
++				   union sprd_camsys_config_block block)
++{
++	struct sprd_camsys_ae_config *ae = block.ae;
++	u32 val;
++
++	if (block.header->flags & V4L2_ISP_PARAMS_FL_BLOCK_DISABLE) {
++		dcam->stats.blocks_enabled &= ~SPRD_CAMSYS_STATS_AE;
++		return;
++	}
++
++	/* Protect the stats buffer from out-of-bounds access. */
++	if (ae->blk_num_x > SPRD_CAMSYS_AE_MAX_BLOCKS_X ||
++	    ae->blk_num_y > SPRD_CAMSYS_AE_MAX_BLOCKS_Y) {
++		dev_dbg(dcam->dev,
++			"not setting invalid AE config: %dx%d blocks\n",
++			ae->blk_num_x, ae->blk_num_y);
++		return;
++	}
++
++	dcam->stats.blocks_enabled |= SPRD_CAMSYS_STATS_AE;
++
++	val = FIELD_PREP(DCAM_DIM_Y, ae->offset_y) |
++	      FIELD_PREP(DCAM_DIM_X, ae->offset_x);
++	writel(val, dcam->regs + DCAM_AEM_OFFSET);
++
++	val = FIELD_PREP(DCAM_AEM_BLK_NUM_Y, ae->blk_num_y) |
++	      FIELD_PREP(DCAM_AEM_BLK_NUM_X, ae->blk_num_x);
++	writel(val, dcam->regs + DCAM_AEM_BLK_NUM);
++
++	val = FIELD_PREP(DCAM_AEM_BLK_HEIGHT, ae->blk_height) |
++	      FIELD_PREP(DCAM_AEM_BLK_WIDTH, ae->blk_width);
++	writel(val, dcam->regs + DCAM_AEM_BLK_SIZE);
++
++	val = FIELD_PREP(DCAM_AEM_RED_THR_LOW, ae->r_low) |
++	      FIELD_PREP(DCAM_AEM_RED_THR_HIGH, ae->r_high);
++	writel(val, dcam->regs + DCAM_AEM_RED_THR);
++
++	val = FIELD_PREP(DCAM_AEM_GREEN_THR_LOW, ae->g_low) |
++	      FIELD_PREP(DCAM_AEM_GREEN_THR_HIGH, ae->g_high);
++	writel(val, dcam->regs + DCAM_AEM_GREEN_THR);
++
++	val = FIELD_PREP(DCAM_AEM_BLUE_THR_LOW, ae->b_low) |
++	      FIELD_PREP(DCAM_AEM_BLUE_THR_HIGH, ae->b_high);
++	writel(val, dcam->regs + DCAM_AEM_BLUE_THR);
++}
++
++static void ums9230_dcam_config_af(struct sprd_dcam *dcam,
++				   union sprd_camsys_config_block block)
++{
++	struct sprd_camsys_af_config *af = block.af;
++	u32 val;
++
++	if (block.header->flags & V4L2_ISP_PARAMS_FL_BLOCK_DISABLE) {
++		dcam->stats.blocks_enabled &= ~SPRD_CAMSYS_STATS_AF;
++		return;
++	}
++
++	if (af->blk_num_x > SPRD_CAMSYS_AF_MAX_BLOCKS_X ||
++	    af->blk_num_y > SPRD_CAMSYS_AF_MAX_BLOCKS_Y) {
++		dev_dbg(dcam->dev,
++			"not setting invalid AF config: %dx%d blocks\n",
++			af->blk_num_x, af->blk_num_y);
++		return;
++	}
++
++	dcam->stats.blocks_enabled |= SPRD_CAMSYS_STATS_AF;
++
++	val = FIELD_PREP(DCAM_ISP_AFM_DONE_TILE_NUM_X, af->blk_num_x - 1) |
++	      FIELD_PREP(DCAM_ISP_AFM_DONE_TILE_NUM_Y, af->blk_num_y - 1);
++	writel(val, dcam->regs + DCAM_ISP_AFM_PARAMETERS);
++
++	val = FIELD_PREP(DCAM_DIM_Y, af->offset_y) |
++	      FIELD_PREP(DCAM_DIM_X, af->offset_x);
++	writel(val, dcam->regs + DCAM_ISP_AFM_WIN_OFFSET);
++
++	val = FIELD_PREP(DCAM_DIM_Y, af->blk_height) |
++	      FIELD_PREP(DCAM_DIM_X, af->blk_width);
++	writel(val, dcam->regs + DCAM_ISP_AFM_WIN_SIZE);
++
++	val = FIELD_PREP(DCAM_DIM_Y, af->blk_num_y) |
++	      FIELD_PREP(DCAM_DIM_X, af->blk_num_x);
++	writel(val, dcam->regs + DCAM_ISP_AFM_WIN_NUM);
++}
++
++static void ums9230_dcam_config_awb(struct sprd_dcam *dcam,
++				    union sprd_camsys_config_block block)
++{
++	struct sprd_camsys_awb_config *awb = block.awb;
++	u32 val;
++
++	if (block.header->flags & V4L2_ISP_PARAMS_FL_BLOCK_DISABLE) {
++		writel(DCAM_ISP_AWBC_BYPASS,
++		       dcam->regs + DCAM_ISP_AWBC_GAIN0);
++		return;
++	}
++
++	val = FIELD_PREP(DCAM_ISP_AWBC_GAIN_B, awb->gain_b) |
++	      FIELD_PREP(DCAM_ISP_AWBC_GAIN_R, awb->gain_r);
++	writel(val, dcam->regs + DCAM_ISP_AWBC_GAIN0);
++
++	val = FIELD_PREP(DCAM_ISP_AWBC_GAIN_GB, awb->gain_gb) |
++	      FIELD_PREP(DCAM_ISP_AWBC_GAIN_GR, awb->gain_gr);
++	writel(val, dcam->regs + DCAM_ISP_AWBC_GAIN1);
++
++	val = FIELD_PREP(DCAM_ISP_AWBC_OFFSET_B, awb->offset_b) |
++	      FIELD_PREP(DCAM_ISP_AWBC_OFFSET_R, awb->offset_r);
++	writel(val, dcam->regs + DCAM_ISP_AWBC_OFFSET0);
++
++	val = FIELD_PREP(DCAM_ISP_AWBC_OFFSET_GB, awb->offset_gb) |
++	      FIELD_PREP(DCAM_ISP_AWBC_OFFSET_GR, awb->offset_gr);
++	writel(val, dcam->regs + DCAM_ISP_AWBC_OFFSET1);
++}
++
++static void ums9230_dcam_config_blc(struct sprd_dcam *dcam,
++				    union sprd_camsys_config_block block)
++{
++	struct sprd_camsys_blc_config *blc = block.blc;
++	u32 val;
++
++	if (block.header->flags & V4L2_ISP_PARAMS_FL_BLOCK_DISABLE) {
++		writel(DCAM_BLC_BYPASS, dcam->regs + DCAM_BLC_PARA_R_B);
++		return;
++	}
++
++	val = FIELD_PREP(DCAM_BLC_PARA_B, blc->b) |
++	      FIELD_PREP(DCAM_BLC_PARA_R, blc->r);
++	writel(val, dcam->regs + DCAM_BLC_PARA_R_B);
++
++	val = FIELD_PREP(DCAM_BLC_PARA_GB, blc->gb) |
++	      FIELD_PREP(DCAM_BLC_PARA_GR, blc->gr);
++	writel(val, dcam->regs + DCAM_BLC_PARA_G);
++}
++
++static void ums9230_dcam_config_lsc(struct sprd_dcam *dcam,
++				    union sprd_camsys_config_block block)
++{
++	u32 __iomem *weight_addr = dcam->regs + DCAM_LENS_WEIGHT_TABLE;
++	struct sprd_camsys_lsc_config *lsc = block.lsc;
++	unsigned int i, num_weights;
++	u32 val;
++
++	if (block.header->flags & V4L2_ISP_PARAMS_FL_BLOCK_DISABLE) {
++		writel(DCAM_LENS_BYPASS, dcam->regs + DCAM_LENS_LOAD_ENABLE);
++		return;
++	}
++
++	num_weights = (lsc->blk_width / 2) + 1;
++	if (num_weights > SPRD_CAMSYS_LSC_MAX_WEIGHTS) {
++		dev_warn_ratelimited(dcam->dev,
++				     "lsc blk_width (%d) out of range\n",
++				     lsc->blk_width);
++		return;
++	}
++
++	for (i = 0; i < num_weights; i++) {
++		val = lsc->weights[i][0] | lsc->weights[i][1] << 16;
++		writel(val, weight_addr++);
++		val = lsc->weights[i][2];
++		writel(val, weight_addr++);
++	}
++
++	val = lsc->blk_num_y * lsc->blk_num_x;
++	writel(val, dcam->regs + DCAM_LENS_GRID_NUMBER);
++
++	val = FIELD_PREP(DCAM_LENS_GRID_WIDTH, lsc->blk_width) |
++	      FIELD_PREP(DCAM_LENS_GRID_Y_NUM, lsc->blk_num_y) |
++	      FIELD_PREP(DCAM_LENS_GRID_X_NUM, lsc->blk_num_x);
++	writel(val, dcam->regs + DCAM_LENS_GRID_SIZE);
++
++	writel(lsc->blk_num_x, dcam->regs + DCAM_LENS_SLICE_CTRL1);
++}
++
++static void ums9230_dcam_check_lsc_loaded(struct sprd_dcam *dcam)
++{
++	u32 val = readl(dcam->regs + DCAM_LENS_LOAD_ENABLE);
++
++	if (val & DCAM_LENS_LOAD_DONE) {
++		writel(DCAM_LENS_LOAD_DONE_ACK,
++		       dcam->regs + DCAM_LENS_LOAD_TRIGGER);
++		sprd_lsc_done(&dcam->lsc, dcam->sequence);
++		dev_dbg(dcam->dev, "lsc load done\n");
++	}
++}
++
++static void ums9230_dcam_set_lsc_buf(struct sprd_dcam *dcam,
++				     struct sprd_lsc_buffer *buf)
++{
++	u32 val;
++
++	if (!buf)
++		return;
++
++	/*
++	 * Enable internal SRAM access to allow loading the first buffer before
++	 * streaming starts. This must be done after initializing the weights.
++	 */
++	writel(1, dcam->regs + DCAM_APB_SRAM_CTRL);
++
++	writel(buf->addr, dcam->regs + DCAM_LENS_BASE_RADDR);
++
++	val = DCAM_LENS_LOAD_START;
++	writel(val, dcam->regs + DCAM_LENS_LOAD_TRIGGER);
++
++	val = readl(dcam->regs + DCAM_LENS_LOAD_ENABLE);
++	val ^= DCAM_LENS_LOAD_BUF_SEL;
++	val &= ~DCAM_LENS_BYPASS;
++	writel(val, dcam->regs + DCAM_LENS_LOAD_ENABLE);
++}
++
++static void ums9230_dcam_set_capture_buf(struct sprd_dcam *dcam,
++					 struct sprd_capture_buffer *buf)
++{
++	u32 val;
++
++	val = readl(dcam->regs + DCAM_FULL_CFG);
++	if (buf)
++		val |= DCAM_FULL_PATH_EN;
++	else
++		val &= ~DCAM_FULL_PATH_EN;
++	writel(val, dcam->regs + DCAM_FULL_CFG);
++
++	if (buf)
++		writel(buf->addr, dcam->regs + DCAM_FULL_BASE_WADDR);
++}
++
++static void ums9230_dcam_set_stats_buf(struct sprd_dcam *dcam,
++				       struct sprd_stats_buffer *buf)
++{
++	if (buf && (dcam->stats.blocks_enabled & SPRD_CAMSYS_STATS_AE)) {
++		writel(0, dcam->regs + DCAM_AEM_FRM_CTRL0);
++		writel(DCAM_AEM_FRM_SINGLE_START,
++		       dcam->regs + DCAM_AEM_FRM_CTRL1);
++
++		writel(buf->ae_addr, dcam->regs + DCAM_AEM_BASE_WADDR);
++	} else {
++		writel(DCAM_AEM_BYPASS, dcam->regs + DCAM_AEM_FRM_CTRL0);
++	}
++
++	if (buf && (dcam->stats.blocks_enabled & SPRD_CAMSYS_STATS_AF)) {
++		writel(0, dcam->regs + DCAM_ISP_AFM_FRM_CTRL0);
++		writel(DCAM_ISP_AFM_FRM_SINGLE_START,
++		       dcam->regs + DCAM_ISP_AFM_FRM_CTRL1);
++
++		writel(buf->af_addr, dcam->regs + DCAM_ISP_AFM_BASE_WADDR);
++	} else {
++		writel(DCAM_ISP_AFM_BYPASS, dcam->regs + DCAM_ISP_AFM_FRM_CTRL0);
++	}
++}
++
++static void ums9230_dcam_start(struct sprd_dcam *dcam)
++{
++	u32 val;
++
++	val = UMS9230_DCAM_IRQ_CAP_SOF |
++	      UMS9230_DCAM_IRQ_DCAM_OVF |
++	      UMS9230_DCAM_IRQ_CAP_LINE_ERR |
++	      UMS9230_DCAM_IRQ_CAP_FRM_ERR |
++	      UMS9230_DCAM_IRQ_FULL_PATH_TX_DONE |
++	      UMS9230_DCAM_IRQ_AEM_TX_DONE |
++	      UMS9230_DCAM_IRQ_AFM_ALL_DONE |
++	      UMS9230_DCAM_IRQ_MMU_INT;
++	writel(val, dcam->regs + DCAM_INT_EN);
++
++	/* Update shadow registers now to start capturing the first frame. */
++	writel(DCAM_FORCE_COPY_ALL, dcam->regs + DCAM_CONTROL);
++
++	val = readl(dcam->regs + DCAM_MIPI_CAP_CFG);
++	val |= DCAM_MIPI_CAP_EN;
++	writel(val, dcam->regs + DCAM_MIPI_CAP_CFG);
++
++	/* Enable the SRAM if it hasn't been enabled yet */
++	writel(1, dcam->regs + DCAM_APB_SRAM_CTRL);
++}
++
++static void ums9230_dcam_stop(struct sprd_dcam *dcam)
++{
++	u32 val;
++	int ret;
++
++	writel(0, dcam->regs + DCAM_INT_EN);
++
++	writel(0, dcam->regs + DCAM_MIPI_CAP_CFG);
++	writel(0xffffffff, dcam->regs + DCAM_PATH_STOP);
++
++	ret = readl_poll_timeout(dcam->regs + DCAM_PATH_BUSY, val, !val,
++				 500, 2000000);
++	if (ret)
++		dev_warn(dcam->dev, "dcam%d stop timeout: %08x\n",
++			 dcam->index, val);
++}
++
++static irqreturn_t ums9230_handle_irq(int irq, void *irqdata)
++{
++	struct sprd_dcam *dcam = irqdata;
++	u32 val;
++
++	val = readl(dcam->regs + DCAM_INT_MASK);
++	writel(val, dcam->regs + DCAM_INT_CLR);
++
++	dev_dbg(dcam->dev, "dcam%d IRQ: %08x\n", dcam->index, val);
++
++	if (val & UMS9230_DCAM_IRQ_FULL_PATH_TX_DONE)
++		sprd_capture_done(&dcam->capture, dcam->sequence - 1);
++
++	if (val & UMS9230_DCAM_IRQ_AEM_TX_DONE)
++		sprd_stats_done(&dcam->stats, dcam->sequence - 1,
++				SPRD_CAMSYS_STATS_AE);
++
++	if (val & UMS9230_DCAM_IRQ_AFM_ALL_DONE)
++		sprd_stats_done(&dcam->stats, dcam->sequence - 1,
++				SPRD_CAMSYS_STATS_AF);
++
++	/*
++	 * It is important to handle SOF after TX_DONE so that the buffers
++	 * are always returned on time.
++	 */
++	if (val & UMS9230_DCAM_IRQ_CAP_SOF) {
++		ums9230_dcam_check_lsc_loaded(dcam);
++		sprd_dcam_sof(dcam);
++
++		/*
++		 * Tell the hardware to update the shadow registers once the
++		 * next frame is ready to be processed.
++		 */
++		writel(DCAM_AUTO_COPY_ALL, dcam->regs + DCAM_CONTROL);
++	}
++
++	if (val & UMS9230_DCAM_IRQ_DCAM_OVF)
++		dev_err(dcam->dev, "dcam%d overflow\n", dcam->index);
++	if (val & UMS9230_DCAM_IRQ_CAP_LINE_ERR)
++		dev_err(dcam->dev, "dcam%d line error\n", dcam->index);
++	if (val & UMS9230_DCAM_IRQ_CAP_FRM_ERR)
++		dev_err(dcam->dev, "dcam%d frame error\n", dcam->index);
++	if (val & UMS9230_DCAM_IRQ_MMU_INT)
++		dev_err(dcam->dev, "dcam%d mmu error\n", dcam->index);
++
++	return IRQ_HANDLED;
++}
++
++const struct sprd_dcam_hw_ops ums9230_dcam_ops = {
++	.config_block = {
++		[SPRD_DCAM_BLOCK_AE] = ums9230_dcam_config_ae,
++		[SPRD_DCAM_BLOCK_AF] = ums9230_dcam_config_af,
++		[SPRD_DCAM_BLOCK_AWB] = ums9230_dcam_config_awb,
++		[SPRD_DCAM_BLOCK_BLC] = ums9230_dcam_config_blc,
++		[SPRD_DCAM_BLOCK_LSC] = ums9230_dcam_config_lsc,
++	},
++
++	.set_path = ums9230_dcam_set_path,
++	.set_lsc_buf = ums9230_dcam_set_lsc_buf,
++	.set_capture_buf = ums9230_dcam_set_capture_buf,
++	.set_stats_buf = ums9230_dcam_set_stats_buf,
++	.start = ums9230_dcam_start,
++	.stop = ums9230_dcam_stop,
++	.handle_irq = ums9230_handle_irq,
++};
+diff --git a/drivers/media/platform/sprd/camsys/dcam.c b/drivers/media/platform/sprd/camsys/dcam.c
+new file mode 100644
+index 000000000..67080cca5
+--- /dev/null
++++ b/drivers/media/platform/sprd/camsys/dcam.c
+@@ -0,0 +1,378 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Unisoc camera frontend driver
++ *
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#include <linux/clk.h>
++#include <linux/delay.h>
++#include <linux/reset.h>
++#include <media/v4l2-device.h>
++#include <media/v4l2-event.h>
++
++#include "camsys.h"
++
++static void sprd_dcam_next_frame(struct sprd_dcam *dcam)
++{
++	struct sprd_lsc_buffer *lsc_buf;
++	struct sprd_stats_buffer *stats_buf;
++	struct sprd_capture_buffer *cap_buf;
++
++	sprd_config_next_frame(dcam);
++
++	lsc_buf = sprd_lsc_next_frame(&dcam->lsc);
++	dcam->hw->set_lsc_buf(dcam, lsc_buf);
++
++	stats_buf = sprd_stats_next_frame(&dcam->stats);
++	dcam->hw->set_stats_buf(dcam, stats_buf);
++
++	cap_buf = sprd_capture_next_frame(&dcam->capture);
++	dcam->hw->set_capture_buf(dcam, cap_buf);
++
++	dev_dbg(dcam->dev, "dcam%d new frame: lsc %s, cap %s, stats %s\n",
++		dcam->index, lsc_buf ? "on" : "off", cap_buf ? "on" : "off",
++		stats_buf ? "on" : "off");
++}
++
++void sprd_dcam_sof(struct sprd_dcam *dcam)
++{
++	struct v4l2_event event = {
++		.type = V4L2_EVENT_FRAME_SYNC,
++	};
++
++	event.u.frame_sync.frame_sequence = dcam->sequence++;
++	v4l2_event_queue(dcam->subdev.devnode, &event);
++
++	/*
++	 * Prepare for the next frame while the current frame is being
++	 * processed.
++	 */
++	sprd_dcam_next_frame(dcam);
++}
++
++static int sprd_dcam_s_power(struct v4l2_subdev *sd, int enable)
++{
++	struct sprd_dcam *dcam = container_of(sd, struct sprd_dcam, subdev);
++	int ret;
++
++	dev_dbg(dcam->dev, "%s(%d)\n", __func__, enable);
++
++	if (enable) {
++		ret = clk_prepare_enable(dcam->camsys->dcam_clk);
++		if (ret)
++			return ret;
++	} else {
++		clk_disable_unprepare(dcam->camsys->dcam_clk);
++	}
++
++	return 0;
++}
++
++static int sprd_dcam_s_stream(struct v4l2_subdev *sd, int enable)
++{
++	struct sprd_dcam *dcam = container_of(sd, struct sprd_dcam, subdev);
++	const struct v4l2_mbus_framefmt *sink_fmt;
++	struct v4l2_subdev_state *sd_state;
++
++	dev_dbg(dcam->dev, "%s(%d)\n", __func__, enable);
++
++	if (enable) {
++		if (!media_pad_remote_pad_first(&dcam->pads[SPRD_DCAM_PAD_INPUT]))
++			return -ENOLINK;
++
++		reset_control_assert(dcam->reset);
++		udelay(10);
++		reset_control_deassert(dcam->reset);
++
++		sd_state = v4l2_subdev_lock_and_get_active_state(sd);
++		sink_fmt = v4l2_subdev_state_get_format(sd_state,
++							SPRD_DCAM_PAD_INPUT);
++
++		dcam->hw->set_path(dcam, sink_fmt->code,
++				   sink_fmt->width, sink_fmt->height);
++
++		v4l2_subdev_unlock_state(sd_state);
++
++		/* Prepare for the first frame. */
++		dcam->sequence = 0;
++		sprd_dcam_next_frame(dcam);
++
++		dcam->hw->start(dcam);
++	} else {
++		dcam->hw->stop(dcam);
++
++		reset_control_assert(dcam->reset);
++	}
++
++	return 0;
++}
++
++static int sprd_dcam_enum_mbus_code(struct v4l2_subdev *sd,
++				    struct v4l2_subdev_state *sd_state,
++				    struct v4l2_subdev_mbus_code_enum *code)
++{
++	struct sprd_dcam *dcam = container_of(sd, struct sprd_dcam, subdev);
++	u32 mbus_code = 0;
++	int i, n = -1;
++
++	for (i = 0; i < dcam->camsys->hw->num_formats; i++) {
++		if (mbus_code == dcam->camsys->hw->formats[i].mbus_code)
++			continue;
++
++		mbus_code = dcam->camsys->hw->formats[i].mbus_code;
++		if (++n == code->index) {
++			code->code = mbus_code;
++			return 0;
++		}
++	}
++
++	return -EINVAL;
++}
++
++static int sprd_dcam_set_fmt(struct v4l2_subdev *sd,
++			     struct v4l2_subdev_state *sd_state,
++			     struct v4l2_subdev_format *fmt)
++{
++	struct sprd_dcam *dcam = container_of(sd, struct sprd_dcam, subdev);
++	struct v4l2_mbus_framefmt *sink_fmt, *src_fmt;
++	int i;
++
++	sink_fmt = v4l2_subdev_state_get_format(sd_state, SPRD_DCAM_PAD_INPUT);
++
++	for (i = 0; i < dcam->camsys->hw->num_formats; i++) {
++		if (dcam->camsys->hw->formats[i].mbus_code ==
++		    fmt->format.code) {
++			sink_fmt->code = fmt->format.code;
++			break;
++		}
++	}
++
++	sink_fmt->width = clamp_t(u32, fmt->format.width, 1,
++				  dcam->camsys->hw->max_width);
++	sink_fmt->height = clamp_t(u32, fmt->format.height, 1,
++				   dcam->camsys->hw->max_height);
++
++	/* Propagate the format to the source pad. */
++	src_fmt = v4l2_subdev_state_get_format(sd_state, SPRD_DCAM_PAD_CAPTURE);
++	*src_fmt = *sink_fmt;
++
++	return 0;
++}
++
++static int sprd_dcam_subs_evt(struct v4l2_subdev *sd, struct v4l2_fh *fh,
++			      struct v4l2_event_subscription *sub)
++{
++	if (sub->type != V4L2_EVENT_FRAME_SYNC)
++		return -EINVAL;
++
++	/* V4L2_EVENT_FRAME_SYNC doesn't require an id, so zero should be set */
++	if (sub->id != 0)
++		return -EINVAL;
++
++	return v4l2_event_subscribe(fh, sub, 0, NULL);
++}
++
++static const struct v4l2_subdev_core_ops sprd_dcam_core_ops = {
++	.s_power = sprd_dcam_s_power,
++	.subscribe_event = sprd_dcam_subs_evt,
++	.unsubscribe_event = v4l2_event_subdev_unsubscribe,
++};
++
++static const struct v4l2_subdev_video_ops sprd_dcam_video_ops = {
++	.s_stream = sprd_dcam_s_stream,
++};
++
++static const struct v4l2_subdev_pad_ops sprd_dcam_pad_ops = {
++	.enum_mbus_code = sprd_dcam_enum_mbus_code,
++	.get_fmt = v4l2_subdev_get_fmt,
++	.set_fmt = sprd_dcam_set_fmt,
++};
++
++static const struct v4l2_subdev_ops sprd_dcam_subdev_ops = {
++	.core = &sprd_dcam_core_ops,
++	.video = &sprd_dcam_video_ops,
++	.pad = &sprd_dcam_pad_ops,
++};
++
++static int sprd_dcam_init_state(struct v4l2_subdev *sd,
++				struct v4l2_subdev_state *sd_state)
++{
++	struct sprd_dcam *dcam = container_of(sd, struct sprd_dcam, subdev);
++	struct v4l2_mbus_framefmt *sink_fmt, *src_fmt;
++
++	sink_fmt = v4l2_subdev_state_get_format(sd_state, SPRD_DCAM_PAD_INPUT);
++	src_fmt = v4l2_subdev_state_get_format(sd_state, SPRD_DCAM_PAD_CAPTURE);
++
++	sink_fmt->width = 1280;
++	sink_fmt->height = 960;
++	sink_fmt->field = V4L2_FIELD_NONE;
++	sink_fmt->code = dcam->camsys->hw->formats[0].mbus_code;
++
++	*src_fmt = *sink_fmt;
++
++	sink_fmt = v4l2_subdev_state_get_format(sd_state, SPRD_DCAM_PAD_CONFIG);
++	src_fmt = v4l2_subdev_state_get_format(sd_state, SPRD_DCAM_PAD_STATS);
++
++	sink_fmt->width = 0;
++	sink_fmt->height = 0;
++	sink_fmt->field = V4L2_FIELD_NONE;
++	sink_fmt->code = MEDIA_BUS_FMT_METADATA_FIXED;
++
++	*src_fmt = *sink_fmt;
++
++	return 0;
++}
++
++static const struct v4l2_subdev_internal_ops sprd_dcam_internal_ops = {
++	.init_state = sprd_dcam_init_state,
++};
++
++static int sprd_dcam_subdev_link_validate(struct media_link *link)
++{
++	/* Do not validate sink pads that are not connected to subdevices */
++	if (link->sink->index == SPRD_DCAM_PAD_CONFIG ||
++	    link->sink->index == SPRD_DCAM_PAD_LSC)
++		return 0;
++
++	return v4l2_subdev_link_validate(link);
++}
++
++static const struct media_entity_operations sprd_dcam_media_ops = {
++	.link_validate = sprd_dcam_subdev_link_validate,
++};
++
++int sprd_dcam_register(struct sprd_camsys *cs, unsigned int index)
++{
++	struct sprd_dcam *dcam = &cs->dcam[index];
++	struct v4l2_subdev *sd = &dcam->subdev;
++	struct sprd_config_vdev *cfg;
++	struct sprd_lsc_vdev *lsc;
++	struct sprd_capture_vdev *cap;
++	struct sprd_stats_vdev *stats;
++	char name[16];
++	int ret;
++
++	dcam->hw = cs->hw->dcam_ops;
++	dcam->camsys = cs;
++	dcam->dev = &cs->pdev->dev;
++	dcam->index = index;
++
++	v4l2_subdev_init(sd, &sprd_dcam_subdev_ops);
++	snprintf(sd->name, sizeof(sd->name), "sprd_dcam%d", index);
++
++	snprintf(name, sizeof(name), "dcam%d", index);
++	dcam->reset = devm_reset_control_get_exclusive(dcam->dev, name);
++	if (IS_ERR(dcam->reset))
++		return dev_err_probe(dcam->dev, PTR_ERR(dcam->reset),
++				     "failed to get %s reset\n", name);
++
++	ret = platform_get_irq_byname(cs->pdev, name);
++	if (ret < 0) {
++		dev_err(dcam->dev, "failed to get %s irq\n", name);
++		return ret;
++	}
++
++	dcam->irq = ret;
++
++	ret = devm_request_irq(dcam->dev, dcam->irq, dcam->hw->handle_irq, 0,
++			       sd->name, dcam);
++	if (ret < 0) {
++		dev_err(dcam->dev, "failed to request irq: %d\n", ret);
++		return ret;
++	}
++
++	dcam->regs = devm_platform_ioremap_resource_byname(cs->pdev, name);
++	if (IS_ERR(dcam->regs))
++		return PTR_ERR(dcam->regs);
++
++	sd->internal_ops = &sprd_dcam_internal_ops;
++	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS;
++	sd->entity.ops = &sprd_dcam_media_ops;
++	sd->entity.function = MEDIA_ENT_F_PROC_VIDEO_ISP;
++	sd->owner = THIS_MODULE;
++
++	dcam->pads[SPRD_DCAM_PAD_INPUT].flags = MEDIA_PAD_FL_SINK;
++	dcam->pads[SPRD_DCAM_PAD_CONFIG].flags = MEDIA_PAD_FL_SINK;
++	dcam->pads[SPRD_DCAM_PAD_LSC].flags = MEDIA_PAD_FL_SINK;
++	dcam->pads[SPRD_DCAM_PAD_CAPTURE].flags = MEDIA_PAD_FL_SOURCE;
++	dcam->pads[SPRD_DCAM_PAD_STATS].flags = MEDIA_PAD_FL_SOURCE;
++	ret = media_entity_pads_init(&sd->entity, SPRD_DCAM_PAD_NUM,
++				     dcam->pads);
++	if (ret)
++		return ret;
++
++	ret = v4l2_subdev_init_finalize(sd);
++	if (ret)
++		goto err_cleanup_entity;
++
++	ret = v4l2_device_register_subdev(&cs->v4l2_dev, sd);
++	if (ret) {
++		dev_err(dcam->dev, "failed to register %s\n", sd->name);
++		goto err_cleanup_subdev;
++	}
++
++	cfg = &dcam->config;
++	cfg->camsys = cs;
++	snprintf(cfg->vdev.name, sizeof(cfg->vdev.name), "sprd_dcam%d_config",
++		 dcam->index);
++
++	ret = sprd_config_vdev_register(cfg);
++	if (ret)
++		goto err_unregister_subdev;
++
++	lsc = &dcam->lsc;
++	lsc->camsys = cs;
++	snprintf(lsc->vdev.name, sizeof(cfg->vdev.name), "sprd_dcam%d_lsc",
++		 dcam->index);
++
++	ret = sprd_lsc_vdev_register(lsc);
++	if (ret)
++		goto err_unregister_config;
++
++	cap = &dcam->capture;
++	cap->camsys = cs;
++	snprintf(cap->vdev.name, sizeof(cap->vdev.name), "sprd_dcam%d_full",
++		 dcam->index);
++
++	ret = sprd_capture_vdev_register(cap);
++	if (ret)
++		goto err_unregister_lsc;
++
++	stats = &dcam->stats;
++	stats->camsys = cs;
++	snprintf(stats->vdev.name, sizeof(stats->vdev.name),
++		 "sprd_dcam%d_stats", dcam->index);
++
++	ret = sprd_stats_vdev_register(stats);
++	if (ret)
++		goto err_unregister_capture;
++
++	return 0;
++
++err_unregister_capture:
++	sprd_capture_vdev_unregister(&dcam->capture);
++err_unregister_lsc:
++	sprd_lsc_vdev_unregister(&dcam->lsc);
++err_unregister_config:
++	sprd_config_vdev_unregister(&dcam->config);
++err_unregister_subdev:
++	v4l2_device_unregister_subdev(sd);
++err_cleanup_subdev:
++	v4l2_subdev_cleanup(sd);
++err_cleanup_entity:
++	media_entity_cleanup(&sd->entity);
++	return ret;
++}
++
++void sprd_dcam_unregister(struct sprd_camsys *cs, unsigned int index)
++{
++	struct sprd_dcam *dcam = &cs->dcam[index];
++
++	sprd_stats_vdev_unregister(&dcam->stats);
++	sprd_capture_vdev_unregister(&dcam->capture);
++	sprd_config_vdev_unregister(&dcam->config);
++	v4l2_device_unregister_subdev(&dcam->subdev);
++	v4l2_subdev_cleanup(&dcam->subdev);
++	media_entity_cleanup(&dcam->subdev.entity);
++}
+diff --git a/drivers/media/platform/sprd/camsys/hw-ums9230.c b/drivers/media/platform/sprd/camsys/hw-ums9230.c
+new file mode 100644
+index 000000000..6376c9e5a
+--- /dev/null
++++ b/drivers/media/platform/sprd/camsys/hw-ums9230.c
+@@ -0,0 +1,159 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Unisoc camera subsystem media device driver - UMS9230 specific code
++ *
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#include <linux/regmap.h>
++
++#include "camsys.h"
++
++/* Platform-specific syscon registers */
++#define UMS9230_MM_AHB_CSI_PHY_SEL			0x0030
++
++#define UMS9230_MM_AHB_DCAM_CSI_SEL(id)			(0x0048 + (id) * 4)
++#define UMS9230_MM_AHB_DCAM_CSI_SEL_FORCE		BIT(11)
++#define UMS9230_MM_AHB_DCAM_CSI_SEL_INDEX		GENMASK(10, 9)
++#define UMS9230_MM_AHB_DCAM_CSI_SEL_FORCE_TRIGGER	BIT(8)
++
++#define UMS9230_ANLG_PHY_G10_CSI_2P2_RO_CTRL		0x000C
++#define UMS9230_ANLG_PHY_G10_CSI_2P2_CTRL		0x0038
++#define UMS9230_ANLG_PHY_G10_CSI_2P2			BIT(4)
++
++#define UMS9230_ANLG_PHY_G10_CSI_BIST_TEST		0x00B4
++
++static void ums9230_csi_power_phy(struct sprd_csi *csi, int enable)
++{
++	u32 val;
++
++	switch (csi->index) {
++	case 0:
++		val = BIT(26);
++		break;
++	case 1:
++		val = BIT(24);
++		break;
++	case 2:
++		val = BIT(25);
++		break;
++	default:
++		return;
++	}
++
++	regmap_assign_bits(csi->camsys->anlg_phy_regs,
++			   UMS9230_ANLG_PHY_G10_CSI_BIST_TEST,
++			   val, enable);
++}
++
++static void ums9230_csi_setup_phy(struct sprd_csi *csi, int enable)
++{
++	u32 mask, val, id = enable ? csi->index + 1 : 0;
++	int shift1, shift2 = -1;
++
++	switch (csi->phy_id) {
++	case CAMSYS_CSI_M_S:
++		if (enable)
++			regmap_set_bits(csi->camsys->anlg_phy_regs,
++					UMS9230_ANLG_PHY_G10_CSI_2P2_CTRL,
++					UMS9230_ANLG_PHY_G10_CSI_2P2);
++		shift1 = 0;
++		shift2 = 2;
++		break;
++	case CAMSYS_CSI_M:
++		if (enable)
++			regmap_clear_bits(csi->camsys->anlg_phy_regs,
++					  UMS9230_ANLG_PHY_G10_CSI_2P2_CTRL,
++					  UMS9230_ANLG_PHY_G10_CSI_2P2);
++		shift1 = 0;
++		break;
++	case CAMSYS_CSI_S:
++		if (enable)
++			regmap_clear_bits(csi->camsys->anlg_phy_regs,
++					  UMS9230_ANLG_PHY_G10_CSI_2P2_CTRL,
++					  UMS9230_ANLG_PHY_G10_CSI_2P2);
++		shift1 = 2;
++		break;
++	case CAMSYS_CSI_4LANE:
++		shift1 = 4;
++		break;
++	case CAMSYS_CSI_RO_M_S:
++		if (enable)
++			regmap_set_bits(csi->camsys->anlg_phy_regs,
++					UMS9230_ANLG_PHY_G10_CSI_2P2_RO_CTRL,
++					UMS9230_ANLG_PHY_G10_CSI_2P2);
++		shift1 = 6;
++		shift2 = 8;
++		break;
++	case CAMSYS_CSI_RO_M:
++		if (enable)
++			regmap_clear_bits(csi->camsys->anlg_phy_regs,
++					  UMS9230_ANLG_PHY_G10_CSI_2P2_RO_CTRL,
++					  UMS9230_ANLG_PHY_G10_CSI_2P2);
++		shift1 = 6;
++		break;
++	case CAMSYS_CSI_RO_S:
++		if (enable)
++			regmap_clear_bits(csi->camsys->anlg_phy_regs,
++					  UMS9230_ANLG_PHY_G10_CSI_2P2_RO_CTRL,
++					  UMS9230_ANLG_PHY_G10_CSI_2P2);
++		shift1 = 8;
++		break;
++	default:
++		return;
++	}
++
++	mask = 3 << shift1;
++	val = id << shift1;
++	if (shift2 >= 0) {
++		mask |= 3 << shift2;
++		val |= id << shift2;
++	}
++
++	regmap_update_bits(csi->camsys->cam_ahb_regs,
++			   UMS9230_MM_AHB_CSI_PHY_SEL, mask, val);
++}
++
++static void ums9230_csi_connect_dcam(struct sprd_csi *csi, int enable)
++{
++	u32 val, reg = UMS9230_MM_AHB_DCAM_CSI_SEL(csi->dcam_id);
++	u32 index = enable ? csi->index : 3;
++
++	val = UMS9230_MM_AHB_DCAM_CSI_SEL_FORCE |
++	      FIELD_PREP(UMS9230_MM_AHB_DCAM_CSI_SEL_INDEX, index) |
++	      UMS9230_MM_AHB_DCAM_CSI_SEL_FORCE_TRIGGER;
++	regmap_update_bits(csi->camsys->cam_ahb_regs, reg,
++			   UMS9230_MM_AHB_DCAM_CSI_SEL_FORCE |
++			   UMS9230_MM_AHB_DCAM_CSI_SEL_INDEX |
++			   UMS9230_MM_AHB_DCAM_CSI_SEL_FORCE_TRIGGER,
++			   val);
++
++	regmap_clear_bits(csi->camsys->cam_ahb_regs, reg,
++			  UMS9230_MM_AHB_DCAM_CSI_SEL_FORCE_TRIGGER);
++}
++
++static const struct sprd_csi_hw_ops ums9230_csi_ops = {
++	.power_phy = ums9230_csi_power_phy,
++	.setup_phy = ums9230_csi_setup_phy,
++	.connect_dcam = ums9230_csi_connect_dcam,
++};
++
++static const struct sprd_camsys_fmt_config ums9230_camsys_formats[] = {
++	SPRD_CAMSYS_FMT(SBGGR8_1X8, SBGGR8, 1, 8),
++	SPRD_CAMSYS_FMT(SGBRG8_1X8, SGBRG8, 1, 8),
++	SPRD_CAMSYS_FMT(SGRBG8_1X8, SGRBG8, 1, 8),
++	SPRD_CAMSYS_FMT(SRGGB8_1X8, SRGGB8, 1, 8),
++	SPRD_CAMSYS_FMT(SBGGR10_1X10, SBGGR10P, 4, 10),
++	SPRD_CAMSYS_FMT(SGBRG10_1X10, SGBRG10P, 4, 10),
++	SPRD_CAMSYS_FMT(SGRBG10_1X10, SGRBG10P, 4, 10),
++	SPRD_CAMSYS_FMT(SRGGB10_1X10, SRGGB10P, 4, 10),
++};
++
++const struct sprd_camsys_hardware ums9230_camsys_info = {
++	.csi_ops = &ums9230_csi_ops,
++	.dcam_ops = &ums9230_dcam_ops,
++	.max_width = 8048,
++	.max_height = 6036,
++	.formats = ums9230_camsys_formats,
++	.num_formats = ARRAY_SIZE(ums9230_camsys_formats),
++};
+diff --git a/drivers/media/platform/sprd/camsys/lsc.c b/drivers/media/platform/sprd/camsys/lsc.c
+new file mode 100644
+index 000000000..6bcc77859
+--- /dev/null
++++ b/drivers/media/platform/sprd/camsys/lsc.c
+@@ -0,0 +1,267 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Unisoc camera frontend driver - lens shading table node
++ *
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#include <media/v4l2-ioctl.h>
++#include <media/v4l2-mc.h>
++#include <media/videobuf2-dma-contig.h>
++
++#include "camsys.h"
++
++#define SPRD_CAMSYS_LSC_BUF_SIZE	0x3000
++
++#define to_sprd_lsc_vdev(q) \
++	container_of(q, struct sprd_lsc_vdev, queue)
++
++#define to_sprd_lsc_buf(b) \
++	container_of(b, struct sprd_lsc_buffer, vbuf)
++
++static int sprd_lsc_querycap(struct file *file, void *fh,
++			     struct v4l2_capability *cap)
++{
++	strscpy(cap->driver, "sprd-camsys", sizeof(cap->driver));
++	strscpy(cap->card, "Unisoc Camera Subsystem", sizeof(cap->card));
++
++	return 0;
++}
++
++static int sprd_lsc_enum_fmt(struct file *file, void *fh,
++			     struct v4l2_fmtdesc *f)
++{
++	if (f->index > 0)
++		return -EINVAL;
++
++	f->pixelformat = V4L2_META_FMT_SPRD_DCAM_LSC;
++
++	return 0;
++}
++
++static int sprd_lsc_g_fmt(struct file *file, void *fh, struct v4l2_format *f)
++{
++	static const struct v4l2_meta_format mfmt = {
++		.dataformat = V4L2_META_FMT_SPRD_DCAM_LSC,
++		.buffersize = SPRD_CAMSYS_LSC_BUF_SIZE,
++	};
++
++	f->fmt.meta = mfmt;
++
++	return 0;
++}
++
++static int sprd_lsc_queue_setup(struct vb2_queue *q,
++				unsigned int *num_buffers,
++				unsigned int *num_planes,
++				unsigned int sizes[],
++				struct device *alloc_devs[])
++{
++	if (*num_planes && *num_planes > 1)
++		return -EINVAL;
++
++	if (sizes[0] && sizes[0] < SPRD_CAMSYS_LSC_BUF_SIZE)
++		return -EINVAL;
++
++	*num_planes = 1;
++
++	if (!sizes[0])
++		sizes[0] = SPRD_CAMSYS_LSC_BUF_SIZE;
++
++	return 0;
++}
++
++static int sprd_lsc_buf_init(struct vb2_buffer *vb)
++{
++	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
++	struct sprd_lsc_buffer *buf = to_sprd_lsc_buf(vbuf);
++
++	buf->addr = vb2_dma_contig_plane_dma_addr(vb, 0);
++
++	return 0;
++}
++
++static void sprd_lsc_buf_queue(struct vb2_buffer *vb)
++{
++	struct sprd_lsc_vdev *lsc =
++		container_of(vb->vb2_queue, struct sprd_lsc_vdev, queue);
++	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
++	struct sprd_lsc_buffer *buf = to_sprd_lsc_buf(vbuf);
++	unsigned long flags;
++
++	spin_lock_irqsave(&lsc->buf_lock, flags);
++	list_add_tail(&buf->link, &lsc->buf_queue);
++	spin_unlock_irqrestore(&lsc->buf_lock, flags);
++}
++
++static void sprd_lsc_stop_streaming(struct vb2_queue *q)
++{
++	struct sprd_lsc_vdev *lsc =
++		container_of(q, struct sprd_lsc_vdev, queue);
++	struct sprd_lsc_buffer *buf;
++	unsigned long flags;
++
++	spin_lock_irqsave(&lsc->buf_lock, flags);
++
++	while (!list_empty(&lsc->buf_queue)) {
++		buf = list_first_entry(&lsc->buf_queue, struct sprd_lsc_buffer, link);
++		list_del(&buf->link);
++		vb2_buffer_done(&buf->vbuf.vb2_buf, VB2_BUF_STATE_ERROR);
++	}
++
++	if (lsc->current_buf) {
++		vb2_buffer_done(&lsc->current_buf->vbuf.vb2_buf, VB2_BUF_STATE_ERROR);
++		lsc->current_buf = NULL;
++	}
++
++	spin_unlock_irqrestore(&lsc->buf_lock, flags);
++}
++
++static const struct v4l2_ioctl_ops sprd_lsc_ioctl_ops = {
++	.vidioc_querycap		= sprd_lsc_querycap,
++	.vidioc_enum_fmt_meta_out	= sprd_lsc_enum_fmt,
++	.vidioc_g_fmt_meta_out		= sprd_lsc_g_fmt,
++	.vidioc_s_fmt_meta_out		= sprd_lsc_g_fmt,
++	.vidioc_try_fmt_meta_out	= sprd_lsc_g_fmt,
++	.vidioc_reqbufs			= vb2_ioctl_reqbufs,
++	.vidioc_querybuf		= vb2_ioctl_querybuf,
++	.vidioc_qbuf			= vb2_ioctl_qbuf,
++	.vidioc_expbuf			= vb2_ioctl_expbuf,
++	.vidioc_dqbuf			= vb2_ioctl_dqbuf,
++	.vidioc_create_bufs		= vb2_ioctl_create_bufs,
++	.vidioc_prepare_buf		= vb2_ioctl_prepare_buf,
++	.vidioc_streamon		= vb2_ioctl_streamon,
++	.vidioc_streamoff		= vb2_ioctl_streamoff,
++};
++
++static const struct v4l2_file_operations sprd_lsc_fops = {
++	.owner		= THIS_MODULE,
++	.unlocked_ioctl	= video_ioctl2,
++	.open		= v4l2_fh_open,
++	.release	= vb2_fop_release,
++	.poll		= vb2_fop_poll,
++	.mmap		= vb2_fop_mmap,
++};
++
++static const struct vb2_ops sprd_lsc_vb2_ops = {
++	.queue_setup	= sprd_lsc_queue_setup,
++	.buf_init	= sprd_lsc_buf_init,
++	.buf_queue	= sprd_lsc_buf_queue,
++	.stop_streaming	= sprd_lsc_stop_streaming,
++};
++
++int sprd_lsc_vdev_register(struct sprd_lsc_vdev *lsc)
++{
++	struct sprd_camsys *cs = lsc->camsys;
++	struct video_device *vdev = &lsc->vdev;
++	struct vb2_queue *q = &lsc->queue;
++	int ret;
++
++	mutex_init(&lsc->lock);
++	spin_lock_init(&lsc->buf_lock);
++	INIT_LIST_HEAD(&lsc->buf_queue);
++
++	/* vdev->name is set by the caller */
++	vdev->device_caps = V4L2_CAP_META_OUTPUT | V4L2_CAP_STREAMING;
++	vdev->v4l2_dev = &cs->v4l2_dev;
++	vdev->fops = &sprd_lsc_fops;
++	vdev->release = video_device_release_empty;
++	vdev->ioctl_ops = &sprd_lsc_ioctl_ops;
++	vdev->lock = &lsc->lock;
++	vdev->vfl_dir = VFL_DIR_TX;
++
++	video_set_drvdata(vdev, lsc);
++
++	q->type = V4L2_BUF_TYPE_META_OUTPUT;
++	q->io_modes = VB2_DMABUF | VB2_MMAP;
++	q->ops = &sprd_lsc_vb2_ops;
++	q->mem_ops = &vb2_dma_contig_memops;
++	q->buf_struct_size = sizeof(struct sprd_lsc_buffer);
++	q->min_queued_buffers = 1;
++	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
++	q->lock = &lsc->lock;
++	q->dev = &cs->pdev->dev;
++	ret = vb2_queue_init(q);
++	if (ret) {
++		dev_err(&cs->pdev->dev, "failed to init vb2 queue: %d\n", ret);
++		goto err_destroy_mutex;
++	}
++
++	vdev->queue = q;
++
++	lsc->pads[SPRD_LSC_PAD_SRC].flags = MEDIA_PAD_FL_SOURCE;
++	ret = media_entity_pads_init(&vdev->entity, SPRD_LSC_PAD_NUM,
++				     lsc->pads);
++	if (ret)
++		goto err_release_queue;
++
++	ret = video_register_device(vdev, VFL_TYPE_VIDEO, -1);
++	if (ret) {
++		dev_err(&cs->pdev->dev, "failed to register %s: %d\n",
++			vdev->name, ret);
++		goto err_cleanup_entity;
++	}
++
++	return 0;
++
++err_cleanup_entity:
++	media_entity_cleanup(&vdev->entity);
++err_release_queue:
++	vb2_queue_release(q);
++err_destroy_mutex:
++	mutex_destroy(&lsc->lock);
++	return ret;
++}
++
++void sprd_lsc_vdev_unregister(struct sprd_lsc_vdev *lsc)
++{
++	video_unregister_device(&lsc->vdev);
++	media_entity_cleanup(&lsc->vdev.entity);
++	vb2_queue_release(&lsc->queue);
++	mutex_destroy(&lsc->lock);
++}
++
++struct sprd_lsc_buffer *
++sprd_lsc_next_frame(struct sprd_lsc_vdev *lsc)
++{
++	struct sprd_lsc_buffer *buf;
++	unsigned long flags;
++
++	spin_lock_irqsave(&lsc->buf_lock, flags);
++
++	if (lsc->current_buf) {
++		dev_warn_ratelimited(&lsc->camsys->pdev->dev,
++			"lsc buffer was not done before next frame!\n");
++		buf = NULL;
++		goto out;
++	}
++
++	/* Stage a new buffer. */
++	buf = list_first_entry_or_null(&lsc->buf_queue, struct sprd_lsc_buffer, link);
++	if (buf)
++		list_del(&buf->link);
++
++	lsc->current_buf = buf;
++
++out:
++	spin_unlock_irqrestore(&lsc->buf_lock, flags);
++
++	return buf;
++}
++
++void sprd_lsc_done(struct sprd_lsc_vdev *lsc, unsigned int sequence)
++{
++	struct sprd_lsc_buffer *buf;
++
++	spin_lock(&lsc->buf_lock);
++	buf = lsc->current_buf;
++	if (buf)
++		lsc->current_buf = NULL;
++	spin_unlock(&lsc->buf_lock);
++
++	if (buf) {
++		buf->vbuf.vb2_buf.timestamp = ktime_get_ns();
++		buf->vbuf.sequence = sequence;
++		vb2_buffer_done(&buf->vbuf.vb2_buf, VB2_BUF_STATE_DONE);
++	}
++}
+diff --git a/drivers/media/platform/sprd/camsys/stats.c b/drivers/media/platform/sprd/camsys/stats.c
+new file mode 100644
+index 000000000..0e0d3c58a
+--- /dev/null
++++ b/drivers/media/platform/sprd/camsys/stats.c
+@@ -0,0 +1,297 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Unisoc camera frontend driver - statistics node
++ *
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#include <media/v4l2-ioctl.h>
++#include <media/v4l2-mc.h>
++#include <media/videobuf2-dma-contig.h>
++
++#include "camsys.h"
++
++#define to_sprd_stats_vdev(q) \
++	container_of(q, struct sprd_stats_vdev, queue)
++
++#define to_sprd_stats_buf(b) \
++	container_of(b, struct sprd_stats_buffer, vbuf)
++
++static int sprd_stats_querycap(struct file *file, void *fh,
++			       struct v4l2_capability *cap)
++{
++	strscpy(cap->driver, "sprd-camsys", sizeof(cap->driver));
++	strscpy(cap->card, "Unisoc Camera Subsystem", sizeof(cap->card));
++
++	return 0;
++}
++
++static int sprd_stats_enum_fmt(struct file *file, void *fh,
++			       struct v4l2_fmtdesc *f)
++{
++	if (f->index > 0)
++		return -EINVAL;
++
++	f->pixelformat = V4L2_META_FMT_SPRD_DCAM_STATS;
++
++	return 0;
++}
++
++static int sprd_stats_g_fmt(struct file *file, void *fh, struct v4l2_format *f)
++{
++	f->fmt.meta.dataformat = V4L2_META_FMT_SPRD_DCAM_STATS;
++	f->fmt.meta.buffersize = sizeof(struct sprd_dcam_statistics);
++
++	return 0;
++}
++
++static int sprd_stats_queue_setup(struct vb2_queue *q,
++				  unsigned int *num_buffers,
++				  unsigned int *num_planes,
++				  unsigned int sizes[],
++				  struct device *alloc_devs[])
++{
++	if (*num_planes) {
++		if (*num_planes != 1)
++			return -EINVAL;
++		if (sizes[0] != sizeof(struct sprd_dcam_statistics))
++			return -EINVAL;
++	} else {
++		*num_planes = 1;
++		sizes[0] = sizeof(struct sprd_dcam_statistics);
++	}
++
++	return 0;
++}
++
++static int sprd_stats_buf_init(struct vb2_buffer *vb)
++{
++	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
++	struct sprd_stats_buffer *buf = to_sprd_stats_buf(vbuf);
++	dma_addr_t addr = vb2_dma_contig_plane_dma_addr(vb, 0);
++
++	buf->ae_addr = addr + offsetof(struct sprd_dcam_statistics, ae);
++	buf->af_addr = addr + offsetof(struct sprd_dcam_statistics, af);
++
++	return 0;
++}
++
++static int sprd_stats_buf_prepare(struct vb2_buffer *vb)
++{
++	if (vb2_plane_size(vb, 0) < sizeof(struct sprd_dcam_statistics))
++		return -EINVAL;
++
++	vb2_set_plane_payload(vb, 0, sizeof(struct sprd_dcam_statistics));
++
++	return 0;
++}
++
++static void sprd_stats_buf_queue(struct vb2_buffer *vb)
++{
++	struct sprd_stats_vdev *stats = to_sprd_stats_vdev(vb->vb2_queue);
++	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
++	struct sprd_stats_buffer *buf = to_sprd_stats_buf(vbuf);
++	unsigned long flags;
++
++	spin_lock_irqsave(&stats->buf_lock, flags);
++	list_add_tail(&buf->link, &stats->buf_queue);
++	spin_unlock_irqrestore(&stats->buf_lock, flags);
++}
++
++static void sprd_stats_stop_streaming(struct vb2_queue *q)
++{
++	struct sprd_stats_vdev *stats = to_sprd_stats_vdev(q);
++	struct sprd_stats_buffer *buf;
++	unsigned long flags;
++
++	spin_lock_irqsave(&stats->buf_lock, flags);
++
++	while (!list_empty(&stats->buf_queue)) {
++		buf = list_first_entry(&stats->buf_queue,
++				       struct sprd_stats_buffer, link);
++		list_del(&buf->link);
++		vb2_buffer_done(&buf->vbuf.vb2_buf, VB2_BUF_STATE_ERROR);
++	}
++
++	if (stats->current_buf) {
++		vb2_buffer_done(&stats->current_buf->vbuf.vb2_buf,
++				VB2_BUF_STATE_ERROR);
++		stats->current_buf = NULL;
++	}
++
++	if (stats->next_buf) {
++		vb2_buffer_done(&stats->next_buf->vbuf.vb2_buf,
++				VB2_BUF_STATE_ERROR);
++		stats->next_buf = NULL;
++	}
++
++	spin_unlock_irqrestore(&stats->buf_lock, flags);
++}
++
++static const struct v4l2_ioctl_ops sprd_stats_ioctl_ops = {
++	.vidioc_querycap		= sprd_stats_querycap,
++	.vidioc_enum_fmt_meta_cap	= sprd_stats_enum_fmt,
++	.vidioc_g_fmt_meta_cap		= sprd_stats_g_fmt,
++	.vidioc_s_fmt_meta_cap		= sprd_stats_g_fmt,
++	.vidioc_try_fmt_meta_cap	= sprd_stats_g_fmt,
++	.vidioc_reqbufs			= vb2_ioctl_reqbufs,
++	.vidioc_querybuf		= vb2_ioctl_querybuf,
++	.vidioc_qbuf			= vb2_ioctl_qbuf,
++	.vidioc_expbuf			= vb2_ioctl_expbuf,
++	.vidioc_dqbuf			= vb2_ioctl_dqbuf,
++	.vidioc_create_bufs		= vb2_ioctl_create_bufs,
++	.vidioc_prepare_buf		= vb2_ioctl_prepare_buf,
++	.vidioc_streamon		= vb2_ioctl_streamon,
++	.vidioc_streamoff		= vb2_ioctl_streamoff,
++};
++
++static const struct v4l2_file_operations sprd_stats_fops = {
++	.owner		= THIS_MODULE,
++	.unlocked_ioctl	= video_ioctl2,
++	.open		= v4l2_fh_open,
++	.release	= vb2_fop_release,
++	.poll		= vb2_fop_poll,
++	.mmap		= vb2_fop_mmap,
++};
++
++static const struct vb2_ops sprd_stats_vb2_ops = {
++	.queue_setup	= sprd_stats_queue_setup,
++	.buf_init	= sprd_stats_buf_init,
++	.buf_prepare	= sprd_stats_buf_prepare,
++	.buf_queue	= sprd_stats_buf_queue,
++	.stop_streaming	= sprd_stats_stop_streaming,
++};
++
++int sprd_stats_vdev_register(struct sprd_stats_vdev *stats)
++{
++	struct sprd_camsys *cs = stats->camsys;
++	struct video_device *vdev = &stats->vdev;
++	struct vb2_queue *q = &stats->queue;
++	int ret;
++
++	mutex_init(&stats->lock);
++	spin_lock_init(&stats->buf_lock);
++	INIT_LIST_HEAD(&stats->buf_queue);
++
++	/* vdev->name is set by the caller */
++	vdev->device_caps = V4L2_CAP_META_CAPTURE | V4L2_CAP_STREAMING;
++	vdev->v4l2_dev = &cs->v4l2_dev;
++	vdev->fops = &sprd_stats_fops;
++	vdev->release = video_device_release_empty;
++	vdev->ioctl_ops = &sprd_stats_ioctl_ops;
++	vdev->lock = &stats->lock;
++	vdev->vfl_dir = VFL_DIR_RX;
++
++	video_set_drvdata(vdev, stats);
++
++	q->type = V4L2_BUF_TYPE_META_CAPTURE;
++	q->io_modes = VB2_DMABUF | VB2_MMAP;
++	q->ops = &sprd_stats_vb2_ops;
++	q->mem_ops = &vb2_dma_contig_memops;
++	q->buf_struct_size = sizeof(struct sprd_stats_buffer);
++	q->min_queued_buffers = 1;
++	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
++	q->lock = &stats->lock;
++	q->dev = &cs->pdev->dev;
++	ret = vb2_queue_init(q);
++	if (ret) {
++		dev_err(&cs->pdev->dev, "failed to init vb2 queue: %d\n", ret);
++		goto err_destroy_mutex;
++	}
++
++	vdev->queue = q;
++
++	stats->pads[SPRD_STATS_PAD_SINK].flags = MEDIA_PAD_FL_SINK;
++	ret = media_entity_pads_init(&vdev->entity, SPRD_STATS_PAD_NUM,
++				     stats->pads);
++	if (ret)
++		goto err_release_queue;
++
++	ret = video_register_device(vdev, VFL_TYPE_VIDEO, -1);
++	if (ret) {
++		dev_err(&cs->pdev->dev, "failed to register %s: %d\n",
++			vdev->name, ret);
++		goto err_cleanup_entity;
++	}
++
++	return 0;
++
++err_cleanup_entity:
++	media_entity_cleanup(&vdev->entity);
++err_release_queue:
++	vb2_queue_release(q);
++err_destroy_mutex:
++	mutex_destroy(&stats->lock);
++	return ret;
++}
++
++void sprd_stats_vdev_unregister(struct sprd_stats_vdev *stats)
++{
++	video_unregister_device(&stats->vdev);
++	media_entity_cleanup(&stats->vdev.entity);
++	vb2_queue_release(&stats->queue);
++	mutex_destroy(&stats->lock);
++}
++
++struct sprd_stats_buffer *
++sprd_stats_next_frame(struct sprd_stats_vdev *stats)
++{
++	struct sprd_stats_buffer *buf;
++	unsigned long flags;
++
++	spin_lock_irqsave(&stats->buf_lock, flags);
++
++	if (stats->current_buf) {
++		dev_warn_ratelimited(&stats->camsys->pdev->dev,
++			"stats buffer was not done before next frame!\n");
++		vb2_buffer_done(&stats->current_buf->vbuf.vb2_buf,
++				VB2_BUF_STATE_ERROR);
++	}
++
++	/* The previously staged buffer is now being processed. */
++	stats->current_buf = stats->next_buf;
++
++	if (stats->blocks_enabled == 0) {
++		buf = NULL;
++		goto out;
++	}
++
++	/* Stage a new buffer. */
++	buf = list_first_entry_or_null(&stats->buf_queue, struct sprd_stats_buffer, link);
++	if (buf) {
++		list_del(&buf->link);
++		buf->blocks_pending = stats->blocks_enabled;
++	}
++
++	stats->next_buf = buf;
++
++out:
++	spin_unlock_irqrestore(&stats->buf_lock, flags);
++
++	return buf;
++}
++
++void sprd_stats_done(struct sprd_stats_vdev *stats, unsigned int sequence,
++		     unsigned int block)
++{
++	struct sprd_stats_buffer *buf;
++
++	spin_lock(&stats->buf_lock);
++
++	buf = stats->current_buf;
++	if (buf) {
++		buf->blocks_pending &= ~block;
++		if (buf->blocks_pending == 0)
++			stats->current_buf = NULL; /* done, remove buffer */
++		else
++			buf = NULL; /* don't do anything yet */
++	}
++
++	spin_unlock(&stats->buf_lock);
++
++	if (buf) {
++		buf->vbuf.vb2_buf.timestamp = ktime_get_ns();
++		buf->vbuf.sequence = sequence;
++		vb2_buffer_done(&buf->vbuf.vb2_buf, VB2_BUF_STATE_DONE);
++	}
++}

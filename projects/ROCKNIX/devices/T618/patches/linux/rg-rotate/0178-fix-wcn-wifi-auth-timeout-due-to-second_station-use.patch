@@ -1,0 +1,127 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Sat, 25 Jul 2026 15:14:39 -0500
+Subject: [PATCH 178/225] fix wcn/wifi auth timeout due to second_station use
+
+---
+ drivers/net/wireless/sprdwcn/sprd_wcn.c |  1 +
+ drivers/net/wireless/unisoc/cmd.c       | 12 +++++++++---
+ drivers/net/wireless/unisoc/main.c      |  1 -
+ drivers/net/wireless/unisoc/txrx.c      |  4 ++++
+ drivers/net/wireless/unisoc/vif.c       | 19 ++++++++++++++-----
+ 5 files changed, 28 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/wireless/sprdwcn/sprd_wcn.c b/drivers/net/wireless/sprdwcn/sprd_wcn.c
+index 9718f48ca..15a3f337a 100644
+--- a/drivers/net/wireless/sprdwcn/sprd_wcn.c
++++ b/drivers/net/wireless/sprdwcn/sprd_wcn.c
+@@ -139,6 +139,7 @@ static const struct of_device_id wcn_global_match_table[] = {
+ #endif
+ 	{ },
+ };
++MODULE_DEVICE_TABLE(of, wcn_global_match_table);
+ 
+ static struct wcn_match_data *g_match_data;
+ struct wcn_match_data *get_wcn_match_config(void)
+diff --git a/drivers/net/wireless/unisoc/cmd.c b/drivers/net/wireless/unisoc/cmd.c
+index 758bbb4a6..d31ff3f85 100644
+--- a/drivers/net/wireless/unisoc/cmd.c
++++ b/drivers/net/wireless/unisoc/cmd.c
+@@ -406,9 +406,15 @@ int sc23xx_cmd_connect(struct sc23xx_vif *vif, struct cfg80211_connect_params *s
+ 			return ret;
+ 	}
+ 
+-	ret = sc23xx_cmd_set_ie(vif, SC23XX_IE_ASSOC_REQ, sme->ie, sme->ie_len);
+-	if (ret)
+-		return ret;
++	/* The firmware rejects a zero-length IE blob with ARG_ERROR, failing
++	 * the whole connect. No extra assoc IEs is valid (e.g. iw's plain
++	 * open-system connect), so only send the command when there are any. */
++	if (sme->ie_len) {
++		ret = sc23xx_cmd_set_ie(vif, SC23XX_IE_ASSOC_REQ, sme->ie,
++					sme->ie_len);
++		if (ret)
++			return ret;
++	}
+ 
+ 	skb = sc23xx_cmd_alloc_skb(CMD_CONNECT, sizeof(*req), vif->idx);
+ 	if (!skb)
+diff --git a/drivers/net/wireless/unisoc/main.c b/drivers/net/wireless/unisoc/main.c
+index 40fca2f99..c54bd0f88 100644
+--- a/drivers/net/wireless/unisoc/main.c
++++ b/drivers/net/wireless/unisoc/main.c
+@@ -517,7 +517,6 @@ void *sc23xx_alloc_device(struct device *dev, size_t size,
+ 				  sc23xx_cmd_tx_addba_req);
+ 	}
+ 
+-	wiphy->features |= NL80211_FEATURE_SAE;
+ 	wiphy->flags |= WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL;
+ 	wiphy->max_remain_on_channel_duration = 5000;
+ 	wiphy->max_num_pmkids = SC23XX_MAX_NUM_PMKIDS;
+diff --git a/drivers/net/wireless/unisoc/txrx.c b/drivers/net/wireless/unisoc/txrx.c
+index e21a1546b..0483aa27d 100644
+--- a/drivers/net/wireless/unisoc/txrx.c
++++ b/drivers/net/wireless/unisoc/txrx.c
+@@ -64,6 +64,10 @@ void sc23xx_rx_now(struct sc23xx_dev *sdev, struct sk_buff *skb)
+ 	if (!vif)
+ 		goto out_unlock;
+ 	ndev = vif->wdev.netdev;
++	if (!ndev) {
++		dev_kfree_skb_any(skb);
++		goto out_unlock;
++	}
+ 
+ 	len = le16_to_cpu(hdr->pkt_len);
+ 	if (hdr->offset < sizeof(*hdr) || skb->len < (hdr->offset + len)) {
+diff --git a/drivers/net/wireless/unisoc/vif.c b/drivers/net/wireless/unisoc/vif.c
+index 9a9e473f5..98a2064cb 100644
+--- a/drivers/net/wireless/unisoc/vif.c
++++ b/drivers/net/wireless/unisoc/vif.c
+@@ -271,6 +271,7 @@ struct sc23xx_vif *sc23xx_vif_new(struct sc23xx_dev *sdev, const char *name,
+ int sc23xx_vif_reopen(struct sc23xx_vif *vif, enum nl80211_iftype iftype)
+ {
+ 	enum sc23xx_vif_mode mode;
++	struct sc23xx_vif *other;
+ 	int ret;
+ 	u8 idx;
+ 
+@@ -279,12 +280,18 @@ int sc23xx_vif_reopen(struct sc23xx_vif *vif, enum nl80211_iftype iftype)
+ 		return ret;
+ 
+ 	mutex_lock(&vif->sdev->vif_lock);
+-	/* AP interface may also act as second STA interface */
+-	if (rcu_access_pointer(vif->sdev->vif[idx]) && idx == SC23XX_VIF_STA) {
++	/* AP interface may also act as second STA interface. Only fall back to
++	 * the second-STA context when a *different* vif holds the STA slot: on
++	 * a reopen this vif is already installed there itself, and demoting it
++	 * to STATION_SECOND lands it in a context the firmware cannot
++	 * authenticate in (connect times out with status 16). */
++	other = rcu_access_pointer(vif->sdev->vif[idx]);
++	if (other && other != vif && idx == SC23XX_VIF_STA) {
+ 		idx = SC23XX_VIF_AP;
+ 		mode = SC23XX_MODE_STATION_SECOND;
+ 	}
+-	if (rcu_access_pointer(vif->sdev->vif[idx])) {
++	other = rcu_access_pointer(vif->sdev->vif[idx]);
++	if (other && other != vif) {
+ 		wiphy_err(vif->sdev->wiphy, "%s interface already exists\n",
+ 			  sc23xx_vif_idx_to_string(idx));
+ 		mutex_unlock(&vif->sdev->vif_lock);
+@@ -293,13 +300,15 @@ int sc23xx_vif_reopen(struct sc23xx_vif *vif, enum nl80211_iftype iftype)
+ 
+ 	if (!test_bit(SC23XX_FLAG_OPENED, &vif->flags)) {
+ 		ret = sc23xx_cmd_close(vif);
+-		if (ret)
++		if (ret) {
++			mutex_unlock(&vif->sdev->vif_lock);
+ 			return ret;
++		}
+ 	}
+ 
+-	vif->idx = idx;
+ 	rcu_assign_pointer(vif->sdev->vif[vif->idx], NULL);
+ 	rcu_assign_pointer(vif->sdev->vif[idx], vif);
++	vif->idx = idx;
+ 	mutex_unlock(&vif->sdev->vif_lock);
+ 
+ 	vif->wdev.iftype = iftype;

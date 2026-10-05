@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Wed, 25 Jun 2025 12:57:39 +0200
+Subject: [PATCH 022/225] drm: panfrost: enable runtime clock gating on UMS9230
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add an entry for the sprd,ums9230-mali compatible to enable runtime
+power management.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/gpu/drm/panfrost/panfrost_drv.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/panfrost/panfrost_drv.c b/drivers/gpu/drm/panfrost/panfrost_drv.c
+index 074c0995d..d504b902a 100644
+--- a/drivers/gpu/drm/panfrost/panfrost_drv.c
++++ b/drivers/gpu/drm/panfrost/panfrost_drv.c
+@@ -1177,6 +1177,7 @@ static const struct of_device_id dt_match[] = {
+ 	{ .compatible = "mediatek,mt8192-mali", .data = &mediatek_mt8192_data },
+ 	{ .compatible = "mediatek,mt8370-mali", .data = &mediatek_mt8370_data },
+ 	{ .compatible = "allwinner,sun50i-h616-mali", .data = &default_pm_rt_data },
++	{ .compatible = "sprd,ums9230-mali", .data = &default_pm_rt_data },
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(of, dt_match);

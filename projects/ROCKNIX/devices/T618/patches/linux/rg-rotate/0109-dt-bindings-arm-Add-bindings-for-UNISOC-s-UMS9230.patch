@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akari Tsuyukusa <akkun11.open@gmail.com>
+Date: Sun, 17 May 2026 20:33:02 +0900
+Subject: [PATCH 109/225] dt-bindings: arm: Add bindings for UNISOC's UMS9230
+
+Added bindings for board Reeder S19 Max Pro S and UNISOC's UMS9230 SoC.
+
+Signed-off-by: Akari Tsuyukusa <akkun11.open@gmail.com>
+---
+ Documentation/devicetree/bindings/arm/sprd/sprd.yaml | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/arm/sprd/sprd.yaml b/Documentation/devicetree/bindings/arm/sprd/sprd.yaml
+index 40fc3c8b9..6674ee3ae 100644
+--- a/Documentation/devicetree/bindings/arm/sprd/sprd.yaml
++++ b/Documentation/devicetree/bindings/arm/sprd/sprd.yaml
+@@ -35,6 +35,11 @@ properties:
+               - sprd,ums512-1h10
+           - const: sprd,ums512
+ 
++      - items:
++          - enum:
++              - reeder,s19mps
++          - const: sprd,ums9230
++
+       - items:
+           - enum:
+               - sprd,ums9620-2h10

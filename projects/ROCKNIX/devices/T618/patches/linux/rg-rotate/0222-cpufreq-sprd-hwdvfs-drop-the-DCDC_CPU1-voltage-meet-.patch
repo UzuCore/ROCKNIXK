@@ -1,0 +1,121 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Thu, 6 Aug 2026 20:02:06 -0500
+Subject: [PATCH 222/225] cpufreq: sprd-hwdvfs: drop the DCDC_CPU1 voltage-meet
+ bypass
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The A75 voltage now really scales: the parked STATE_I2C=4 was the
+i2c hw-i2c controller's DVFS request channels (CHNL_EN0 bits 5/7)
+never being enabled on our boot path — stock u-boot's Android
+postload does it, our extlinux path didn't. With the channels
+programmed at i2c-sprd-hw probe, the TOP_DVFS engine performs real
+FAN53555 writes (measured 1.23GHz@0.75V / 2.00GHz@1.05V, no 26MHz
+park, 0x9C shows stock 0x5A000004 signature), so the interim
+pinned-voltage bypass is no longer needed.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+---
+ drivers/cpufreq/sprd-hwdvfs-archdata.h |  1 -
+ drivers/cpufreq/sprd-hwdvfs-normal.c   | 42 --------------------------
+ drivers/cpufreq/sprd-hwdvfs-ums512.c   |  6 ----
+ 3 files changed, 49 deletions(-)
+
+diff --git a/drivers/cpufreq/sprd-hwdvfs-archdata.h b/drivers/cpufreq/sprd-hwdvfs-archdata.h
+index 04de6ddf0..af4e59d00 100644
+--- a/drivers/cpufreq/sprd-hwdvfs-archdata.h
++++ b/drivers/cpufreq/sprd-hwdvfs-archdata.h
+@@ -118,7 +118,6 @@ struct  topdvfs_volt_manager {
+ 	 * statically-high voltage. Remove once the pm_sys/SIPC-serviced I2C
+ 	 * channel actually works.
+ 	 */
+-	struct reg_info *vol_meet_byp_cfg;
+ 	u32 dcdc_num, vir_dcdc_adi_num;
+ };
+ 
+diff --git a/drivers/cpufreq/sprd-hwdvfs-normal.c b/drivers/cpufreq/sprd-hwdvfs-normal.c
+index bc985827e..4c7cf4711 100644
+--- a/drivers/cpufreq/sprd-hwdvfs-normal.c
++++ b/drivers/cpufreq/sprd-hwdvfs-normal.c
+@@ -393,42 +393,6 @@ int sprd_dvfs_third_pmic_enable(struct cpudvfs_device *pdev, u32 num)
+ 	return 0;
+ }
+ 
+-/*
+- * Interim rg-rotate workaround: the DCDC_CPU1 I2C channel to the FAN53555
+- * never completes a transaction (no CURRENT_VOLTAGE readback, STATE_I2C
+- * parks at 4 waiting for voltage-meet), which freezes the frequency arm at
+- * the boot index. The rail powers up at its top voltage grade, so bypassing
+- * the voltage-meet wait yields full frequency scaling at a statically-high
+- * voltage. Drop this (clear the archdata vol_meet_byp_cfg) once the
+- * pm_sys/SP-serviced I2C channel really tunes the rail.
+- */
+-static
+-int sprd_dvfs_vol_meet_bypass(struct cpudvfs_device *pdev, u32 num)
+-{
+-	struct topdvfs_volt_manager *manager = pdev->priv->volt_manager;
+-	struct reg_info *regdata;
+-
+-	if (num >= pdev->dcdc_num) {
+-		dev_err(pdev->dev, "incorrect dcdc id(%d)\n", num);
+-		return -EINVAL;
+-	}
+-
+-	if (!manager->vol_meet_byp_cfg)
+-		return 0;
+-
+-	regdata = &manager->vol_meet_byp_cfg[num];
+-	if (!regdata->msk || !pdev->pwr[num].i2c_used)
+-		return 0;
+-
+-	dev_info(pdev->dev,
+-		 "bypassing voltage-meet for dcdc%d (rail pinned at boot voltage)\n",
+-		 num);
+-
+-	return regmap_update_bits(pdev->topdvfs_map, regdata->reg,
+-				  regdata->msk << regdata->off,
+-				  BIT(regdata->off));
+-}
+-
+ static
+ int sprd_dvfs_block_dcdc_shutdown_enable(struct cpudvfs_device *pdev, u32 num)
+ {
+@@ -955,12 +919,6 @@ static int sprd_dvfs_device_init(struct cpudvfs_device *pdev)
+ 			return ret;
+ 		}
+ 
+-		ret = sprd_dvfs_vol_meet_bypass(pdev, ix);
+-		if (ret) {
+-			dev_err(pdev->dev, "failed to set voltage-meet bypass for dcdc%d\n",
+-				ix);
+-			return ret;
+-		}
+ 	}
+ 
+ 	for (ix = 0; ix < pdev->dvfs_device_num; ++ix) {
+diff --git a/drivers/cpufreq/sprd-hwdvfs-ums512.c b/drivers/cpufreq/sprd-hwdvfs-ums512.c
+index 5065071c4..eb8bc42e9 100644
+--- a/drivers/cpufreq/sprd-hwdvfs-ums512.c
++++ b/drivers/cpufreq/sprd-hwdvfs-ums512.c
+@@ -292,11 +292,6 @@ static struct reg_info ums512_third_pmic_cfg[DCDC_NUM] = {
+ 	[DCDC_CPU1] = GENREGSET(0x120, 0, 0x1),
+ };
+ 
+-/* DCDC_CPU1_VOLTAGE_JUDGE_BYPASS: PROMETHEUS_VOLTAGE_MEET_BYP */
+-static struct reg_info ums512_vol_meet_byp_cfg[DCDC_NUM] = {
+-	[DCDC_CPU1] = GENREGSET(0x98, 0, 0x1),
+-};
+-
+ static struct reg_info ums512_host_vol_auto_tune_cfg[DCDC_NUM] = {
+ 	[DCDC_CPU0] = GENREGVALSET(0x68, 20, 0x1, 0),
+ 	[DCDC_CPU1] = GENREGVALSET(0x94, 0, 0x1, 0),
+@@ -460,7 +455,6 @@ static struct topdvfs_volt_manager ums512_volt_manager = {
+ 	.idle_vol_cfg = ums512_idle_vol_cfg,
+ 	.misc_cfg = ums512_volt_misc_cfg,
+ 	.third_pmic_cfg = ums512_third_pmic_cfg,
+-	.vol_meet_byp_cfg = ums512_vol_meet_byp_cfg,
+ 	.dcdc_num = DCDC_NUM,
+ 	.vir_dcdc_adi_num = VIR_DCDC_CPU_ADI_NUM,
+ };

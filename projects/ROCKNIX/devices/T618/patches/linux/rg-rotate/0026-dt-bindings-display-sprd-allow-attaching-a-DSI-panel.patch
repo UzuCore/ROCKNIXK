@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sat, 19 Jul 2025 11:25:29 +0200
+Subject: [PATCH 026/225] dt-bindings: display: sprd: allow attaching a DSI
+ panel
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add a DSI output port and include common DSI controller bindings in the
+bindings for the Unisoc DSI controller.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ .../display/sprd/sprd,sharkl3-dsi-host.yaml   | 27 ++++++++++++++-----
+ 1 file changed, 20 insertions(+), 7 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dsi-host.yaml b/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dsi-host.yaml
+index 71abbc2de..7da68eb02 100644
+--- a/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dsi-host.yaml
++++ b/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dsi-host.yaml
+@@ -46,12 +46,22 @@ properties:
+         const: 0
+ 
+       port@0:
+-        type: object
+-        description:
+-          A port node with endpoint definitions as defined in
+-          Documentation/devicetree/bindings/media/video-interfaces.txt.
+-          That port should be the input endpoint, usually coming from
+-          the associated DPU.
++        $ref: /schemas/graph.yaml#/$defs/port-base
++        unevaluatedProperties: false
++        properties:
++          endpoint:
++            $ref: /schemas/media/video-interfaces.yaml#
++            unevaluatedProperties: false
++            description: The input endpoint, usually connected to the DPU
++
++      port@1:
++        $ref: /schemas/graph.yaml#/$defs/port-base
++        unevaluatedProperties: false
++        properties:
++          endpoint:
++            $ref: /schemas/media/video-interfaces.yaml#
++            unevaluatedProperties: false
++            description: The output endpoint, usually connected to the panel
+ 
+     required:
+       - "#address-cells"
+@@ -60,6 +70,9 @@ properties:
+ 
+     additionalProperties: false
+ 
++allOf:
++  - $ref: /schemas/display/dsi-controller.yaml#
++
+ required:
+   - compatible
+   - reg
+@@ -68,7 +81,7 @@ required:
+   - clock-names
+   - ports
+ 
+-additionalProperties: false
++unevaluatedProperties: false
+ 
+ examples:
+   - |

@@ -1232,6 +1232,11 @@ makeinstall_target() {
     install_script "Start ARMSX2.sh"
     install_script "Start AetherSX2.sh"
     ;;
+  T618)
+    add_emu_core ps2 aethersx2 aethersx2-sa true
+    add_es_system ps2
+    install_script "Start AetherSX2.sh"
+    ;;
   esac
 
   ### Sony Playstation 3

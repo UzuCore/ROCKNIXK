@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Sat, 17 May 2025 20:03:45 +0200
+Subject: [PATCH 023/225] dt-bindings: display: sprd: adapt for UMS9230 support
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add new compatible strings for the DPU and DSI controller found in the
+UMS9230 SoC.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ .../devicetree/bindings/display/sprd/sprd,sharkl3-dpu.yaml | 7 ++++++-
+ .../bindings/display/sprd/sprd,sharkl3-dsi-host.yaml       | 4 +++-
+ 2 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dpu.yaml b/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dpu.yaml
+index 8c52fa0ea..cfa162178 100644
+--- a/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dpu.yaml
++++ b/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dpu.yaml
+@@ -16,7 +16,12 @@ description: |
+ 
+ properties:
+   compatible:
+-    const: sprd,sharkl3-dpu
++    oneOf:
++      - items:
++          - enum:
++              - sprd,ums9230-dpu
++          - const: sprd,sharkl3-dpu
++      - const: sprd,sharkl3-dpu
+ 
+   reg:
+     maxItems: 1
+diff --git a/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dsi-host.yaml b/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dsi-host.yaml
+index 300bf2252..9177ae6aa 100644
+--- a/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dsi-host.yaml
++++ b/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dsi-host.yaml
+@@ -11,7 +11,9 @@ maintainers:
+ 
+ properties:
+   compatible:
+-    const: sprd,sharkl3-dsi-host
++    enum:
++      - sprd,sharkl3-dsi-host
++      - sprd,ums9230-dsi-host
+ 
+   reg:
+     maxItems: 1

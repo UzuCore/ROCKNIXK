@@ -1,0 +1,286 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Thu, 23 Jul 2026 16:12:03 -0500
+Subject: [PATCH 171/225] ums512 gpu dvfs
+
+---
+ arch/arm64/boot/dts/sprd/ums512.dtsi |   9 +-
+ arch/arm64/configs/ums512_defconfig  |  16 +++-
+ drivers/clk/sprd/composite.c         | 134 +++++++++++++++++++++++++++
+ drivers/clk/sprd/composite.h         |  14 +++
+ drivers/clk/sprd/ums512-clk.c        |   3 +-
+ 5 files changed, 167 insertions(+), 9 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/sprd/ums512.dtsi b/arch/arm64/boot/dts/sprd/ums512.dtsi
+index 4de431791..9ab996ee7 100644
+--- a/arch/arm64/boot/dts/sprd/ums512.dtsi
++++ b/arch/arm64/boot/dts/sprd/ums512.dtsi
+@@ -1277,12 +1277,15 @@ gpu: gpu@60000000 {
+ 				     <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>,
+ 				     <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>;
+ 			interrupt-names = "job", "mmu", "gpu";
+-			clocks = <&gpu_clk CLK_GPU_CORE_EB>,
++			clocks = <&gpu_clk CLK_GPU_CORE>,
++				 <&gpu_clk CLK_GPU_CORE_EB>,
+ 				 <&gpu_clk CLK_GPU_MEM_EB>,
+ 				 <&gpu_clk CLK_GPU_SYS_EB>;
+-			clock-names = "gpu", "mem", "bus";
++			clock-names = "core", "gpu", "mem", "bus";
++			assigned-clocks = <&pll2 CLK_GPLL>;
++			assigned-clock-rates = <850000000>;
+ 			power-domains = <&pmu UMS512_POWER_DOMAIN_GPU_TOP>;
+-			resets = <&gpu_clk RESET_GPU_APB_SYS_SOFT_RST_REQ_CORE>;
++			resets = <&gpu_clk RESET_GPU_APB_GPU_CORE_SOFT_RST>;
+ 			operating-points-v2 = <&gpu_opp_table>;
+ 
+ 			status = "disabled";
+diff --git a/arch/arm64/configs/ums512_defconfig b/arch/arm64/configs/ums512_defconfig
+index 3024cbe50..e86244485 100644
+--- a/arch/arm64/configs/ums512_defconfig
++++ b/arch/arm64/configs/ums512_defconfig
+@@ -73,9 +73,11 @@ CONFIG_ARM_PSCI_CPUIDLE=y
+ CONFIG_CPU_FREQ=y
+ CONFIG_CPU_FREQ_STAT=y
+ CONFIG_CPU_FREQ_GOV_POWERSAVE=y
+-CONFIG_CPU_FREQ_GOV_USERSPACE=y
++CONFIG_CPU_FREQ_GOV_USERSPACE=m
+ CONFIG_CPU_FREQ_GOV_ONDEMAND=y
+-CONFIG_CPU_FREQ_GOV_CONSERVATIVE=y
++CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y
++CONFIG_CPU_FREQ_GOV_PERFORMANCE=y
++CONFIG_CPU_FREQ_GOV_CONSERVATIVE=m
+ CONFIG_CPUFREQ_DT=y
+ CONFIG_ARM_SCPI_CPUFREQ=y
+ CONFIG_ARM_SCMI_CPUFREQ=y
+@@ -505,8 +507,7 @@ CONFIG_DRM_MALI_DISPLAY=y
+ CONFIG_DRM_KOMEDA=y
+ CONFIG_DRM_DISPLAY_CONNECTOR=y
+ CONFIG_DRM_PANEL_GENERIC_DSI=y
+-CONFIG_DRM_PANFROST=y
+-CONFIG_DRM_PANTHOR=y
++CONFIG_DRM_PANFROST=m
+ CONFIG_DRM_SPRD=y
+ CONFIG_FB=y
+ CONFIG_BACKLIGHT_CLASS_DEVICE=y
+@@ -700,7 +701,10 @@ CONFIG_RPMSG_CTRL=y
+ CONFIG_RPMSG_SPRD_SIPC=y
+ CONFIG_SPRD_AUDCP_BOOT=y
+ CONFIG_SPRD_PM_DOMAINS=y
+-CONFIG_DEVFREQ_GOV_USERSPACE=y
++CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND=y
++CONFIG_DEVFREQ_GOV_POWERSAVE=y
++CONFIG_DEVFREQ_GOV_USERSPACE=m
++CONFIG_DEVFREQ_GOV_PERFORMANCE=y
+ CONFIG_DEVFREQ_GOV_PASSIVE=m
+ CONFIG_EXTCON_PTN5150=m
+ CONFIG_EXTCON_USB_GPIO=y
+@@ -795,6 +799,8 @@ CONFIG_INDIRECT_PIO=y
+ CONFIG_DMA_RESTRICTED_POOL=y
+ CONFIG_DMA_CMA=y
+ CONFIG_CMA_SIZE_MBYTES=32
++CONFIG_DMABUF_HEAPS_SYSTEM=y
++CONFIG_DMABUF_HEAPS_CMA=y
+ CONFIG_IRQ_POLL=y
+ CONFIG_PRINTK_TIME=y
+ CONFIG_CONSOLE_LOGLEVEL_DEFAULT=8
+diff --git a/drivers/clk/sprd/composite.c b/drivers/clk/sprd/composite.c
+index ad6b6383e..5abd738e5 100644
+--- a/drivers/clk/sprd/composite.c
++++ b/drivers/clk/sprd/composite.c
+@@ -17,6 +17,59 @@ static int sprd_comp_determine_rate(struct clk_hw *hw,
+ 	return divider_determine_rate(hw, req, NULL, cc->div.width, 0);
+ }
+ 
++static int sprd_comp_determine_rate_reparent(struct clk_hw *hw,
++					     struct clk_rate_request *req)
++{
++	struct sprd_comp *cc = hw_to_sprd_comp(hw);
++	unsigned int i, num_parents = clk_hw_get_num_parents(hw);
++	unsigned long max_div = 1UL << cc->div.width;
++	unsigned long floor_rate = 0, floor_prate = 0;
++	unsigned long any_rate = ULONG_MAX, any_prate = 0;
++	struct clk_hw *floor_parent = NULL, *any_parent = NULL;
++
++	for (i = 0; i < num_parents; i++) {
++		struct clk_hw *parent = clk_hw_get_parent_by_index(hw, i);
++		unsigned long prate, div, rate;
++
++		if (!parent)
++			continue;
++		prate = clk_hw_get_rate(parent);
++		if (!prate)
++			continue;
++
++		div = DIV_ROUND_UP(prate, req->rate);
++		div = clamp(div, 1UL, max_div);
++		rate = prate / div;
++
++		/* best rate <= target */
++		if (rate <= req->rate && rate > floor_rate) {
++			floor_rate = rate;
++			floor_prate = prate;
++			floor_parent = parent;
++		}
++		/* fallback: lowest rate overall if everything overshoots */
++		if (rate < any_rate) {
++			any_rate = rate;
++			any_prate = prate;
++			any_parent = parent;
++		}
++	}
++
++	if (floor_parent) {
++		req->best_parent_hw = floor_parent;
++		req->best_parent_rate = floor_prate;
++		req->rate = floor_rate;
++	} else if (any_parent) {
++		req->best_parent_hw = any_parent;
++		req->best_parent_rate = any_prate;
++		req->rate = any_rate;
++	} else {
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
+ static unsigned long sprd_comp_recalc_rate(struct clk_hw *hw,
+ 					  unsigned long parent_rate)
+ {
+@@ -34,6 +87,75 @@ static int sprd_comp_set_rate(struct clk_hw *hw, unsigned long rate,
+ 				       rate, parent_rate);
+ }
+ 
++static unsigned int sprd_comp_gate_off(const struct sprd_clk_common *common)
++{
++	unsigned int en;
++
++	regmap_read(common->regmap, common->reg, &en);
++	en &= BIT(0);
++	if (en)
++		regmap_update_bits(common->regmap, common->reg, BIT(0), 0);
++	return en;
++}
++
++static void sprd_comp_gate_restore(const struct sprd_clk_common *common,
++				   unsigned int en)
++{
++	if (en)
++		regmap_update_bits(common->regmap, common->reg, BIT(0), BIT(0));
++}
++
++static int sprd_comp_set_parent_gated(struct clk_hw *hw, u8 index)
++{
++	struct sprd_comp *cc = hw_to_sprd_comp(hw);
++	unsigned int en;
++	int ret;
++
++	en = sprd_comp_gate_off(&cc->common);
++	ret = sprd_mux_helper_set_parent(&cc->common, &cc->mux, index);
++	sprd_comp_gate_restore(&cc->common, en);
++
++	return ret;
++}
++
++static int sprd_comp_set_rate_gated(struct clk_hw *hw, unsigned long rate,
++				    unsigned long parent_rate)
++{
++	struct sprd_comp *cc = hw_to_sprd_comp(hw);
++	unsigned int en;
++	int ret;
++
++	en = sprd_comp_gate_off(&cc->common);
++	ret = sprd_div_helper_set_rate(&cc->common, &cc->div, rate, parent_rate);
++	sprd_comp_gate_restore(&cc->common, en);
++
++	return ret;
++}
++
++/*
++ * When a rate change also needs a new parent, the clk core prefers this single
++ * op — so the whole reparent+redivide happens inside one gated (stopped) window
++ * instead of two.
++ */
++static int sprd_comp_set_rate_and_parent_gated(struct clk_hw *hw,
++					       unsigned long rate,
++					       unsigned long parent_rate,
++					       u8 index)
++{
++	struct sprd_comp *cc = hw_to_sprd_comp(hw);
++	unsigned int en;
++	int ret;
++
++	en = sprd_comp_gate_off(&cc->common);
++	ret = sprd_mux_helper_set_parent(&cc->common, &cc->mux, index);
++	if (!ret)
++		ret = sprd_div_helper_set_rate(&cc->common, &cc->div, rate,
++					       parent_rate);
++	sprd_comp_gate_restore(&cc->common, en);
++
++	return ret;
++}
++
+ static u8 sprd_comp_get_parent(struct clk_hw *hw)
+ {
+ 	struct sprd_comp *cc = hw_to_sprd_comp(hw);
+@@ -57,3 +179,15 @@ const struct clk_ops sprd_comp_ops = {
+ 	.set_rate	= sprd_comp_set_rate,
+ };
+ EXPORT_SYMBOL_GPL(sprd_comp_ops);
++
++/* Like sprd_comp_ops but reparents the mux to reach rates on other parents. */
++const struct clk_ops sprd_comp_reparent_ops = {
++	.get_parent		= sprd_comp_get_parent,
++	.set_parent		= sprd_comp_set_parent_gated,
++
++	.determine_rate		= sprd_comp_determine_rate_reparent,
++	.recalc_rate		= sprd_comp_recalc_rate,
++	.set_rate		= sprd_comp_set_rate_gated,
++	.set_rate_and_parent	= sprd_comp_set_rate_and_parent_gated,
++};
++EXPORT_SYMBOL_GPL(sprd_comp_reparent_ops);
+diff --git a/drivers/clk/sprd/composite.h b/drivers/clk/sprd/composite.h
+index 15cec97d2..c669188ff 100644
+--- a/drivers/clk/sprd/composite.h
++++ b/drivers/clk/sprd/composite.h
+@@ -74,6 +74,19 @@ struct sprd_comp {
+ 					_doffset, _dshift, _dwidth,	\
+ 					_flags)
+ 
++#define SPRD_COMP_CLK_DATA_REPARENT(_struct, _name, _parent, _reg, _mshift,   \
++				    _mwidth, _dshift, _dwidth, _flags)	     \
++	struct sprd_comp _struct = {					     \
++		.mux	= _SPRD_MUX_CLK(_mshift, _mwidth, NULL),	     \
++		.div	= _SPRD_DIV_CLK(0x0, _dshift, _dwidth),		     \
++		.common = {						     \
++			.regmap		= NULL,				     \
++			.reg		= _reg,				     \
++			.hw.init = CLK_HW_INIT_PARENTS_DATA(_name, _parent,   \
++					&sprd_comp_reparent_ops, _flags),    \
++		}							     \
++	}
++
+ static inline struct sprd_comp *hw_to_sprd_comp(const struct clk_hw *hw)
+ {
+ 	struct sprd_clk_common *common = hw_to_sprd_clk_common(hw);
+@@ -82,5 +95,6 @@ static inline struct sprd_comp *hw_to_sprd_comp(const struct clk_hw *hw)
+ }
+ 
+ extern const struct clk_ops sprd_comp_ops;
++extern const struct clk_ops sprd_comp_reparent_ops;
+ 
+ #endif /* _SPRD_COMPOSITE_H_ */
+diff --git a/drivers/clk/sprd/ums512-clk.c b/drivers/clk/sprd/ums512-clk.c
+index 608b8029a..2b9f109d1 100644
+--- a/drivers/clk/sprd/ums512-clk.c
++++ b/drivers/clk/sprd/ums512-clk.c
+@@ -1750,7 +1750,8 @@ static const struct clk_parent_data gpu_parents[] = {
+ 	{ .hw = &gpll.common.hw  },
+ };
+ 
+-static SPRD_COMP_CLK_DATA(gpu_core_clk, "gpu-core-clk", gpu_parents,
++/* Reparent-capable: GPU DVFS OPPs live on different parent PLLs. */
++static SPRD_COMP_CLK_DATA_REPARENT(gpu_core_clk, "gpu-core-clk", gpu_parents,
+ 			  0x4, 4, 3, 8, 3, 0);
+ 
+ static SPRD_GATE_CLK_HW(gpu_mem_gate, "gpu-mem-gate", &gpu_eb.common.hw,

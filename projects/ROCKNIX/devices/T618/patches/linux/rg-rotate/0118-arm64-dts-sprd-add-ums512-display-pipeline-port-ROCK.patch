@@ -1,0 +1,1401 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Mon, 29 Jun 2026 04:20:30 -0500
+Subject: [PATCH 118/225] arm64: dts: sprd: add ums512 display pipeline; port
+ ROCKNIX panel driver
+
+Port the display SoC nodes into ums512.dtsi: dpu/iommu_disp/dsi (under a
+mm simple-bus), the display-subsystem node, pwm, and the dphy fixed
+clocks. On the RG Rotate board, un-stage the framebuffer reserved-memory
++ simple-fb, pwm-backlight, lcd avdd/avee regulators, and the panel@0
+"rocknix,generic-dsi" node with its full init sequence.
+
+Port the out-of-tree ROCKNIX panel-generic-dsi driver (DRM_PANEL_GENERIC_DSI)
+into 7.1; it builds as-is bar an explicit linux/hex.h include for hex2bin.
+The upstream sprd DRM stack (dpu/dsi/drm/gem/megacores) compiles cleanly
+against 7.1. Enable DRM_SPRD, the panel, PWM_SPRD, BACKLIGHT_PWM.
+
+NOTE: the load-bearing free-run / prepare_prev_first cold-init driver
+hacks (sprd_dpu.c DPI_HALT cleared, sprd_dsi.c DSI_MODE_CFG=0) are NOT yet
+re-applied on top of the clean upstream drivers; without them the panel is
+expected to blank on this board. Re-apply + on-device validation pending.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+---
+ arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts | 263 +++++-
+ arch/arm64/boot/dts/sprd/ums512.dtsi          | 111 +++
+ arch/arm64/configs/ums512_defconfig           |   9 +-
+ drivers/gpu/drm/panel/Kconfig                 |   9 +
+ drivers/gpu/drm/panel/Makefile                |   1 +
+ drivers/gpu/drm/panel/panel-generic-dsi.c     | 850 ++++++++++++++++++
+ 6 files changed, 1236 insertions(+), 7 deletions(-)
+ create mode 100644 drivers/gpu/drm/panel/panel-generic-dsi.c
+
+diff --git a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+index f78f6737d..db08d5347 100644
+--- a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
++++ b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+@@ -41,7 +41,62 @@ memory@80000000 {
+ 	};
+ 
+ 	chosen {
++		#address-cells = <2>;
++		#size-cells = <2>;
+ 		stdout-path = "serial1:115200n8";
++
++		framebuffer0: framebuffer@9e000000 {
++			compatible = "simple-framebuffer";
++			memory-region = <&framebuffer_region>;
++			width = <720>;
++			height = <720>;
++			stride = <(720 * 4)>;
++			format = "a8r8g8b8";
++			status = "disabled";
++		};
++	};
++
++	reserved-memory {
++		#address-cells = <2>;
++		#size-cells = <2>;
++		ranges;
++
++		framebuffer_region: framebuffer-region@9e000000 {
++			compatible = "framebuffer";
++			reg = <0 0x9e000000 0 (720 * 720 * 4)>;
++			iommu-addresses = <&dpu 0x9e000000 (720 * 720 * 4)>;
++			no-map;
++		};
++
++		linux,cma {
++			compatible = "shared-dma-pool";
++			size = <0x0 0x8000000>;
++			reusable;
++			linux,cma-default;
++		};
++	};
++
++	backlight: backlight {
++		compatible = "pwm-backlight";
++		pwms = <&pwm 2 40000>;
++		max-brightness = <4095>;
++		default-brightness-level = <2650>;
++	};
++
++	lcd_avdd: regulator-lcd-avdd {
++		compatible = "regulator-fixed";
++		regulator-name = "lcd-avdd";
++		gpio = <&ap_gpio 15 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++	};
++
++	lcd_avee: regulator-lcd-avee {
++		compatible = "regulator-fixed";
++		regulator-name = "lcd-avee";
++		gpio = <&ap_gpio 138 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
+ 	};
+ 
+ 	/*
+@@ -166,6 +221,201 @@ charger@6a {
+ 	};
+ };
+ 
++/* Display pipeline. Panel free-runs (see sprd_dpu.c/sprd_dsi.c free-run hack +
++ * docs/DISPLAY-BRINGUP.md). (memory: cold-init-prepare-prev-first) */
++&iommu_disp {
++	status = "okay";
++};
++
++&disp {
++	status = "okay";
++};
++
++&dpu {
++	status = "okay";
++	memory-region = <&framebuffer_region>;
++	reset-syscon = <&ap_ahb_regs 0x04 0x02>;
++};
++
++&pwm {
++	status = "okay";
++};
++
++&dsi {
++	status = "okay";
++	reset-syscon = <&ap_ahb_regs 0x04 0x01>;
++
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	panel@0 {
++		compatible = "rocknix,generic-dsi";
++		reg = <0>;
++		reset-gpios = <&ap_gpio 50 GPIO_ACTIVE_LOW>;
++		backlight = <&backlight>;
++		vdd-supply = <&lcd_avdd>;
++		iovcc-supply = <&lcd_avee>;
++
++		panel_description =
++			"G lanes=2 format=rgb888 size=109,62 flags=3 hs_rate=551488000 lp_rate=20000000 delays=5,50,120,100,50",
++			"M clock=38400 horizontal=720,46,2,52 vertical=720,30,2,25 default=1",
++			"I dcs=ff data=30",
++			"I dcs=ff data=52",
++			"I dcs=ff data=01",
++			"I dcs=e3 data=00",
++			"I dcs=25 data=0a",
++			"I dcs=28 data=5f",
++			"I dcs=29 data=c2",
++			"I dcs=2a data=cf",
++			"I dcs=30 data=58",
++			"I dcs=37 data=9c",
++			"I dcs=38 data=a7",
++			"I dcs=39 data=1f",
++			"I dcs=44 data=00",
++			"I dcs=49 data=3c",
++			"I dcs=59 data=fe",
++			"I dcs=5c data=00",
++			"I dcs=80 data=20",
++			"I dcs=91 data=77",
++			"I dcs=92 data=77",
++			"I dcs=a0 data=55",
++			"I dcs=a1 data=50",
++			"I dcs=a3 data=58",
++			"I dcs=a4 data=9c",
++			"I dcs=a7 data=02",
++			"I dcs=a8 data=01",
++			"I dcs=a9 data=01",
++			"I dcs=aa data=fc",
++			"I dcs=ab data=28",
++			"I dcs=ac data=06",
++			"I dcs=ad data=06",
++			"I dcs=ae data=06",
++			"I dcs=af data=03",
++			"I dcs=b0 data=08",
++			"I dcs=b1 data=26",
++			"I dcs=b2 data=28",
++			"I dcs=b3 data=28",
++			"I dcs=b4 data=03",
++			"I dcs=b5 data=08",
++			"I dcs=b6 data=26",
++			"I dcs=b7 data=08",
++			"I dcs=b8 data=26",
++			"I dcs=c0 data=00",
++			"I dcs=c1 data=00",
++			"I dcs=c2 data=00",
++			"I dcs=c3 data=0f",
++			"I dcs=ff data=30",
++			"I dcs=ff data=52",
++			"I dcs=ff data=02",
++			"I dcs=b0 data=00",
++			"I dcs=b1 data=0f",
++			"I dcs=b2 data=12",
++			"I dcs=b3 data=32",
++			"I dcs=b4 data=24",
++			"I dcs=b5 data=3f",
++			"I dcs=b6 data=25",
++			"I dcs=b7 data=3f",
++			"I dcs=b8 data=0e",
++			"I dcs=b9 data=06",
++			"I dcs=ba data=11",
++			"I dcs=bb data=10",
++			"I dcs=bc data=10",
++			"I dcs=bd data=13",
++			"I dcs=be data=1b",
++			"I dcs=bf data=10",
++			"I dcs=c0 data=17",
++			"I dcs=c1 data=08",
++			"I dcs=d0 data=00",
++			"I dcs=d1 data=0d",
++			"I dcs=d2 data=12",
++			"I dcs=d3 data=2a",
++			"I dcs=d4 data=2e",
++			"I dcs=d5 data=3f",
++			"I dcs=d6 data=29",
++			"I dcs=d7 data=43",
++			"I dcs=d8 data=10",
++			"I dcs=d9 data=08",
++			"I dcs=da data=13",
++			"I dcs=db data=10",
++			"I dcs=dc data=12",
++			"I dcs=dd data=13",
++			"I dcs=de data=1f",
++			"I dcs=df data=1a",
++			"I dcs=e0 data=1f",
++			"I dcs=e1 data=0a",
++			"I dcs=ff data=30",
++			"I dcs=ff data=52",
++			"I dcs=ff data=03",
++			"I dcs=04 data=51",
++			"I dcs=05 data=c0",
++			"I dcs=06 data=c0",
++			"I dcs=08 data=86",
++			"I dcs=09 data=87",
++			"I dcs=0a data=84",
++			"I dcs=0b data=85",
++			"I dcs=28 data=33",
++			"I dcs=29 data=33",
++			"I dcs=2a data=eb",
++			"I dcs=2b data=ea",
++			"I dcs=2c data=ed",
++			"I dcs=2d data=ec",
++			"I dcs=34 data=81",
++			"I dcs=35 data=53",
++			"I dcs=37 data=23",
++			"I dcs=40 data=84",
++			"I dcs=41 data=85",
++			"I dcs=42 data=82",
++			"I dcs=43 data=83",
++			"I dcs=44 data=33",
++			"I dcs=45 data=ea",
++			"I dcs=46 data=e9",
++			"I dcs=47 data=33",
++			"I dcs=48 data=ec",
++			"I dcs=49 data=eb",
++			"I dcs=50 data=80",
++			"I dcs=51 data=81",
++			"I dcs=52 data=02",
++			"I dcs=53 data=01",
++			"I dcs=54 data=33",
++			"I dcs=55 data=ee",
++			"I dcs=56 data=ed",
++			"I dcs=57 data=33",
++			"I dcs=58 data=f0",
++			"I dcs=59 data=ef",
++			"I dcs=80 data=00",
++			"I dcs=81 data=01",
++			"I dcs=82 data=06",
++			"I dcs=83 data=07",
++			"I dcs=84 data=04",
++			"I dcs=85 data=05",
++			"I dcs=92 data=03",
++			"I dcs=93 data=02",
++			"I dcs=96 data=00",
++			"I dcs=97 data=01",
++			"I dcs=98 data=06",
++			"I dcs=99 data=07",
++			"I dcs=9a data=04",
++			"I dcs=9b data=05",
++			"I dcs=a8 data=03",
++			"I dcs=a9 data=02",
++			"I dcs=ff data=30",
++			"I dcs=ff data=52",
++			"I dcs=ff data=00",
++			"I dcs=36 data=01",
++			"I dcs=53 data=2c";
++
++		port {
++			panel_in: endpoint {
++				remote-endpoint = <&dsi_out>;
++			};
++		};
++	};
++};
++
++&dsi_out {
++	remote-endpoint = <&panel_in>;
++};
++
+ &hsphy {
+ 	status = "okay";
+ 	phy-supply = <&vddusb33>;
+@@ -211,11 +461,14 @@ &usb {
+  *       still does not assert a gadget session on this VBUS-edge-less board).
+  *       Board &hsphy/&usb un-staged above. (memory: usb-gadget-otg-and-cleanup)
+  *
+- * [ ] Display  (memory: cold-init-prepare-prev-first; docs/DISPLAY-BRINGUP)
+- *       needs: dpu/dsi/disp/iommu_disp + pwm SoC nodes. board: framebuffer
+- *       reserved-memory + simple-fb, backlight (pwm 2), lcd_avdd/avee
+- *       fixed regulators (ap_gpio 15/138), &dpu/&dsi reset-syscon, panel@0
+- *       "rocknix,generic-dsi" w/ panel_description, dsi_out<->panel_in.
++ * [~] Display  — DT DONE, DRIVERS PENDING. Ported dpu/iommu_disp/dsi (mm bus),
++ *       disp, pwm + dphy clocks into ums512.dtsi; board framebuffer/reserved-mem/
++ *       backlight/lcd regs/panel un-staged above. STILL TODO: re-apply the
++ *       load-bearing driver hacks on the (clean) upstream sprd_dpu.c/sprd_dsi.c/
++ *       megacores_pll.c — free-run (DPI_HALT cleared + DSI_MODE_CFG=0),
++ *       prepare_prev_first cold-init + early clock-lane arm, DPI polarity. Needs
++ *       on-device validation. (memory: cold-init-prepare-prev-first;
++ *       docs/DISPLAY-BRINGUP, DISPLAY-KNOWN-GOOD-DSI-STATE)
+  *
+  * [ ] GPU panfrost  (memory: gpu-panfrost-bringup)
+  *       upstream dtsi has only gpu_clk syscon, no mali device node — port it.
+diff --git a/arch/arm64/boot/dts/sprd/ums512.dtsi b/arch/arm64/boot/dts/sprd/ums512.dtsi
+index 1583b739b..45621ee5a 100644
+--- a/arch/arm64/boot/dts/sprd/ums512.dtsi
++++ b/arch/arm64/boot/dts/sprd/ums512.dtsi
+@@ -154,6 +154,12 @@ pmu-a75 {
+ 		interrupt-affinity = <&CPU6>, <&CPU7>;
+ 	};
+ 
++	disp: display-subsystem {
++		compatible = "sprd,display-subsystem";
++		ports = <&dpu_port>;
++		status = "disabled";
++	};
++
+ 	soc: soc {
+ 		compatible = "simple-bus";
+ 		#address-cells = <2>;
+@@ -986,6 +992,28 @@ pinctrl: pinctrl@450000 {
+ 				compatible = "sprd,ums512-pinctrl";
+ 				reg = <0x450000 0x3000>;
+ 			};
++
++			pwm: pwm@260000 {
++				compatible = "sprd,ums512-pwm";
++				reg = <0x260000 0x10000>;
++				clocks = <&aon_clk CLK_PWM0>, <&aonapb_gate CLK_PWM0_EB>,
++					 <&aon_clk CLK_PWM1>, <&aonapb_gate CLK_PWM1_EB>,
++					 <&aon_clk CLK_PWM2>, <&aonapb_gate CLK_PWM2_EB>,
++					 <&aon_clk CLK_PWM3>, <&aonapb_gate CLK_PWM3_EB>;
++				clock-names = "pwm0", "enable0",
++					      "pwm1", "enable1",
++					      "pwm2", "enable2",
++					      "pwm3", "enable3";
++				assigned-clocks = <&aon_clk CLK_PWM0>,
++						  <&aon_clk CLK_PWM1>,
++						  <&aon_clk CLK_PWM2>,
++						  <&aon_clk CLK_PWM3>;
++				assigned-clock-parents = <&ext_26m>,
++							 <&ext_26m>,
++							 <&ext_26m>,
++							 <&ext_26m>;
++				#pwm-cells = <2>;
++			};
+ 		};
+ 
+ 		usb: usb@5fff0000 {
+@@ -997,6 +1025,75 @@ usb: usb@5fff0000 {
+ 			phys = <&hsphy>;
+ 			status = "disabled";
+ 		};
++
++		mm: mm {
++			compatible = "simple-bus";
++			#address-cells = <1>;
++			#size-cells = <1>;
++			ranges = <0x20300000 0x0 0x20300000 0x200000>;
++
++			dpu: dpu@20300000 {
++				compatible = "sprd,ums512-dpu", "sprd,sharkl3-dpu";
++				reg = <0x20300000 0x800>;
++				interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
++				clocks = <&apahb_gate CLK_DISPC_EB>,
++					 <&ap_clk CLK_DISPC0>,
++					 <&ap_clk CLK_DISPC0_DPI>;
++				clock-names = "core", "clk", "dpi";
++				iommus = <&iommu_disp>;
++				status = "disabled";
++
++				dpu_port: port {
++					dpu_out: endpoint {
++						remote-endpoint = <&dsi_in>;
++					};
++				};
++			};
++
++			iommu_disp: iommu@20300800 {
++				compatible = "sprd,ums512-iommu", "sprd,iommu-v1";
++				reg = <0x20300800 0x80>;
++				sprd,iova-range = <0x90000000 0x10000000>;
++				#iommu-cells = <0>;
++				status = "disabled";
++			};
++
++			dsi: dsi@20400000 {
++				compatible = "sprd,ums512-dsi-host", "sprd,ums9230-dsi-host";
++				reg = <0x20400000 0x1000>;
++				interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>,
++					     <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
++				clocks = <&apahb_gate CLK_DSI_EB>;
++				clock-names = "pclk";
++
++				/*
++				 * MIPI DPHY analog block glue. Mirrors stock dphy
++				 * node enable-syscon / power-syscon: driver sets
++				 * phy-en bits to enable and clears phy-pwr bit to
++				 * power up the analog driver.
++				 */
++				sprd,phy-en-syscon = <&ap_ahb_regs 0x40 0x03>;
++				sprd,phy-pwr-syscon = <&ap_apb_regs 0x35c 0x08>;
++				status = "disabled";
++
++				ports {
++					#address-cells = <1>;
++					#size-cells = <0>;
++
++					port@0 {
++						reg = <0>;
++						dsi_in: endpoint {
++							remote-endpoint = <&dpu_out>;
++						};
++					};
++
++					port@1 {
++						reg = <1>;
++						dsi_out: endpoint { };
++					};
++				};
++			};
++		};
+ 	};
+ 
+ 	ext_26m: clk-26m {
+@@ -1006,6 +1103,20 @@ ext_26m: clk-26m {
+ 		clock-output-names = "ext-26m";
+ 	};
+ 
++	dphy_273m: dphy-273m {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <273000000>;
++		clock-output-names = "dphy-273m";
++	};
++
++	dphy_204m8: dphy-204m8 {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <204800000>;
++		clock-output-names = "dphy-204m8";
++	};
++
+ 	ext_32k: clk-32k {
+ 		compatible = "fixed-clock";
+ 		#clock-cells = <0>;
+diff --git a/arch/arm64/configs/ums512_defconfig b/arch/arm64/configs/ums512_defconfig
+index 672c35c11..73d6deaae 100644
+--- a/arch/arm64/configs/ums512_defconfig
++++ b/arch/arm64/configs/ums512_defconfig
+@@ -932,7 +932,7 @@ CONFIG_VIDEO_IMX412=m
+ CONFIG_VIDEO_OV5640=m
+ CONFIG_VIDEO_OV5645=m
+ CONFIG_VIDEO_S5KJN1=m
+-CONFIG_DRM=m
++CONFIG_DRM=y
+ CONFIG_DRM_HDLCD=m
+ CONFIG_DRM_MALI_DISPLAY=m
+ CONFIG_DRM_KOMEDA=m
+@@ -985,6 +985,7 @@ CONFIG_DRM_MSM=m
+ CONFIG_DRM_MXSFB=m
+ CONFIG_DRM_IMX_LCDIF=m
+ CONFIG_DRM_NOUVEAU=m
++CONFIG_DRM_PANEL_GENERIC_DSI=m
+ CONFIG_DRM_PANEL_BOE_TV101WUM_NL6=m
+ CONFIG_DRM_PANEL_LVDS=m
+ CONFIG_DRM_PANEL_HIMAX_HX8279=m
+@@ -1022,9 +1023,11 @@ CONFIG_ROCKCHIP_DW_HDMI_QP=y
+ CONFIG_ROCKCHIP_DW_MIPI_DSI=y
+ CONFIG_ROCKCHIP_INNO_HDMI=y
+ CONFIG_ROCKCHIP_LVDS=y
++CONFIG_DRM_SPRD=y
+ CONFIG_DRM_STM=m
+ CONFIG_DRM_STM_LVDS=m
+ CONFIG_DRM_SUN4I=m
++CONFIG_DRM_SIMPLEDRM=y
+ CONFIG_DRM_TEGRA=m
+ CONFIG_DRM_TIDSS=m
+ CONFIG_DRM_V3D=m
+@@ -1033,7 +1036,8 @@ CONFIG_DRM_ZYNQMP_DPSUB=m
+ CONFIG_DRM_ZYNQMP_DPSUB_AUDIO=y
+ CONFIG_FB=y
+ CONFIG_FB_EFI=y
+-CONFIG_BACKLIGHT_PWM=m
++CONFIG_BACKLIGHT_CLASS_DEVICE=y
++CONFIG_BACKLIGHT_PWM=y
+ CONFIG_BACKLIGHT_APPLE_DWI=m
+ CONFIG_BACKLIGHT_QCOM_WLED=m
+ CONFIG_BACKLIGHT_LP855X=m
+@@ -1682,6 +1686,7 @@ CONFIG_PWM_RENESAS_TPU=m
+ CONFIG_PWM_ROCKCHIP=y
+ CONFIG_PWM_SAMSUNG=y
+ CONFIG_PWM_SL28CPLD=m
++CONFIG_PWM_SPRD=y
+ CONFIG_PWM_STM32=m
+ CONFIG_PWM_SUN4I=m
+ CONFIG_PWM_TEGRA=m
+diff --git a/drivers/gpu/drm/panel/Kconfig b/drivers/gpu/drm/panel/Kconfig
+index c991c5d77..1d6b678f7 100644
+--- a/drivers/gpu/drm/panel/Kconfig
++++ b/drivers/gpu/drm/panel/Kconfig
+@@ -8,6 +8,15 @@ config DRM_PANEL
+ menu "Display Panels"
+ 	depends on DRM && DRM_PANEL
+ 
++config DRM_PANEL_GENERIC_DSI
++	tristate "ROCKNIX generic MIPI-DSI panel"
++	depends on OF
++	depends on DRM_MIPI_DSI
++	depends on BACKLIGHT_CLASS_DEVICE
++	help
++	  Generic MIPI-DSI panel driver (ROCKNIX) that reads panel timings and
++	  init sequences from a DT panel_description property or a firmware file.
++
+ config DRM_PANEL_ABT_Y030XX067A
+ 	tristate "ABT Y030XX067A 320x480 LCD panel"
+ 	depends on OF && SPI
+diff --git a/drivers/gpu/drm/panel/Makefile b/drivers/gpu/drm/panel/Makefile
+index 1d869982b..73c664e27 100644
+--- a/drivers/gpu/drm/panel/Makefile
++++ b/drivers/gpu/drm/panel/Makefile
+@@ -129,3 +129,4 @@ obj-$(CONFIG_DRM_PANEL_VISIONOX_VTDR6130) += panel-visionox-vtdr6130.o
+ obj-$(CONFIG_DRM_PANEL_VISIONOX_R66451) += panel-visionox-r66451.o
+ obj-$(CONFIG_DRM_PANEL_WIDECHIPS_WS2401) += panel-widechips-ws2401.o
+ obj-$(CONFIG_DRM_PANEL_XINPENG_XPP055C272) += panel-xinpeng-xpp055c272.o
++obj-$(CONFIG_DRM_PANEL_GENERIC_DSI) += panel-generic-dsi.o
+diff --git a/drivers/gpu/drm/panel/panel-generic-dsi.c b/drivers/gpu/drm/panel/panel-generic-dsi.c
+new file mode 100644
+index 000000000..8b265a565
+--- /dev/null
++++ b/drivers/gpu/drm/panel/panel-generic-dsi.c
+@@ -0,0 +1,850 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Generic MIPI-DSI panel driver
++ * Copyright (C) 2024 ROCKNIX
++ *
++ * based on
++ *
++ * Rockteck jh057n00900 5.5" MIPI-DSI panel driver
++ * Copyright (C) Purism SPC 2019
++ */
++
++#include <linux/delay.h>
++#include <linux/gpio/consumer.h>
++#include <linux/hex.h>
++#include <linux/media-bus-format.h>
++#include <linux/module.h>
++#include <linux/firmware.h>
++#include <linux/of.h>
++#include <linux/regulator/consumer.h>
++
++#include <video/display_timing.h>
++#include <video/mipi_display.h>
++
++#include <drm/drm_mipi_dsi.h>
++#include <drm/drm_modes.h>
++#include <drm/drm_panel.h>
++
++#define DRIVER_NAME "panel-generic-dsi"
++
++static char *descfile = "";
++module_param(descfile,charp,0660);
++MODULE_PARM_DESC(descfile, "Panel description filename in firmware dir");
++
++struct generic_panel_delays {
++    int prepare;
++    int reset;
++    int init;
++    int enable;
++    int ready;
++};
++
++struct generic_panel_size {
++    int width;
++    int height;
++};
++
++struct generic_panel_mode {
++    int clock;
++    int horizontal[5];
++    int vertical[5];
++    int is_default;
++    struct generic_panel_mode *prev;
++};
++
++#define DCS_PSEUDO_CMD_SEQ 0x10000
++struct generic_panel_init_seq {
++    int dcs;
++    int len;
++    int read;
++    int wait;
++    u8 *data;
++    struct generic_panel_init_seq *link;
++};
++
++struct generic_panel {
++    struct device *dev;
++    struct drm_panel panel;
++    struct gpio_desc *enable_gpio;
++    struct gpio_desc *reset_gpio;
++    struct regulator *vdd;
++    struct regulator *iovcc;
++
++    struct generic_panel_delays delays;
++    struct generic_panel_size size;
++    struct generic_panel_mode *modes;
++    struct generic_panel_init_seq *iseq;
++
++    enum drm_panel_orientation orientation;
++    bool prepared;
++};
++
++
++int load_panel_description(struct mipi_dsi_device *dsi, struct generic_panel *ctx);
++int load_panel_description_line(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx);
++int load_globals(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx);
++int load_mode(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx);
++int load_init_seq(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx);
++
++
++
++int load_globals(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx) {
++    struct device *dev = &dsi->dev;
++    char *param, *val;
++    while (*data) {
++        data = next_arg(data, &param, &val);
++        if (!val) continue;
++        if (strcmp(param, "delays") == 0) {
++            int delays[] = {0, 5, 1, 25, 120, 50};
++            get_options(val, 6, delays);
++            ctx->delays.prepare     = delays[1];
++            ctx->delays.reset       = delays[2];
++            ctx->delays.init        = delays[3];
++            ctx->delays.enable      = delays[4];
++            ctx->delays.ready       = delays[5];
++        } else if (strcmp(param, "size") == 0) {
++            int size[] = {0, -1, -1};
++            get_options(val, 3, size);
++            ctx->size.width         = size[1];
++            ctx->size.height        = size[2];
++        } else if (strcmp(param, "format") == 0) {
++            if (strcmp(val, "rgb888") == 0) {
++                dsi->format = MIPI_DSI_FMT_RGB888;
++            } else if (strcmp(val, "rgb666") == 0) {
++                dsi->format = MIPI_DSI_FMT_RGB666;
++            } else if (strcmp(val, "rgb666_packed") == 0) {
++                dsi->format = MIPI_DSI_FMT_RGB666_PACKED;
++            } else if (strcmp(val, "rgb565") == 0) {
++                dsi->format = MIPI_DSI_FMT_RGB565;
++            } else {
++                dev_info(dev, "bad format %s\n", val);
++            }
++        } else if (strcmp(param, "lanes") == 0) {
++            if (get_option(&val, &dsi->lanes) == 0) {
++                dev_info(dev, "bad lanes %s\n", val);
++            }
++        } else if (strcmp(param, "flags") == 0) {
++            int flags;
++            if (get_option(&val, &flags) == 0) {
++                dev_info(dev, "bad flags %s\n", val);
++            } else {
++                dsi->mode_flags = flags;
++            }
++        } else if (strcmp(param, "hs_rate") == 0) {
++            int hs_rate;
++            if (get_option(&val, &hs_rate) == 0) {
++                dev_info(dev, "bad hs_rate %s\n", val);
++            } else {
++                dsi->hs_rate = hs_rate;
++            }
++        } else if (strcmp(param, "lp_rate") == 0) {
++            int lp_rate;
++            if (get_option(&val, &lp_rate) == 0) {
++                dev_info(dev, "bad lp_rate %s\n", val);
++            } else {
++                dsi->lp_rate = lp_rate;
++            }
++        } else {
++            dev_info(dev, "unknown param %s\n", param);
++            return -1;
++        }
++    }
++    return 0;
++}
++
++
++int load_mode(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx) {
++    struct device *dev = &dsi->dev;
++    struct generic_panel_mode *mode;
++    char *param, *val;
++
++    mode = devm_kzalloc(dev, sizeof(*mode), GFP_KERNEL);
++
++    while (*data) {
++        data = next_arg(data, &param, &val);
++        if (!val) continue;
++        if (strcmp(param, "clock") == 0) {
++            if (get_option(&val, &mode->clock) == 0) {
++                dev_info(dev, "bad clock %s\n", val);
++            }
++        } else if (strcmp(param, "horizontal") == 0) {
++            get_options(val, 5, &mode->horizontal[0]);
++        } else if (strcmp(param, "vertical") == 0) {
++            get_options(val, 5, &mode->vertical[0]);
++        } else if (strcmp(param, "default") == 0) {
++            get_option(&val, &mode->is_default);
++        } else {
++            dev_info(dev, "Mode unhandled %s = %s\n", param, val);
++        }
++    }
++
++    if ((mode->clock > 5000) && (mode->vertical[1] > 0) && (mode->horizontal[1] > 0)) {
++        mode->prev = ctx->modes;
++        ctx->modes = mode;
++        dev_dbg(dev, "Mode %d %d %d  %p -> %p\n", mode->clock, mode->vertical[1], mode->horizontal[1], mode, mode->prev);
++        return 0;
++    }
++    return -1;
++}
++
++int load_init_seq(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx) {
++    struct device *dev = &dsi->dev;
++    struct generic_panel_init_seq *item;
++    char *param, *val;
++
++    item = devm_kzalloc(dev, sizeof(*item), GFP_KERNEL);
++    item->dcs = -1;
++    item->len = -1;
++    item->read = 0;
++    item->wait = 0;
++
++    while (*data) {
++        data = next_arg(data, &param, &val);
++        if (!val) continue;
++        if (strcmp(param, "dcs") == 0) {
++            item->dcs = simple_strtoul(val, NULL, 16) & 0xFF;
++            //dev_info(dev, "Init dcs %02x\n", item->dcs);
++        } else if (strcmp(param, "data") == 0) {
++            item->len = (strlen(val)) >> 1;
++            item->data = devm_kzalloc(dev, item->len, GFP_KERNEL);
++            if (hex2bin(item->data, val, item->len) != 0) {
++                dev_info(dev, "bad data %s\n", val);
++                return -1;
++            }
++            //for (int i=0; i < (item->len); i++) { dev_info(dev, " %02x", item->data[i]);};
++            //dev_info(dev, "\n");
++        } else if (strcmp(param, "seq") == 0) {
++            item->dcs = DCS_PSEUDO_CMD_SEQ;
++            item->len = (strlen(val)) >> 1;
++            item->data = devm_kzalloc(dev, item->len, GFP_KERNEL);
++            if (hex2bin(item->data, val, item->len) != 0) {
++                dev_info(dev, "bad seq %s\n", val);
++                return -1;
++            }
++            dev_dbg(dev, "loaded seq len=%d %s\n", item->len, val);
++        } else if (strcmp(param, "read") == 0) {
++            item->read = simple_strtoul(val, NULL, 16);
++        } else if (strcmp(param, "wait") == 0) {
++            item->wait = simple_strtoul(val, NULL, 16);
++        } else {
++            dev_info(dev, "Init unhandled %s = %s\n", param, val);
++        }
++    }
++
++    if (item->dcs >= 0) {
++        item->link = ctx->iseq;
++        ctx->iseq = item;
++        return 0;
++    }
++
++    return -1;
++}
++
++/*
++ * data   is a null-terminated string of panel description
++ */
++int load_panel_description_line(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx) {
++    size_t pos;
++    for (pos = 0; data[pos] != 0; pos ++) {
++        if ((data[pos] == '#') || data[pos] == '\n') {
++            data[pos] = 0;
++            break;
++        }
++    }
++    if (pos < 2) return 0;
++
++    switch (data[0]) {
++        case 'G':
++            load_globals(data+1, dsi, ctx);
++            break;
++        case 'M':
++            load_mode(data+1, dsi, ctx);
++            break;
++        case 'I':
++            load_init_seq(data+1, dsi, ctx);
++            break;
++        default:
++            dev_info(NULL, "Unhandled %s\n", data);
++    }
++
++    return 0;
++}
++
++int panel_description_foreach(struct mipi_dsi_device *dsi, struct generic_panel *ctx,
++        int (*handle_line)(char*, struct mipi_dsi_device*, struct generic_panel*));
++
++int panel_description_foreach(struct mipi_dsi_device *dsi, struct generic_panel *ctx,
++        int (*handle_line)(char*, struct mipi_dsi_device*, struct generic_panel*))
++{
++    struct device *dev = &dsi->dev;
++    const struct firmware *fw;
++    int ret;
++
++    if (strlen(descfile) > 0) {
++        ret = request_firmware(&fw, descfile, dev);
++        if (ret) {
++            dev_err(dev, "No config file found (error=%d)\n", ret);
++            return -1;
++        }
++
++        size_t pos = 0, size = fw->size;
++        char *data = (char *)fw->data;
++
++        while (pos < size) {
++            while ((pos < size) && (data[pos] != '\n')) pos++;
++
++            if (pos < size) pos++;
++            data[pos - 1] = 0;
++
++            handle_line(data, dsi, ctx);
++
++            data = &data[pos];
++            size = size - pos;
++            pos = 0;
++        }
++
++        release_firmware(fw);
++    } else {
++        //ret = of_drm_get_panel_orientation(dev->of_node, &ctx->orientation);
++        const char *line;
++        char * buf;
++        size_t linescnt, i;
++
++        linescnt = of_property_count_strings(dev->of_node, "panel_description");
++        if (linescnt < 1) {
++            dev_err(dev, "failed to read panel_description from device tree %ld\n", linescnt);
++            return -1;
++        }
++
++        for (i = 0; i < linescnt; i++) {
++            ret = of_property_read_string_index(dev->of_node, "panel_description", i, &line);
++            if (ret < 0) {
++                dev_err(dev, "failed to read panel_description[%ld] from device tree %d\n", i, ret);
++                return -1;
++            }
++            buf = kstrdup(line, GFP_KERNEL);
++            if (!buf) {
++                dev_err(dev, "kstrdup(of desc line) failed\n");
++                return -1;
++            }
++
++            dev_dbg(dev, "desc[%ld]: %s", i, line);
++            handle_line(buf, dsi, ctx);
++            kfree(buf);
++        }
++    }
++    return 0;
++}
++
++int load_panel_description(struct mipi_dsi_device *dsi, struct generic_panel *ctx) {
++    int ret;
++
++    ret = panel_description_foreach(dsi, ctx, &load_panel_description_line);
++    if (ret < 0) { return ret; }
++
++    // Reverse iseq
++    struct generic_panel_init_seq *rev = ctx->iseq, *fwd = NULL, *tmp = NULL;
++    while (rev) {
++        tmp = rev;
++        rev = tmp->link;
++        tmp->link = fwd;
++        fwd = tmp;
++    }
++    ctx->iseq = fwd;
++
++
++    return 0;
++}
++
++
++static inline struct generic_panel *panel_to_generic_panel(struct drm_panel *panel)
++{
++    return container_of(panel, struct generic_panel, panel);
++}
++
++static int generic_panel_init_sequence(struct generic_panel *ctx)
++{
++    struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
++    struct device *dev = ctx->dev;
++    int ret;
++
++    struct generic_panel_init_seq *iseq = ctx->iseq;
++    while (iseq) {
++        if (iseq->read > 0) {
++            u8 readbuf[8];
++            if (iseq->read > 8) { iseq->read = 8; }
++            ret = mipi_dsi_generic_read(dsi, iseq->data, iseq->len, &readbuf[0], iseq->read);
++            if (ret < 0) {
++                dev_err(ctx->dev, "failed to read: %d\n", ret);
++            } else {
++                for (int i = 0; i < ret; i++) {
++                    dev_info(ctx->dev, "read[%d]: %02x\n", i, readbuf[i]);
++                }
++            }
++        } else if (iseq->dcs == DCS_PSEUDO_CMD_SEQ) {
++            ret = mipi_dsi_dcs_write_buffer(dsi, iseq->data, iseq->len);
++            dev_dbg(dev, "iseq 0x%px len=%d -> %d\n", (void*)iseq, iseq->len, ret);
++        } else {
++            ret = mipi_dsi_dcs_write(dsi, iseq->dcs, iseq->data, iseq->len);
++            dev_dbg(dev, "iseq %02x len=%d -> %d\n", iseq->dcs, iseq->len, ret);
++        }
++        if (ret < 0) {
++            dev_err(dev, "panel init command 0x%x failed: %d\n",
++                    iseq->dcs, ret);
++            return ret;
++        }
++        if (iseq->wait) {
++            msleep(iseq->wait);
++        }
++        iseq = iseq->link;
++    }
++
++    dev_dbg(dev, "Panel init sequence done\n");
++
++    return 0;
++}
++
++/*
++ * Assume u-boot left the panel fully initialized and skip the kernel's first
++ * prepare/unprepare cycle. The kernel's panel-side teardown was destroying
++ * u-boot's state; skipping it is REQUIRED for the panel to light (build #76:
++ * fbcon visible + boot to Debian login). sprd_dpu/sprd_dsi still reset
++ * themselves -- this only isolates the panel-side contribution.
++ *
++ * DO NOT set this to false except as a deliberate last-resort diagnostic, or
++ * once we are extremely confident the kernel can cold-init the panel without
++ * u-boot's state. Flipping it to false is exactly what regressed the display
++ * from the working #67 prehandoff image to a black kernel-native path.
++ * See DISPLAY-KNOWN-GOOD-DSI-STATE.md / WHAT-HAS-BEEN-TRIED.md.
++ *
++ * CURRENTLY false ON PURPOSE for the prepare_prev_first cold-init experiment
++ * (paired with ctx->panel.prepare_prev_first = true in probe). This is the
++ * deliberate cold-init diagnostic the warning above refers to. Recovery if the
++ * panel stays black is a reboot to the on-disk image. Set back to true to
++ * restore the known-good U-Boot-handoff display.
++ */
++static bool handoff_skip_first_cycle = false;
++
++static int generic_panel_unprepare(struct drm_panel *panel)
++{
++    struct generic_panel *ctx = panel_to_generic_panel(panel);
++    struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
++    int ret;
++
++    if (!ctx->prepared)
++        return 0;
++
++    if (handoff_skip_first_cycle) {
++        handoff_skip_first_cycle = false;
++        ctx->prepared = false;
++        dev_info(ctx->dev, "handoff: skipping first unprepare\n");
++        return 0;
++    }
++
++    ret = mipi_dsi_dcs_set_display_off(dsi);
++    if (ret < 0)
++        dev_err(ctx->dev, "failed to set display off: %d\n", ret);
++
++    ret = mipi_dsi_dcs_enter_sleep_mode(dsi);
++    if (ret < 0) {
++        dev_err(ctx->dev, "failed to enter sleep mode: %d\n", ret);
++        return ret;
++    }
++
++    if (ctx->enable_gpio) { gpiod_set_value_cansleep(ctx->enable_gpio, 0); }
++    gpiod_set_value_cansleep(ctx->reset_gpio, 1);
++
++    regulator_disable(ctx->iovcc);
++    regulator_disable(ctx->vdd);
++
++    gpiod_set_value_cansleep(ctx->reset_gpio, 1);
++
++    ctx->prepared = false;
++
++    return 0;
++}
++
++static int generic_panel_prepare(struct drm_panel *panel)
++{
++    struct generic_panel *ctx = panel_to_generic_panel(panel);
++    struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
++    /*
++     * sleep_out (0x11) and display_on (0x29) are DCS Short Write 0 Param
++     * commands. Sending them via mipi_dsi_dcs_write_buffer with len=2
++     * mis-encodes them as DCS Short Write 1 Param (type 0x15) with a
++     * spurious 0x00 parameter -- many panels silently reject the wrong
++     * packet type and stay asleep, so backlight is on but the display
++     * shows black. Use len=1 to force the correct 0-param encoding.
++     */
++    static const u8 sleep_out[] = { MIPI_DCS_EXIT_SLEEP_MODE };
++    static const u8 display_on[] = { MIPI_DCS_SET_DISPLAY_ON };
++    int dispon_ret;
++    int ret;
++
++    if (ctx->prepared) {
++        return 0;
++    }
++
++    if (handoff_skip_first_cycle) {
++        dev_info(ctx->dev, "handoff: skipping first prepare (assuming u-boot left panel live)\n");
++        ctx->prepared = true;
++        return 0;
++    }
++
++    ret = regulator_enable(ctx->vdd);
++    if (ret < 0) {
++        dev_err(ctx->dev, "Failed to enable vdd supply: %d\n", ret);
++        return ret;
++    }
++    msleep(5);
++
++    ret = regulator_enable(ctx->iovcc);
++    if (ret < 0) {
++        dev_err(ctx->dev, "Failed to enable iovcc supply: %d\n", ret);
++        goto disable_vdd;
++    }
++    msleep(5);
++
++    if (ctx->enable_gpio) { gpiod_set_value_cansleep(ctx->enable_gpio, 1); }
++    msleep(ctx->delays.prepare);
++
++    /* Stock sequence is physical high 50 ms, low 50 ms, high 120 ms. */
++    gpiod_set_value_cansleep(ctx->reset_gpio, 0);
++    msleep(ctx->delays.reset);
++    gpiod_set_value_cansleep(ctx->reset_gpio, 1);
++    msleep(ctx->delays.reset);
++    gpiod_set_value_cansleep(ctx->reset_gpio, 0);
++    msleep(ctx->delays.init);
++
++    ret = generic_panel_init_sequence(ctx);
++    if (ret < 0) {
++        dev_err(ctx->dev, "Panel init sequence failed: %d\n", ret);
++        goto disable_iovcc;
++    }
++
++    /*
++     * Send sleep_out here but defer display_on to .enable so it fires
++     * AFTER the DSI bridge has switched to video mode. Panels with
++     * dimming/PWM ramp logic (e.g. CTRL_DISPLAY 0x53=0x2c in init) need
++     * a valid video signal to ramp against; sending display_on while
++     * the DSI is still in cmd mode leaves the panel in a "ramp to 0"
++     * state and the screen never lights up even after video starts.
++     */
++    ret = mipi_dsi_dcs_write_buffer(dsi, sleep_out, sizeof(sleep_out));
++    if (ret < 0) {
++        dev_err(ctx->dev, "Failed to exit sleep mode: %d\n", ret);
++        goto disable_iovcc;
++    }
++
++    msleep(200);
++
++    /*
++     * Send display_on HERE, in CMD mode, before the bridge switches to
++     * video mode -- matching the vendor BSP which sends sleep_out AND
++     * display_on in cmd mode prior to video. The sprd host .transfer path
++     * does not switch back to cmd mode, so a display_on issued from
++     * .enable (post video-mode switch) is pushed into the command FIFO
++     * while the controller is in VIDEO mode and is not reliably
++     * transmitted -- leaving the panel powered + init'd + sleep-exited but
++     * with its source drivers OFF (pure black, backlight on). The .enable
++     * resend is kept as a harmless belt-and-suspenders.
++     */
++    dispon_ret = mipi_dsi_dcs_write_buffer(dsi, display_on, sizeof(display_on));
++    dev_info(ctx->dev, "display_on (cmd-mode) ret=%d\n", dispon_ret);
++    msleep(20);
++
++    /*
++     * Diagnostic DCS reads DISABLED for the cold-init experiment.
++     *
++     * Each of these issues a BTA which, on this board's broken short-read path,
++     * returns -EIO and parks the data lanes in stopstate (PHY_STATUS
++     * 0x1f02 -> 0x1f32) -> black. They never run on the handoff path (prepare is
++     * skipped), so they are a cold-init-only confound. Re-enable only once the
++     * short-read path is fixed and we want panel-state observability.
++     */
++#if 0
++    {
++        u8 power_mode = 0;
++        u8 display_status[4] = { 0 };
++        u8 id[3] = { 0 };
++        int status_ret;
++
++        status_ret = mipi_dsi_dcs_get_power_mode(dsi, &power_mode);
++        dev_info(ctx->dev, "DCS power mode: ret=%d value=%02x\n",
++                 status_ret, power_mode);
++        status_ret = mipi_dsi_dcs_read(dsi, MIPI_DCS_GET_DISPLAY_STATUS,
++                                       display_status, sizeof(display_status));
++        dev_info(ctx->dev,
++                 "DCS display status: ret=%d value=%*ph\n",
++                 status_ret, (int)sizeof(display_status), display_status);
++        status_ret = mipi_dsi_dcs_read(dsi, MIPI_DCS_GET_DISPLAY_ID,
++                                       id, sizeof(id));
++        dev_info(ctx->dev, "DCS display ID: ret=%d value=%*ph\n",
++                 status_ret, (int)sizeof(id), id);
++    }
++#endif
++
++    //msleep(ctx->delays.ready);
++
++    ctx->prepared = true;
++
++    return 0;
++
++disable_iovcc:
++    regulator_disable(ctx->iovcc);
++disable_vdd:
++    regulator_disable(ctx->vdd);
++    return ret;
++}
++
++/* drm_display_mode template without clock as it is variable */
++static const struct drm_display_mode mode_template = { };
++
++
++static int generic_panel_get_modes(struct drm_panel *panel,
++                struct drm_connector *connector)
++{
++    struct generic_panel *ctx = panel_to_generic_panel(panel);
++    struct drm_display_mode mode_tmp;
++    struct drm_display_mode *mode;
++    struct generic_panel_mode *genmode = ctx->modes;
++
++    while (genmode) {
++        dev_dbg(ctx->dev, "gen mode %d %dx%d\n", genmode->clock, genmode->horizontal[1], genmode->vertical[1]);
++
++        mode_tmp = mode_template;
++
++        mode_tmp.clock          = genmode->clock;
++
++        mode_tmp.hdisplay       = genmode->horizontal[1];
++        mode_tmp.hsync_start    = mode_tmp.hdisplay + genmode->horizontal[2];
++        mode_tmp.hsync_end      = mode_tmp.hsync_start + genmode->horizontal[3];
++        mode_tmp.htotal         = mode_tmp.hsync_end + genmode->horizontal[4];
++
++        mode_tmp.vdisplay       = genmode->vertical[1];
++        mode_tmp.vsync_start    = mode_tmp.vdisplay + genmode->vertical[2];
++        mode_tmp.vsync_end      = mode_tmp.vsync_start + genmode->vertical[3];
++        mode_tmp.vtotal         = mode_tmp.vsync_end + genmode->vertical[4];
++
++        mode_tmp.width_mm       = ctx->size.width;
++        mode_tmp.height_mm      = ctx->size.height;
++
++        /*
++         * Stock Spreadtrum DT omits hsync-active/vsync-active so DRM
++         * defaults to active-high; the sprd DSI controller also leaves
++         * DPI input polarity at its active-high reset default. Driving
++         * NHSYNC/NVSYNC here would make the DPU emit active-low syncs,
++         * the DSI then never recognises a valid frame, and the panel
++         * stays black even though DPU and DPHY are running.
++         */
++        mode_tmp.flags          = DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC;
++
++        mode = drm_mode_duplicate(connector->dev, &mode_tmp);
++        if (!mode) {
++            dev_err(ctx->dev, "Failed to add mode %u\n",
++                drm_mode_vrefresh(mode));
++            return -ENOMEM;
++        }
++        drm_mode_set_name(mode);
++
++        mode->type = DRM_MODE_TYPE_DRIVER;
++        if (genmode->is_default) { mode->type |= DRM_MODE_TYPE_PREFERRED; };
++
++        drm_mode_probed_add(connector, mode);
++
++        genmode = genmode->prev;
++    }
++
++    connector->display_info.width_mm = ctx->size.width;
++    connector->display_info.height_mm = ctx->size.height;
++
++
++    /*
++     * TODO: Remove once all drm drivers call
++     * drm_connector_set_orientation_from_panel()
++     */
++    drm_connector_set_panel_orientation(connector, ctx->orientation);
++
++    return 1;
++}
++
++static enum drm_panel_orientation generic_panel_get_orientation(struct drm_panel *panel)
++{
++    struct generic_panel *ctx = panel_to_generic_panel(panel);
++
++    return ctx->orientation;
++}
++
++static int generic_panel_enable(struct drm_panel *panel)
++{
++    struct generic_panel *ctx = panel_to_generic_panel(panel);
++    struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
++    static const u8 display_on[] = { MIPI_DCS_SET_DISPLAY_ON };
++    int ret;
++
++    ret = mipi_dsi_dcs_write_buffer(dsi, display_on, sizeof(display_on));
++    if (ret < 0) {
++        dev_err(ctx->dev, "Failed to set display on: %d\n", ret);
++        return ret;
++    }
++
++    msleep(100);
++    return 0;
++}
++
++static const struct drm_panel_funcs generic_panel_funcs = {
++    .unprepare  = generic_panel_unprepare,
++    .prepare    = generic_panel_prepare,
++    .enable     = generic_panel_enable,
++    .get_modes  = generic_panel_get_modes,
++    .get_orientation = generic_panel_get_orientation,
++};
++
++static int generic_panel_probe(struct mipi_dsi_device *dsi)
++{
++    struct device *dev = &dsi->dev;
++    struct generic_panel *ctx;
++    int ret;
++
++    ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
++    if (!ctx)
++        return -ENOMEM;
++
++    ctx->enable_gpio = devm_gpiod_get_optional(dev, "enable", GPIOD_OUT_LOW);
++    if (IS_ERR(ctx->enable_gpio)) {
++        dev_err(dev, "cannot get enable gpio\n");
++	ctx->enable_gpio = NULL;
++    }
++
++    ctx->reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
++    if (IS_ERR(ctx->reset_gpio)) {
++        dev_err(dev, "cannot get reset gpio\n");
++        return PTR_ERR(ctx->reset_gpio);
++    }
++
++    ctx->vdd = devm_regulator_get(dev, "vdd");
++    if (IS_ERR(ctx->vdd)) {
++        ret = PTR_ERR(ctx->vdd);
++        if (ret != -EPROBE_DEFER)
++            dev_err(dev, "Failed to request vdd regulator: %d\n", ret);
++        return ret;
++    }
++
++    ctx->iovcc = devm_regulator_get(dev, "iovcc");
++    if (IS_ERR(ctx->iovcc)) {
++        ret = PTR_ERR(ctx->iovcc);
++        if (ret != -EPROBE_DEFER)
++            dev_err(dev, "Failed to request iovcc regulator: %d\n", ret);
++        return ret;
++    }
++
++    ret = of_drm_get_panel_orientation(dev->of_node, &ctx->orientation);
++    if (ret < 0) {
++        dev_err(dev, "%pOF: failed to get orientation %d\n", dev->of_node, ret);
++        return ret;
++    }
++
++    mipi_dsi_set_drvdata(dsi, ctx);
++
++    ctx->dev = dev;
++
++    // Some defaults
++    dsi->lanes = 1;
++    dsi->format = MIPI_DSI_FMT_RGB888;
++    dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
++              MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET |
++              MIPI_DSI_CLOCK_NON_CONTINUOUS;
++
++    ret = load_panel_description(dsi, ctx);
++    if (ret < 0) {
++        dev_err(dev, "Failed to load panel description\n");
++        return ret;
++    }
++
++    mipi_dsi_set_drvdata(dsi, ctx);
++
++    dev_info(dev, "lanes %d, format %d, mode %lx\n", dsi->lanes, dsi->format, dsi->mode_flags);
++
++    drm_panel_init(&ctx->panel, &dsi->dev, &generic_panel_funcs,
++               DRM_MODE_CONNECTOR_DSI);
++
++    /*
++     * COLD-INIT EXPERIMENT (see WHAT-HAS-BEEN-TRIED.md "prepare_prev_first").
++     *
++     * The DRM bridge chain is encoder -> sprd_dsi.bridge -> panel_bridge(this).
++     * drm_atomic_bridge_chain_pre_enable() walks the chain in reverse, so by
++     * default THIS panel's prepare (which sends the 144-cmd init sequence) runs
++     * BEFORE sprd_dsi_bridge_pre_enable() has reset/initialised the DSI host or
++     * armed LP command mode -- and sprd_dsi then resets the controller, wiping
++     * whatever the panel just sent. That is the inverted ordering that makes
++     * cold kernel-native init fail while the U-Boot handoff path (which skips
++     * prepare entirely) works.
++     *
++     * Setting prepare_prev_first propagates to pre_enable_prev_first on the
++     * panel bridge (drm/bridge/panel.c), forcing sprd_dsi_bridge_pre_enable()
++     * to run FIRST: controller up + LP command mode armed, THEN this panel's
++     * init DCS -- matching the vendor U-Boot order (controller init, LP cmd
++     * enable, init cmds, video mode, hs clk). Only meaningful with
++     * handoff_skip_first_cycle = false.
++     */
++    ctx->panel.prepare_prev_first = true;
++
++    ret = drm_panel_of_backlight(&ctx->panel);
++    if (ret)
++        return ret;
++
++    drm_panel_add(&ctx->panel);
++
++    ret = mipi_dsi_attach(dsi);
++    if (ret < 0) {
++        dev_err(dev, "mipi_dsi_attach failed: %d\n", ret);
++        drm_panel_remove(&ctx->panel);
++        return ret;
++    }
++
++    return 0;
++}
++
++static void generic_panel_shutdown(struct mipi_dsi_device *dsi)
++{
++    struct generic_panel *ctx = mipi_dsi_get_drvdata(dsi);
++
++    drm_panel_unprepare(&ctx->panel);
++
++    drm_panel_disable(&ctx->panel);
++}
++
++static void generic_panel_remove(struct mipi_dsi_device *dsi)
++{
++    struct generic_panel *ctx = mipi_dsi_get_drvdata(dsi);
++    int ret;
++
++    generic_panel_shutdown(dsi);
++
++    ret = mipi_dsi_detach(dsi);
++    if (ret < 0)
++        dev_err(&dsi->dev, "Failed to detach from DSI host: %d\n", ret);
++
++    drm_panel_remove(&ctx->panel);
++}
++
++static const struct of_device_id generic_panel_of_match[] = {
++    { .compatible = "rocknix,generic-dsi" },
++    { /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, generic_panel_of_match);
++
++static struct mipi_dsi_driver generic_panel_driver = {
++    .driver = {
++        .name = DRIVER_NAME,
++        .of_match_table = generic_panel_of_match,
++    },
++    .probe  = generic_panel_probe,
++    .remove = generic_panel_remove,
++    .shutdown = generic_panel_shutdown,
++};
++module_mipi_dsi_driver(generic_panel_driver);
++
++MODULE_AUTHOR("Danil Zagoskin <z@gosk.in>");
++MODULE_DESCRIPTION("DRM driver for generic MIPI DSI panel");
++MODULE_LICENSE("GPL v2");

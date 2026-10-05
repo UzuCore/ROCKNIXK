@@ -1,0 +1,77 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Fri, 10 Jul 2026 05:29:52 -0500
+Subject: [PATCH 149/225] ASoC: sprd: let i2s0 acquire agcp-ahb for AG_IIS0
+ routing standalone
+
+The i2s0 playback path runs (DMA sets up, trigger start/stop work), but
+i2s_ag_iis0_ext_sel() couldn't route IIS0 to the AP controller:
+
+  agcp_ahb_gpr_null_check g_agcp_ahb_gpr isn't initialized!
+  arch_audio_iis_to_audio_top_enable agcp_ahb_gpr_null_check failed!
+
+g_agcp_ahb_gpr is normally set from sprd,syscon-agcp-ahb by the VBC
+codec/card probe, but the all-i2s card can run with card 0 disabled, so
+that never happens and the AG_IIS0 ext-sel mux stays unset (IIS0 stays
+wired to the internal audio-top, so the AP i2s output never reaches the
+pins).
+
+Acquire the agcp-ahb regmap (and its set/clr offsets, default
+0x100/0x200) in i2s_drv_probe when nobody else has, mirroring the
+existing ap_apb_gpr handling; wire sprd,syscon-agcp-ahb on the i2s0 DT
+node. Best-effort: warn (don't fail) if the phandle is absent.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+---
+ arch/arm64/boot/dts/sprd/ums512.dtsi |  3 +++
+ sound/soc/sprd/vendor/sprd-i2s.c     | 23 +++++++++++++++++++++++
+ 2 files changed, 26 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/sprd/ums512.dtsi b/arch/arm64/boot/dts/sprd/ums512.dtsi
+index 39c6b182d..a2bd9249c 100644
+--- a/arch/arm64/boot/dts/sprd/ums512.dtsi
++++ b/arch/arm64/boot/dts/sprd/ums512.dtsi
+@@ -1318,6 +1318,9 @@ i2s0: i2s@70c00000 {
+ 			sprd,dai_name = "i2s_bt_sco0";
+ 			sprd,hw_port = <0>;
+ 			sprd,syscon-ap-apb = <&ap_apb_regs>;
++			/* agcp-ahb holds the AG_IIS0 ext-sel mux; needed to route
++			 * IIS0 to this AP controller when card 0 is disabled. */
++			sprd,syscon-agcp-ahb = <&audcp_ahb_regs>;
+ 			#sound-dai-cells = <0>;
+ 			clock-names = "clk_iis0",
+ 				      "clk_twpll_128m",
+diff --git a/sound/soc/sprd/vendor/sprd-i2s.c b/sound/soc/sprd/vendor/sprd-i2s.c
+index aac17611e..1c69d340b 100755
+--- a/sound/soc/sprd/vendor/sprd-i2s.c
++++ b/sound/soc/sprd/vendor/sprd-i2s.c
+@@ -1287,6 +1287,29 @@ static int i2s_drv_probe(struct platform_device *pdev)
+ 			arch_audio_set_ap_apb_gpr(ap_apb_gpr);
+ 		}
+ 
++		/*
++		 * The AG_IIS0 ext-sel mux (routing IIS0 to this AP controller)
++		 * lives in the agcp-ahb syscon. That regmap is normally set up
++		 * by the VBC codec/card probe, but the all-i2s card can run with
++		 * card 0 disabled, so acquire it here too if nobody has yet.
++		 * Mirrors sprd-codec: set-offset/clr-offset default 0x100/0x200.
++		 */
++		if (!arch_audio_get_agcp_ahb_gpr()) {
++			struct regmap *agcp_ahb_gpr =
++				syscon_regmap_lookup_by_phandle(node,
++					"sprd,syscon-agcp-ahb");
++			if (IS_ERR(agcp_ahb_gpr)) {
++				pr_warn("i2s: no sprd,syscon-agcp-ahb; AG_IIS0 route unavailable\n");
++			} else {
++				u32 so = 0x100, co = 0x200;
++
++				of_property_read_u32(node, "set-offset", &so);
++				of_property_read_u32(node, "clr-offset", &co);
++				set_agcp_ahb_offset(so, co);
++				arch_audio_set_agcp_ahb_gpr(agcp_ahb_gpr);
++			}
++		}
++
+ 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 		if (!res) {
+ 			pr_err("ERR:Must give me the base address!\n");

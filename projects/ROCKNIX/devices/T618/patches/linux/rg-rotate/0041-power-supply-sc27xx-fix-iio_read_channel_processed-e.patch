@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Mon, 9 Dec 2024 07:08:39 +0100
+Subject: [PATCH 041/225] power: supply: sc27xx: fix iio_read_channel_processed
+ error handling
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This function may return positive values which do not indicate an error.
+Fix the error handling code to only fail if the return value is
+negative.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/power/supply/sc27xx_fuel_gauge.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/power/supply/sc27xx_fuel_gauge.c b/drivers/power/supply/sc27xx_fuel_gauge.c
+index a7ed9de8a..59249cf92 100644
+--- a/drivers/power/supply/sc27xx_fuel_gauge.c
++++ b/drivers/power/supply/sc27xx_fuel_gauge.c
+@@ -528,7 +528,13 @@ static int sc27xx_fgu_get_charge_vol(struct sc27xx_fgu_data *data, int *val)
+ 
+ static int sc27xx_fgu_get_temp(struct sc27xx_fgu_data *data, int *temp)
+ {
+-	return iio_read_channel_processed(data->channel, temp);
++	int ret;
++
++	ret = iio_read_channel_processed(data->channel, temp);
++	if (ret < 0)
++		return ret;
++
++	return 0;
+ }
+ 
+ static int sc27xx_fgu_get_health(struct sc27xx_fgu_data *data, int *health)

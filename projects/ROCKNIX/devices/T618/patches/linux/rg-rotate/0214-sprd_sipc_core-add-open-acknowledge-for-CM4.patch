@@ -1,0 +1,72 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Fri, 31 Jul 2026 00:32:56 -0500
+Subject: [PATCH 214/225] sprd_sipc_core: add open/acknowledge for CM4
+
+---
+ drivers/rpmsg/sprd_sipc_core.c | 34 +++++++++++++++++++++++++++-------
+ 1 file changed, 27 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/rpmsg/sprd_sipc_core.c b/drivers/rpmsg/sprd_sipc_core.c
+index f14061e81..1a0b94f6a 100644
+--- a/drivers/rpmsg/sprd_sipc_core.c
++++ b/drivers/rpmsg/sprd_sipc_core.c
+@@ -198,11 +198,19 @@ static void sipc_rx_callback(struct mbox_client *mbox_client, void *msg_data)
+ 	if (msg->type == SMSG_TYPE_OPEN) {
+ 		dev_dbg(&sipc->dev, "remote side is opening channel %d\n", msg->channel);
+ 
++		/*
++		 * Acknowledge on the edge only. Now that we also open channels
++		 * ourselves (see sipc_populate), a remote that likewise replies
++		 * to every OPEN it receives would trade acknowledgements with us
++		 * forever. Replying only when the channel actually transitions
++		 * to remote-open terminates the exchange from our side whatever
++		 * the remote does.
++		 */
+ 		if (channel) {
+-			if (!test_and_set_bit(SIPC_REMOTE_OPEN, &channel->state))
++			if (!test_and_set_bit(SIPC_REMOTE_OPEN, &channel->state)) {
+ 				queue_work(sipc->wq, &channel->state_work);
+-
+-			sipc_send(channel, SMSG_TYPE_OPEN, SMSG_OPEN_MAGIC, 0);
++				sipc_send(channel, SMSG_TYPE_OPEN, SMSG_OPEN_MAGIC, 0);
++			}
+ 		}
+ 	} else if (msg->type == SMSG_TYPE_CLOSE) {
+ 		dev_dbg(&sipc->dev, "remote side is closing channel %d\n", msg->channel);
+@@ -243,7 +251,7 @@ static void sipc_tx_done(struct mbox_client *mbox_client, void *msg_data, int r)
+ 
+ static int sipc_populate(struct sprd_sipc *sipc)
+ {
+-	struct sipc_channel *channel;
++	struct sipc_channel *channel, *old;
+ 	struct device_node *child;
+ 	const char *name, *chtype;
+ 	int ret;
+@@ -291,11 +299,23 @@ static int sipc_populate(struct sprd_sipc *sipc)
+ 			continue;
+ 		}
+ 
+-		channel = xa_store(&sipc->channels, id, channel, GFP_KERNEL);
+-		if (channel) {
++		old = xa_store(&sipc->channels, id, channel, GFP_KERNEL);
++		if (old) {
+ 			dev_warn(&sipc->dev, "duplicate channel ID %d\n", id);
+-			sipc_free_channel(channel);
++			sipc_free_channel(old);
+ 		}
++
++		/*
++		 * Announce the channel to the remote rather than waiting to be
++		 * announced at. The rx path only ever replied to an OPEN, which
++		 * is sufficient when the remote initiates - but a remote that
++		 * takes the client role waits for the host to open first, and
++		 * then neither side ever speaks and the mailbox stays silent in
++		 * both directions. The vendor driver's smsg_ch_open() opens from
++		 * this side too, so this is the protocol's normal case, not a
++		 * workaround.
++		 */
++		sipc_send(channel, SMSG_TYPE_OPEN, SMSG_OPEN_MAGIC, 0);
+ 	}
+ 
+ 	return 0;

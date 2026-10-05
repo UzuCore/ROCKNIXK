@@ -1,0 +1,134 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Sun, 26 Jul 2026 19:02:07 -0500
+Subject: [PATCH 182/225] fix audio vbc suspend/wake
+
+---
+ sound/soc/sprd/vendor/vbc-dai.c    | 75 ++++++++++++++++++++++++++++++
+ sound/soc/sprd/vendor/vbc-phy-v4.h |  9 ++++
+ 2 files changed, 84 insertions(+)
+
+diff --git a/sound/soc/sprd/vendor/vbc-dai.c b/sound/soc/sprd/vendor/vbc-dai.c
+index 78c158d0d..3276a4d5d 100755
+--- a/sound/soc/sprd/vendor/vbc-dai.c
++++ b/sound/soc/sprd/vendor/vbc-dai.c
+@@ -7069,10 +7069,75 @@ static int normal_suspend(struct snd_soc_dai *dai)
+ 	return 0;
+ }
+ 
++/*
++ * Undo what vbc_normal_suspend() did to the dsp.
++ *
++ * Suspend sends SND_VBC_DSP_FUNC_SHUTDOWN and clears is_startup. The vendor
++ * code left the recovery to the Android HAL, which closes and re-opens the
++ * pcm on resume. With an alsa/pipewire userspace the stream just keeps
++ * running, and because is_startup is false every later trigger skips
++ * ap_trigger()/dsp_trigger() - the dma feeds the vbc fifo but nothing drains
++ * it, so the speaker stays silent. Replay startup, hw_params and, if the
++ * scene was triggered when we suspended, the trigger.
++ */
++static void vbc_normal_restore_scene(struct vbc_codec_priv *vbc_codec)
++{
++	int stream = SNDRV_PCM_STREAM_PLAYBACK;
++	int scene_id = VBC_DAI_ID_NORMAL_AP01;
++	struct aud_pm_vbc *pm_vbc = aud_pm_vbc_get();
++	int vbc_chan;
++	int ret;
++
++	if (!vbc_codec)
++		return;
++
++	normal_vbc_protect_mutex_lock(stream);
++	if (get_normal_p_running_status(stream)) {
++		/* suspend never got as far as the shutdown */
++		normal_vbc_protect_mutex_unlock(stream);
++		return;
++	}
++
++	pr_info("%s replaying startup for %s\n", __func__,
++		scene_id_to_str(scene_id));
++	ret = dsp_startup(vbc_codec, scene_id, stream);
++	if (ret) {
++		pr_err("%s dsp_startup failed: %d\n", __func__, ret);
++		normal_vbc_protect_mutex_unlock(stream);
++		return;
++	}
++	normal_vbc_protect_spin_lock(stream);
++	set_normal_p_running_status(stream, true);
++	normal_vbc_protect_spin_unlock(stream);
++
++	if (pm_vbc->normal_p_params_valid)
++		ap_hw_params(vbc_codec, scene_id, stream,
++			     pm_vbc->normal_p_vbc_chan, pm_vbc->normal_p_rate,
++			     pm_vbc->normal_p_data_fmt);
++	normal_vbc_protect_mutex_unlock(stream);
++
++	/*
++	 * The be was never stopped - its suspend trigger failed along with
++	 * the fe one - so dpcm will not trigger it again on resume and the
++	 * fifo/dma enables have to be put back here.
++	 */
++	/*
++	 * No locks here: this runs from the dai resume callback with user
++	 * space still frozen, so nothing else can touch the scene, and both
++	 * ap_trigger() and dsp_trigger() can sleep (agdsp access, dsp ipc).
++	 */
++	if (trigger_get_ref(scene_id, stream) > 0) {
++		vbc_chan = get_vbc_chan(scene_id, stream);
++		ap_trigger(vbc_codec, scene_id, stream, vbc_chan, 1);
++		dsp_trigger(vbc_codec, scene_id, stream, 1);
++	}
++}
++
+ static int normal_resume(struct snd_soc_dai *dai)
+ {
+ 	bool only_play;
+ 	struct aud_pm_vbc *pm_vbc;
++	struct vbc_codec_priv *vbc_codec = dev_get_drvdata(dai->dev);
+ 
+ 	pm_vbc = aud_pm_vbc_get();
+ 	if (!snd_soc_dai_stream_active(dai, SNDRV_PCM_STREAM_PLAYBACK))
+@@ -7085,6 +7150,7 @@ static int normal_resume(struct snd_soc_dai *dai)
+ 		if (only_play) {
+ 			if (pm_vbc->suspend_resume) {
+ 				vbc_normal_resume();
++				vbc_normal_restore_scene(vbc_codec);
+ 				pm_vbc->suspend_resume = false;
+ 			}
+ 		}
+@@ -7226,6 +7292,15 @@ static int scene_normal_hw_params(struct snd_pcm_substream *substream,
+ 				!is_playback)
+ 			ap_hw_params(vbc_codec, scene_id, stream,
+ 				     vbc_chan, rate, data_fmt);
++		if (is_playback) {
++			struct aud_pm_vbc *pm_vbc = aud_pm_vbc_get();
++
++			/* replayed by vbc_normal_restore_scene() on resume */
++			pm_vbc->normal_p_vbc_chan = vbc_chan;
++			pm_vbc->normal_p_rate = rate;
++			pm_vbc->normal_p_data_fmt = data_fmt;
++			pm_vbc->normal_p_params_valid = true;
++		}
+ 		normal_vbc_protect_mutex_unlock(stream);
+ 	}
+ 	hw_param_unlock_mtx(scene_id, stream);
+diff --git a/sound/soc/sprd/vendor/vbc-phy-v4.h b/sound/soc/sprd/vendor/vbc-phy-v4.h
+index 740a0cd2b..b49ceaf5b 100755
+--- a/sound/soc/sprd/vendor/vbc-phy-v4.h
++++ b/sound/soc/sprd/vendor/vbc-phy-v4.h
+@@ -1415,6 +1415,15 @@ struct aud_pm_vbc {
+ 	/* prot scene_case_flag */
+ 	struct mutex lock_scene_flag;
+ 	int scene_flag[VBC_DAI_ID_MAX][STREAM_CNT];
++	/*
++	 * Last hw_params of the normal playback scene. Suspend sends a
++	 * shutdown to the dsp, so resume has to replay the startup and these
++	 * params instead of waiting for userspace to re-open the pcm.
++	 */
++	bool normal_p_params_valid;
++	int normal_p_vbc_chan;
++	int normal_p_data_fmt;
++	u32 normal_p_rate;
+ };
+ 
+ /* FIRMWARE */

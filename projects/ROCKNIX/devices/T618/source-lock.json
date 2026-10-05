@@ -1,0 +1,51 @@
+{
+  "repository": "UzuCore/ROCKNIXK",
+  "repository_commit": "d91c3ad060b29d485e49df4a5d98a2803e475c6b",
+  "device": "T618",
+  "board": "RG405M/RG405V",
+  "kernel_repo": "kernel.org linux-7.1.2 + beebono/linux-mainline-sprd rg-rotate series",
+  "kernel_commit": "464b3e7bf45bb300e190339977abba36c8078e1f (rebased onto 7.1.2)",
+  "kernel_version": "7.1.2",
+  "status": "experimental-prebuild-only",
+  "source_complete": false,
+  "ready_for_make": false,
+  "source_gates": [],
+  "source_gate_document": "SOURCE_GATES.md",
+  "firmware_manifest_version": 2,
+  "distro_build_executed": false,
+  "hardware_tested": false,
+  "core_source_work_complete": true,
+  "core_source_results": {
+    "BOOT-01": {
+      "status": "implemented-and-source-validated",
+      "implementation": "Android-v4 inactive-slot kernel/DT carriers and microSD SYSTEM/STORAGE",
+      "qualification": "Future initial installation requires explicit authorization; unchanged-stock SD-only entry is not implemented."
+    },
+    "AUDIO-01": {
+      "status": "implemented-and-source-validated",
+      "implementation": "ARM32 HAL decoded selectors; ALSA range, profile bounds, IPC errors and UCM fixed"
+    },
+    "AUDIO-02": {
+      "status": "implemented-and-source-validated",
+      "implementation": "Pinned SC2730 headset driver adapted; PMIC EIC6/ADC20/eFuse/ASoC/UCM connected"
+    },
+    "POWER-01": {
+      "status": "implemented-and-source-validated",
+      "implementation": "Final CE-write gate, temperature faults/staleness/hysteresis, lifecycle and readback handling",
+      "qualification": "A failed I2C bus leaves the physical state unconfirmed; electrical/watchdog behavior requires hardware testing."
+    }
+  },
+  "overall_status_note": "Four core issues implemented; entire original checklist not certified complete; no build or hardware validation.",
+  "kernel_base": {
+    "url": "https://www.kernel.org/pub/linux/kernel/v7.x/linux-7.1.2.tar.xz",
+    "sha256": "37198c93727be247c9fb5309bb86cd5e496c61e5322cd8c4eca9476bb0b5883f"
+  },
+  "kernel_series": {
+    "repo": "beebono/linux-mainline-sprd",
+    "branch": "rg-rotate",
+    "commit": "464b3e7bf45bb300e190339977abba36c8078e1f",
+    "base": "v7.1-rc1",
+    "commits": 225,
+    "patches": "patches/linux/rg-rotate"
+  }
+}

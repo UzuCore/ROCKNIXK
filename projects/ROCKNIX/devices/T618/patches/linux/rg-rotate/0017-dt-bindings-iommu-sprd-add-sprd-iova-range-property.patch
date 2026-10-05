@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Tue, 15 Jul 2025 14:11:22 +0200
+Subject: [PATCH 017/225] dt-bindings: iommu: sprd: add sprd,iova-range
+ property
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The Unisoc IOMMU has a configurable virtual address range, which should
+not be too large because the IOMMU only supports a flat page table. It
+is sometimes necessary to ensure that certain addresses fall within this
+range, e.g. when creating a pass-through mapping for a boot framebuffer,
+or to configure different range sizes for different IOMMUs. Define a new
+property to allow setting the address range.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ Documentation/devicetree/bindings/iommu/sprd,iommu.yaml | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/iommu/sprd,iommu.yaml b/Documentation/devicetree/bindings/iommu/sprd,iommu.yaml
+index 7003e12f5..5414689bd 100644
+--- a/Documentation/devicetree/bindings/iommu/sprd,iommu.yaml
++++ b/Documentation/devicetree/bindings/iommu/sprd,iommu.yaml
+@@ -31,6 +31,13 @@ properties:
+       Reference to a gate clock phandle, since access to some of IOMMUs are
+       controlled by gate clock, but this is not required.
+ 
++  sprd,iova-range:
++    minItems: 2
++    maxItems: 2
++    description:
++      Start address and size of the virtual address region used by the master
++      device. Only needed if there are specific requirements.
++
+ required:
+   - compatible
+   - reg
+@@ -44,6 +51,7 @@ examples:
+       compatible = "sprd,iommu-v1";
+       reg = <0x63000800 0x80>;
+       #iommu-cells = <0>;
++      sprd,iova-range = <0x90000000 0x10000000>;
+     };
+ 
+   - |

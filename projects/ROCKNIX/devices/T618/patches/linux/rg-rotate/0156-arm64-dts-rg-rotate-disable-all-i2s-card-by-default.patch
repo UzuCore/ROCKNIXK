@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Fri, 10 Jul 2026 08:30:07 -0500
+Subject: [PATCH 156/225] arm64: dts: rg-rotate: disable all-i2s card by
+ default
+
+The i2s0/all-i2s path is proven working but i2s0 is the BT-SCO link, not
+the speaker, so keep the card disabled by default (the VBC/codec card
+drives the speaker). The i2s0 + ap_dma controller nodes stay enabled but
+dormant. Leaves the i2s0 infrastructure in place for a future consumer
+actually wired to IIS0.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+---
+ arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+index d01d444ab..89b70d9e8 100644
+--- a/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
++++ b/arch/arm64/boot/dts/sprd/ums512-rg-rotate.dts
+@@ -528,5 +528,6 @@ &i2s0 {
+ };
+ 
+ &sound_sprd_ap_alliis {
+-	status = "okay";
++	status = "disabled";
++	sprd,syscon-agcp-ahb = <&aon_apb_regs>;
+ };

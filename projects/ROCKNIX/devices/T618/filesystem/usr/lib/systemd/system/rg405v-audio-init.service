@@ -1,0 +1,15 @@
+[Unit]
+Description=RG405V audio routing before PipeWire (DPCM FE to BE switches)
+DefaultDependencies=no
+After=systemd-modules-load.service local-fs.target systemd-udevd.service systemd-udev-settle.service
+Before=pipewire.service wireplumber.service pipewire.socket
+ConditionPathExists=/proc/asound/RG405V
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/usr/lib/rg405v/audio-hide-pcms
+ExecStart=-/usr/bin/alsaucm -c RG405V set _verb HiFi set _enadev Speaker
+
+[Install]
+WantedBy=sysinit.target

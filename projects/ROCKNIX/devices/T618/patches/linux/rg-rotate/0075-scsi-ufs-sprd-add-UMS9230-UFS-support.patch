@@ -1,0 +1,502 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>
+Date: Mon, 9 Dec 2024 07:30:09 +0100
+Subject: [PATCH 075/225] scsi: ufs: sprd: add UMS9230 UFS support
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add support for the UFS controller found in the Unisoc UMS9230 SoC to
+the existing driver for UMS9620. This controller is not very similar to
+the one used in UMS9620, but it also requires setting various syscon
+registers for initialization. The initialization sequence is based on
+code from Unisoc's downstream Android kernel.
+
+Signed-off-by: Otto Pflüger <otto.pflueger@abscue.de>
+---
+ drivers/pmdomain/sprd/pm-domains.c |  42 +++++-
+ drivers/ufs/host/ufs-sprd.c        | 205 ++++++++++++++++++++++++++++-
+ drivers/ufs/host/ufs-sprd.h        | 113 ++++++++++++++++
+ 3 files changed, 354 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/pmdomain/sprd/pm-domains.c b/drivers/pmdomain/sprd/pm-domains.c
+index 6b21be250..6b04f8159 100644
+--- a/drivers/pmdomain/sprd/pm-domains.c
++++ b/drivers/pmdomain/sprd/pm-domains.c
+@@ -5,9 +5,12 @@
+  * Based on mtk-pm-domains.c
+  * Copyright (c) 2020 Collabora Ltd.
+  */
++
++#include <linux/clk.h>
+ #include <linux/init.h>
+ #include <linux/mfd/syscon.h>
+ #include <linux/of.h>
++#include <linux/of_clk.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm_domain.h>
+ #include <linux/regmap.h>
+@@ -18,6 +21,8 @@ struct sprd_pmu_domain {
+ 	struct generic_pm_domain genpd;
+ 	const struct sprd_pmu_domain_data *data;
+ 	struct sprd_pmu *pmu;
++	int num_clks;
++	struct clk_bulk_data *clks;
+ };
+ 
+ struct sprd_pmu {
+@@ -34,6 +39,11 @@ static int sprd_pmu_power_on(struct generic_pm_domain *genpd)
+ {
+ 	struct sprd_pmu_domain *pd = to_sprd_pmu_domain(genpd);
+ 	struct sprd_pmu *pmu = pd->pmu;
++	int ret;
++
++	ret = clk_bulk_prepare_enable(pd->num_clks, pd->clks);
++	if (ret)
++		return ret;
+ 
+ 	if (SPRD_PD_CAPS(pd, SPRD_PD_SHUTDOWN))
+ 		regmap_write(pmu->base, pd->data->pd_cfg_offs + 0x2000,
+@@ -63,6 +73,8 @@ static int sprd_pmu_power_off(struct generic_pm_domain *genpd)
+ 
+ 	msleep(50);
+ 
++	clk_bulk_disable_unprepare(pd->num_clks, pd->clks);
++
+ 	return 0;
+ }
+ 
+@@ -71,7 +83,8 @@ generic_pm_domain *sprd_pmu_add_one_domain(struct sprd_pmu *pmu, struct device_n
+ {
+ 	const struct sprd_pmu_domain_data *domain_data;
+ 	struct sprd_pmu_domain *pd;
+-	int ret;
++	int i, ret, num_clks;
++	struct clk *clk;
+ 	u32 id;
+ 
+ 	ret = of_property_read_u32(node, "reg", &id);
+@@ -105,6 +118,29 @@ generic_pm_domain *sprd_pmu_add_one_domain(struct sprd_pmu *pmu, struct device_n
+ 		return ERR_PTR(-EINVAL);
+ 	}
+ 
++	num_clks = of_clk_get_parent_count(node);
++	if (num_clks > 0) {
++		pd->clks = devm_kcalloc(pmu->dev, num_clks, sizeof(*pd->clks),
++					GFP_KERNEL);
++		if (!pd->clks)
++			return ERR_PTR(-ENOMEM);
++
++		for (i = 0; i < num_clks; i++) {
++			clk = of_clk_get(node, i);
++			if (IS_ERR(clk)) {
++				ret = PTR_ERR(clk);
++				dev_err_probe(pmu->dev, ret,
++					      "%pOF: failed to get clock %d\n",
++					      node, i);
++				goto err_put_clocks;
++			}
++
++			pd->clks[i].clk = clk;
++		}
++
++		pd->num_clks = num_clks;
++	}
++
+ 	pd->genpd.name = pd->data->name;
+ 
+ 	pd->genpd.power_off = sprd_pmu_power_off;
+@@ -133,6 +169,10 @@ generic_pm_domain *sprd_pmu_add_one_domain(struct sprd_pmu *pmu, struct device_n
+ 	pmu->domains[id] = &pd->genpd;
+ 
+ 	return pmu->pd_data.domains[id];
++
++err_put_clocks:
++	clk_bulk_put(pd->num_clks, pd->clks);
++	return ERR_PTR(ret);
+ }
+ 
+ static void sprd_pmu_remove_one_domain(struct sprd_pmu_domain *pd)
+diff --git a/drivers/ufs/host/ufs-sprd.c b/drivers/ufs/host/ufs-sprd.c
+index a5e8c591b..6267fc393 100644
+--- a/drivers/ufs/host/ufs-sprd.c
++++ b/drivers/ufs/host/ufs-sprd.c
+@@ -149,10 +149,8 @@ static int ufs_sprd_common_init(struct ufs_hba *hba)
+ 	host->hba = hba;
+ 	ufshcd_set_variant(hba, host);
+ 
+-	hba->caps |= UFSHCD_CAP_CLK_GATING |
+-		UFSHCD_CAP_CRYPTO |
+-		UFSHCD_CAP_WB_EN;
+-	hba->quirks |= UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS;
++	hba->caps |= host->priv->caps;
++	hba->quirks |= host->priv->quirks;
+ 
+ 	ret = ufs_sprd_parse_dt(dev, hba, host);
+ 
+@@ -383,6 +381,11 @@ static void sprd_ufs_n6_h8_notify(struct ufs_hba *hba,
+ }
+ 
+ static struct ufs_sprd_priv n6_ufs = {
++	.caps = UFSHCD_CAP_CLK_GATING |
++		UFSHCD_CAP_CRYPTO |
++		UFSHCD_CAP_WB_EN,
++	.quirks = UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS,
++
+ 	.rci[SPRD_UFSHCI_SOFT_RST] = { .name = "controller", },
+ 	.rci[SPRD_UFS_DEV_RST] = { .name = "device", },
+ 
+@@ -402,8 +405,200 @@ static struct ufs_sprd_priv n6_ufs = {
+ 	},
+ };
+ 
++static void ufs_sprd_l6_host_reset(struct ufs_hba *hba)
++{
++	struct ufs_sprd_priv *priv = ufs_sprd_get_priv_data(hba);
++
++	dev_info(hba->dev, "ufs host reset!\n");
++
++	reset_control_assert(priv->rci[SPRD_UFS_GLB_RST].rc);
++	usleep_range(1000, 1100);
++	reset_control_deassert(priv->rci[SPRD_UFS_GLB_RST].rc);
++
++	ufs_sprd_regmap_update(priv, SPRD_UFS_AP_AHB, AP_AHB_MPHY_CB_CHANNEL_0,
++			       AP_AHB_CB_RESET | AP_AHB_CB_CFGCLK,
++			       AP_AHB_CB_RESET | AP_AHB_CB_CFGCLK);
++
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_2T2R_APB_REG1,
++			       MPHY_2T2R_APB_RESETN, 0);
++	usleep_range(1000, 1100);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_2T2R_APB_REG1,
++			       MPHY_2T2R_APB_RESETN, MPHY_2T2R_APB_RESETN);
++
++	/* initialize phy */
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG7_LANE0,
++			       MPHY_CDR_MONITOR_BYPASS_MASK,
++			       MPHY_CDR_MONITOR_BYPASS_ENABLE);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG7_LANE1,
++			       MPHY_CDR_MONITOR_BYPASS_MASK,
++			       MPHY_CDR_MONITOR_BYPASS_ENABLE);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG20_LANE0,
++			       MPHY_RXOFFSETCALDONEOVR_MASK,
++			       MPHY_RXOFFSETCALDONEOVR_ENABLE);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG20_LANE0,
++			       MPHY_RXOFFOVRVAL_MASK,
++			       MPHY_RXOFFOVRVAL_ENABLE);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG49_LANE0,
++			       MPHY_RXCFGG1_MASK,
++			       MPHY_RXCFGG1_VAL);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG49_LANE1,
++			       MPHY_RXCFGG1_MASK,
++			       MPHY_RXCFGG1_VAL);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG51_LANE0,
++			       MPHY_RXCFGG3_MASK,
++			       MPHY_RXCFGG3_VAL);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG51_LANE1,
++			       MPHY_RXCFGG3_MASK,
++			       MPHY_RXCFGG3_VAL);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_LANE0_FIFO,
++			       MPHY_FIFO_ENABLE_MASK,
++			       MPHY_FIFO_ENABLE_MASK);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_LANE1_FIFO,
++			       MPHY_FIFO_ENABLE_MASK,
++			       MPHY_FIFO_ENABLE_MASK);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_TACTIVATE_TIME_LANE0,
++			       MPHY_TACTIVATE_TIME_200US,
++			       MPHY_TACTIVATE_TIME_200US);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG60_LANE0,
++			       MPHY_RX_STEP4_CYCLE_G3_MASK,
++			       MPHY_RX_STEP4_CYCLE_G3_VAL);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG60_LANE1,
++			       MPHY_RX_STEP4_CYCLE_G3_MASK,
++			       MPHY_RX_STEP4_CYCLE_G3_VAL);
++
++	ufs_sprd_regmap_update(priv, SPRD_UFS_AP_AHB, AP_AHB_MPHY_CB_CHANNEL_0,
++			       AP_AHB_CB_RESET | AP_AHB_CB_CFGCLK | AP_AHB_CB_REFCLKON,
++			       AP_AHB_CB_REFCLKON);
++
++	ufs_sprd_regmap_update(priv, SPRD_UFS_AP_AHB, AP_AHB_UFS_LP_CTRL_1,
++
++			       AP_AHB_UFS_FORCE_LP_RESET_N |
++			       AP_AHB_UFS_FORCE_LP_ISOL_EN |
++			       AP_AHB_UFS_FORCE_LP_PWR_READY |
++			       AP_AHB_UFS_SEL_LP_ISOL_EN |
++			       AP_AHB_UFS_SEL_LP_RESET_N |
++			       AP_AHB_UFS_SEL_LP_PWR_READY,
++
++			       /* disable ISOL_EN and enable others */
++			       AP_AHB_UFS_FORCE_LP_RESET_N |
++			       AP_AHB_UFS_FORCE_LP_PWR_READY |
++			       AP_AHB_UFS_SEL_LP_ISOL_EN |
++			       AP_AHB_UFS_SEL_LP_RESET_N |
++			       AP_AHB_UFS_SEL_LP_PWR_READY);
++
++
++	reset_control_assert(priv->rci[SPRD_UFSHCI_SOFT_RST].rc);
++	usleep_range(1000, 1100);
++	reset_control_deassert(priv->rci[SPRD_UFSHCI_SOFT_RST].rc);
++
++	ufs_sprd_regmap_update(priv, SPRD_UFS_AP_AHB, AP_AHB_UFS_CONTROLLER,
++			       AP_AHB_IES_EN,
++			       AP_AHB_IES_EN);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_AP_AHB, AP_AHB_UFS_CLK_CTRL,
++			       AP_AHB_CG_PCLKREQ_SW,
++			       AP_AHB_CG_PCLKREQ_SW);
++
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_ANR_MPHY_CTRL2,
++			       MPHY_ANR_MPHY_CTRL2_REFCLKON_MASK,
++			       MPHY_ANR_MPHY_CTRL2_REFCLKON_VAL);
++	usleep_range(1, 2);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_REG_SEL_CFG_0,
++			       MPHY_REG_SEL_CFG_0_REFCLKON_MASK,
++			       MPHY_REG_SEL_CFG_0_REFCLKON_VAL);
++	usleep_range(1, 2);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG14_LANE0,
++			       MPHY_APB_REFCLK_AUTOH8_EN_MASK,
++			       MPHY_APB_REFCLK_AUTOH8_EN_VAL);
++	usleep_range(1, 2);
++
++	/* FIXME: this should only be done for certaion SoC revisions */
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG18_LANE0,
++			       MPHY_APB_PLLTIMER_MASK,
++			       MPHY_APB_PLLTIMER_VAL);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG19_LANE0,
++			       MPHY_APB_HSTXSCLKINV1_MASK,
++			       MPHY_APB_HSTXSCLKINV1_VAL);
++
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG32_LANE0,
++			       MPHY_APB_RX_CFGRXBIASLSENVAL_MASK,
++			       MPHY_APB_RX_CFGRXBIASLSENVAL_MASK);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG32_LANE0,
++			       MPHY_APB_RX_CFGRXBIASLSENOVR_MASK,
++			       MPHY_APB_RX_CFGRXBIASLSENOVR_MASK);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG1_LANE0,
++			       MPHY_APB_OVR_REG_LS_LDO_STABLE_MASK,
++			       MPHY_APB_OVR_REG_LS_LDO_STABLE_MASK);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG17_LANE0,
++			       MPHY_APB_REG_LS_LDO_STABLE_MASK,
++			       MPHY_APB_REG_LS_LDO_STABLE_MASK);
++
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG32_LANE1,
++			       MPHY_APB_RX_CFGRXBIASLSENVAL_MASK,
++			       MPHY_APB_RX_CFGRXBIASLSENVAL_MASK);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG32_LANE1,
++			       MPHY_APB_RX_CFGRXBIASLSENOVR_MASK,
++			       MPHY_APB_RX_CFGRXBIASLSENOVR_MASK);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG1_LANE1,
++			       MPHY_APB_OVR_REG_LS_LDO_STABLE_MASK,
++			       MPHY_APB_OVR_REG_LS_LDO_STABLE_MASK);
++	ufs_sprd_regmap_update(priv, SPRD_UFS_ANLG, MPHY_DIG_CFG17_LANE1,
++			       MPHY_APB_REG_LS_LDO_STABLE_MASK,
++			       MPHY_APB_REG_LS_LDO_STABLE_MASK);
++}
++
++static int ufs_sprd_l6_init(struct ufs_hba *hba)
++{
++	int ret = 0;
++
++	ret = ufs_sprd_common_init(hba);
++	if (ret != 0)
++		return ret;
++
++	hba->rpm_lvl = UFS_PM_LVL_1;
++	hba->spm_lvl = UFS_PM_LVL_5;
++
++	return 0;
++}
++
++static int sprd_ufs_l6_hce_enable_notify(struct ufs_hba *hba,
++					 enum ufs_notify_change_status status)
++{
++	if (status == PRE_CHANGE) {
++		ufs_sprd_l6_host_reset(hba);
++	}
++
++	if (status == POST_CHANGE) {
++		ufshcd_writel(hba, UFS_HCLKDIV_DEFAULT_VALUE, UFS_REG_HCLKDIV);
++		ufs_sprd_get_unipro_ver(hba);
++	}
++
++	return 0;
++}
++
++static struct ufs_sprd_priv l6_ufs = {
++	.caps = UFSHCD_CAP_CLK_GATING |
++		UFSHCD_CAP_WB_EN,
++	.quirks = UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS |
++		  UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8,
++
++	.rci[SPRD_UFSHCI_SOFT_RST] = { .name = "controller", },
++	.rci[SPRD_UFS_GLB_RST] = { .name = "global", },
++
++	.sysci[SPRD_UFS_ANLG] = { .name = "sprd,ufs-anlg-syscon", },
++	.sysci[SPRD_UFS_AP_AHB] = { .name = "sprd,ufs-ap-ahb-syscon", },
++
++	.ufs_hba_sprd_vops = {
++		.name = "sprd,ums9230-ufs",
++		.init = ufs_sprd_l6_init,
++		.hce_enable_notify = sprd_ufs_l6_hce_enable_notify,
++		.pwr_change_notify = sprd_ufs_pwr_change_notify,
++		.suspend = ufs_sprd_suspend,
++	},
++};
++
+ static const struct of_device_id __maybe_unused ufs_sprd_of_match[] = {
+-	{ .compatible = "sprd,ums9620-ufs", .data = &n6_ufs.ufs_hba_sprd_vops},
++	{ .compatible = "sprd,ums9230-ufs", .data = &l6_ufs.ufs_hba_sprd_vops },
++	{ .compatible = "sprd,ums9620-ufs", .data = &n6_ufs.ufs_hba_sprd_vops },
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(of, ufs_sprd_of_match);
+diff --git a/drivers/ufs/host/ufs-sprd.h b/drivers/ufs/host/ufs-sprd.h
+index 26ad5c3af..bd501f3bf 100644
+--- a/drivers/ufs/host/ufs-sprd.h
++++ b/drivers/ufs/host/ufs-sprd.h
+@@ -9,6 +9,9 @@
+ #ifndef _UFS_SPRD_H_
+ #define _UFS_SPRD_H_
+ 
++#define UFS_REG_HCLKDIV			0xFC
++#define UFS_HCLKDIV_DEFAULT_VALUE	0x100
++
+ /* Vendor specific attributes */
+ #define RXSQCONTROL	0x8009
+ #define CBRATESEL	0x8114
+@@ -21,6 +24,112 @@
+ #define CBREFCLKCTRL2	0x8132
+ #define VS_MPHYDISABLE	0xD0C1
+ 
++/* UMS9230 specific registers */
++#define AP_AHB_UFS_LP_CTRL_1		0x3104
++#define AP_AHB_UFS_SEL_LP_RESET_N	BIT(24)
++#define AP_AHB_UFS_FORCE_LP_RESET_N	BIT(25)
++#define AP_AHB_UFS_SEL_LP_ISOL_EN	BIT(26)
++#define AP_AHB_UFS_FORCE_LP_ISOL_EN	BIT(27)
++#define AP_AHB_UFS_SEL_LP_PWR_READY	BIT(28)
++#define AP_AHB_UFS_FORCE_LP_PWR_READY	BIT(29)
++
++#define AP_AHB_UFS_CONTROLLER		0x3108
++#define AP_AHB_IES_EN			BIT(0)
++
++#define AP_AHB_MPHY_CB_CHANNEL_0	0x311C
++#define AP_AHB_CB_REFCLKON		BIT(0)
++#define AP_AHB_CB_CFGCLK		BIT(1)
++#define AP_AHB_CB_RESET			BIT(2)
++
++#define AP_AHB_UFS_CLK_CTRL		0x3124
++#define AP_AHB_CG_PCLKREQ_SW		BIT(0)
++#define AP_AHB_CG_CFGCLK_SW		BIT(6)
++
++#define MPHY_2T2R_APB_REG1		0x68
++#define MPHY_2T2R_APB_RESETN		BIT(3)
++
++#define MPHY_LANE0_FIFO			0xC08C
++#define MPHY_LANE1_FIFO			0xC88C
++#define MPHY_FIFO_ENABLE_MASK		BIT(15)
++
++#define MPHY_TACTIVATE_TIME_LANE0	0xC088
++#define MPHY_TACTIVATE_TIME_LANE1	0xC888
++#define MPHY_TACTIVATE_TIME_200US	BIT(17)
++
++#define MPHY_DIG_CFG7_LANE0		0xC01C
++#define MPHY_DIG_CFG7_LANE1		0xC81C
++#define MPHY_CDR_MONITOR_BYPASS_MASK	GENMASK(24, 24)
++#define MPHY_CDR_MONITOR_BYPASS_ENABLE	BIT(24)
++
++#define MPHY_DIG_CFG20_LANE0		0xC050
++#define MPHY_RXOFFSETCALDONEOVR_MASK	GENMASK(5, 4)
++#define MPHY_RXOFFSETCALDONEOVR_ENABLE	(BIT(5) | BIT(4))
++#define MPHY_RXOFFOVRVAL_MASK		GENMASK(11, 10)
++#define MPHY_RXOFFOVRVAL_ENABLE		(BIT(11) | BIT(10))
++
++#define MPHY_DIG_CFG49_LANE0		0xC0C4
++#define MPHY_DIG_CFG49_LANE1		0xC8C4
++#define MPHY_RXCFGG1_MASK		GENMASK(23, 0)
++#define MPHY_RXCFGG1_VAL		0x0C0C0C
++
++#define MPHY_DIG_CFG51_LANE0		0xC0CC
++#define MPHY_DIG_CFG51_LANE1		0xC8CC
++#define MPHY_RXCFGG3_MASK		GENMASK(23, 0)
++#define MPHY_RXCFGG3_VAL		0x0D0D0D
++
++#define MPHY_DIG_CFG72_LANE0		0xC120
++#define MPHY_DIG_CFG72_LANE1		0xC920
++#define MPHY_RXHSG3SYNCCAP_MASK		GENMASK(15, 8)
++#define MPHY_RXHSG3SYNCCAP_VAL		(0x4B << 8)
++
++#define MPHY_DIG_CFG60_LANE0		0xC0F0
++#define MPHY_DIG_CFG60_LANE1		0xC8F0
++#define MPHY_RX_STEP4_CYCLE_G3_MASK	GENMASK(31, 16)
++#define MPHY_RX_STEP4_CYCLE_G3_VAL	BIT(23)
++
++#define MPHY_DIG_CFG14_LANE0		0xC038
++#define MPHY_APB_REFCLK_AUTOH8_EN_MASK	GENMASK(24, 24)
++#define MPHY_APB_REFCLK_AUTOH8_EN_VAL	(0<<24)
++
++#define MPHY_REG_SEL_CFG_0			0xF0
++#define MPHY_REG_SEL_CFG_0_REFCLKON_MASK	GENMASK(18, 18)
++#define MPHY_REG_SEL_CFG_0_REFCLKON_VAL		BIT(18)
++
++#define MPHY_ANR_MPHY_CTRL2			0x40
++#define MPHY_ANR_MPHY_CTRL2_REFCLKON_MASK	GENMASK(8, 8)
++#define MPHY_ANR_MPHY_CTRL2_REFCLKON_VAL	BIT(8)
++
++#define MPHY_DIG_CFG18_LANE0		(0xC048)
++#define MPHY_APB_PLLTIMER_MASK		GENMASK(23, 16)
++#define MPHY_APB_PLLTIMER_VAL		(0xD8 << 16)
++
++#define MPHY_DIG_CFG19_LANE0		(0xc04c)
++#define MPHY_APB_HSTXSCLKINV1_MASK	BIT(13)
++#define MPHY_APB_HSTXSCLKINV1_VAL	BIT(13)
++
++#define MPHY_DIG_CFG1_LANE0		0xC004
++#define MPHY_DIG_CFG17_LANE0		0xC044
++#define MPHY_DIG_CFG32_LANE0		0xC080
++
++#define MPHY_DIG_CFG1_LANE1		0xC804
++#define MPHY_DIG_CFG17_LANE1		0xC844
++#define MPHY_DIG_CFG32_LANE1		0xC880
++
++#define MPHY_APB_RX_CFGRXBIASLSENVAL_MASK	BIT(5)
++#define MPHY_APB_RX_CFGRXBIASLSENOVR_MASK	BIT(21)
++#define MPHY_APB_OVR_REG_LS_LDO_STABLE_MASK	BIT(28)
++#define MPHY_APB_REG_LS_LDO_STABLE_MASK		BIT(17)
++
++#define MPHY_DIG_CFG62_LANE0		0xC0F8
++#define MPHY_DIG_CFG66_LANE0		0xC108
++#define MPHY_DIG_CFG15_LANE0		0xC03C
++
++#define MPHY_APB_REG_DCO_CTRLBIT	GENMASK(7, 0)
++#define MPHY_APB_REG_DCO_VALUE		0x2C
++#define MPHY_APB_OVR_REG_DCO_CTRLBIT	GENMASK(16, 16)
++#define MPHY_APB_OVR_REG_DCO_VALUE	BIT(16)
++
++/* UMS9620 specific registers */
+ #define APB_UFSDEV_REG		0xCE8
+ #define APB_UFSDEV_REFCLK_EN	0x2
+ #define APB_USB31PLL_CTRL	0xCFC
+@@ -35,6 +144,7 @@
+ enum SPRD_UFS_RST_INDEX {
+ 	SPRD_UFSHCI_SOFT_RST,
+ 	SPRD_UFS_DEV_RST,
++	SPRD_UFS_GLB_RST,
+ 
+ 	SPRD_UFS_RST_MAX
+ };
+@@ -42,6 +152,7 @@ enum SPRD_UFS_RST_INDEX {
+ enum SPRD_UFS_SYSCON_INDEX {
+ 	SPRD_UFS_ANLG,
+ 	SPRD_UFS_AON_APB,
++	SPRD_UFS_AP_AHB,
+ 
+ 	SPRD_UFS_SYSCON_MAX
+ };
+@@ -68,6 +179,8 @@ struct ufs_sprd_vreg {
+ };
+ 
+ struct ufs_sprd_priv {
++	unsigned int caps;
++	unsigned int quirks;
+ 	struct ufs_sprd_rst rci[SPRD_UFS_RST_MAX];
+ 	struct ufs_sprd_syscon sysci[SPRD_UFS_SYSCON_MAX];
+ 	struct ufs_sprd_vreg vregi[SPRD_UFS_VREG_MAX];

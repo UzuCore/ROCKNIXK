@@ -1,0 +1,366 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Noxwell <beebono@yahoo.com>
+Date: Thu, 2 Jul 2026 09:07:23 -0500
+Subject: [PATCH 127/225] watchdog: sprd: ums512: port AP + sc2730 PMIC
+ watchdogs to 7.1
+
+Adds the AP watchdog@2f0000 DT node (aon bus, offset-addressed;
+timeout-sec bumped from 6.16's 12s to 30s for margin against a stalled
+feed loop - the hardware only starts counting when hw-watchdog.service
+opens /dev/watchdog0, confirmed in sprd_wdt.c, so there's no bootloader-
+armed timer to race against).
+
+Also ports sc27xx_wdt.c (the sc2730 PMIC watchdog driver) + Kconfig/
+Makefile + the sc2730.dtsi watchdog@40 node - this was missing entirely,
+not just its DT node. hw-watchdog.service feeds both /dev/watchdog0 and
+/dev/watchdog1 in one shell command, so without this the whole feed
+script would fail to open the second fd.
+
+Confirmed on-device: hw-watchdog.service active and feeding both
+devices, no watchdog/wdt errors in dmesg (the one "watchdog0: watchdog
+did not stop!" line is the expected WATCHDOG_NOWAYOUT notice, not a
+fault). ums512_defconfig regenerated via savedefconfig.
+---
+ arch/arm64/boot/dts/sprd/sc2730.dtsi |   5 +
+ arch/arm64/boot/dts/sprd/ums512.dtsi |  20 +++
+ arch/arm64/configs/ums512_defconfig  |   1 +
+ drivers/watchdog/Kconfig             |   8 +
+ drivers/watchdog/Makefile            |   1 +
+ drivers/watchdog/sc27xx_wdt.c        | 238 +++++++++++++++++++++++++++
+ 6 files changed, 273 insertions(+)
+ create mode 100644 drivers/watchdog/sc27xx_wdt.c
+
+diff --git a/arch/arm64/boot/dts/sprd/sc2730.dtsi b/arch/arm64/boot/dts/sprd/sc2730.dtsi
+index 713b36a23..fb3dbc605 100644
+--- a/arch/arm64/boot/dts/sprd/sc2730.dtsi
++++ b/arch/arm64/boot/dts/sprd/sc2730.dtsi
+@@ -16,6 +16,11 @@ sc2730_pmic: pmic@0 {
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+ 
++		watchdog@40 {
++			compatible = "sprd,sc2730-wdt", "sprd,sc27xx-wdt";
++			reg = <0x40>;
++		};
++
+ 		led-controller@180 {
+ 			compatible = "sprd,sc2730-bltc", "sprd,sc2731-bltc";
+ 			reg = <0x180>;
+diff --git a/arch/arm64/boot/dts/sprd/ums512.dtsi b/arch/arm64/boot/dts/sprd/ums512.dtsi
+index 176a8ec1b..e70e74b17 100644
+--- a/arch/arm64/boot/dts/sprd/ums512.dtsi
++++ b/arch/arm64/boot/dts/sprd/ums512.dtsi
+@@ -1938,6 +1938,26 @@ sensor@0 {
+ 					nvmem-cell-names = "sen_delta_cal";
+ 				};
+ 			};
++
++			/*
++			 * AP watchdog. Hardware only starts counting once userspace
++			 * opens /dev/watchdogN (sprd_wdt_start(), not armed by the
++			 * bootloader or on probe - confirmed in sprd_wdt.c), so this
++			 * is a pure add: no risk of an unfed bootloader-armed timer
++			 * biting before hw-watchdog.service starts feeding it.
++			 * timeout-sec is set well above the service's 2s feed
++			 * interval (6.16 used 12s) for margin against a stalled feed
++			 * loop; SPRD_WDT_MAX_TIMEOUT is 60s.
++			 */
++			watchdog@2f0000 {
++				compatible = "sprd,ums512-wdt", "sprd,sp9860-wdt";
++				reg = <0x2f0000 0x10000>;
++				interrupts = <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>;
++				timeout-sec = <30>;
++				clock-names = "enable", "rtc_enable";
++				clocks = <&aonapb_gate CLK_APCPU_WDG_EB>,
++					 <&aonapb_gate CLK_AC_WDG_RTC_EB>;
++			};
+ 		};
+ 
+ 		usb: usb@5fff0000 {
+diff --git a/arch/arm64/configs/ums512_defconfig b/arch/arm64/configs/ums512_defconfig
+index 86abe02bf..35fd1b8bc 100644
+--- a/arch/arm64/configs/ums512_defconfig
++++ b/arch/arm64/configs/ums512_defconfig
+@@ -460,6 +460,7 @@ CONFIG_SPRD_THERMAL=y
+ CONFIG_WATCHDOG=y
+ CONFIG_ARM_SMC_WATCHDOG=y
+ CONFIG_SPRD_WATCHDOG=y
++CONFIG_SC27XX_WATCHDOG=y
+ CONFIG_MFD_SC27XX_PMIC=y
+ # CONFIG_MFD_VEXPRESS_SYSREG is not set
+ CONFIG_REGULATOR=y
+diff --git a/drivers/watchdog/Kconfig b/drivers/watchdog/Kconfig
+index dc78729ba..ca5578534 100644
+--- a/drivers/watchdog/Kconfig
++++ b/drivers/watchdog/Kconfig
+@@ -1092,6 +1092,14 @@ config SPRD_WATCHDOG
+ 	  Say Y here to include watchdog timer supported
+ 	  by Spreadtrum system.
+ 
++config SC27XX_WATCHDOG
++	tristate "Spreadtrum SC27xx PMIC watchdog support"
++	depends on MFD_SC27XX_PMIC || COMPILE_TEST
++	select WATCHDOG_CORE
++	help
++	  Say Y here to include watchdog timer support embedded into the
++	  Spreadtrum SC27xx series PMICs.
++
+ config PM8916_WATCHDOG
+ 	tristate "QCOM PM8916 pmic watchdog"
+ 	depends on OF && MFD_SPMI_PMIC
+diff --git a/drivers/watchdog/Makefile b/drivers/watchdog/Makefile
+index d2fb16b9f..b87782c23 100644
+--- a/drivers/watchdog/Makefile
++++ b/drivers/watchdog/Makefile
+@@ -95,6 +95,7 @@ obj-$(CONFIG_STM32_WATCHDOG) += stm32_iwdg.o
+ obj-$(CONFIG_UNIPHIER_WATCHDOG) += uniphier_wdt.o
+ obj-$(CONFIG_RTD119X_WATCHDOG) += rtd119x_wdt.o
+ obj-$(CONFIG_SPRD_WATCHDOG) += sprd_wdt.o
++obj-$(CONFIG_SC27XX_WATCHDOG) += sc27xx_wdt.o
+ obj-$(CONFIG_PM8916_WATCHDOG) += pm8916_wdt.o
+ obj-$(CONFIG_ARM_SMC_WATCHDOG) += arm_smc_wdt.o
+ obj-$(CONFIG_GXP_WATCHDOG) += gxp-wdt.o
+diff --git a/drivers/watchdog/sc27xx_wdt.c b/drivers/watchdog/sc27xx_wdt.c
+new file mode 100644
+index 000000000..2f06c6a35
+--- /dev/null
++++ b/drivers/watchdog/sc27xx_wdt.c
+@@ -0,0 +1,238 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Spreadtrum SC27xx PMIC watchdog driver
++ * Copyright (C) 2026
++ */
++
++#include <linux/bitops.h>
++#include <linux/device.h>
++#include <linux/err.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/mod_devicetable.h>
++#include <linux/platform_device.h>
++#include <linux/property.h>
++#include <linux/regmap.h>
++#include <linux/watchdog.h>
++
++#define SC27XX_WDT_LOAD_LOW		0x0
++#define SC27XX_WDT_LOAD_HIGH		0x4
++#define SC27XX_WDT_CTRL			0x8
++#define SC27XX_WDT_INT_CLR		0xc
++#define SC27XX_WDT_INT_RAW		0x10
++#define SC27XX_WDT_CNT_LOW		0x18
++#define SC27XX_WDT_CNT_HIGH		0x1c
++#define SC27XX_WDT_LOCK			0x20
++#define SC27XX_WDT_IRQ_LOAD_LOW		0x2c
++#define SC27XX_WDT_IRQ_LOAD_HIGH	0x30
++
++#define SC27XX_WDT_INT_EN_BIT		BIT(0)
++#define SC27XX_WDT_CNT_EN_BIT		BIT(1)
++#define SC27XX_WDT_NEW_VER_EN		BIT(2)
++#define SC27XX_WDT_RST_EN_BIT		BIT(3)
++
++#define SC27XX_WDT_INT_CLEAR_BIT	BIT(0)
++
++#define SC27XX_WDT_INT_RAW_BIT		BIT(0)
++#define SC27XX_WDT_LD_BUSY_BIT		BIT(4)
++
++#define SC27XX_WDT_CNT_STEP		32768
++
++#define SC27XX_WDT_UNLOCK_KEY		0xe551
++#define SC27XX_WDT_MIN_TIMEOUT		3
++#define SC27XX_WDT_MAX_TIMEOUT		60
++
++#define SC27XX_WDT_CNT_HIGH_SHIFT	16
++#define SC27XX_WDT_LOW_VALUE_MASK	GENMASK(15, 0)
++#define SC27XX_WDT_LOAD_TIMEOUT		1000
++
++struct sc27xx_wdt {
++	struct regmap *regmap;
++	u32 base;
++	struct watchdog_device wdd;
++};
++
++static inline struct sc27xx_wdt *to_sc27xx_wdt(struct watchdog_device *wdd)
++{
++	return container_of(wdd, struct sc27xx_wdt, wdd);
++}
++
++static inline int sc27xx_wdt_unlock(struct sc27xx_wdt *wdt)
++{
++	return regmap_write(wdt->regmap, wdt->base + SC27XX_WDT_LOCK,
++			    SC27XX_WDT_UNLOCK_KEY);
++}
++
++static inline int sc27xx_wdt_lock(struct sc27xx_wdt *wdt)
++{
++	return regmap_write(wdt->regmap, wdt->base + SC27XX_WDT_LOCK, 0x0);
++}
++
++static int sc27xx_wdt_load_value(struct sc27xx_wdt *wdt, u32 timeout,
++				 u32 pretimeout)
++{
++	u32 val, delay_cnt = 0;
++	u32 tmr_step = timeout * SC27XX_WDT_CNT_STEP;
++	u32 prtmr_step = pretimeout * SC27XX_WDT_CNT_STEP;
++	int ret;
++
++	do {
++		ret = regmap_read(wdt->regmap, wdt->base + SC27XX_WDT_INT_RAW,
++				  &val);
++		if (ret)
++			return ret;
++		if (!(val & SC27XX_WDT_LD_BUSY_BIT))
++			break;
++
++		usleep_range(10, 100);
++	} while (delay_cnt++ < SC27XX_WDT_LOAD_TIMEOUT);
++
++	if (delay_cnt >= SC27XX_WDT_LOAD_TIMEOUT)
++		return -EBUSY;
++
++	ret = sc27xx_wdt_unlock(wdt);
++	if (ret)
++		return ret;
++
++	regmap_write(wdt->regmap, wdt->base + SC27XX_WDT_LOAD_HIGH,
++		     (tmr_step >> SC27XX_WDT_CNT_HIGH_SHIFT) &
++		     SC27XX_WDT_LOW_VALUE_MASK);
++	regmap_write(wdt->regmap, wdt->base + SC27XX_WDT_LOAD_LOW,
++		     tmr_step & SC27XX_WDT_LOW_VALUE_MASK);
++	regmap_write(wdt->regmap, wdt->base + SC27XX_WDT_IRQ_LOAD_HIGH,
++		     (prtmr_step >> SC27XX_WDT_CNT_HIGH_SHIFT) &
++		     SC27XX_WDT_LOW_VALUE_MASK);
++	regmap_write(wdt->regmap, wdt->base + SC27XX_WDT_IRQ_LOAD_LOW,
++		     prtmr_step & SC27XX_WDT_LOW_VALUE_MASK);
++
++	sc27xx_wdt_lock(wdt);
++
++	return 0;
++}
++
++static int sc27xx_wdt_start(struct watchdog_device *wdd)
++{
++	struct sc27xx_wdt *wdt = to_sc27xx_wdt(wdd);
++	u32 val;
++	int ret;
++
++	ret = sc27xx_wdt_load_value(wdt, wdd->timeout, wdd->pretimeout);
++	if (ret)
++		return ret;
++
++	ret = sc27xx_wdt_unlock(wdt);
++	if (ret)
++		return ret;
++
++	val = SC27XX_WDT_CNT_EN_BIT | SC27XX_WDT_INT_EN_BIT |
++		SC27XX_WDT_RST_EN_BIT;
++	regmap_update_bits(wdt->regmap, wdt->base + SC27XX_WDT_CTRL, val, val);
++
++	sc27xx_wdt_lock(wdt);
++	set_bit(WDOG_HW_RUNNING, &wdd->status);
++
++	return 0;
++}
++
++static int sc27xx_wdt_stop(struct watchdog_device *wdd)
++{
++	struct sc27xx_wdt *wdt = to_sc27xx_wdt(wdd);
++	u32 val = SC27XX_WDT_CNT_EN_BIT | SC27XX_WDT_RST_EN_BIT |
++		SC27XX_WDT_INT_EN_BIT;
++	int ret;
++
++	ret = sc27xx_wdt_unlock(wdt);
++	if (ret)
++		return ret;
++
++	regmap_update_bits(wdt->regmap, wdt->base + SC27XX_WDT_CTRL, val, 0);
++
++	sc27xx_wdt_lock(wdt);
++
++	return 0;
++}
++
++static int sc27xx_wdt_set_timeout(struct watchdog_device *wdd, u32 timeout)
++{
++	struct sc27xx_wdt *wdt = to_sc27xx_wdt(wdd);
++
++	if (timeout == wdd->timeout)
++		return 0;
++
++	wdd->timeout = timeout;
++
++	return sc27xx_wdt_load_value(wdt, timeout, wdd->pretimeout);
++}
++
++static int sc27xx_wdt_ping(struct watchdog_device *wdd)
++{
++	struct sc27xx_wdt *wdt = to_sc27xx_wdt(wdd);
++
++	return sc27xx_wdt_load_value(wdt, wdd->timeout, wdd->pretimeout);
++}
++
++static const struct watchdog_info sc27xx_wdt_info = {
++	.options = WDIOF_SETTIMEOUT | WDIOF_KEEPALIVEPING | WDIOF_MAGICCLOSE,
++	.identity = "Spreadtrum SC27xx PMIC Watchdog",
++};
++
++static const struct watchdog_ops sc27xx_wdt_ops = {
++	.owner = THIS_MODULE,
++	.start = sc27xx_wdt_start,
++	.stop = sc27xx_wdt_stop,
++	.set_timeout = sc27xx_wdt_set_timeout,
++	.ping = sc27xx_wdt_ping,
++};
++
++static int sc27xx_wdt_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct sc27xx_wdt *wdt;
++	int ret;
++
++	wdt = devm_kzalloc(dev, sizeof(*wdt), GFP_KERNEL);
++	if (!wdt)
++		return -ENOMEM;
++
++	wdt->regmap = dev_get_regmap(dev->parent, NULL);
++	if (!wdt->regmap)
++		return -ENODEV;
++
++	ret = device_property_read_u32(dev, "reg", &wdt->base);
++	if (ret)
++		return ret;
++
++	wdt->wdd.info = &sc27xx_wdt_info;
++	wdt->wdd.ops = &sc27xx_wdt_ops;
++	wdt->wdd.parent = dev;
++	wdt->wdd.min_timeout = SC27XX_WDT_MIN_TIMEOUT;
++	wdt->wdd.max_timeout = SC27XX_WDT_MAX_TIMEOUT;
++	wdt->wdd.timeout = SC27XX_WDT_MAX_TIMEOUT;
++
++	sc27xx_wdt_stop(&wdt->wdd);
++
++	watchdog_init_timeout(&wdt->wdd, 0, dev);
++	watchdog_set_drvdata(&wdt->wdd, wdt);
++	platform_set_drvdata(pdev, wdt);
++
++	return devm_watchdog_register_device(dev, &wdt->wdd);
++}
++
++static const struct of_device_id sc27xx_wdt_of_match[] = {
++	{ .compatible = "sprd,sc2730-wdt", },
++	{ .compatible = "sprd,sc27xx-wdt", },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sc27xx_wdt_of_match);
++
++static struct platform_driver sc27xx_wdt_driver = {
++	.probe = sc27xx_wdt_probe,
++	.driver = {
++		.name = "sc27xx-wdt",
++		.of_match_table = sc27xx_wdt_of_match,
++	},
++};
++module_platform_driver(sc27xx_wdt_driver);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Spreadtrum SC27xx PMIC watchdog driver");
