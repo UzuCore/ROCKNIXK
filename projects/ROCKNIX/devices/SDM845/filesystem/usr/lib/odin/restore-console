@@ -1,0 +1,25 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+case "$(tr -d '\000' </sys/firmware/devicetree/base/model)" in
+  'AYN Odin'|'AYN Odin M2') ;;
+  *) exit 0 ;;
+esac
+
+[ "$(cat /sys/class/graphics/fb0/name 2>/dev/null)" = msmdrmfb ] || exit 0
+[ "$(cat /sys/class/tty/tty0/active 2>/dev/null)" = tty1 ] || exit 0
+[ ! -e /run/odin-console-restored ] || exit 0
+pidof sway >/dev/null && exit 0
+
+# The EFI-to-DRM handover discards the initramfs console font.
+setfont -C /dev/tty1 /usr/share/consolefonts/spleen-12x24.psfu || exit 1
+
+export TERM=linux
+clear >/dev/console
+printf '\033[1000H\033[2K%s\n\n' "$(cat /etc/issue)" >/dev/console
+if [ -f /storage/.configured ]; then
+  printf '\033[1000H\033[2K==> Loading, please wait...' >/dev/console
+else
+  printf '\033[1000H\033[2K==> Initializing, please wait...' >/dev/console
+fi
+cut -d ' ' -f 1 /proc/uptime >/run/odin-console-restored

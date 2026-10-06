@@ -12,6 +12,14 @@ PKG_NEED_UNPACK+=" ${PROJECT_DIR}/${PROJECT}/bootloader ${PROJECT_DIR}/${PROJECT
 PKG_LONGDESC="This package contains a precompiled kernel image and the modules."
 PKG_IS_KERNEL_PKG="yes"
 PKG_STAMP="${KERNEL_TARGET} ${KERNEL_MAKE_EXTRACMD}"
+# These files are embedded in the kernel initramfs and affect the Odin banner.
+for INITRAMFS_INPUT in \
+  "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/device.init" \
+  "${PROJECT_DIR}/${PROJECT}/packages/sysutils/busybox/scripts/init"; do
+  if [ -f "${INITRAMFS_INPUT}" ]; then
+    PKG_STAMP+=" $(sha256sum "${INITRAMFS_INPUT}")"
+  fi
+done
 
 PKG_PATCH_DIRS="${LINUX} mainline ${DEVICE} default"
 
@@ -156,6 +164,20 @@ pre_make_target() {
     rm -f ${STAMPS_INSTALL}/initramfs/install_target ${STAMPS_INSTALL}/*/install_init
     ${SCRIPTS}/install initramfs
   )
+
+  # Keep the SDM845 device init empty of splash overrides; ROCKNIX's
+  # generic load_splash function then prints the banner and progress line.
+  if [ "${DEVICE}" = "SDM845" ]; then
+    local device_init_file="${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/device.init"
+    [ -s "${device_init_file}" ] || die "Missing SDM845 device.init"
+    cp "${device_init_file}" "${BUILD}/initramfs/device.init"
+    chmod 755 "${BUILD}/initramfs/device.init"
+    cmp -s "${device_init_file}" "${BUILD}/initramfs/device.init" || die "SDM845 device.init staging failed"
+    if grep -qF 'device_load_splash() {' "${device_init_file}"; then
+      die "SDM845 must use the stock ROCKNIX splash output"
+    fi
+    grep -qF 'echo -en "\033[1000H\033[2K$(cat /sysroot/etc/issue)' "${BUILD}/initramfs/init" || die "Stock ROCKNIX splash output missing from initramfs"
+  fi
   pkg_lock_status "ACTIVE" "linux:target" "build"
 
   cp ${PKG_KERNEL_CFG_FILE} ${PKG_BUILD}/.config

@@ -11,7 +11,8 @@ name: AYN Odin Gamepad Mapping
 # Unique identifier of the capability mapping
 id: ayn_odin
 
-# odin-gamepad reports the face buttons by position (BTN_SOUTH is the bottom
+# odin-gamepad reports its D-pad as ABS_HAT0X/ABS_HAT0Y direction axes.
+# The face buttons are reported by position (BTN_SOUTH is the bottom
 # button), the rear buttons as BTN_Z (left) / BTN_C (right) and the analog
 # triggers as ABS_Z / ABS_RZ. Rear buttons use independent keyboard inputs
 # because the ds5 target does not expose paddle buttons.
@@ -199,9 +200,10 @@ mapping:
   - name: Dpad Left
     source_events:
       - evdev:
-          event_type: KEY
-          event_code: BTN_DPAD_LEFT
+          event_type: ABS
+          event_code: ABS_HAT0X
           value_type: button
+          axis_direction: negative
     target_event:
       gamepad:
         button: DPadLeft
@@ -209,9 +211,10 @@ mapping:
   - name: Dpad Right
     source_events:
       - evdev:
-          event_type: KEY
-          event_code: BTN_DPAD_RIGHT
+          event_type: ABS
+          event_code: ABS_HAT0X
           value_type: button
+          axis_direction: positive
     target_event:
       gamepad:
         button: DPadRight
@@ -219,9 +222,10 @@ mapping:
   - name: Dpad Down
     source_events:
       - evdev:
-          event_type: KEY
-          event_code: BTN_DPAD_DOWN
+          event_type: ABS
+          event_code: ABS_HAT0Y
           value_type: button
+          axis_direction: positive
     target_event:
       gamepad:
         button: DPadDown
@@ -229,9 +233,10 @@ mapping:
   - name: Dpad Up
     source_events:
       - evdev:
-          event_type: KEY
-          event_code: BTN_DPAD_UP
+          event_type: ABS
+          event_code: ABS_HAT0Y
           value_type: button
+          axis_direction: negative
     target_event:
       gamepad:
         button: DPadUp

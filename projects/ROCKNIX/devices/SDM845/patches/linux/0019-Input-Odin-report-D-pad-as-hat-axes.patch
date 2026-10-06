@@ -1,0 +1,76 @@
+From: ROCKNIXK <local@rocknixk>
+Subject: Input: AYN Odin report D-pad as standard hat axes
+
+Match the known-working Odin input convention: expose the four GPIO D-pad
+switches through ABS_HAT0X/ABS_HAT0Y instead of BTN_DPAD_* keys.
+
+--- a/drivers/input/joystick/odin-gamepad.c
++++ b/drivers/input/joystick/odin-gamepad.c
+@@ -346,7 +346,7 @@
+ static void gamepad_get(struct input_dev *input)
+ {
+ 	struct gamepad *gamepad = input_get_drvdata(input);
+-	int nbtn, value;
++	int nbtn, value, dpad_x = 0, dpad_y = 0;
+
+ 	for (nbtn = 0; nbtn < gamepad->adc_count; nbtn++) {
+ 		struct adc *adc = &gamepad->adcs[nbtn];
+@@ -379,14 +379,36 @@
+ 			continue;
+ 		}
+ 		value = gpiod_get_value(btn->gpiod);
+-		if (value != btn->value) {
++		if (value == btn->active_level) {
++			switch (btn->linux_code) {
++			case BTN_DPAD_LEFT:
++				dpad_x--;
++				break;
++			case BTN_DPAD_RIGHT:
++				dpad_x++;
++				break;
++			case BTN_DPAD_UP:
++				dpad_y--;
++				break;
++			case BTN_DPAD_DOWN:
++				dpad_y++;
++				break;
++			}
++		}
++		if (value != btn->value &&
++		    btn->linux_code != BTN_DPAD_UP &&
++		    btn->linux_code != BTN_DPAD_DOWN &&
++		    btn->linux_code != BTN_DPAD_LEFT &&
++		    btn->linux_code != BTN_DPAD_RIGHT) {
+ 			input_event(input,
+ 				btn->report_type,
+ 				btn->linux_code,
+ 				(value == btn->active_level) ? 1 : 0);
+-			btn->value = value;
+-		}
+-	}
++		}
++		btn->value = value;
++	}
++	input_report_abs(input, ABS_HAT0X, dpad_x);
++	input_report_abs(input, ABS_HAT0Y, dpad_y);
+ 	input_sync(input);
+ }
+
+@@ -645,10 +667,17 @@
+ 			gamepad->adc_fuzz, gamepad->adc_flat,
+ 			adc->deadzone);
+ 	}
++	input_set_abs_params(input, ABS_HAT0X, -1, 1, 0, 0);
++	input_set_abs_params(input, ABS_HAT0Y, -1, 1, 0, 0);
+
+ 	__set_bit(EV_KEY, input->evbit);
+ 	for(nbtn = 0; nbtn < gamepad->btn_count; nbtn++) {
+ 		struct btn *btn = &gamepad->btns[nbtn];
++		if (btn->linux_code == BTN_DPAD_UP ||
++		    btn->linux_code == BTN_DPAD_DOWN ||
++		    btn->linux_code == BTN_DPAD_LEFT ||
++		    btn->linux_code == BTN_DPAD_RIGHT)
++			continue;
+ 		input_set_capability(input, btn->report_type,
+ 				btn->linux_code);
+ 	}
