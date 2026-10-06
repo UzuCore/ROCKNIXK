@@ -23,10 +23,6 @@ on:
         description: "build official version"
         type: string
         required: true
-      CODEX_SUPPORT:
-        description: "include Codex tooling"
-        type: string
-        required: true
 
 jobs:
   build-arm:
@@ -84,7 +80,6 @@ jobs:
       PROJECT: ${{ inputs.PROJECT }}
       DEVICE: ${{ inputs.DEVICE }}
       OWNER_LC: ${{ inputs.OWNER_LC }}
-      CODEX_SUPPORT: ${{ inputs.CODEX_SUPPORT }}
 
   build-aarch64-qt6:
     needs: build-aarch64
@@ -107,7 +102,6 @@ jobs:
       PROJECT: ${{ inputs.PROJECT }}
       DEVICE: ${{ inputs.DEVICE }}
       OWNER_LC: ${{ inputs.OWNER_LC }}
-      CODEX_SUPPORT: ${{ inputs.CODEX_SUPPORT }}
 
   build-aarch64-emu-standalone:
     needs:
@@ -122,7 +116,6 @@ jobs:
       PROJECT: ${{ inputs.PROJECT }}
       DEVICE: ${{ inputs.DEVICE }}
       OWNER_LC: ${{ inputs.OWNER_LC }}
-      CODEX_SUPPORT: ${{ inputs.CODEX_SUPPORT }}
 
   build-aarch64-image:
     needs:
@@ -138,7 +131,6 @@ jobs:
       OWNER_LC: ${{ inputs.OWNER_LC }}
       NIGHTLY: ${{ inputs.NIGHTLY }}
       OFFICIAL: ${{ inputs.OFFICIAL }}
-      CODEX_SUPPORT: ${{ inputs.CODEX_SUPPORT }}
 
   purge-artifact:
     name: Artifacts cleanup
