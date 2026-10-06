@@ -43,12 +43,7 @@ make_target() {
   fi
 
   local CPU_FLAGS=""
-  local BUILD_PRESET="generic"
   case "${DEVICE}" in
-    SDM845)
-      CPU_FLAGS="-march=armv8.2-a+crc+crypto -mtune=cortex-a75"
-      BUILD_PRESET="custom"
-      ;;
     SM8250)
       CPU_FLAGS="-march=armv8.2-a+crc+crypto -mtune=cortex-a77"
       ;;
@@ -66,9 +61,6 @@ make_target() {
 
   local OPT_FLAGS="-O3"
   local LTO_FLAGS="-flto=thin -fuse-ld=lld -Wl,--lto-O3"
-  if [ "${DEVICE}" = SDM845 ]; then
-    LTO_FLAGS="-fuse-ld=lld"
-  fi
   local FLAGS_CLEAN="s/-mabi=lp64//g; s/-mcpu=[^ ]*//g; s/-march=[^ ]*//g; s/-mtune=[^ ]*//g"
 
   for _v in CFLAGS CXXFLAGS; do
@@ -86,13 +78,6 @@ make_target() {
 
   mkdir -p "${PKG_BUILD}/.${TARGET_NAME}"
   cd "${PKG_BUILD}/.${TARGET_NAME}"
-
-  local EDEN_C_FLAGS="${CPU_FLAGS} ${OPT_FLAGS}"
-  local EDEN_CXX_FLAGS="${CPU_FLAGS} ${OPT_FLAGS}"
-  if [ "${DEVICE}" = SDM845 ]; then
-    EDEN_C_FLAGS="${CFLAGS}"
-    EDEN_CXX_FLAGS="${CXXFLAGS}"
-  fi
 
   local -a tgt_opts=(
     -G Ninja
@@ -116,15 +101,15 @@ make_target() {
     -DCMAKE_CXX_COMPILER_TARGET=aarch64-rocknix-linux-gnu
     -DCMAKE_ASM_COMPILER="${EDEN_LLVM_BIN}/clang"
     -DCMAKE_ASM_COMPILER_TARGET=aarch64-rocknix-linux-gnu
-    -DCMAKE_C_FLAGS="${EDEN_C_FLAGS}"
-    -DCMAKE_CXX_FLAGS="${EDEN_CXX_FLAGS}"
+    -DCMAKE_C_FLAGS="${CPU_FLAGS} ${OPT_FLAGS}"
+    -DCMAKE_CXX_FLAGS="${CPU_FLAGS} ${OPT_FLAGS}"
 
     -DCMAKE_LINKER="${EDEN_LLVM_BIN}/ld.lld"
     -DCMAKE_AR="${EDEN_LLVM_BIN}/llvm-ar"
     -DCMAKE_RANLIB="${EDEN_LLVM_BIN}/llvm-ranlib"
     -DCMAKE_NM="${EDEN_LLVM_BIN}/llvm-nm"
 
-    -DYUZU_BUILD_PRESET="${BUILD_PRESET}"
+    -DYUZU_BUILD_PRESET=generic
     -DENABLE_QT_TRANSLATION=ON
     -DUSE_DISCORD_PRESENCE=OFF
     -DYUZU_USE_BUNDLED_SIRIT=ON
@@ -145,7 +130,7 @@ make_target() {
 
   cmake "${tgt_opts[@]}" || return 1
 
-  ninja -j${CONCURRENCY_MAKE_LEVEL:-6}
+  ninja -j$(nproc) || ninja
 }
 
 makeinstall_target() {
