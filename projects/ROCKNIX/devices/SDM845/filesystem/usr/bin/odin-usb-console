@@ -1,0 +1,59 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2026-present ROCKNIX (https://github.com/ROCKNIX)
+
+# Test-build USB serial console for the AYN Odin (configfs CDC ACM -> /dev/ttyGS0).
+# Composite device class (IAD) so Windows binds its in-box usbser driver.
+# Keeps the gadget bound: ROCKNIX usbgadget (network / file transfer) owns the
+# port while it is enabled, the console comes back when it is disabled.
+
+G=/sys/kernel/config/usb_gadget/odinshell
+
+setup() {
+  modprobe -q libcomposite 2>/dev/null
+  modprobe -q usb_f_acm 2>/dev/null
+  [ -d /sys/kernel/config/usb_gadget ] || mount -t configfs none /sys/kernel/config 2>/dev/null
+  [ -d ${G} ] && return 0
+  mkdir -p ${G} || return 1
+  echo 0x1d6b > ${G}/idVendor
+  echo 0x0106 > ${G}/idProduct
+  echo 0x0200 > ${G}/bcdUSB
+  echo 0xEF > ${G}/bDeviceClass
+  echo 0x02 > ${G}/bDeviceSubClass
+  echo 0x01 > ${G}/bDeviceProtocol
+  mkdir -p ${G}/strings/0x409
+  echo "ROCKNIX" > ${G}/strings/0x409/manufacturer
+  echo "AYN Odin USB console" > ${G}/strings/0x409/product
+  cat /sys/devices/soc0/serial_number > ${G}/strings/0x409/serialnumber 2>/dev/null || echo 0 > ${G}/strings/0x409/serialnumber
+  mkdir -p ${G}/configs/c.1/strings/0x409
+  echo "ACM" > ${G}/configs/c.1/strings/0x409/configuration
+  echo 250 > ${G}/configs/c.1/MaxPower
+  mkdir -p ${G}/functions/acm.usb0
+  ln -s ${G}/functions/acm.usb0 ${G}/configs/c.1/
+}
+
+vbus_present() {
+  for p in /sys/class/power_supply/*; do
+    case "$(cat ${p}/type 2>/dev/null)" in
+      USB|USB_PD|USB_DCP|USB_CDP) [ "$(cat ${p}/online 2>/dev/null)" = "1" ] && return 0 ;;
+    esac
+  done
+  return 1
+}
+
+setup || exit 1
+
+while true; do
+  UDC=$(ls -1 /sys/class/udc 2>/dev/null | head -n1)
+  if [ -z "${UDC}" ]; then
+    # controller in host role: go to device role while a PC supplies VBUS
+    if vbus_present; then
+      for sw in /sys/class/usb_role/*/role; do
+        [ "$(cat ${sw} 2>/dev/null)" = "host" ] && echo device > ${sw} 2>/dev/null
+      done
+    fi
+  elif [ -z "$(cat /sys/class/udc/${UDC}/function 2>/dev/null)" ] && [ -z "$(cat ${G}/UDC 2>/dev/null)" ]; then
+    echo "${UDC}" > ${G}/UDC 2>/dev/null
+  fi
+  sleep 2
+done

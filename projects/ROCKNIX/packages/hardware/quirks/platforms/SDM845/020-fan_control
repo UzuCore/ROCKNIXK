@@ -1,0 +1,19 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2024 ROCKNIX (https://github.com/ROCKNIX)
+
+cat <<EOF >/storage/.config/profile.d/020-fan_control
+
+FANDIR="\$(dirname \$(ls /sys/class/hwmon/hwmon*/pwm1 2>/dev/null | head -n1))"
+
+DEVICE_HAS_FAN="true"
+DEVICE_PWM_FAN="\${FANDIR}/pwm1"
+
+# Real tachometer where the board wires one, otherwise the commanded duty.
+if [ -e "\${FANDIR}/fan1_input" ]
+then
+  DEVICE_FAN_INPUT="\${FANDIR}/fan1_input"
+else
+  DEVICE_FAN_INPUT="\${FANDIR}/pwm1"
+fi
+EOF

@@ -1,0 +1,78 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+from pathlib import Path
+import os
+import re
+import shutil
+import tempfile
+import xml.etree.ElementTree as ET
+
+GUID = '0300fd574c050000e60c000011810000'
+PAD = 'Sony Interactive Entertainment DualSense Wireless Controller'
+
+
+def replace_file(path, data):
+    backup = path.with_name(path.name + '.odin-xy-before')
+    if not backup.exists():
+        shutil.copy2(path, backup)
+    descriptor, name = tempfile.mkstemp(prefix='.odin-xy-', dir=path.parent)
+    temporary = Path(name)
+    try:
+        with os.fdopen(descriptor, 'wb') as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        shutil.copymode(path, temporary)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def fix_es(path):
+    if not path.is_file():
+        return False
+    parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True))
+    tree = ET.parse(path, parser=parser)
+    changed = False
+    for profile in tree.getroot().findall('inputConfig'):
+        if profile.get('deviceGUID') != GUID or profile.get('deviceName') != PAD:
+            continue
+        buttons = {item.get('name'): item for item in profile.findall('input')}
+        x, y = buttons.get('x'), buttons.get('y')
+        if x is not None and y is not None and all(button.get('type') == 'button' for button in (x, y)) and (x.get('id'), y.get('id')) == ('2', '3'):
+            x.set('id', '3')
+            y.set('id', '2')
+            changed = True
+    if changed:
+        data = ET.tostring(tree.getroot(), encoding='utf-8', xml_declaration=True) + b'\n'
+        replace_file(path, data)
+    return changed
+
+
+def fix_retroarch(path):
+    if not path.is_file():
+        return False
+    text = path.read_text(encoding='utf-8')
+    values = dict(re.findall(r'^\s*(input_[xy]_btn)\s*=\s*"(\d+)"\s*$', text, re.M))
+    if (values.get('input_x_btn'), values.get('input_y_btn')) != ('2', '3'):
+        return False
+    for key, value in (('input_x_btn', '3'), ('input_y_btn', '2'), ('input_x_btn_label', 'X'), ('input_y_btn_label', 'Y')):
+        text = re.sub(r'(?m)^(\s*' + key + r'\s*=\s*)"[^"\r\n]*"', lambda match: match[1] + '"' + value + '"', text)
+    replace_file(path, text.encode('utf-8'))
+    return True
+
+
+def main():
+    model = Path('/proc/device-tree/model').read_bytes().rstrip(b'\0').decode()
+    if model not in ('AYN Odin', 'AYN Odin M2'):
+        return
+    es = Path('/storage/.config/emulationstation/es_input.cfg')
+    if not es.exists():
+        es.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2('/usr/config/emulationstation/es_input.cfg', es)
+    print('ODIN_ES_XY_CHANGED=' + str(fix_es(es)))
+    print('ODIN_RETROARCH_XY_CHANGED=' + str(fix_retroarch(Path('/tmp/joypads') / (PAD + '.cfg'))))
+
+
+if __name__ == '__main__':
+    main()

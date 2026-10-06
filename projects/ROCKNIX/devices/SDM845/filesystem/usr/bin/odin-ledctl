@@ -1,0 +1,36 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+import argparse
+import json
+import sys
+sys.path.insert(0, '/usr/lib/odin')
+import odin_hardware as hw
+
+p = argparse.ArgumentParser()
+p.add_argument('command', choices=('status', 'set', 'effect', 'restore', 'off'))
+p.add_argument('led', nargs='?', choices=(*hw.LEDS, 'all'))
+p.add_argument('value', nargs='?')
+a = p.parse_args()
+try:
+    if a.command == 'set':
+        if a.led is None or a.value not in ('0', '1'):
+            p.error('set requires a LED and 0 or 1')
+        value = int(a.value)
+        result = hw.set_plain_leds({name: value for name in hw.LEDS} if a.led == 'all' else {a.led: value})
+    elif a.command == 'effect':
+        if a.led is None or a.value not in (*hw.LED_EFFECTS, 'scan'):
+            p.error('effect requires a LED and steady, slow, normal, fast or scan')
+        if a.value == 'scan':
+            if a.led != 'all':
+                p.error('scan requires all LEDs')
+            result = hw.set_scan()
+        else:
+            result = hw.set_effects({name: a.value for name in hw.LEDS} if a.led == 'all' else {a.led: a.value})
+    elif a.command == 'status':
+        result = hw.led_status()
+    else:
+        result = hw.restore_leds(off=a.command == 'off')
+    print(json.dumps(result))
+except (OSError, ValueError, RuntimeError) as error:
+    print(json.dumps({'error': str(error)}))
+    sys.exit(1)

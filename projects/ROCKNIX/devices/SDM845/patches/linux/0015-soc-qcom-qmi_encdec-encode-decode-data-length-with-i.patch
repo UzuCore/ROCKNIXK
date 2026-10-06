@@ -1,0 +1,102 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rxodin <rxodin@localhost>
+Date: Wed, 30 Sep 2026 13:01:12 +0900
+Subject: [PATCH] soc: qcom: qmi_encdec: encode/decode data length with its
+ real size
+
+Taken from https://gitlab.com/jenneron/linux/-/tree/68360b73aaee537c359c13c457d3b5bb779f4f0d (sdm845-mainline based AYN Odin kernel, pmaports linux-ayn-odin).
+---
+ drivers/soc/qcom/qmi_encdec.c | 52 ++++++++++++++---------------------
+ 1 file changed, 20 insertions(+), 32 deletions(-)
+
+diff --git a/drivers/soc/qcom/qmi_encdec.c b/drivers/soc/qcom/qmi_encdec.c
+index 28ce6f1..149af7f7 100644
+--- a/drivers/soc/qcom/qmi_encdec.c
++++ b/drivers/soc/qcom/qmi_encdec.c
+@@ -368,8 +368,6 @@ static int qmi_encode(const struct qmi_elem_info *ei_array, void *out_buf,
+ 	const void *buf_src;
+ 	int encode_tlv = 0;
+ 	int rc;
+-	u8 val8;
+-	u16 val16;
+ 
+ 	if (!ei_array)
+ 		return 0;
+@@ -406,7 +404,6 @@ static int qmi_encode(const struct qmi_elem_info *ei_array, void *out_buf,
+ 			break;
+ 
+ 		case QMI_DATA_LEN:
+-			memcpy(&data_len_value, buf_src, sizeof(u32));
+ 			data_len_sz = temp_ei->elem_size == sizeof(u8) ?
+ 					sizeof(u8) : sizeof(u16);
+ 			/* Check to avoid out of range buffer access */
+@@ -416,19 +413,16 @@ static int qmi_encode(const struct qmi_elem_info *ei_array, void *out_buf,
+ 				       __func__);
+ 				return -ETOOSMALL;
+ 			}
+-			if (data_len_sz == sizeof(u8)) {
+-				val8 = data_len_value;
+-				rc = qmi_encode_basic_elem(buf_dst, &val8,
+-							   1, data_len_sz);
+-				if (rc < 0)
+-					return rc;
+-			} else {
+-				val16 = data_len_value;
+-				rc = qmi_encode_basic_elem(buf_dst, &val16,
+-							   1, data_len_sz);
+-				if (rc < 0)
+-					return rc;
+-			}
++
++			if (data_len_sz == sizeof(u8))
++				data_len_value = *(u8 *)buf_src;
++			else
++				data_len_value = *(u16 *)buf_src;
++
++			rc = qmi_encode_basic_elem(buf_dst, buf_src, 1, data_len_sz);
++			if (rc < 0)
++				return rc;
++
+ 			UPDATE_ENCODE_VARIABLES(temp_ei, buf_dst,
+ 						encoded_bytes, tlv_len,
+ 						encode_tlv, rc);
+@@ -718,8 +712,6 @@ static int qmi_decode(const struct qmi_elem_info *ei_array, void *out_c_struct,
+ 	u32 decoded_bytes = 0;
+ 	const void *buf_src = in_buf;
+ 	int rc;
+-	u8 val8;
+-	u16 val16;
+ 
+ 	while (decoded_bytes < in_buf_len) {
+ 		if (dec_level >= 2 && temp_ei->data_type == QMI_EOTI)
+@@ -758,20 +750,16 @@ static int qmi_decode(const struct qmi_elem_info *ei_array, void *out_c_struct,
+ 		if (temp_ei->data_type == QMI_DATA_LEN) {
+ 			data_len_sz = temp_ei->elem_size == sizeof(u8) ?
+ 					sizeof(u8) : sizeof(u16);
+-			if (data_len_sz == sizeof(u8)) {
+-				rc = qmi_decode_basic_elem(&val8, buf_src,
+-							   1, data_len_sz);
+-				if (rc < 0)
+-					return rc;
+-				data_len_value = (u32)val8;
+-			} else {
+-				rc = qmi_decode_basic_elem(&val16, buf_src,
+-							   1, data_len_sz);
+-				if (rc < 0)
+-					return rc;
+-				data_len_value = (u32)val16;
+-			}
+-			memcpy(buf_dst, &data_len_value, sizeof(u32));
++
++			rc = qmi_decode_basic_elem(buf_dst, buf_src, 1, data_len_sz);
++			if (rc < 0)
++				return rc;
++
++			if (data_len_sz == sizeof(u8))
++				data_len_value = *(u8 *)buf_dst;
++			else
++				data_len_value = *(u16 *)buf_dst;
++
+ 			temp_ei = temp_ei + 1;
+ 			buf_dst = out_c_struct + temp_ei->offset;
+ 			tlv_len -= data_len_sz;

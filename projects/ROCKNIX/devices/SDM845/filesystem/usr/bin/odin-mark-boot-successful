@@ -1,0 +1,56 @@
+#!/usr/bin/python3
+import importlib.machinery
+import importlib.util
+import json
+import os
+from pathlib import Path
+import subprocess
+
+loader = importlib.machinery.SourceFileLoader('odin_slot_control', '/usr/bin/odin-reboot-android')
+spec = importlib.util.spec_from_loader(loader.name, loader)
+control = importlib.util.module_from_spec(spec)
+loader.exec_module(control)
+
+android, tables, paths, carriers, lun_path = control.inspect()
+slot = control.active_slot(tables)
+control.require(slot != android, 'The active slot is Android')
+current = subprocess.check_output([control.BOOTCTL, '-x'], text=True).strip()
+control.require(current == '_' + slot, 'The running and active slots disagree')
+entries = next(t['entries'] for t in tables.values() if 'boot_' + slot in t['entries'])
+control.require(not entries['boot_' + slot][54] & 128, 'The running slot is unbootable')
+if entries['boot_' + slot][54] & 64:
+    print('ROCKNIX_SLOT_ALREADY_SUCCESSFUL=' + slot)
+    raise SystemExit(0)
+
+folder = Path('/storage/backup/odin-boot-control') / (
+    'successful-' + Path('/proc/sys/kernel/random/boot_id').read_text().strip())
+folder.mkdir(parents=True, mode=0o700, exist_ok=False)
+for disk, table in tables.items():
+    for region in ('front', 'tail'):
+        with (folder / (disk.name + '-' + region + '.bin')).open('xb') as stream:
+            stream.write(table[region])
+            stream.flush()
+            os.fsync(stream.fileno())
+state = {'rocknix_slot': slot, 'android_slot': android,
+         'disks': {str(d): {'sector': t['sector'], 'tail_offset': t['tail_offset']}
+                   for d, t in tables.items()}}
+with (folder / 'state.json').open('x') as stream:
+    json.dump(state, stream, indent=2)
+    stream.flush()
+    os.fsync(stream.fileno())
+os.sync()
+subprocess.run([control.BOOTCTL, '-m', slot], check=True)
+subprocess.run(['udevadm', 'settle', '--timeout=10'], check=True)
+after = {disk: control.read_gpt(disk) for disk in tables}
+control.require(control.active_slot(after) == slot, 'The active slot changed')
+for disk, before in tables.items():
+    control.require(before['entries'].keys() == after[disk]['entries'].keys(), 'Partition names changed')
+    for name, old in before['entries'].items():
+        new = after[disk]['entries'][name]
+        allowed = bytearray(old)
+        if name.endswith('_' + slot):
+            allowed[54] |= 64
+        control.require(new in (old, bytes(allowed)), 'Unexpected GPT change: ' + name)
+boot = next(t['entries']['boot_' + slot] for t in after.values() if 'boot_' + slot in t['entries'])
+control.require(bool(boot[54] & 64), 'Boot success readback failed')
+print('ROCKNIX_SLOT_MARKED_SUCCESSFUL=' + slot)
