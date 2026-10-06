@@ -76,7 +76,7 @@ on:
       SDM845:
         description: 'Odin (SDM845)'
         required: false
-        default: true
+        default: false
         type: boolean
       build_profile:
         description: 'Build profile'

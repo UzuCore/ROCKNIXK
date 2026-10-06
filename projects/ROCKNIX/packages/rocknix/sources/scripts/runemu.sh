@@ -8,6 +8,8 @@
 . /etc/profile
 . /etc/os-release
 
+rm -f /tmp/launch_error.log
+
 ### Switch to performance mode early to speed up configuration and reduce time it takes to get into games.
 performance
 
@@ -91,6 +93,41 @@ EOF
         else
                 log $0 "Emulation Run Log - Started at $(date)"
         fi
+}
+
+### Run the game in its own games.slice scope.
+GAME_UNIT="game-$$"
+function game_oom_kills() {
+        local kills=$(awk '$1 == "oom_kill" {print $2}' /sys/fs/cgroup/games.slice/memory.events 2>/dev/null)
+        echo "${kills:-0}"
+}
+
+function game_scope() {
+        if [ ! -d /run/systemd/system ]; then
+                "$@"
+                return
+        fi
+        systemctl reset-failed "${GAME_UNIT}.scope" 2>/dev/null
+        systemctl thaw games.slice 2>/dev/null
+        GAME_OOM_KILLS=$(game_oom_kills)
+        GAME_START=$(date +%s)
+        (
+                echo 500 >/proc/self/oom_score_adj
+                exec systemd-run --scope --quiet --expand-environment=no --slice=games.slice --unit="${GAME_UNIT}" \
+                        --description="${PLATFORM}: ${ROMNAME##*/}" -p StopPropagatedFrom=essway.service \
+                        -p TimeoutStopSec=5s -p TasksMax=infinity -p OOMPolicy=continue -- "$@"
+        )
+}
+
+function game_scope_stop() {
+        [ -d /run/systemd/system ] || return
+        systemctl stop "${GAME_UNIT}.scope" 2>/dev/null
+        # the game itself was killed for memory, a helper it outlived doesn't count
+        if [ "${1}" = "137" ]; then
+                [ "$(game_oom_kills)" != "${GAME_OOM_KILLS}" ] && GAME_OOM=1
+                journalctl -q -o cat -t systemd --since "@${GAME_START}" | grep -q "systemd-oomd killed" && GAME_OOM=1
+        fi
+        systemctl reset-failed "${GAME_UNIT}.scope" 2>/dev/null
 }
 
 function quit() {
@@ -569,8 +606,9 @@ if [[ "${ROMNAME}" == *".sh" ]] && [ ! "${PLATFORM}" = "ports" ] && [ ! "${PLATF
         ret_error=$?
 else
         ${VERBOSE} && log $0 "Executing $(eval echo ${RUNTHIS})"
-        eval ${RUNTHIS} &>>${OUTPUT_LOG}
+        eval game_scope ${RUNTHIS} &>>${OUTPUT_LOG}
         ret_error=$?
+        game_scope_stop ${ret_error}
 fi
 
 ### Switch back to performance mode to clean up
@@ -649,11 +687,17 @@ then
   if [ $? == 0 ]
   then
     log $0 "backup saves to the cloud."
-    /usr/bin/run /usr/bin/cloud_backup
+    systemd-run --scope --quiet --expand-environment=no --slice=background.slice -- /usr/bin/run /usr/bin/cloud_backup
   fi
 fi
 
 ${VERBOSE} && log $0 "Checking errors: ${ret_error} "
+### ES shows /tmp/launch_error.log as a message when the game ends with 250.
+if [ "${GAME_OOM}" = "1" ]; then
+        log $0 "emulator was killed because the device ran out of memory"
+        echo "The game was closed because the device ran out of memory." >/tmp/launch_error.log
+        quit 250
+fi
 ### Report how the launch ended. EmulationStation records play count, play time
 ### and last-played only on 0 (FileData::launchGame) and passes the same code to
 ### whatever runs after the game. The global exit hotkey (input_sense, execute_kill) ends
