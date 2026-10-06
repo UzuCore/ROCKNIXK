@@ -355,11 +355,13 @@ EOF
   xmlstarlet sel -t -m "//rocknix/${DEVICE}/file" \
     -v "concat(@short, '|', @full, '|', ., '|', @cmdline)" -n "${CONFIGXML}" 2>/dev/null | while IFS='|' read -r SHORT FULL DTB DEVICE_CMDLINE; do
 
+  [ -z "${DEVICE_CMDLINE}" ] || DEVICE_CMDLINE=" ${DEVICE_CMDLINE}"
+
   cat << EOF
 menuentry '${FULL}' \$menuentry_id_option '${SHORT}' {
         savedefault
         search --set -f /KERNEL
-        linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} ${DEVICE_CMDLINE}
+        linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE}${DEVICE_CMDLINE}
         devicetree /boot/grub/${DTB}.dtb
 }
 EOF
@@ -368,10 +370,12 @@ EOF
   xmlstarlet sel -t -m "//rocknix/${DEVICE}/file" \
     -v "concat(@short, '|', @full, '|', ., '|', @cmdline)" -n "${CONFIGXML}" 2>/dev/null | while IFS='|' read -r SHORT FULL DTB DEVICE_CMDLINE; do
 
+  [ -z "${DEVICE_CMDLINE}" ] || DEVICE_CMDLINE=" ${DEVICE_CMDLINE}"
+
   cat << EOF
 menuentry '${FULL} RECOVERY' \$menuentry_id_option '${SHORT}-recovery' {
         search --set -f /KERNEL
-        linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} ${DEVICE_CMDLINE} recovery
+        linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE}${DEVICE_CMDLINE} recovery
         devicetree /boot/grub/${DTB}.dtb
 }
 EOF
