@@ -73,10 +73,10 @@ on:
         required: false
         default: false
         type: boolean
-      SDM845:
-        description: 'Odin (SDM845)'
+      Odin:
+        description: 'Odin'
         required: false
-        default: false
+        default: true
         type: boolean
   workflow_call:
   pull_request:
@@ -132,7 +132,7 @@ jobs:
             ["SM6115"]="${{ inputs.SM6115 }}"
             ["SM4450"]="${{ inputs.SM4450 }}"
             ["T618"]="${{ inputs.T618 }}"
-            ["SDM845"]="${{ inputs.SDM845 }}"
+            ["SDM845"]="${{ inputs.Odin }}"
           )
           
           SELECTED_MATRIX=""
@@ -148,7 +148,7 @@ jobs:
           elif [[ "${{ inputs.T618 }}" == "true" ]]; then
             echo "::error::Select the t618 branch to build T618."
             exit 1
-          elif [[ "${{ inputs.SDM845 }}" == "true" ]]; then
+          elif [[ "${{ inputs.Odin }}" == "true" ]]; then
             echo "::error::Select the odin branch to build SDM845."
             exit 1
           fi
