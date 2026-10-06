@@ -353,37 +353,25 @@ set menu_color_highlight=white/blue
 EOF
 
   xmlstarlet sel -t -m "//rocknix/${DEVICE}/file" \
-    -v "concat(@short, '|', @full, '|', .)" -n "${CONFIGXML}" 2>/dev/null | while IFS='|' read -r SHORT FULL DTB; do
-
-  case "${SHORT}" in
-    odin)    DEVICE_FBROTATE="" ;;
-    odin-m2) DEVICE_FBROTATE="fbcon=rotate:3" ;;
-    *)       DEVICE_FBROTATE="" ;;
-  esac
+    -v "concat(@short, '|', @full, '|', ., '|', @cmdline)" -n "${CONFIGXML}" 2>/dev/null | while IFS='|' read -r SHORT FULL DTB DEVICE_CMDLINE; do
 
   cat << EOF
 menuentry '${FULL}' \$menuentry_id_option '${SHORT}' {
         savedefault
         search --set -f /KERNEL
-        linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} ${DEVICE_FBROTATE}
+        linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} ${DEVICE_CMDLINE}
         devicetree /boot/grub/${DTB}.dtb
 }
 EOF
   done
 
   xmlstarlet sel -t -m "//rocknix/${DEVICE}/file" \
-    -v "concat(@short, '|', @full, '|', .)" -n "${CONFIGXML}" 2>/dev/null | while IFS='|' read -r SHORT FULL DTB; do
-
-  case "${SHORT}" in
-    odin)    DEVICE_FBROTATE="" ;;
-    odin-m2) DEVICE_FBROTATE="fbcon=rotate:3" ;;
-    *)       DEVICE_FBROTATE="" ;;
-  esac
+    -v "concat(@short, '|', @full, '|', ., '|', @cmdline)" -n "${CONFIGXML}" 2>/dev/null | while IFS='|' read -r SHORT FULL DTB DEVICE_CMDLINE; do
 
   cat << EOF
 menuentry '${FULL} RECOVERY' \$menuentry_id_option '${SHORT}-recovery' {
         search --set -f /KERNEL
-        linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} ${DEVICE_FBROTATE} recovery
+        linux /KERNEL boot=LABEL=${DISTRO_BOOTLABEL} disk=LABEL=${DISTRO_DISKLABEL} grub_portable ${EXTRA_CMDLINE} ${DEVICE_CMDLINE} recovery
         devicetree /boot/grub/${DTB}.dtb
 }
 EOF

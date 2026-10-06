@@ -70,7 +70,7 @@ jobs:
             ./build.ROCKNIX-${{ inputs.DEVICE }}.aarch64/.threads/logs/
 
       - name: Build llvm:target
-        if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' || inputs.DEVICE == 'SM8750' }}
+        if: ${{ inputs.DEVICE == 'SDM845' || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' || inputs.DEVICE == 'SM8750' }}
         uses: corrupt952/actions-retry-command@v1.0.7
         with:
           command: |

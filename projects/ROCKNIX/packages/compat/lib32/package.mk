@@ -10,6 +10,9 @@ PKG_LONGDESC="ARM 32bit bundle for aarch64"
 PKG_TOOLCHAIN="manual"
 PKG_BUILD_FLAGS="-strip"
 
+# Refresh the compatibility bundle when the ARM image libraries change.
+PKG_NEED_UNPACK="$ROOT/build.${DISTRO}-${DEVICE}.arm/image/system/usr/lib $ROOT/build.${DISTRO}-${DEVICE}.arm/image/system/usr/lib32"
+
 makeinstall_target() {
   case ${TARGET_ARCH} in
     aarch64)
