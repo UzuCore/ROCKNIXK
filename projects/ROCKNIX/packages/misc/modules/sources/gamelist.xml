@@ -131,30 +131,6 @@
         <image>./images/steam.svg</image>
     </game>
     <game>
-        <path>./Install Codex.sh</path>
-        <name>Codex 설치</name>
-        <desc>OpenAI Codex CLI를 다운로드해 설치하거나 업데이트합니다. 설치 후 도구 메뉴에서 Codex 실행을 선택하거나 QTerminal에서 codex를 입력하세요.</desc>
-        <developer>OpenAI</developer>
-        <publisher>OpenAI</publisher>
-        <rating>5.0</rating>
-        <releasedate>2026</releasedate>
-        <genre>Tool</genre>
-        <players>1</players>
-        <image>./images/qterminal.svg</image>
-    </game>
-    <game>
-        <path>./Start Codex.sh</path>
-        <name>Codex 실행</name>
-        <desc>전용 작업 공간에서 OpenAI Codex CLI를 실행합니다. 로그인이 필요하면 먼저 기기 인증 절차를 시작합니다.</desc>
-        <developer>OpenAI</developer>
-        <publisher>OpenAI</publisher>
-        <rating>5.0</rating>
-        <releasedate>2026</releasedate>
-        <genre>Tool</genre>
-        <players>1</players>
-        <image>./images/qterminal.svg</image>
-    </game>
-    <game>
         <path>./Uninstall Steam.sh</path>
         <name>Steam 제거</name>
         <desc>Steam 클라이언트와 런타임을 제거합니다. 설치한 게임(steamapps), 저장 데이터(userdata), 다운로드 캐시는 유지합니다.</desc>

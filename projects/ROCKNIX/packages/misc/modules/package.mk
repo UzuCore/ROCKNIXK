@@ -39,21 +39,6 @@ if not any(game.findtext('path') == './Start Eden.sh' for game in root.findall('
 tree.write(path, encoding='utf-8', xml_declaration=True)
 PY
   fi
-
-  if [[ "${CODEX_SUPPORT}" != "yes" ]]; then
-    "${TOOLCHAIN}/bin/python3" - "${INSTALL}/usr/config/modules/gamelist.xml" <<'PY'
-import sys
-import xml.etree.ElementTree as ET
-path = sys.argv[1]
-tree = ET.parse(path)
-root = tree.getroot()
-for game in list(root.findall('game')):
-    if game.findtext('path') in ('./Install Codex.sh', './Start Codex.sh'):
-        root.remove(game)
-tree.write(path, encoding='utf-8', xml_declaration=True)
-PY
-  fi
-
   case ${DEVICE} in
     SM8650|SM8750) rm -f ${INSTALL}/usr/config/modules/*32bit* ;;
   esac

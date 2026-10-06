@@ -78,14 +78,6 @@ on:
         required: false
         default: false
         type: boolean
-      build_profile:
-        description: 'Build profile'
-        required: false
-        default: standard
-        type: choice
-        options:
-          - standard
-          - codex
   workflow_call:
   pull_request:
     types: [ assigned ]
@@ -99,7 +91,6 @@ jobs:
     outputs:
       NIGHTLY: ${{ steps.set-release-type.outputs.NIGHTLY }}
       OFFICIAL: ${{ steps.set-release-type.outputs.OFFICIAL }}
-      CODEX_SUPPORT: ${{ steps.set-codex-profile.outputs.CODEX_SUPPORT }}
       OWNER_LC: ${{ steps.set-envs.outputs.OWNER_OUTPUT }}
       matrix: ${{ steps.generate.outputs.matrix }}
     steps:
@@ -122,14 +113,6 @@ jobs:
           else
             echo "OFFICIAL=no" >> $GITHUB_OUTPUT
             echo "NIGHTLY=yes" >> $GITHUB_OUTPUT
-          fi
-      - name: Determine Codex profile
-        id: set-codex-profile
-        run: |
-          if [[ "${{ inputs.build_profile }}" == "codex" ]]; then
-            echo "CODEX_SUPPORT=yes" >> $GITHUB_OUTPUT
-          else
-            echo "CODEX_SUPPORT=no" >> $GITHUB_OUTPUT
           fi
       - id: generate
         shell: bash
@@ -226,7 +209,6 @@ jobs:
       OWNER_LC: ${{ needs.set-envs.outputs.OWNER_LC }}
       NIGHTLY: ${{ needs.set-envs.outputs.NIGHTLY }}
       OFFICIAL: ${{ needs.set-envs.outputs.OFFICIAL }}
-      CODEX_SUPPORT: ${{ needs.set-envs.outputs.CODEX_SUPPORT }}
 
   rerun-failed-jobs:
     if: always() && !cancelled() && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) && fromJSON(github.run_attempt) < 3 && github.ref_name == 'next' && (github.event_name != 'schedule' || github.repository == 'UzuCore/ROCKNIXK')
@@ -277,17 +259,10 @@ jobs:
 
      - name: Set release metadata
        run: |
-         if [[ "${{ inputs.build_profile }}" == "codex" ]]; then
-           echo "RELEASE_TAG=${DATE}-CODEX" >> $GITHUB_ENV
-           echo "RELEASE_NAME=${DATE} CODEX" >> $GITHUB_ENV
-           echo "RELEASE_PRERELEASE=true" >> $GITHUB_ENV
-           echo "RELEASE_LATEST=false" >> $GITHUB_ENV
-         else
-           echo "RELEASE_TAG=${DATE}" >> $GITHUB_ENV
-           echo "RELEASE_NAME=${DATE}" >> $GITHUB_ENV
-           echo "RELEASE_PRERELEASE=false" >> $GITHUB_ENV
-           echo "RELEASE_LATEST=true" >> $GITHUB_ENV
-         fi
+         echo "RELEASE_TAG=${DATE}" >> $GITHUB_ENV
+         echo "RELEASE_NAME=${DATE}" >> $GITHUB_ENV
+         echo "RELEASE_PRERELEASE=false" >> $GITHUB_ENV
+         echo "RELEASE_LATEST=true" >> $GITHUB_ENV
 
      - name: Generate changelog
        shell: bash

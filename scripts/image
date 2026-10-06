@@ -111,10 +111,6 @@ if [ -n "${IMAGE_SUFFIX}" ]; then
   IMAGE_NAME="${IMAGE_NAME}-${IMAGE_SUFFIX}"
 fi
 
-if [ "${CODEX_SUPPORT}" = "yes" ]; then
-  IMAGE_NAME="${IMAGE_NAME}-CODEX"
-fi
-
 echo "${IMAGE_NAME}" >${BUILD}/BUILD_FILENAME
 
 # Setup fakeroot
