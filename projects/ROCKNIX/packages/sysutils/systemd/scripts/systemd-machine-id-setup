@@ -25,7 +25,7 @@ case "${HW_DEVICE}" in
   RK3399) UID_FILE="/sys/bus/nvmem/devices/rockchip-efuse0/nvmem";;
   RK*) UID_FILE="/sys/bus/nvmem/devices/rockchip-otp0/nvmem";;
   S922X) UID_FILE="/sys/bus/platform/devices/secure-monitor/serial";;
-  SDM845|SM*) UID_FILE="/sys/devices/soc0/serial_number";;
+  SM*) UID_FILE="/sys/devices/soc0/serial_number";;
 esac
 
 # Fallback if file does not exist to generated UUID

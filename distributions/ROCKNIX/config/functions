@@ -279,7 +279,7 @@ insmod part_msdos
 load_env
 
 if [ "\${saved_entry}" ]; then
-  set timeout=${GRUB_TIMEOUT:-2}
+  set timeout=2
   set default="\${saved_entry}"
 else
   set timeout=-1
@@ -303,7 +303,7 @@ EOF
 
 if [ -n "\${abl_dev}" ]; then
   set default="\${abl_dev}"
-  set timeout=${GRUB_TIMEOUT:-2}
+  set timeout=2
 fi
 
 if [ x"\${feature_menuentry_id}" = xy ]; then
@@ -319,9 +319,6 @@ function savedefault {
 }
 
 set timeout_style=menu
-if [ -n "\${abl_dev}" ] || [ -n "\${saved_entry}" ]; then
-  set timeout_style=${GRUB_TIMEOUT_STYLE:-menu}
-fi
 set lang=en_US
 loadfont /boot/grub/dejavu-mono.pf2
 set rotation=${GRUB_ROTATION:-270}

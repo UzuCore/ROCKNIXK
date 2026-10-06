@@ -17,47 +17,25 @@ if [ ! -f "${CONF_FILE}" ]; then
         cp -r "/usr/config/eden/qt-config.ini" "${CONF_FILE}"
 fi
 
-# SDL3 uses a different GUID for the Odin virtual DualSense controller.
-if [ "${HW_DEVICE}" = "SDM845" ]; then
-    sed -i 's/guid:030000004c050000e60c000011810000/guid:030000004c050000e60c000000006800/g' "${CONF_FILE}"
+#Move Nand / Saves to switch roms folder
+if [ ! -d "/storage/roms/bios/eden/nand" ]; then
+    mkdir -p "/storage/roms/bios/eden/nand"
 fi
 
-# Preserve existing data before linking the shared BIOS and save folders.
-merge_eden_directory() {
-    local source="$1" target="$2" entry destination
-    mkdir -p "$target" || return 1
-    for entry in "$source"/* "$source"/.[!.]* "$source"/..?*; do
-        [ -e "$entry" ] || [ -L "$entry" ] || continue
-        destination="$target/${entry##*/}"
-        if [ -d "$entry" ] && [ ! -L "$entry" ] && [ -d "$destination" ] && [ ! -L "$destination" ]; then
-            merge_eden_directory "$entry" "$destination" || return 1
-        elif [ ! -e "$destination" ] && [ ! -L "$destination" ]; then
-            cp -a "$entry" "$destination" || return 1
-        fi
-    done
-}
+rm -rf /storage/.config/eden/nand
+ln -sf /storage/roms/bios/eden/nand /storage/.config/eden/nand
 
-link_eden_directory() {
-    local source="$1" target="$2" backup
-    mkdir -p "$target" "$(dirname "$source")"
-    if [ -L "$source" ]; then
-        [ "$(readlink "$source")" = "$target" ] && return 0
-        # A different symlink may contain saves: preserve its contents and link.
-        [ ! -d "$source" ] || merge_eden_directory "$source" "$target" || return 1
-    elif [ -d "$source" ]; then
-        merge_eden_directory "$source" "$target" || return 1
-    fi
-    if [ -e "$source" ] || [ -L "$source" ]; then
-        backup="${source}.before-link.$(date +%s).$$"
-        mv "$source" "$backup" || return 1
-    fi
-    ln -s "$target" "$source"
-}
+#Link eden keys to bios folder
+if [ ! -d "/storage/roms/bios/eden/keys" ]; then
+    mkdir -p "/storage/roms/bios/eden/keys"
+fi
 
-# Migrate the old Qt data directory first so its keys and saves are retained.
-link_eden_directory /storage/.local/share/eden /storage/.config/eden || exit 1
-link_eden_directory /storage/.config/eden/nand /storage/roms/bios/eden/nand || exit 1
-link_eden_directory /storage/.config/eden/keys /storage/roms/bios/eden/keys || exit 1
+rm -rf /storage/.config/eden/keys
+ln -sf /storage/roms/bios/eden/keys /storage/.config/eden/keys
+
+#Link  .config/eden to .local
+rm -rf /storage/.local/share/eden
+ln -sf /storage/.config/eden /storage/.local/share/eden
 
 # EmulationStation features
 GAME=$(echo "${1}" | sed "s#^/.*/##")
@@ -145,7 +123,7 @@ fi
 export DISABLE_LSFGVK=1
 unset LSFGVK_ENV LSFGVK_DLL_PATH LSFGVK_MULTIPLIER LSFGVK_FLOW_SCALE LSFGVK_PERFORMANCE_MODE LSFGVK_PACING
 
-# Use XWayland for the Qt desktop interface.
+#Set QT Platform to Wayland-EGL
 export QT_QPA_PLATFORM=xcb
 
 #eden won't work with the pipewire driver yet
@@ -154,9 +132,4 @@ export SDL_AUDIODRIVER=pulseaudio
 set_kill set "-9 eden"
 
 #Run eden emulator
-if [ -n "${1:-}" ]; then
-    /usr/bin/eden -f "$1"
-else
-    sway_fullscreen "eden" "class" &
-    /usr/bin/eden
-fi
+/usr/bin/eden -f "${1}"

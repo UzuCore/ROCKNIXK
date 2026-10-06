@@ -1,2 +1,0 @@
-# Odin WSA881x runtime resume times out after the initial boot autosuspend.
-ACTION=="add|bind|change", SUBSYSTEM=="soundwire", KERNEL=="sdw:0:0:0217:2010:00:*", ATTR{power/control}="on"

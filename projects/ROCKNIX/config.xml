@@ -107,10 +107,6 @@
     <file>meson-g12b-odroid-go-ultra</file>
     <file>meson-g12b-powkiddy-rgb10-max-3-pro</file>
   </S922X>
-  <SDM845 mkimage_options="grub,dtb" dtb_prefix="qcom">
-    <file short="odin" full="AYN Odin" rotation="3">sdm845-ayn-odin</file>
-    <file short="odin-m2" full="AYN Odin M2" rotation="1">sdm845-ayn-odin-m2</file>
-  </SDM845>
   <SM4450 mkimage_options="abl" dtb_prefix="qcom">
     <file>sm4450-anbernic-rg55g1</file>
     <file>sm4450-retroid-pocket-classic-revq</file>

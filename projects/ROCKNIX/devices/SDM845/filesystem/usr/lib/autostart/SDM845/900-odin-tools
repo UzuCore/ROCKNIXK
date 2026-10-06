@@ -1,6 +1,0 @@
-#!/bin/sh
-# SPDX-License-Identifier: GPL-2.0-or-later
-/usr/bin/odin-register-tools
-if [ "$(tr -d '\0' </proc/device-tree/model)" = 'AYN Odin M2' ]; then
-  systemctl start --no-block odin-touch.service
-fi

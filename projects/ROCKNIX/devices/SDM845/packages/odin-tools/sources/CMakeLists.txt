@@ -1,8 +1,0 @@
-cmake_minimum_required(VERSION 3.20)
-project(odin_tools LANGUAGES CXX)
-set(CMAKE_CXX_STANDARD 17)
-find_package(Qt6 REQUIRED COMPONENTS Widgets)
-find_package(SDL2 REQUIRED)
-add_executable(odin-led-gui main.cpp)
-target_link_libraries(odin-led-gui PRIVATE Qt6::Widgets SDL2::SDL2)
-install(TARGETS odin-led-gui RUNTIME DESTINATION bin)
