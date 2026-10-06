@@ -73,8 +73,8 @@ on:
         required: false
         default: false
         type: boolean
-      Odin:
-        description: 'Odin'
+      SDM845:
+        description: 'SDM845'
         required: false
         default: true
         type: boolean
@@ -132,7 +132,7 @@ jobs:
             ["SM6115"]="${{ inputs.SM6115 }}"
             ["SM4450"]="${{ inputs.SM4450 }}"
             ["T618"]="${{ inputs.T618 }}"
-            ["SDM845"]="${{ inputs.Odin }}"
+            ["SDM845"]="${{ inputs.SDM845 }}"
           )
           
           SELECTED_MATRIX=""
@@ -148,7 +148,7 @@ jobs:
           elif [[ "${{ inputs.T618 }}" == "true" ]]; then
             echo "::error::Select the t618 branch to build T618."
             exit 1
-          elif [[ "${{ inputs.Odin }}" == "true" ]]; then
+          elif [[ "${{ inputs.SDM845 }}" == "true" ]]; then
             echo "::error::Select the odin branch to build SDM845."
             exit 1
           fi
@@ -221,9 +221,11 @@ jobs:
         run: gh workflow run retry-workflow.yml -F run_id=${{ github.run_id }}
 
   release-nightly:
-     if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.set-envs.outputs.NIGHTLY == 'yes' && github.event_name != 'pull_request' && github.ref_name != 't618' && github.ref_name != 'odin' }}
+     if: ${{ always() && !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && needs.set-envs.outputs.NIGHTLY == 'yes' && github.event_name != 'pull_request' }}
      name: Release to My Repo
-     needs: build-devices
+     needs:
+       - set-envs
+       - build-devices
      runs-on: ubuntu-24.04
      permissions:
        contents: write # 릴리즈 생성을 위해 쓰기 권한 필요
@@ -259,10 +261,22 @@ jobs:
 
      - name: Set release metadata
        run: |
-         echo "RELEASE_TAG=${DATE}" >> $GITHUB_ENV
-         echo "RELEASE_NAME=${DATE}" >> $GITHUB_ENV
-         echo "RELEASE_PRERELEASE=false" >> $GITHUB_ENV
-         echo "RELEASE_LATEST=true" >> $GITHUB_ENV
+         if [[ "${GITHUB_REF_NAME}" == "t618" ]]; then
+           echo "RELEASE_TAG=${DATE}-t618" >> $GITHUB_ENV
+           echo "RELEASE_NAME=${DATE} T618" >> $GITHUB_ENV
+           echo "RELEASE_PRERELEASE=true" >> $GITHUB_ENV
+           echo "RELEASE_LATEST=false" >> $GITHUB_ENV
+         elif [[ "${GITHUB_REF_NAME}" == "odin" ]]; then
+           echo "RELEASE_TAG=${DATE}-sdm845" >> $GITHUB_ENV
+           echo "RELEASE_NAME=${DATE} SDM845" >> $GITHUB_ENV
+           echo "RELEASE_PRERELEASE=true" >> $GITHUB_ENV
+           echo "RELEASE_LATEST=false" >> $GITHUB_ENV
+         else
+           echo "RELEASE_TAG=${DATE}" >> $GITHUB_ENV
+           echo "RELEASE_NAME=${DATE}" >> $GITHUB_ENV
+           echo "RELEASE_PRERELEASE=false" >> $GITHUB_ENV
+           echo "RELEASE_LATEST=true" >> $GITHUB_ENV
+         fi
 
      - name: Generate changelog
        shell: bash
