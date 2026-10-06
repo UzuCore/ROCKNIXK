@@ -7,6 +7,7 @@
 - Report the Odin D-pad through standard hat axes and match InputPlumber mappings.
 - Include SDM845 in emulator system registration, including Eden, Dolphin and Cemu.
 - Add RetroArch's v4l-utils dependency and include initramfs inputs in the kernel build stamp.
+- Remove the Odin serial notice opt-in; clear its generated profile and notice marker on boot for existing installations.
 
 ## Verification
 
@@ -25,4 +26,4 @@ Files are under `D:\rxodin\build\image`; detailed evidence is under `D:\rxodin\a
 | SYSTEM | `c1d4c39193c75bf74ba2fc4032a6ce2a2efb498daa487c69927115719b3122b1` |
 | KERNEL | `99f244fc41dc80dc4ca888a84b51071b508bbcd9f7801cdd031cfd7c0b62fb89` |
 
-These artifacts were built before synchronizing the three newer remote `odin` commits for this checkpoint.
+These artifacts were built before synchronizing the three newer remote `odin` commits and before removing the Odin serial notice opt-in. Rebuild to include that removal.

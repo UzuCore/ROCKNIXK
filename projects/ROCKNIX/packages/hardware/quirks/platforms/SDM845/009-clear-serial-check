@@ -1,0 +1,4 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0
+
+rm -f /storage/.config/profile.d/009-serial-number-path /storage/serial_number_check_status
