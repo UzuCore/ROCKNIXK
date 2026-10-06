@@ -67,7 +67,7 @@ post_install() {
 
   HOTKEY=""
   case "${DEVICE}" in
-    RK3588|S922X|SM*) hotkey='export HOTKEY="guide"' ;;
+    RK3588|S922X|SDM845|SM*) hotkey='export HOTKEY="guide"' ;;
   esac
 
   LIBMALI=""

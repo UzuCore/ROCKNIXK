@@ -36,7 +36,7 @@ post_install() {
     panfrost) GRAPHICS="export MESA_GL_VERSION_OVERRIDE=3.3 MESA_GLSL_VERSION_OVERRIDE=330" ;;
     freedreno)
       case ${DEVICE} in
-        SM8250) GRAPHICS="export TU_DEBUG=sysmem" ;;
+        SDM845|SM8250) GRAPHICS="export TU_DEBUG=sysmem" ;;
         *) GRAPHICS="" ;;
       esac
       ;;

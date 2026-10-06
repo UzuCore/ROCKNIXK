@@ -70,6 +70,12 @@ case "${DEVICE}" in
     PKG_EMUS+=" aethersx2-sa armsx2-sa azahar-sa dolphin-sa drastic-sa mednafen melonds-sa supermodel-sa vita3k-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr uae4arm-lr"
     ;;
+  SDM845)
+    [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 daedalusx64-sa desmume-lr gpsp-lr pcsx_rearmed-lr"
+    PKG_EMUS+=" aethersx2-sa armsx2-sa azahar-sa bigpemu-sa cemu-sa dolphin-sa heroic mednafen melonds-sa nanoboyadvance-sa supermodel-sa \
+                xemu-sa skyemu-sa steam vita3k-sa eden-sa"
+    LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr kronos-lr uae4arm-lr"
+    ;;
   # TODO: cemu and xemu testing, drop if unplayable
   SM4450)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 daedalusx64-sa desmume-lr gpsp-lr pcsx_rearmed-lr"
@@ -1216,6 +1222,13 @@ makeinstall_target() {
     add_emu_core ps2 armsx2 armsx2-sa true
     install_script "Start ARMSX2.sh"
     add_es_system ps2
+    ;;
+  SDM845)
+    add_emu_core ps2 aethersx2 aethersx2-sa true
+    add_emu_core ps2 armsx2 armsx2-sa false
+    add_es_system ps2
+    install_script "Start ARMSX2.sh"
+    install_script "Start AetherSX2.sh"
     ;;
   RK3399|RK3576|RK3566|RK3588|SM4450|SM6115|SM8250|SM8550|SM8650|SM8750|S922X)
     add_emu_core ps2 armsx2 armsx2-sa true

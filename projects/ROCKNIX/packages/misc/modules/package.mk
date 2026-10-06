@@ -11,7 +11,7 @@ PKG_LONGDESC="OS Modules Package"
 PKG_TOOLCHAIN="manual"
 
 case ${DEVICE} in
-  RK3399|RK3588|SM8250|SM8550|SM8650|SM8750|SM4450|SM6115)
+  SDM845|RK3399|RK3588|SM8250|SM8550|SM8650|SM8750|SM4450|SM6115)
     PKG_DEPENDS_TARGET+=" gamepadtester"
     ;;
 esac
@@ -39,6 +39,7 @@ if not any(game.findtext('path') == './Start Eden.sh' for game in root.findall('
 tree.write(path, encoding='utf-8', xml_declaration=True)
 PY
   fi
+
   case ${DEVICE} in
     SM8650|SM8750) rm -f ${INSTALL}/usr/config/modules/*32bit* ;;
   esac
