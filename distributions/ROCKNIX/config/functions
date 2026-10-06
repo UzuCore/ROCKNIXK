@@ -272,6 +272,12 @@ get_fdt_overlays() {
 
 generate_grub_cfg_body() {
   local MODEL_MATCH
+  local DEVICE_GRUB_TIMEOUT=2
+  local DEVICE_GRUB_TIMEOUT_STYLE=menu
+  if [ "${DEVICE}" = "SDM845" ]; then
+    DEVICE_GRUB_TIMEOUT=${GRUB_TIMEOUT:-2}
+    DEVICE_GRUB_TIMEOUT_STYLE=${GRUB_TIMEOUT_STYLE:-menu}
+  fi
 
   cat << EOF
 insmod part_gpt
@@ -279,7 +285,7 @@ insmod part_msdos
 load_env
 
 if [ "\${saved_entry}" ]; then
-  set timeout=${GRUB_TIMEOUT:-2}
+  set timeout=${DEVICE_GRUB_TIMEOUT}
   set default="\${saved_entry}"
 else
   set timeout=-1
@@ -303,7 +309,7 @@ EOF
 
 if [ -n "\${abl_dev}" ]; then
   set default="\${abl_dev}"
-  set timeout=${GRUB_TIMEOUT:-2}
+  set timeout=${DEVICE_GRUB_TIMEOUT}
 fi
 
 if [ x"\${feature_menuentry_id}" = xy ]; then
@@ -319,9 +325,17 @@ function savedefault {
 }
 
 set timeout_style=menu
+EOF
+
+  if [ "${DEVICE}" = "SDM845" ]; then
+    cat << EOF
 if [ -n "\${abl_dev}" ] || [ -n "\${saved_entry}" ]; then
-  set timeout_style=${GRUB_TIMEOUT_STYLE:-menu}
+  set timeout_style=${DEVICE_GRUB_TIMEOUT_STYLE}
 fi
+EOF
+  fi
+
+  cat << EOF
 set lang=en_US
 loadfont /boot/grub/dejavu-mono.pf2
 set rotation=${GRUB_ROTATION:-270}

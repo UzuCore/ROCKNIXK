@@ -31,7 +31,7 @@ These artifacts were built before synchronizing the three newer remote `odin` co
 ## Integration cleanup - 2026-10-07
 
 - Keep device drivers, tools, runtime services and MOTD restoration under SDM845; reuse existing emulator configuration directories through symlinks.
-- Store the M2 console rotation in the device XML command line, shared by normal and recovery entries. Remove Odin model cases from the common GRUB generator.
+- Store the M2 console rotation in the device XML command line, shared by normal and recovery entries. Apply Odin GRUB timeout settings only when building SDM845; other devices keep the previous timeout output.
 - Remove the unused splash override hook and the Odin-only initramfs copy/check block from the kernel recipe. BusyBox stages device.init; BusyBox and initramfs track it for SDM845 only, and the kernel inherits initramfs inputs.
 - Remove the ineffective FEX Nix pin that was immediately overwritten by the existing pin.
 - Invalidate the SDM845 lib32 bundle when its ARM library inputs change. An older cached bundle prevented retroarch32 from starting; applying matching libraries and rebuilding the loader cache restored Tekken 3 on the test M2.
