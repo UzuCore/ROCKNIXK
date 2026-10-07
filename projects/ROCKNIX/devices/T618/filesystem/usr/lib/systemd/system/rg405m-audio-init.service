@@ -8,7 +8,7 @@ ConditionPathExists=/proc/asound/RG405M
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStartPre=/usr/lib/rg405m/audio-hide-pcms
+ExecStartPre=/bin/sh /usr/lib/rg405m/audio-hide-pcms
 ExecStart=-/usr/bin/alsaucm -c RG405M set _verb HiFi set _enadev Speaker
 
 [Install]
