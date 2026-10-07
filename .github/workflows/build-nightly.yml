@@ -69,7 +69,7 @@ on:
         default: false
         type: boolean
       T618:
-        description: 'T618 (RG405M / RG405V)'
+        description: 'T618'
         required: false
         default: false
         type: boolean
