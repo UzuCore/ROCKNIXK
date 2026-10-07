@@ -32,7 +32,10 @@
       "path": "sound/soc/sprd/vendor/sprd-headset-sc2730.c",
       "base_sha256": null,
       "sha256": "d1f207a8f35c11843c6b0dfb1ba1a31bd2e774cd256bc10af6cce06b6a6dca37",
-      "size": 97314
+      "size": 97314,
+      "prior_sha256s": [
+        "a91a4fb5af36625c0f4acca2ff68fb5e41c4f39c89528d252c00bcddaded769f"
+      ]
     },
     {
       "path": "sound/soc/sprd/vendor/sprd-rg405m-aux.c",

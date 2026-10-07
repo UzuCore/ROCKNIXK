@@ -36,7 +36,8 @@ def plan(kernel: Path, build_root: Path) -> list[tuple[Path, Path, str]]:
         if target.is_symlink() or not target.resolve().is_relative_to(kernel):
             raise ValueError('Destination symlink escapes build root')
         current = digest(target) if target.is_file() else None
-        if current not in (row['base_sha256'], row['sha256']):
+        accepted = (row['base_sha256'], row['sha256'], *row.get('prior_sha256s', []))
+        if current not in accepted:
             raise ValueError('Kernel source differs from the pinned input: ' + str(relative))
         result.append((source, target, row['sha256']))
     if not result:

@@ -166,9 +166,9 @@ class FirmwareTests(unittest.TestCase):
         self.assertIn('/lib/firmware/rg405v/wcnmodem.bin', dts)
         self.assertIn('sprd/rg405v/wifi_board_config.ini', dts)
         self.assertIn('sprd/rg405v/bt_configure_pskey.ini', dts)
-        integration = ROOT / 'packages/t618-kernel-integration/sources'
-        sdio = (integration / 'drivers/net/wireless/unisoc/sdio.c').read_text()
-        bluetooth = (integration / 'drivers/bluetooth/btsprd_hci.c').read_text()
+        wireless = (ROOT / 'patches/linux/rg-rotate/0150-wireless.patch').read_text()
+        sdio = wireless.split('+++ b/drivers/net/wireless/unisoc/sdio.c\n', 1)[1].split('diff --git ', 1)[0]
+        bluetooth = wireless.split('+++ b/drivers/bluetooth/btsprd_hci.c\n', 1)[1].split('diff --git ', 1)[0]
         self.assertIn('const char *hw_param_file = "sprd/wifi_board_config.ini";', sdio)
         self.assertIn('sprd,wifi-board-config-file-name', sdio)
         self.assertIn('const char *pskey_file = BT_PSKEY_INI;', bluetooth)
@@ -182,7 +182,8 @@ class FirmwareTests(unittest.TestCase):
         self.assertEqual(targets, {'ums512-rg405m', 'ums512-rg405v'})
 
     def test_wcn_request_respects_model_firmware_name(self):
-        source = (ROOT / 'packages/t618-kernel-integration/sources/drivers/net/wireless/sprdwcn/platform/wcn_boot.c').read_text()
+        wireless = (ROOT / 'patches/linux/rg-rotate/0150-wireless.patch').read_text()
+        source = wireless.split('+++ b/drivers/net/wireless/sprdwcn/platform/wcn_boot.c\n', 1)[1].split('diff --git ', 1)[0]
         self.assertIn('const char *firmware_name = "wcnmodem.bin";', source)
         self.assertIn('of_property_read_string(marlin_dev->dev->of_node, "firmware-name",', source)
         self.assertIn('request_firmware(&firmware, firmware_name, marlin_dev->dev)', source)

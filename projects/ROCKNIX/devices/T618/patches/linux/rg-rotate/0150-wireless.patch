@@ -66,10 +66,10 @@ index 81856512ddd030ba8172ff106b80b4b951188cbd..7e781e05422e6ba7e3a83efe39f417b6
  
 diff --git a/drivers/bluetooth/btsprd_hci.c b/drivers/bluetooth/btsprd_hci.c
 new file mode 100644
-index 0000000000000000000000000000000000000000..2a4cdf6dad00357b443f951c886c80b12c1415db
+index 0000000000000000000000000000000000000000..bff5a3876309bbad10b390a8c65516b8a02d9f3a
 --- /dev/null
 +++ b/drivers/bluetooth/btsprd_hci.c
-@@ -0,0 +1,515 @@
+@@ -0,0 +1,522 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Unisoc Marlin3-Lite (SC2355) Bluetooth HCI driver over the sprdwcn SDIO bus.
@@ -469,18 +469,25 @@ index 0000000000000000000000000000000000000000..2a4cdf6dad00357b443f951c886c80b1
 +{
 +	struct btsprdsdio *bts;
 +	struct hci_dev *hdev;
++	const char *pskey_file = BT_PSKEY_INI;
++	const char *rf_file = BT_RF_INI;
 +	int ret;
 +
 +	bts = devm_kzalloc(&pdev->dev, sizeof(*bts), GFP_KERNEL);
 +	if (!bts)
 +		return -ENOMEM;
 +
-+	ret = btsprdsdio_load_cfg(&pdev->dev, BT_PSKEY_INI, bts->pskey_cfg,
++	of_property_read_string(pdev->dev.of_node,
++				"sprd,bt-pskey-file-name", &pskey_file);
++	of_property_read_string(pdev->dev.of_node,
++				"sprd,bt-rf-file-name", &rf_file);
++
++	ret = btsprdsdio_load_cfg(&pdev->dev, pskey_file, bts->pskey_cfg,
 +				  BT_PSKEY_MAX, &bts->pskey_cfg_len);
 +	if (ret)
 +		return ret;
 +
-+	ret = btsprdsdio_load_cfg(&pdev->dev, BT_RF_INI, bts->rf_cfg,
++	ret = btsprdsdio_load_cfg(&pdev->dev, rf_file, bts->rf_cfg,
 +				  BT_RF_MAX, &bts->rf_cfg_len);
 +	if (ret)
 +		return ret;
@@ -10285,10 +10292,10 @@ index 0000000000000000000000000000000000000000..9a10c380a39dc591fd79b1abd63d1173
 +
 diff --git a/drivers/net/wireless/sprdwcn/platform/wcn_boot.c b/drivers/net/wireless/sprdwcn/platform/wcn_boot.c
 new file mode 100755
-index 0000000000000000000000000000000000000000..4a23af31a67f6937284be63d17127d34055be2c9
+index 0000000000000000000000000000000000000000..64b17e23edc1414bfd6fb76fd3839291aab940ea
 --- /dev/null
 +++ b/drivers/net/wireless/sprdwcn/platform/wcn_boot.c
-@@ -0,0 +1,3283 @@
+@@ -0,0 +1,3287 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Copyright (C) 2020 Unisoc Communications Inc.
@@ -11250,6 +11257,7 @@ index 0000000000000000000000000000000000000000..4a23af31a67f6937284be63d17127d34
 +static int btwifi_download_firmware(void)
 +{
 +	const struct firmware *firmware;
++	const char *firmware_name = "wcnmodem.bin";
 +	char *buf;
 +	int err;
 +	int i, len, count, trans_size;
@@ -11264,14 +11272,17 @@ index 0000000000000000000000000000000000000000..4a23af31a67f6937284be63d17127d34
 +
 +	pr_info("marlin %s from /system/etc/firmware/ start!\n", __func__);
 +	buf = marlin_dev->write_buffer;
++	of_property_read_string(marlin_dev->dev->of_node, "firmware-name",
++				&firmware_name);
++	pr_info("BTWF firmware selected: %s\n", firmware_name);
 +
 +#ifdef FIRMWARE_PARTITION_DEBUG_EN
-+	err = request_firmware_direct(&firmware, "wcnmodem.bin", NULL);
++	err = request_firmware_direct(&firmware, firmware_name, marlin_dev->dev);
 +#else
-+	err = request_firmware(&firmware, "wcnmodem.bin", NULL);
++	err = request_firmware(&firmware, firmware_name, marlin_dev->dev);
 +#endif
 +	if (err < 0) {
-+		pr_err("no find wcnmodem.bin errno:(%d)(ignore!!)\n", err);
++		pr_err("no find %s errno:(%d)(ignore!!)\n", firmware_name, err);
 +		marlin_dev->is_btwf_in_sysfs = true;
 +		err = marlin_download_from_partition();
 +
@@ -31301,10 +31312,10 @@ index 0000000000000000000000000000000000000000..6198a942994de9ae7e2fde6fee2c3da8
 +#endif
 diff --git a/drivers/net/wireless/unisoc/sdio.c b/drivers/net/wireless/unisoc/sdio.c
 new file mode 100644
-index 0000000000000000000000000000000000000000..3bfe61f48f579364ee04a721a3b2e46a2a4b752e
+index 0000000000000000000000000000000000000000..cbb9d4a71e652d9c4d4e0edd06323c282eecc724
 --- /dev/null
 +++ b/drivers/net/wireless/unisoc/sdio.c
-@@ -0,0 +1,611 @@
+@@ -0,0 +1,614 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * SDIO transport for the external Unisoc SC2355 (Marlin3-Lite) WiFi/BT
@@ -31808,6 +31819,7 @@ index 0000000000000000000000000000000000000000..3bfe61f48f579364ee04a721a3b2e46a
 +static int sc23xx_sdio_probe(struct platform_device *pdev)
 +{
 +	struct sc23xx_sdio *priv;
++	const char *hw_param_file = "sprd/wifi_board_config.ini";
 +	int ret;
 +
 +	priv = sc23xx_alloc_device(&pdev->dev, sizeof(*priv),
@@ -31861,7 +31873,9 @@ index 0000000000000000000000000000000000000000..3bfe61f48f579364ee04a721a3b2e46a
 +	}
 +
 +	/* Download the board config/NVM (INI), CRC-appended per SC2355 fw. */
-+	ret = sc23xx_load_hw_param(&priv->sdev, "sprd/wifi_board_config.ini");
++	of_property_read_string(pdev->dev.of_node,
++				"sprd,wifi-board-config-file-name", &hw_param_file);
++	ret = sc23xx_load_hw_param(&priv->sdev, hw_param_file);
 +	if (ret) {
 +		dev_err(&pdev->dev, "failed to download config: %d\n", ret);
 +		goto err_stop;
