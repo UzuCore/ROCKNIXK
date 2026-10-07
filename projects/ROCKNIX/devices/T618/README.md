@@ -7,8 +7,9 @@ Kernel: kernel.org Linux 7.1.2 with the 225-commit
 consolidated into 11 subsystem patches with identical final sources.
 
 This remains a source candidate, not a release. A limited RG405V runtime boot
-has since been observed; its cross-axis joystick issue and full device
-acceptance remain open. See `SOURCE_GATES.md` for the precise scope and
+has since been observed; its cross-axis joystick issue was resolved on
+2026-10-08, while full device acceptance remains open. See `SOURCE_GATES.md`
+for the precise scope and
 deployment constraints. The full project checklist is separate.
 
 ## Integrated source
@@ -93,3 +94,11 @@ Read `packages/u-boot/INSTALL.md` and `BOOT_REQUIREMENTS.txt` before interpretin
 carrier artifacts. The selected source path uses a future inactive Android slot
 and SD rootfs;
 unchanged-stock SD-only entry and SD-removal rollback are not supplied by it.
+
+## RG405V rumble check (2026-10-08)
+
+Physical InputPlumber rumble and in-game Tekken 3 rumble were confirmed by
+the user with the 64-bit PCSX-ReARMed core and the shared DualShock default.
+The tested image lacks retroarch32; its default 32-bit PS1 launch remains a
+release packaging follow-up. Metal Gear Solid and RG405M rumble were not tested.
+See [RUMBLE-VALIDATION-KR.md](RUMBLE-VALIDATION-KR.md).
