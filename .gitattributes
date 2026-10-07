@@ -1,2 +1,6 @@
 # Preserve vendor firmware bytes; the manifest verifies exact hashes.
+/.gitattributes text eol=lf
 /projects/ROCKNIX/devices/T618/firmware/** -text whitespace=cr-at-eol,-blank-at-eof
+/projects/ROCKNIX/devices/T618/linux/linux.aarch64.conf text eol=lf
+/projects/ROCKNIX/packages/hardware/quirks/platforms/T618/001-device_config text eol=lf
+/projects/ROCKNIX/packages/rocknix/sources/scripts/usbgadget text eol=lf
