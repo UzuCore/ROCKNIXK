@@ -664,6 +664,9 @@
 	};
 };
 
+/* Disabling the stock LDO0 rail couples the RG405V joystick axes. */
+&vddldo0 { regulator-always-on; regulator-boot-on; };
+
 &vddldo1 { regulator-min-microvolt = <3300000>; regulator-max-microvolt = <3300000>; };
 
 / {

@@ -1,11 +1,11 @@
 # RG405V 조이스틱 축 간섭 조사
 
-- 조사 기준일: 2026-10-05
+- 조사 기준일: 2026-10-08
 - 대상: Anbernic RG405V
 - 실행 커널: `7.1.2-rocknixk-t618`
-- 상태: **원인 미확정.** 보정값, 축 반전, 필터 변경은 전기적 원인을 확인하기 전까지 수정안으로 적용하지 않는다.
+- 상태: **vddldo0 전원 유지 설정 누락 수정 완료. 재부팅 후 양쪽 스틱 8방향 축 분리 확인.**
 
-## 관측 결과
+## 이전 관측 결과 (수정 전)
 
 ROCKNIX에서 스틱의 한 방향을 누를 때 네 ADC 축이 함께 크게 움직이는 현상이 관측됐다. 커널 드라이버 진단 출력에는 한 번의 입력에서 네 축이 모두 약 `-1800`으로 출력된 기록이 있다. 축 간섭은 InputPlumber 이전의 커널 입력 단계에서 이미 나타난다.
 
@@ -45,3 +45,23 @@ Spreadtrum GPIO 드라이버의 `.get` 구현은 `SPRD_GPIO_DATA` 레지스터�
 - 선택 패드는 정상인데 비선택 ADC 채널이 함께 변하면 보드 MUX, ADC 입력 정착, IIO 변환 경로를 추적한다.
 
 두 경우를 구분하기 전에는 지연시간이나 축 보정을 임의로 바꾸지 않는다. 필요한 변경은 RG405V 조건으로 한정하고 RG405M 동작을 보존한다.
+
+## 2026-10-08: 전원 설정 누락 확인 및 수정
+
+GammaOS에서는 `vddldo0`가 2.8V로 켜져 있었지만 ROCKNIX RG405V에서는 꺼져 있었다. 정펌 DTS에는 `regulator-always-on`이 있고, 정상 RG405M DTS에도 `regulator-always-on`과 `regulator-boot-on`이 이미 있었다. RG405V DTS에서 이 설정만 누락됐다.
+
+- 수정 전 8방향 기록: 양쪽 스틱의 위·왼쪽 방향에서 네 축이 함께 약 -1800까지 움직였다. 아래·오른쪽 방향은 해당 축이 주로 움직였다.
+- 간섭 중 GPIO 기록 667개: 선택 신호의 네 상태가 나타났고 enable은 LOW, 전원 GPIO19/21/22/24는 HIGH를 유지했다. 이 기록은 아날로그 핀 전압 측정 자체를 대신하지 않는다.
+- 동일 기기에서 regulator API로 **vddldo0만 켠 뒤** 왼쪽 위 입력: `[0, -1800, 0, 0]`. 다른 세 축은 모두 0, 놓은 뒤 네 축 모두 0으로 복귀했다.
+- 영구 수정: RG405V DTS에 `&vddldo0 { regulator-always-on; regulator-boot-on; };` 추가. 보정값·MUX 순서·ADC 드라이버는 변경하지 않았다.
+- 기존 빌드에서 RG405V DTB와 carrier만 갱신했다. DTB 의미 차이는 이 두 속성뿐이며 symbol/phandle과 USB 설정을 보존했다.
+- 기기 vendor_boot_b와 SD의 RG405V DTB/carrier에 적용하고 ROCKNIX 메뉴의 재부팅 경로로 재부팅했다. 임시 진단 모듈 없이 vddldo0 enabled/2800mV, 설정 유지, 메뉴 active, 실패 service 0개를 확인했다.
+- Android boot_a/vendor_boot_a, boot_b, 커널, RG405M DTB는 적용 전후 SHA256이 동일했다.
+
+최종 V DTB SHA256: `4fd5842f153c51802fc0fa552ce21467d209adcfc2b31324f5620958cf71b3c3`.
+커널 SHA256: `c2aa22c692132fb6d97a4bfb93f51d558614c4065637eddef164a36182b635c1`.
+RG405M DTB SHA256: `c57d240862938aa42e68424ba0f21260cb34dfde5f19018f44571e4f213eb434`.
+
+별도 배포 누락도 복구했다: 기기의 모듈 색인에서 rg405m_analog이 빠져 자동 로드되지 않았다. V 전용 저장소 overlay로 색인을 재생성하고, 재부팅 후 자동 로드를 확인했다. 정규 전체 image 빌드는 기존 scripts/image의 depmod 단계가 외부 모듈을 포함해야 한다.
+
+증거 자료: `08_build/rg405v-kernel712/controller-calibration/JOYSTICK-SESSION-20261008.md`, `joystick-20261008-analysis.json`, `joystick-pad-20261008-analysis.json`, `joystick-rail-20261008-analysis.json`. 위의 과거 가설과 실패 실험은 조사 이력이다. 재부팅 후 8방향 최종 기록 55개에서 모든 방향의 해당 축 peak는 1771~1800, 다른 축의 최대 잔여값은 18이었다. 중립 물리 값은 [18,0,0,0](전체 범위의 약1%), 가상 컨트롤러는 [128,127,127,127]로 중심128에서 1단계 이내다. 기존 네 축 포화 간섭은 재현되지 않았다. 최종 증거: joystick-final-20261008-analysis.json.
