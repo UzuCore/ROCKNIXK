@@ -15,5 +15,13 @@ fi
 
 set_setting sleep.led.color "${PRE_SLEEP_LED_STATE}"
 
+case "${QUIRK_DEVICE}" in
+  "AYN Odin"|"AYN Odin M2")
+    case "$(cat /sys/class/power_supply/battery/status 2>/dev/null)" in
+      Charging|Full) exit 0 ;;
+    esac
+  ;;
+esac
+
 ### Turn off LEDS
 /usr/bin/ledcontrol "off"
