@@ -69,9 +69,9 @@ on:
         default: false
         type: boolean
       T618:
-        description: 'T618'
+        description: 'T618 (RG405M / RG405V)'
         required: false
-        default: true
+        default: false
         type: boolean
       SDM845:
         description: 'SDM845'
@@ -136,18 +136,12 @@ jobs:
           )
           
           SELECTED_MATRIX=""
-          ALL_DEVICES='[{"device":"RK3326","project":"ROCKNIX"},{"device":"RK3399","project":"ROCKNIX"},{"device":"RK3566","project":"ROCKNIX"},{"device":"RK3576","project":"ROCKNIX"},{"device":"RK3588","project":"ROCKNIX"},{"device":"S922X","project":"ROCKNIX"},{"device":"H700","project":"ROCKNIX"},{"device":"SM8250","project":"ROCKNIX"},{"device":"SM8550","project":"ROCKNIX"},{"device":"SM8650","project":"ROCKNIX"},{"device":"SM8750","project":"ROCKNIX"},{"device":"SM6115","project":"ROCKNIX"},{"device":"SM4450","project":"ROCKNIX"}]'
+          ALL_DEVICES='[{"device":"RK3326","project":"ROCKNIX"},{"device":"RK3399","project":"ROCKNIX"},{"device":"RK3566","project":"ROCKNIX"},{"device":"RK3576","project":"ROCKNIX"},{"device":"RK3588","project":"ROCKNIX"},{"device":"S922X","project":"ROCKNIX"},{"device":"H700","project":"ROCKNIX"},{"device":"SM8250","project":"ROCKNIX"},{"device":"SM8550","project":"ROCKNIX"},{"device":"SM8650","project":"ROCKNIX"},{"device":"SM8750","project":"ROCKNIX"},{"device":"SM6115","project":"ROCKNIX"},{"device":"SM4450","project":"ROCKNIX"},{"device":"T618","project":"ROCKNIX"}]'
 
-          # Build only the device available on the selected device branch.
-          if [[ "${{ github.ref_name }}" == "t618" ]]; then
-            echo 'matrix=[{"device":"T618","project":"ROCKNIX"}]' >> "$GITHUB_OUTPUT"
-            exit 0
-          elif [[ "${{ github.ref_name }}" == "odin" ]]; then
+          # SDM845 remains available only on the Odin branch.
+          if [[ "${{ github.ref_name }}" == "odin" ]]; then
             echo 'matrix=[{"device":"SDM845","project":"ROCKNIX"}]' >> "$GITHUB_OUTPUT"
             exit 0
-          elif [[ "${{ inputs.T618 }}" == "true" ]]; then
-            echo "::error::Select the t618 branch to build T618."
-            exit 1
           elif [[ "${{ inputs.SDM845 }}" == "true" ]]; then
             echo "::error::Select the odin branch to build SDM845."
             exit 1
