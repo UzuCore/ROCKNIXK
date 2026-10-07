@@ -20,6 +20,9 @@ PKG_PATCH_DIRS="${LINUX} mainline ${DEVICE} default"
 [[ "${DEVICE}" == SM* ]] && PKG_DEPENDS_TARGET+=" mkbootimg:host"
 
 case ${DEVICE} in
+  T618)
+    . "${PROJECT_DIR}/${PROJECT}/devices/T618/linux/source.conf"
+    ;;
   RK3588)
     PKG_VERSION="b8e62bed74766b6c8c423a767b35495e78b64caf"
     PKG_SHA256="0e0fe5a2f108d525a044e190c3f23a4603cdbf8d54bc1cc488d6ee04b9fc5b3a"
@@ -104,6 +107,11 @@ if grep -q '^CONFIG_CFG80211=y' ${PKG_KERNEL_CFG_FILE}; then
 fi
 
 post_patch() {
+  if [ "${DEVICE}" = "T618" ]; then
+    python3 "${PROJECT_DIR}/${PROJECT}/devices/T618/packages/t618-kernel-integration/apply_sources.py" \
+      --kernel-tree "${PKG_BUILD}" --build-root "${BUILD}" || die "T618 source integration failed"
+  fi
+
   # linux was already built and its build dir autoremoved - prepare it again for kernel packages
   if [ -d ${PKG_INSTALL}/.image ]; then
     cp -p ${PKG_INSTALL}/.image/.config ${PKG_BUILD}
@@ -160,6 +168,10 @@ pre_make_target() {
   pkg_lock_status "ACTIVE" "linux:target" "build"
 
   cp ${PKG_KERNEL_CFG_FILE} ${PKG_BUILD}/.config
+
+  if [ "${DEVICE}" = "T618" ]; then
+    . "${PROJECT_DIR}/${PROJECT}/devices/T618/linux/prepare-initramfs.sh"
+  fi
 
   # set initramfs source
   ${PKG_BUILD}/scripts/config --set-str CONFIG_INITRAMFS_SOURCE "$(kernel_initramfs_confs) ${BUILD}/initramfs"
@@ -430,7 +442,7 @@ makeinstall_target() {
     mkdir -p ${INSTALL}/usr/share/bootloader
     for dtb in arch/${TARGET_KERNEL_ARCH}/boot/dts/**/*.dtb; do
       if [ -f ${dtb} ]; then
-        if [ "${DEVICE}" = "H700" -o "${DEVICE}" = "RK3326" -o "${DEVICE}" = "RK3399" -o "${DEVICE}" = "RK3566" -o "${DEVICE}" = "RK3576" -o "${DEVICE}" = "RK3588" ]; then
+        if [ "${DEVICE}" = "T618" -o "${DEVICE}" = "H700" -o "${DEVICE}" = "RK3326" -o "${DEVICE}" = "RK3399" -o "${DEVICE}" = "RK3566" -o "${DEVICE}" = "RK3576" -o "${DEVICE}" = "RK3588" ]; then
           mkdir -p ${INSTALL}/usr/share/bootloader/device_trees
           cp -v ${dtb} ${INSTALL}/usr/share/bootloader/device_trees
         else

@@ -72,7 +72,7 @@ jobs:
       OWNER_LC: ${{ inputs.OWNER_LC }}
 
   build-aarch64-eden-sa:
-    # Odin and supported Snapdragon devices package Eden.
+    # Supported Snapdragon devices package Eden.
     if: ${{ inputs.DEVICE == 'SDM845' || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' || inputs.DEVICE == 'SM8750' }}
     needs:
       - build-aarch64

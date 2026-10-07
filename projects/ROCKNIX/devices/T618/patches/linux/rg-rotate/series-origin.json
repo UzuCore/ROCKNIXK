@@ -1,0 +1,1374 @@
+{
+  "source_commit": "464b3e7bf45bb300e190339977abba36c8078e1f",
+  "base": "Linux 7.1.2",
+  "original_commits": 225,
+  "consolidated_patches": [
+    "0100-bindings.patch",
+    "0110-device-trees.patch",
+    "0120-clocks.patch",
+    "0130-display.patch",
+    "0140-audio.patch",
+    "0150-wireless.patch",
+    "0160-usb-phy.patch",
+    "0170-pmic-power.patch",
+    "0180-dvfs-i2c.patch",
+    "0190-soc-ipc.patch",
+    "0200-peripherals.patch"
+  ],
+  "changed_paths": 422,
+  "source_equivalence": "byte-identical original and consolidated results",
+  "original_series": [
+    {
+      "file": "0001-regulator-dt-bindings-sc2731-Deprecate-compatible-pr.patch",
+      "sha256": "3829767d17f62b5106e43ddc6614fd13eafc89470dddc09d0d2f6d0d609810a6",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 001/225] regulator: dt-bindings: sc2731: Deprecate compatible"
+    },
+    {
+      "file": "0002-mfd-sprd-sc27xx-Switch-to-devm_mfd_add_devices.patch",
+      "sha256": "a6de6dd75cf65a2d7b0ecbbc2c87615773d4b9f0ce4f323ab66dcf641eb655ae",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 002/225] mfd: sprd-sc27xx: Switch to devm_mfd_add_devices()"
+    },
+    {
+      "file": "0003-power-reset-sc27xx-Add-platform_device_id-table.patch",
+      "sha256": "adde6facfcc669278b563b29b9db85f5b98055e7579b6d238694a382400d4bcc",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 003/225] power: reset: sc27xx: Add platform_device_id table"
+    },
+    {
+      "file": "0004-regulator-sc2731-Add-platform_device_id-table.patch",
+      "sha256": "7c322abd684920c7368b5e55fe4c229ecd15f23fcaa76826f367d44e649b1252",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 004/225] regulator: sc2731: Add platform_device_id table"
+    },
+    {
+      "file": "0005-soc-sprd-add-AGDSP-communication-driver.patch",
+      "sha256": "ab41de2013cdd921818d96e754da35821a48881c8223507b8a3d7b1704f559f6",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 005/225] soc: sprd: add AGDSP communication driver"
+    },
+    {
+      "file": "0006-ASoC-sprd-mcdt-add-support-for-MCDT-revision-2.patch",
+      "sha256": "f45f8ff0dd940e76fb43b141c1108b258364ca8043b5d348a0919a1803659ba3",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 006/225] ASoC: sprd: mcdt: add support for MCDT revision 2"
+    },
+    {
+      "file": "0007-ASoC-sprd-do-not-keep-reference-to-DMA-parameters.patch",
+      "sha256": "ea37fb12fff65bad890b6d1c715c672b6d52a368f360eb040cb6d3c2737cbec8",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 007/225] ASoC: sprd: do not keep reference to DMA parameters"
+    },
+    {
+      "file": "0008-ASoC-sprd-add-support-for-single-channel-DMA-with-in.patch",
+      "sha256": "50d207911219002b2801ee78ea5958f67bf63300d6fbf1dbd7d5585d28951664",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 008/225] ASoC: sprd: add support for single-channel DMA with"
+    },
+    {
+      "file": "0009-ASoC-sprd-add-VBC-V4-driver-for-DSP-audio.patch",
+      "sha256": "c5cd53a13e4e04990044493001bab9ed00a819f69edf10699417adf25c4ee532",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 009/225] ASoC: sprd: add VBC V4 driver for DSP audio"
+    },
+    {
+      "file": "0010-dt-bindings-media-i2c-ov8856-include-video-device-bi.patch",
+      "sha256": "09f5cd42e6193c4aaa6759f99146e33baea6e88f38e26813ad9288e3aa781a79",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 010/225] dt-bindings: media: i2c: ov8856: include video device"
+    },
+    {
+      "file": "0011-media-i2c-ov8856-remember-the-selected-Bayer-format.patch",
+      "sha256": "dbd05c6c8cd5985a319e626234ad9fd6ef991f5149dba08f0fe2b60bfa5b5128",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 011/225] media: i2c: ov8856: remember the selected Bayer"
+    },
+    {
+      "file": "0012-input-add-support-for-Chipone-ICNL9916-based-touchsc.patch",
+      "sha256": "60645e043656ee0323466d7924ac2cbd073a06fc57290b15d31dd0a382cad864",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 012/225] input: add support for Chipone ICNL9916 based"
+    },
+    {
+      "file": "0013-spi-sprd-don-t-fail-on-unsupported-delay-unit-when-d.patch",
+      "sha256": "5cbc76dc2ae6ed4200ab50e85c5032dd21f01332ee9e6b80135e2df4ebb9ca6b",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 013/225] spi: sprd: don't fail on unsupported delay unit when"
+    },
+    {
+      "file": "0014-mmc-sdhci-sprd-Implement-SD-UHS-tuning.patch",
+      "sha256": "c11bb4af177a138a314ab0c96f4ab601a151acc9b73b461dc62227d82aa64c95",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 014/225] mmc: sdhci-sprd: Implement SD UHS tuning"
+    },
+    {
+      "file": "0015-mmc-sdhci-sprd-Fix-tuning-routine.patch",
+      "sha256": "c8e1ddbc2b9a85346697fdd9ca2344e8a0a53d2ec262a08b6eb32fe14b6380a8",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 015/225] mmc: sdhci-sprd: Fix tuning routine"
+    },
+    {
+      "file": "0016-mmc-sdhci-sprd-Fix-power-sequence.patch",
+      "sha256": "7a9dfc8291382c5fb24450f5e91bcdd523dd145daad0f7470ee78cec9c4adc75",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 016/225] mmc: sdhci-sprd: Fix power sequence"
+    },
+    {
+      "file": "0017-dt-bindings-iommu-sprd-add-sprd-iova-range-property.patch",
+      "sha256": "4cd72dbb589d79c763e494e0b234d5323dc260ee871dc08cab1c0ac661d610d5",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 017/225] dt-bindings: iommu: sprd: add sprd,iova-range"
+    },
+    {
+      "file": "0018-iommu-sprd-add-support-for-reserved-regions.patch",
+      "sha256": "5fa575c61ad14b5b63d93ac8afc757e73aa0638234a7bd3494d9c8837c341166",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 018/225] iommu/sprd: add support for reserved regions"
+    },
+    {
+      "file": "0019-iommu-sprd-fix-handling-of-physical-addresses-outsid.patch",
+      "sha256": "015ba6f2bcd9ede4687e0c52add52ad0f3099019d09e906e07d7598757f8c174",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 019/225] iommu/sprd: fix handling of physical addresses"
+    },
+    {
+      "file": "0020-iommu-sprd-fix-initialization-and-cleanup-order.patch",
+      "sha256": "456de04be72cac58e2d318fc1e214f09f5221818f7c8e44552c074f63dec8c35",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 020/225] iommu/sprd: fix initialization and cleanup order"
+    },
+    {
+      "file": "0021-drm-panfrost-add-an-optional-memory-clock.patch",
+      "sha256": "6e6308840d784727b3dd71f0ce094527ce39c73d88ccd0122c748287554bfc75",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 021/225] drm: panfrost: add an optional memory clock"
+    },
+    {
+      "file": "0022-drm-panfrost-enable-runtime-clock-gating-on-UMS9230.patch",
+      "sha256": "e95795a6bbaf58d32cfce1a45dd653ff56f39769e778274148e99f3579fe368a",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 022/225] drm: panfrost: enable runtime clock gating on UMS9230"
+    },
+    {
+      "file": "0023-dt-bindings-display-sprd-adapt-for-UMS9230-support.patch",
+      "sha256": "446edb10ff5f6134089a3eb84d1d6e1dad80f37520c3e5eec528ac651ec611c2",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 023/225] dt-bindings: display: sprd: adapt for UMS9230 support"
+    },
+    {
+      "file": "0024-dt-bindings-display-sprd-use-more-descriptive-clock-.patch",
+      "sha256": "715f45ce9b3602932c8306935ab52bb35dc3fb545e71353bee61e5aabef903ef",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 024/225] dt-bindings: display: sprd: use more descriptive"
+    },
+    {
+      "file": "0025-dt-bindings-display-sprd-add-memory-region-property.patch",
+      "sha256": "1beeda45feae64c6e9731bf3caa4a1f97598c14b27b682e027320c162b403e55",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 025/225] dt-bindings: display: sprd: add memory-region"
+    },
+    {
+      "file": "0026-dt-bindings-display-sprd-allow-attaching-a-DSI-panel.patch",
+      "sha256": "b4368f87a8f1e5bb4bc932866430538616bfb53d1c2dd7bb15f609a67d7a12b2",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 026/225] dt-bindings: display: sprd: allow attaching a DSI"
+    },
+    {
+      "file": "0027-drm-of-try-binding-port-parent-node-instead-of-the-p.patch",
+      "sha256": "dffc9bdd21e0b9f1876fb3cb18704cdd1d6bac57bcb36db65d5b012dbf3c114b",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 027/225] drm: of: try binding port parent node instead of the"
+    },
+    {
+      "file": "0028-drm-sprd-remove-plane-and-CRTC-destroy-callbacks.patch",
+      "sha256": "6fc84634c3c726e8335542785ea63d513c09516e4fa3fbaaf928c7a92f858abd",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 028/225] drm: sprd: remove plane and CRTC destroy callbacks"
+    },
+    {
+      "file": "0029-drm-sprd-register-a-DSI-bridge-and-initialize-in-pre.patch",
+      "sha256": "67cc2c0cbce5902ece40dad485cf876782d2722350cd98f4d384c88a7eeb49cc",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 029/225] drm: sprd: register a DSI bridge and initialize in"
+    },
+    {
+      "file": "0030-drm-sprd-add-support-for-UMS9230-DSI-PLL.patch",
+      "sha256": "47d0967a4fe0522946ac52db3ec9647c99e5e24a19de2a87b721d8c267560e15",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 030/225] drm: sprd: add support for UMS9230 DSI PLL"
+    },
+    {
+      "file": "0031-drm-sprd-fix-DSI-rate-and-PLL-setup-code.patch",
+      "sha256": "9fbb3e228eae3d532a54625bdaf61864b17512b62b37e9939670fc8f3e682821",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 031/225] drm: sprd: fix DSI rate and PLL setup code"
+    },
+    {
+      "file": "0032-drm-sprd-select-REGMAP-in-Kconfig.patch",
+      "sha256": "d9d2ab499c0151a9da2e627199ed92116668f56f902f4fa74db62bbe1d22f47d",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 032/225] drm: sprd: select REGMAP in Kconfig"
+    },
+    {
+      "file": "0033-drm-sprd-add-clock-gating-support.patch",
+      "sha256": "1a62011be66710bcfff5674e5ad29c86990e877bca7ea9990a61a6e755d0a028",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 033/225] drm: sprd: add clock gating support"
+    },
+    {
+      "file": "0034-drm-sprd-add-support-for-newer-DPU-versions.patch",
+      "sha256": "c1a8aa97195d45677cb9cbb4fe259ddc98384641dfb01beddfbc30b82786c680",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 034/225] drm: sprd: add support for newer DPU versions"
+    },
+    {
+      "file": "0035-drm-sprd-always-initialize-DPU-and-DSI-registers.patch",
+      "sha256": "fb3af9444c5a3747ef1d49fddd67b6f88a6a94ff06093340f72d5c2898668660",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 035/225] drm: sprd: always initialize DPU and DSI registers"
+    },
+    {
+      "file": "0036-drm-sprd-do-not-access-IOMMU-registers.patch",
+      "sha256": "475572eaee59de0ce5a5da77e4138c974e8684d37865dfa3b4758839da590984",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 036/225] drm: sprd: do not access IOMMU registers"
+    },
+    {
+      "file": "0037-drm-sprd-implement-IOMMU-based-buffer-management.patch",
+      "sha256": "c452fe642d22572239d41bcf341413e7b2a7fb7f0228c91f6efb666753f9eb66",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 037/225] drm: sprd: implement IOMMU-based buffer management"
+    },
+    {
+      "file": "0038-drm-sprd-add-fbdev-support.patch",
+      "sha256": "0421ad10354a72ae3a56c805f6ba6ef6c828b1eefd254976c7078b0a20e5f3d9",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 038/225] drm: sprd: add fbdev support"
+    },
+    {
+      "file": "0039-dmaengine-sprd-use-correct-mask-when-setting-enable-.patch",
+      "sha256": "8dc19dcfbdbbd3b612135dddb2bc644e5f8d7605eaf8bebee49c100ec53b488d",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 039/225] dmaengine: sprd: use correct mask when setting enable"
+    },
+    {
+      "file": "0040-dmaengine-sprd-allow-linklist-operation-with-only-on.patch",
+      "sha256": "c644458685739ee8c3eaafbfcae53a3bd5b8e4d2400f6f5d18fe3653c8b8c159",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 040/225] dmaengine: sprd: allow linklist operation with only"
+    },
+    {
+      "file": "0041-power-supply-sc27xx-fix-iio_read_channel_processed-e.patch",
+      "sha256": "c031f32ff1a3eddfd6ba3b93bd7e6d7342191e8199791533019b676babbb36aa",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 041/225] power: supply: sc27xx: fix iio_read_channel_processed"
+    },
+    {
+      "file": "0042-power-supply-sc27xx-fix-handling-of-negative-CURRENT.patch",
+      "sha256": "62afd430425525f536a7950230a387c7f510c27fdbdb4aa73752309be5a10187",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 042/225] power: supply: sc27xx: fix handling of negative"
+    },
+    {
+      "file": "0043-power-supply-sc27xx-allow-reading-the-calibrate-prop.patch",
+      "sha256": "7ca810682e03fed9315af1ae350b47af813834ea1c8192901bd8ca61612e5968",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 043/225] power: supply: sc27xx: allow reading the 'calibrate'"
+    },
+    {
+      "file": "0044-power-supply-sc27xx-add-support-for-SC2730.patch",
+      "sha256": "0666e47fdf33da6d6a5fc65c8329df384aa2a6b53e8c6408f8c6101ebaded480",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 044/225] power: supply: sc27xx: add support for SC2730"
+    },
+    {
+      "file": "0045-power-supply-sc27xx-support-linking-charger-in-devic.patch",
+      "sha256": "0f10d157494da8f9b2a9a32e27c98098ab1f0594a4b2a18b086e7c2655f0f78b",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 045/225] power: supply: sc27xx: support linking charger in"
+    },
+    {
+      "file": "0046-power-supply-sc27xx-ignore-saved-fractional-capacity.patch",
+      "sha256": "f0e886d86f16d6894cdaae13fd81814a4e8b221a7d51add66ace841931d1d9b8",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 046/225] power: supply: sc27xx: ignore saved fractional"
+    },
+    {
+      "file": "0047-power-supply-sc27xx-automatically-calibrate-on-every.patch",
+      "sha256": "191f03766b1a0c47ca2103576ab972ec2310a456e448a12e761c8934118874c5",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 047/225] power: supply: sc27xx: automatically calibrate on"
+    },
+    {
+      "file": "0048-power-supply-sc27xx-update-charge-counter-with-capac.patch",
+      "sha256": "8896fb73d505b7d6a3021295a0e19292775a6b7b2b19a4e0f89994497ebd44e9",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 048/225] power: supply: sc27xx: update charge counter with"
+    },
+    {
+      "file": "0049-power-supply-sc27xx-force-valid-capacity-range-even-.patch",
+      "sha256": "fff6e93c401d22ef4b2387673cdb65b87eeb1a9aefd1328516d6cad6a6626c90",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 049/225] power: supply: sc27xx: force valid capacity range"
+    },
+    {
+      "file": "0050-clk-sprd-add-runtime-PM-support.patch",
+      "sha256": "67e86cfaad204a112c2e14a5e2bd44ce8d2ff8d242a2d6f7f900b5de22630a9f",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 050/225] clk: sprd: add runtime PM support"
+    },
+    {
+      "file": "0051-clk-sprd-add-reset-support.patch",
+      "sha256": "81b4018d9e4e0a298c23f16acca3f76c2bb94772474a8549907ecbd1d7bf8e38",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 051/225] clk: sprd: add reset support"
+    },
+    {
+      "file": "0052-dt-bindings-add-clocks-and-resets-for-UMS9230.patch",
+      "sha256": "2259b68bc08f6d368303dea5558677eb160d70fe7ef7bffee2bfd201c62c7c3f",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 052/225] dt-bindings: add clocks and resets for UMS9230"
+    },
+    {
+      "file": "0053-clk-sprd-add-support-for-UMS9230.patch",
+      "sha256": "91141633525bd1006cfc052eb049ac0ca5221f2f14df0e009ea9cc1c1f32ebfc",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 053/225] clk: sprd: add support for UMS9230"
+    },
+    {
+      "file": "0054-dt-bindings-power-add-binding-for-UMS9230-power-doma.patch",
+      "sha256": "3c8a4cc3c93c808735965312dc1df523b5836f8fe7b7ccffa1313c838fda42a5",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 054/225] dt-bindings: power: add binding for UMS9230 power"
+    },
+    {
+      "file": "0055-pmdomain-add-Unisoc-UMS9230-power-domain-driver.patch",
+      "sha256": "a3a4afa1f4001d99a027394768e5e5cb1bfc01b52643a54303664c53d5adbc1c",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 055/225] pmdomain: add Unisoc UMS9230 power domain driver"
+    },
+    {
+      "file": "0056-pinctrl-sprd-Move-register-defines-to-SoC-driver.patch",
+      "sha256": "d82ac7d15691588818f1b3c15fa10903fb7c4902443c022b4a928797ec352641",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 056/225] pinctrl: sprd: Move register defines to SoC driver"
+    },
+    {
+      "file": "0057-pinctrl-sprd-Add-support-for-UMS9230.patch",
+      "sha256": "b8c22ad52e056a544bac04452ade59bb7606584e2d62c60fe59c3df61765c5ef",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 057/225] pinctrl: sprd: Add support for UMS9230"
+    },
+    {
+      "file": "0058-dt-bindings-gpio-add-bindings-for-Unisoc-UMS9230.patch",
+      "sha256": "e3cfeb25eb83ce8b35829e0b1e33fb73dee2e7806831c6a74777e4b3bac7345f",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 058/225] dt-bindings: gpio: add bindings for Unisoc UMS9230"
+    },
+    {
+      "file": "0059-gpio-eic-sprd-update-maximum-number-of-banks-to-8.patch",
+      "sha256": "429f6cac9e877ceb91c6da9f5eda18d585d1233d9204ca4a4ea79bb41c6f2bca",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 059/225] gpio: eic-sprd: update maximum number of banks to 8"
+    },
+    {
+      "file": "0060-dt-bindings-i2c-sprd-add-UMS9230-compatible.patch",
+      "sha256": "f0b93eab61142220c76df10bac32001e2ce881de7474637c68796c90aaedcf67",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 060/225] dt-bindings: i2c: sprd: add UMS9230 compatible"
+    },
+    {
+      "file": "0061-i2c-sprd-set-TRANS_EN-and-NACK_EN-bits.patch",
+      "sha256": "7d7e79546b1d668b563ab680b29448cfc831c7230b766954db7fe0bed4db1f06",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 061/225] i2c: sprd: set TRANS_EN and NACK_EN bits"
+    },
+    {
+      "file": "0062-i2c-add-support-for-Unisoc-hardware-channel-I2C.patch",
+      "sha256": "e4e7741f46f967fb958686bffc89ff92fb78d6c3fdbecaf50a1861389cb9b35f",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 062/225] i2c: add support for Unisoc \"hardware channel\" I2C"
+    },
+    {
+      "file": "0063-power-reset-sc27xx-Use-devm_register_sys_off_handler.patch",
+      "sha256": "83ea8bb684b37b3ecedfc7319ba87d0e904cda110309773d890fe1fc58fa68fc",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 063/225] power: reset: sc27xx: Use"
+    },
+    {
+      "file": "0064-power-reset-sc27xx-Add-support-for-SC2730.patch",
+      "sha256": "551a975a1a861f1016d73332c6e894e271182d2b2ee4a1f4ad05e971ccc0959f",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 064/225] power: reset: sc27xx: Add support for SC2730"
+    },
+    {
+      "file": "0065-mfd-sprd-sc27xx-Add-sc2730-poweroff-cell.patch",
+      "sha256": "e30955c60f7313b68448d82f13b9b63535f58f639de01584dd208a41a3fa86dc",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 065/225] mfd: sprd-sc27xx: Add sc2730-poweroff cell"
+    },
+    {
+      "file": "0066-power-reset-sc27xx-Add-reboot-support-for-SC2730.patch",
+      "sha256": "1b72cce2e0c4bd805e36d37451312256c0b8a0f72c83909f16bf13b3f93da217",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 066/225] power: reset: sc27xx: Add reboot support for SC2730"
+    },
+    {
+      "file": "0067-spi-sprd-adi-Remove-code-for-storing-the-reboot-mode.patch",
+      "sha256": "7cb3ca33f5d863cff6849c4caf0d6798f8a6d6e7a3e19a173522bad9ece1b565",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 067/225] spi: sprd-adi: Remove code for storing the reboot"
+    },
+    {
+      "file": "0068-regulator-Add-regulator-driver-for-Unisoc-SC2730-PMI.patch",
+      "sha256": "b0e9c1a8f0982ea316a9ddcbb66a293441f7189bbf8c71b7a459dff3b764f6c9",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 068/225] regulator: Add regulator driver for Unisoc SC2730"
+    },
+    {
+      "file": "0069-mfd-sprd-sc27xx-Add-sc2730-regulator-cell.patch",
+      "sha256": "8a7b6ca333c3b6896a5ca05eb92206a381319e09d1d001266cf8a424755039d7",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 069/225] mfd: sprd-sc27xx: Add sc2730-regulator cell"
+    },
+    {
+      "file": "0070-cpufreq-Add-support-for-Spreadtrum-Unisoc-cpufreq-v2.patch",
+      "sha256": "5beb0f8f8aa646573c1016d3050d39631537dad5ff34ebde53cc1964bdaa3f2c",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 070/225] cpufreq: Add support for Spreadtrum/Unisoc cpufreq v2"
+    },
+    {
+      "file": "0071-phy-add-support-for-the-Unisoc-built-in-USB2-PHY.patch",
+      "sha256": "e70dc53584d9889b3834defcab8a6a49197fac30538e296122b2394dfcec924f",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 071/225] phy: add support for the Unisoc built-in USB2 PHY"
+    },
+    {
+      "file": "0072-usb-musb-add-support-for-Unisoc-platform.patch",
+      "sha256": "9395641105df0f364fb2d84408347a8be15e337083a9900ed382df0ce96f099d",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 072/225] usb: musb: add support for Unisoc platform"
+    },
+    {
+      "file": "0073-usb-typec-tcpm-Add-support-for-SC27xx-USB-Type-C-PD-.patch",
+      "sha256": "7b2959bfeece1f5bb365c526afafed111d65a121963a2c2660d4ad27909485cd",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 073/225] usb: typec: tcpm: Add support for SC27xx USB Type-C"
+    },
+    {
+      "file": "0074-mfd-sprd-sc27xx-Add-MFD-cell-for-sc2730-pd.patch",
+      "sha256": "6929ec297179a990729120470e627961e4ca1d5da30565ce3763267a2749f0fc",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 074/225] mfd: sprd-sc27xx: Add MFD cell for sc2730-pd"
+    },
+    {
+      "file": "0075-scsi-ufs-sprd-add-UMS9230-UFS-support.patch",
+      "sha256": "d1347a1823876d4bac800f85dc1dac3274ca6939330d52cf37f20e3b2a187eaa",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 075/225] scsi: ufs: sprd: add UMS9230 UFS support"
+    },
+    {
+      "file": "0076-ASoC-Add-SC2730-PMIC-audio-codec-support.patch",
+      "sha256": "ee9345722fd9b25f7802b348e02c76e57abd3011b6e2bbf0afbd0d17105196a3",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 076/225] ASoC: Add SC2730 PMIC audio codec support"
+    },
+    {
+      "file": "0077-mfd-sprd-sc27xx-Add-MFD-cell-for-SC2730-audio-codec.patch",
+      "sha256": "3da9929cecf564eecd1781868a5f06c436040c4b77d32d8252b88986616eefe3",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 077/225] mfd: sprd-sc27xx: Add MFD cell for SC2730 audio codec"
+    },
+    {
+      "file": "0078-ASoC-Add-support-for-the-UMS9230-digital-codec.patch",
+      "sha256": "22e267408867f7b40eb641f54ca3c61ca1f313f36927e8e504f20171f308dcea",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 078/225] ASoC: Add support for the UMS9230 digital codec"
+    },
+    {
+      "file": "0079-ASoC-sprd-add-UMS9230-machine-driver.patch",
+      "sha256": "9cfaffb16403303fde1f7e9652748f42c128dd943ea79e83cbff6cda68ed0237",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 079/225] ASoC: sprd: add UMS9230 machine driver"
+    },
+    {
+      "file": "0080-rpmsg-add-driver-for-Unisoc-SIPC.patch",
+      "sha256": "5be7f5ddeef1f92657a19b007dd79ce46de0400fdd92ebccd44e3b6fb30f05c4",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 080/225] rpmsg: add driver for Unisoc SIPC"
+    },
+    {
+      "file": "0081-WIP-remoteproc-add-Unisoc-remoteproc-drivers.patch",
+      "sha256": "3c29ae04ba79e3a7ead3e65f53c515ed513aa8e40112b5b9ea74c58b6dd9c373",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 081/225] WIP: remoteproc: add Unisoc remoteproc drivers"
+    },
+    {
+      "file": "0082-iio-Add-Unisoc-sensor-hub-drivers.patch",
+      "sha256": "a5cdd6095866b81fc634681375921b67b27bfc48d1b71717b0b17e2bbc1b55ad",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 082/225] iio: Add Unisoc sensor hub drivers"
+    },
+    {
+      "file": "0083-bluetooth-add-support-for-Unisoc-SoCs-with-integrate.patch",
+      "sha256": "1507585bc7262d529e92ee175fbb802930176635c77af30871b72234b6cbeb3d",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 083/225] bluetooth: add support for Unisoc SoCs with"
+    },
+    {
+      "file": "0084-gnss-add-driver-for-Unisoc-SoCs.patch",
+      "sha256": "b5ed49b0feec3510efa18a3456e5e620bb71fb7c3c02608557a65af674c44477",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 084/225] gnss: add driver for Unisoc SoCs"
+    },
+    {
+      "file": "0085-net-wwan-expose-Unisoc-modem-channels.patch",
+      "sha256": "66807dc071392bd252af4cf923772d44ddf5dbd610f31a3f95905a78342eb7f5",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 085/225] net: wwan: expose Unisoc modem channels"
+    },
+    {
+      "file": "0086-net-wwan-add-simple-rpmsg-based-network-driver.patch",
+      "sha256": "3476540b1f71056dd225c84c38b0d371d28548835474ee699dc00e0344ad2958",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 086/225] net: wwan: add simple rpmsg-based network driver"
+    },
+    {
+      "file": "0087-WIP-wifi-add-support-for-Unisoc-integrated-SoC-WiFi.patch",
+      "sha256": "3a5c70ee582895810f3e1edd052d73ebca9745973a6ac0b503b22d044fdb0e03",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 087/225] WIP: wifi: add support for Unisoc integrated SoC WiFi"
+    },
+    {
+      "file": "0088-dt-bindings-media-Add-bindings-for-Unisoc-camera-sub.patch",
+      "sha256": "fc20fc52db4972d148eb41143c17b85b761db81133ce3c3717a5c7ea02a4aa57",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 088/225] dt-bindings: media: Add bindings for Unisoc camera"
+    },
+    {
+      "file": "0089-media-add-Unisoc-camera-subsystem-configuration-and-.patch",
+      "sha256": "a3a9409cfb54882152b2b9f47dd3487e6e91337a8b12f40b23247a239643da31",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 089/225] media: add Unisoc camera subsystem configuration and"
+    },
+    {
+      "file": "0090-media-platform-sprd-Add-Unisoc-camera-subsystem-driv.patch",
+      "sha256": "66db0945d4d6e8a4e28d4f4c6c43220610c04773b2a875d055ca5d9d302b6a82",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 090/225] media: platform: sprd: Add Unisoc camera subsystem"
+    },
+    {
+      "file": "0091-media-platform-sprd-add-Unisoc-ISP-driver.patch",
+      "sha256": "5bd9e30849db8908a0986478bb0862325ce840f8f6ec349e935f6360d3e241e3",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 091/225] media: platform: sprd: add Unisoc ISP driver"
+    },
+    {
+      "file": "0092-WIP-media-i2c-add-OV64B40-sensor-driver.patch",
+      "sha256": "324b354a6b8e1c2a8b11b38bfd812a3fbc097de481e06d94512f5af6246da377",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 092/225] WIP: media: i2c: add OV64B40 sensor driver"
+    },
+    {
+      "file": "0093-WIP-media-i2c-add-S5K3P3-sensor-driver.patch",
+      "sha256": "847a067fc789e7ecb443ffb9cccfdc79d33b70d8df5a56abb186f05072417c8b",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 093/225] WIP: media: i2c: add S5K3P3 sensor driver"
+    },
+    {
+      "file": "0094-power-supply-bq256xx-add-support-for-OTG-VBUS-regula.patch",
+      "sha256": "9a7e8440e4282ceb4452d4fa5d1c3a797067bcd8b54150351e65efa069e65104",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 094/225] power: supply: bq256xx: add support for OTG VBUS"
+    },
+    {
+      "file": "0095-HACK-drm-sprd-set-DMA-mask-to-bypass-swiotlb.patch",
+      "sha256": "b784c0be3d83ad8a44302994bb9934a405a79a9e85c358966ad451564edcd3ac",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 095/225] HACK: drm: sprd: set DMA mask to bypass swiotlb"
+    },
+    {
+      "file": "0096-HACK-power-supply-allow-finding-multiple-supplies-fo.patch",
+      "sha256": "9165d493d55a5942cb20e7603ba428e7a05809d8b95dda4184be0f0d8c4cf2d2",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 096/225] HACK: power: supply: allow finding multiple supplies"
+    },
+    {
+      "file": "0097-drm-panel-Add-driver-for-ICNL9916-720x1600-panel.patch",
+      "sha256": "65dd7330dc0004d31ef59e783dcfb15c4eb652d722c351ad49ef09f1c58e0e26",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 097/225] drm/panel: Add driver for ICNL9916 720x1600 panel"
+    },
+    {
+      "file": "0098-Input-ff-memless-increase-number-of-effects.patch",
+      "sha256": "f7a8df4def5f851a2c1706e6fddeed6b3c43e16d98db6a2d5ef82f71989d7873",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 098/225] Input: ff-memless - increase number of effects"
+    },
+    {
+      "file": "0099-dt-bindings-mfd-sprd-add-compatible-for-UMS9230.patch",
+      "sha256": "153ca3e27007c04266573e63c8333a09e6b280e9dd12a8a7881baea7f3b285e8",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 099/225] dt-bindings: mfd: sprd: add compatible for UMS9230"
+    },
+    {
+      "file": "0100-dt-bindings-nvmem-rmem-add-compatible-for-Unisoc-UMS.patch",
+      "sha256": "f0bc883823cb0ef7289a23533cd37f7ea1ff3cf425ac1ab8772cb262a7f245b7",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 100/225] dt-bindings: nvmem: rmem: add compatible for Unisoc"
+    },
+    {
+      "file": "0101-dt-bindings-timer-add-compatibles-for-Unisoc-UMS9230.patch",
+      "sha256": "822566894787bf2605723e6a99e53cf4f9222f8b81a5128d8dcd3bfee9e5c0ea",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 101/225] dt-bindings: timer: add compatibles for Unisoc"
+    },
+    {
+      "file": "0102-dt-bindings-watchdog-add-compatible-for-UMS9230.patch",
+      "sha256": "3aa57eee0be691a02ffe305f582910fd14f6521e3a466c8c9c6a5feb67e20774",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 102/225] dt-bindings: watchdog: add compatible for UMS9230"
+    },
+    {
+      "file": "0103-dt-bindings-serial-add-compatible-for-Unisoc-UMS9230.patch",
+      "sha256": "30867828c3ebe090aad3a6d4b82d08185a68239cc0c326207c597c80c432c790",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 103/225] dt-bindings: serial: add compatible for Unisoc"
+    },
+    {
+      "file": "0104-dt-bindings-spi-sprd-add-compatibles-for-UMS9230.patch",
+      "sha256": "e488728b95999462fca6bb4e0e07f81f09ffbf370d83357e077672f68019787f",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 104/225] dt-bindings: spi: sprd: add compatibles for UMS9230"
+    },
+    {
+      "file": "0105-dt-bindings-pwm-add-compatible-for-UMS9230.patch",
+      "sha256": "0526edf1452a04c7f8119e83decf496b2e785834d79be59172d7e5c9a5e1c32e",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 105/225] dt-bindings: pwm: add compatible for UMS9230"
+    },
+    {
+      "file": "0106-dt-bindings-thermal-add-compatible-for-Unisoc-UMS923.patch",
+      "sha256": "a802bbba4f9d2f468be83e774fa093041946c91c9ce6ee374da0b1cfb4b7c3d5",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 106/225] dt-bindings: thermal: add compatible for Unisoc"
+    },
+    {
+      "file": "0107-dt-bindings-gpu-add-sprd-ums9230-mali-compatible.patch",
+      "sha256": "a12d8c2f9e992686121b4fda62b39441ac2639830755f6c4b06bcb6f23198aae",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 107/225] dt-bindings: gpu: add sprd,ums9230-mali compatible"
+    },
+    {
+      "file": "0108-dt-bindings-vendor-prefixes-Add-Reeder-Teknoloji.patch",
+      "sha256": "dfd540290e0f882a293f40266745e2594c8ba1a6408954bdd1d712d41fd55275",
+      "from": "Akari Tsuyukusa <akkun11.open@gmail.com>",
+      "subject": "[PATCH 108/225] dt-bindings: vendor-prefixes: Add Reeder Teknoloji"
+    },
+    {
+      "file": "0109-dt-bindings-arm-Add-bindings-for-UNISOC-s-UMS9230.patch",
+      "sha256": "ebe939497dc1b22da777ed7d575655d5eb82ab75f6bc54901310ff2da7d4d141",
+      "from": "Akari Tsuyukusa <akkun11.open@gmail.com>",
+      "subject": "[PATCH 109/225] dt-bindings: arm: Add bindings for UNISOC's UMS9230"
+    },
+    {
+      "file": "0110-WIP-arm64-dts-sprd-add-device-tree-for-UMS9230-SoC.patch",
+      "sha256": "dd3ac4c31538854aeadb4243920fedbb6830249c418061280aa66747c38c1b53",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 110/225] WIP: arm64: dts: sprd: add device tree for UMS9230"
+    },
+    {
+      "file": "0111-WIP-arm64-dts-sprd-add-device-tree-for-SC2730-PMIC.patch",
+      "sha256": "6c4e40c533ca23b38cbf66f529b3abfe2eba1d93db4e1bedff93f48ffe634667",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 111/225] WIP: arm64: dts: sprd: add device tree for SC2730"
+    },
+    {
+      "file": "0112-WIP-arm64-dts-sprd-add-device-tree-for-Reeder-S19-Ma.patch",
+      "sha256": "1b6e79f81774cd20c533aebc942cf0942935fd7bc3eba80cb3d53078f4c31385",
+      "from": "=?UTF-8?q?Otto=20Pfl=C3=BCger?= <otto.pflueger@abscue.de>",
+      "subject": "[PATCH 112/225] WIP: arm64: dts: sprd: add device tree for Reeder S19"
+    },
+    {
+      "file": "0113-arm64-dts-sprd-add-Anbernic-RG-Rotate-board-hwspinlo.patch",
+      "sha256": "139e6601deef16b1b1a2b487f6dab52402e5451f6cb576c9fbd2d3b178d77962",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 113/225] arm64: dts: sprd: add Anbernic RG Rotate board +"
+    },
+    {
+      "file": "0114-pinctrl-sprd-add-UMS512-pin-controller-dts-add-ap_gp.patch",
+      "sha256": "2fe99643786f44df5656c4e453ec1c3f3a6277db8d26ea1644a2dfe3679bedd3",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 114/225] pinctrl: sprd: add UMS512 pin controller; dts: add"
+    },
+    {
+      "file": "0115-arm64-configs-seed-ums512_defconfig-for-the-7.1-RG-R.patch",
+      "sha256": "f426564b52e970da15298bfcaf674802766bbec73d5dfe766c6bb493dd255e6f",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 115/225] arm64: configs: seed ums512_defconfig for the 7.1 RG"
+    },
+    {
+      "file": "0116-arm64-dts-sprd-add-ums512-i2c-controllers-enable-RG-.patch",
+      "sha256": "0d73093a10beca29af3c667e76a541636633224dda72de69cabea079ccdbdb2f",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 116/225] arm64: dts: sprd: add ums512 i2c controllers; enable"
+    },
+    {
+      "file": "0117-usb-musb-sprd-re-apply-RG-Rotate-gadget-session-hack.patch",
+      "sha256": "e84687ad188f1ecaad9b5e3aff018e2f7b378b8f0e263091c8766e608fa26a4a",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 117/225] usb: musb: sprd: re-apply RG Rotate gadget-session"
+    },
+    {
+      "file": "0118-arm64-dts-sprd-add-ums512-display-pipeline-port-ROCK.patch",
+      "sha256": "99522177202a22323821456427199b418f7c4f7224a92706754dd2c3c97c6657",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 118/225] arm64: dts: sprd: add ums512 display pipeline; port"
+    },
+    {
+      "file": "0119-arm64-configs-rebase-ums512_defconfig-on-the-real-6..patch",
+      "sha256": "46b88b4d0a9954f003fd41d69df042dc3ecde007e94ef6a1889b88e02cf486fb",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 119/225] arm64: configs: rebase ums512_defconfig on the real"
+    },
+    {
+      "file": "0120-phy-sprd-add-ums512-hsphy-cold-boot-ref-clock-soft-r.patch",
+      "sha256": "2fbe5f0cbae6cb8e91d2ea3626deeca115eb328f80423563fb7745df683a0b04",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 120/225] phy: sprd: add ums512 hsphy + cold-boot"
+    },
+    {
+      "file": "0121-arm64-dts-sprd-ums512-add-aliases-to-pin-mmc-i2c-ind.patch",
+      "sha256": "c965b82cac75bdd22e32cdba272b0873d15c02b2c7b3a3f35386f3e6e0dcf0c0",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 121/225] arm64: dts: sprd: ums512: add aliases to pin mmc/i2c"
+    },
+    {
+      "file": "0122-drm-sprd-carry-forward-the-RG-Rotate-free-run-cold-i.patch",
+      "sha256": "005f21f70bec1291f7b4f22e63fea078a6cc511a8a16a6a4c37aeca1a3428668",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 122/225] drm: sprd: carry forward the RG Rotate free-run /"
+    },
+    {
+      "file": "0123-arm64-dts-sprd-rg-rotate-mark-display-done-in-stagin.patch",
+      "sha256": "2694b1f6c54b261c29643d3a08fa591598230b895d21d3a51254f3ce3366689f",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 123/225] arm64: dts: sprd: rg-rotate: mark display done in"
+    },
+    {
+      "file": "0124-arm64-sprd-ums512-enable-Mali-GPU-panfrost-and-regis.patch",
+      "sha256": "e36de84c128573ea1d641377cadb4d073136e674368c750f96d169bf378f7811",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 124/225] arm64: sprd: ums512: enable Mali GPU (panfrost) and"
+    },
+    {
+      "file": "0125-arm64-sprd-ums512-port-audio-VBC-MCDT-AUDCP-codec-pl.patch",
+      "sha256": "544479f895df28049fa0d247ff5da75c70d670974a1f4dbd235d376cadea96a1",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 125/225] arm64: sprd: ums512: port audio"
+    },
+    {
+      "file": "0126-arm64-dts-sprd-ums512-port-thermal-sensors-and-cooli.patch",
+      "sha256": "cbb0280158b8228a8597955bed7bb78088a492fd39db8aad02bac0ebdf0a5859",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 126/225] arm64: dts: sprd: ums512: port thermal sensors and"
+    },
+    {
+      "file": "0127-watchdog-sprd-ums512-port-AP-sc2730-PMIC-watchdogs-t.patch",
+      "sha256": "93efff38411f161f545b02758b87a848a6b6c2b3e4366b0b47062cbf50604d17",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 127/225] watchdog: sprd: ums512: port AP + sc2730 PMIC"
+    },
+    {
+      "file": "0128-arm64-dts-sprd-rg-rotate-make-sdio0-non-removable-dr.patch",
+      "sha256": "bc427fdb30a53655b076410f12131acf53f68d45ad150fdc94c582a81a94f8c1",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 128/225] arm64: dts: sprd: rg-rotate: make sdio0"
+    },
+    {
+      "file": "0129-clk-sprd-ums512-fix-SError-panics-when-reading-clock.patch",
+      "sha256": "c6e5ce1fad101b27c7c684986a0fd44cd1fa1e1a5d60caec2cdb4dbdec203fbc",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 129/225] clk: sprd: ums512: fix SError panics when reading"
+    },
+    {
+      "file": "0130-phy-sprd-usb2-read-analog-regs-from-parent-anlg_phy_.patch",
+      "sha256": "d869c48962b1b776ba6515a23b422eb8c3e1177724f6931d999566bc4693f5a3",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 130/225] phy: sprd-usb2: read analog regs from parent"
+    },
+    {
+      "file": "0131-phy-usb-actually-fix-usb-serial.patch",
+      "sha256": "08b2f98ee37beb0ab5a7902bc8c8abfd4901cc12111c6cb85459e2ee4ca9d1c5",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 131/225] phy/usb: actually fix usb serial"
+    },
+    {
+      "file": "0132-drivers-mfd-fix-pmic-watchdog-for-child-nodes.patch",
+      "sha256": "c80e2309adc8a17f5a8065156db0dacd6efcaee0392df4bf3f0184713f7c4f33",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 132/225] drivers/mfd: fix pmic watchdog for child nodes"
+    },
+    {
+      "file": "0133-Revert-unsuccessful-audio-port-attempt.patch",
+      "sha256": "517418462888de491839f922e1aa4e194954a893a8831bc4c68f8f6244cc9a25",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 133/225] Revert unsuccessful audio port attempt"
+    },
+    {
+      "file": "0134-arm64-sprd-ums512-port-the-vendor-5.4-NORMAL_AP01-au.patch",
+      "sha256": "4eb9002ea0138fdaee616f33073e03a494c9d5333875e7d50b2374c742c3b46a",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 134/225] arm64: sprd: ums512: port the vendor 5.4 NORMAL_AP01"
+    },
+    {
+      "file": "0135-soc-sprd-audcp-boot-gate-AGCP-bus-consumers-behind-a.patch",
+      "sha256": "17780acedea3e01a0dc668c3b4b4a40c16b6ceaa9e7ba9dff21a4bdb4d118b00",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 135/225] soc: sprd: audcp-boot: gate AGCP bus consumers behind"
+    },
+    {
+      "file": "0136-soc-sprd-audcp-boot-boot-vector-must-be-written-dsp-.patch",
+      "sha256": "df4a8ea81385c10034b0fd381bb9a758327131e92c7e7a202c46a27d941642cb",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 136/225] soc: sprd: audcp-boot: boot-vector must be written"
+    },
+    {
+      "file": "0137-ASoC-sprd-vendor-don-t-advertise-more-PCM-buffer-tha.patch",
+      "sha256": "ee94b70d76341de0237f0f8e313a2495f702bf8c628301c0b8c46cdf17f49a79",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 137/225] ASoC: sprd: vendor: don't advertise more PCM buffer"
+    },
+    {
+      "file": "0138-ASoC-rg-rotate-reconstruct-stock-speaker-path-in-the.patch",
+      "sha256": "aa08c9f7df8d4530029821b52c4eb3ce911dc1d42848c7473a1e1c04d06af037",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 138/225] ASoC: rg-rotate: reconstruct stock speaker path in"
+    },
+    {
+      "file": "0139-rg-rotate-clarity-improvements.patch",
+      "sha256": "2e9fa0e2961f4396c0914613f1b212dd95326f4d54b0b64e6a1a30d17531221f",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 139/225] rg-rotate clarity improvements"
+    },
+    {
+      "file": "0140-ASoC-sprd-align-VBC-playback-period-to-the-fragment-.patch",
+      "sha256": "5d02554b5d9b47c9611cca15d5534d1492bc4815fe44101b92172847ba1eb842",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 140/225] ASoC: sprd: align VBC playback period to the fragment"
+    },
+    {
+      "file": "0141-ASoC-sprd-drive-period-elapsed-from-an-hrtimer-on-th.patch",
+      "sha256": "8b1b5d45cac4030b77ce6a701c6f5775b8ced69ed612473658630819de0de02d",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 141/225] ASoC: sprd: drive period elapsed from an hrtimer on"
+    },
+    {
+      "file": "0142-Re-add-sprd-asoc-hook-prerequisites.patch",
+      "sha256": "284a55bd42af4d48b131e0f9636352970a1903fc8eee19b2686da42326b92459",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 142/225] Re-add sprd asoc hook prerequisites"
+    },
+    {
+      "file": "0143-ASoC-sprd-port-the-AP-side-i2s0-audio-path-from-the-.patch",
+      "sha256": "e8ec8966aba42cfbd5d5a08201f5c3e298fbf62c1497f679f3b344845f9f33ea",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 143/225] ASoC: sprd: port the AP-side i2s0 audio path from the"
+    },
+    {
+      "file": "0144-ASoC-sprd-own-AG_IIS0-ext-sel-at-i2s0-DAI-startup-dr.patch",
+      "sha256": "f01353a8555fffdfdfb9eab8633c8f11515c0577caf740bef511e4a5d560925d",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 144/225] ASoC: sprd: own AG_IIS0 ext-sel at i2s0 DAI startup,"
+    },
+    {
+      "file": "0145-ASoC-sprd-gate-i2s0-AG_IIS0-ext-sel-write-on-audcp-p.patch",
+      "sha256": "10c62f08019238b5fbbf26c109e9187d80f1bcdcfbfdf523fcf9e361f28711f9",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 145/225] ASoC: sprd: gate i2s0 AG_IIS0 ext-sel write on audcp"
+    },
+    {
+      "file": "0146-ASoC-sprd-honour-agcp_ahb_gpr-null-check-in-iis_to_a.patch",
+      "sha256": "2508bff4452e96047afd6df21c9802336efd648528af68d95ce239e8b10e2ccd",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 146/225] ASoC: sprd: honour agcp_ahb_gpr null-check in"
+    },
+    {
+      "file": "0147-ASoC-sprd-verify-audcp-power-before-codec-DP-registe.patch",
+      "sha256": "71da0919c9ada6c93734a6f841738a5a9b1b621cfa3a5130feaa13d956650d90",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 147/225] ASoC: sprd: verify audcp power before codec DP"
+    },
+    {
+      "file": "0148-ASoC-sprd-pin-the-AGDSP-core-awake-to-keep-AGCP-regi.patch",
+      "sha256": "2d60da49af4801bc1eafbc312a88f8a3c32c5fd83343845e1ff63051405008c2",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 148/225] ASoC: sprd: pin the AGDSP core awake to keep AGCP"
+    },
+    {
+      "file": "0149-ASoC-sprd-let-i2s0-acquire-agcp-ahb-for-AG_IIS0-rout.patch",
+      "sha256": "ba580c4d6bb41333488cb43bcad7b3eb24275ade168c75f3577106a36a5f1e9f",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 149/225] ASoC: sprd: let i2s0 acquire agcp-ahb for AG_IIS0"
+    },
+    {
+      "file": "0150-ASoC-sprd-defer-i2s-probe-if-agcp-ahb-syscon-not-rea.patch",
+      "sha256": "0bf6e85bfa14ccb35ce7b4e9190783dd27e54b0942c97ecd6d080c909b54543b",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 150/225] ASoC: sprd: defer i2s probe if agcp-ahb syscon not"
+    },
+    {
+      "file": "0151-ASoC-sprd-fix-i2s0-DMA-request-UID-ap_dma-4-3-not-5-.patch",
+      "sha256": "4e4b5fd5b2aac4c2e1ba17f95b8f4aaddd6639d09c7f752959e543dcff04ea11",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 151/225] ASoC: sprd: fix i2s0 DMA request UID (ap_dma 4/3, not"
+    },
+    {
+      "file": "0152-ASoC-sprd-drive-the-speaker-amp-from-the-all-i2s-car.patch",
+      "sha256": "a7f85760af627bac079a5713509c59fed2d2527a6c0681315b79e4be39c32d50",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 152/225] ASoC: sprd: drive the speaker amp from the all-i2s"
+    },
+    {
+      "file": "0153-ASoC-sprd-drive-speaker-amp-from-all-i2s-DAI-link-op.patch",
+      "sha256": "05510dfbb941013bf40708130b39e90e0b8580653112f65310c0d16b7348d329",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 153/225] ASoC: sprd: drive speaker amp from all-i2s DAI-link"
+    },
+    {
+      "file": "0154-ASoC-sprd-restore-AG_IIS0-route-in-codec-probe-fixes.patch",
+      "sha256": "422b0dada897c659dcf3da9734568c4a341069e88bc49c646ec095fc6cec19ce",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 154/225] ASoC: sprd: restore AG_IIS0 route in codec probe"
+    },
+    {
+      "file": "0155-mailbox-sprd-add-ums512-R1-binding-fixes-disabled-in.patch",
+      "sha256": "47941619787ddf061bd84204d7251aedcbb6b23f9619971c74fddaec8b3a9155",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 155/225] mailbox: sprd: add ums512 (R1) binding; fixes"
+    },
+    {
+      "file": "0156-arm64-dts-rg-rotate-disable-all-i2s-card-by-default.patch",
+      "sha256": "ed83cfdc01c8a8ab51d0d4b08e2b3d0468c94162caad2db3c1cc57e3a6d04096",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 156/225] arm64: dts: rg-rotate: disable all-i2s card by"
+    },
+    {
+      "file": "0157-net-wireless-add-SC2355-Marlin3-Lite-SDIO-WiFi-suppo.patch",
+      "sha256": "ddcf60fc86b739f25443f2a747ed789dd4f2e7b0105ef1289a9278cd633364cf",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 157/225] net: wireless: add SC2355 (Marlin3-Lite) SDIO WiFi"
+    },
+    {
+      "file": "0158-arm64-dts-sprd-ums512-rg-rotate-enable-SC2355-SDIO-W.patch",
+      "sha256": "8d3b2af3f1274bec68ae605fe791200214dfed12e3509163ce8f34153aa63916",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 158/225] arm64: dts: sprd: ums512-rg-rotate: enable SC2355"
+    },
+    {
+      "file": "0159-cleanup-audcp-boot-firmware-name.patch",
+      "sha256": "5403d21f246b52927a4503a04c03b55b48734a2fe86a538a1fc9f3aaaaab57f0",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 159/225] cleanup audcp-boot firmware name"
+    },
+    {
+      "file": "0160-net-wireless-sc23xx-fix-RX-BA-reorder-wedge-under-lo.patch",
+      "sha256": "e0ae0d30485d6cb6bacfcd8ca51a2aa918c4dd10e8abcb4b5164b29a863edf76",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 160/225] net: wireless: sc23xx: fix RX BA reorder wedge under"
+    },
+    {
+      "file": "0161-net-wireless-sc23xx-fix-RX-BA-reorder-timeout-off-by.patch",
+      "sha256": "570add3ec388177c5416ee3f711c8766f24783063d4762fc89db65eea39a7e3e",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 161/225] net: wireless: sc23xx: fix RX BA reorder timeout"
+    },
+    {
+      "file": "0162-net-wireless-sc23xx-fix-WiFi-data-path-throughput-an.patch",
+      "sha256": "c6dff88780520eabdf42c26bae5980811c21513896f4f76460f89fbd184b9f35",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 162/225] net: wireless: sc23xx: fix WiFi data-path throughput"
+    },
+    {
+      "file": "0163-arm64-dts-sprd-ums512-rg-rotate-enable-eic-improve-s.patch",
+      "sha256": "ee15eb3f8ae739dbd5e787b449e18178c0d7d1db3dd00f9b5d13b89f71ee7614",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 163/225] arm64: dts: sprd: ums512-rg-rotate: enable eic,"
+    },
+    {
+      "file": "0164-Bluetooth-add-btsprdsdio-HCI-driver-for-Marlin3-Lite.patch",
+      "sha256": "b8cce0c49c8e4e8e49ad5a25667d597122f0008d8651257351520c71f943782a",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 164/225] Bluetooth: add btsprdsdio HCI driver for Marlin3-Lite"
+    },
+    {
+      "file": "0165-input-gpio-keys-gamepad-system-keys-for-RG-Rotate.patch",
+      "sha256": "9833c94ad0d74e074dd6c328e9b156552164ac30e7b3ee6ac9fee25392cc8be9",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 165/225] input: gpio-keys gamepad + system keys for RG Rotate"
+    },
+    {
+      "file": "0166-arm64-dts-sprd-ums512-rg-rotate-enable-GT911-touchsc.patch",
+      "sha256": "9a40917b5b5c22f95190963ad41b64c9bd17a459ebd2e9d48da64e8655a6a47c",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 166/225] arm64: dts: sprd: ums512-rg-rotate: enable GT911"
+    },
+    {
+      "file": "0167-arm64-dts-sprd-ums512-rg-rotate-default-green-led-on.patch",
+      "sha256": "4c0222caa83f011afa3ac776937322494a891edc721153660675c01c094bf7de",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 167/225] arm64: dts: sprd: ums512-rg-rotate: default green led"
+    },
+    {
+      "file": "0168-usb-automatic-dual-role-OTG-via-PMIC-Type-C-CC-detec.patch",
+      "sha256": "4276e235480ea81aacab009098f914424f80cc3c0fbefa38c1bc4ad93329f63a",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 168/225] usb: automatic dual-role OTG via PMIC Type-C CC"
+    },
+    {
+      "file": "0169-proper-fix-for-audio-timing-irq-was-off-by-one.patch",
+      "sha256": "9a45755038ef857a8ff07cd4a45e92882bfe03dc993c29a8b827f92e25d16d9b",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 169/225] proper fix for audio timing (irq was off-by-one...)"
+    },
+    {
+      "file": "0170-rg-rotate-suspend-resume-fixes.patch",
+      "sha256": "927f23fcf569e885f1315a99016667d1bfce1e423bcbc38f12959b8f54cdb47c",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 170/225] rg-rotate: suspend/resume fixes"
+    },
+    {
+      "file": "0171-ums512-gpu-dvfs.patch",
+      "sha256": "6994d73619432057b62c5092d1891f6db61e9506976ad6eaed62147287da1b82",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 171/225] ums512 gpu dvfs"
+    },
+    {
+      "file": "0172-rg-rotate-dts-btn-mapping-tweaks.patch",
+      "sha256": "330ddc3315bd4ef2b7a065c4e16f0444edb8f3d3970ff551112040301ebe3e32",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 172/225] rg-rotate dts btn mapping tweaks"
+    },
+    {
+      "file": "0173-Add-battery-charge-temp-guards.patch",
+      "sha256": "115c54f2dbc992d210ec4c53ff6e689df34a9eb2753887463b986df1c86f00e6",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 173/225] Add battery charge temp guards"
+    },
+    {
+      "file": "0174-input-misc-sc27xx-vibra-don-t-ignore-strong-rumble-e.patch",
+      "sha256": "bf6da8409ffe4b182fc7358ed106995de174fcd602385fc14ea44bb65191105f",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 174/225] input: misc: sc27xx-vibra: don't ignore strong rumble"
+    },
+    {
+      "file": "0175-fix-sc23xx-symbol-exports.patch",
+      "sha256": "4f01dbf71670b3732cf8eec531b86031178b9d536a0ae615e08ad6b1ee7fcb69",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 175/225] fix sc23xx symbol exports"
+    },
+    {
+      "file": "0176-additional-tos-sml-tee-memory-guards.patch",
+      "sha256": "54781eaaa23298fcd305f8738296f0935f7ac82efc38c64c3767e2af50c9bc71",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 176/225] additional tos/sml/tee memory guards"
+    },
+    {
+      "file": "0177-add-uid-based-wifi-mac-addressing.patch",
+      "sha256": "45cd941a7ac2b5560b0fc098050e76be6e39bbfd2d0bc160c1885c1b015da8e8",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 177/225] add uid-based wifi mac addressing"
+    },
+    {
+      "file": "0178-fix-wcn-wifi-auth-timeout-due-to-second_station-use.patch",
+      "sha256": "cdf306bd9f54b9b32b9ad9544e68ae27c516a7da4b3c52c48f7815360cc26f95",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 178/225] fix wcn/wifi auth timeout due to second_station use"
+    },
+    {
+      "file": "0179-cpufreq-sprd-hwdvfs-enable-hardware-DVFS-on-ums512-T.patch",
+      "sha256": "b0098d961a2fd84676165d65c9aeffe5e0e1e1d3a9ee419545471cfc6167e4dc",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 179/225] cpufreq: sprd-hwdvfs: enable hardware DVFS on ums512"
+    },
+    {
+      "file": "0180-arm64-dts-ums512-fix-cpufreq-tables-and-enable-the-h.patch",
+      "sha256": "75e61f0f1864f7c52137fae47b8efc97a87b2b194a618477a8affe8ebb38032a",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 180/225] arm64: dts: ums512: fix cpufreq tables and enable the"
+    },
+    {
+      "file": "0181-fix-audio-dma-suspend-wake.patch",
+      "sha256": "42896a0c92ab8a50e0c12c7b8e9b6eb096c8ef0b66a4a208145974a5b647232d",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 181/225] fix audio dma suspend/wake"
+    },
+    {
+      "file": "0182-fix-audio-vbc-suspend-wake.patch",
+      "sha256": "2b52a4ceb047db39401144f224400796f511b3db25fa09892a5cda57f168bbf6",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 182/225] fix audio vbc suspend/wake"
+    },
+    {
+      "file": "0183-add-sleep-ops-to-dma-driver.patch",
+      "sha256": "e3e0595437b8978dd176b4ddfad381205d5105d47640ee162a291b24b0bd18a1",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 183/225] add sleep ops to dma driver"
+    },
+    {
+      "file": "0184-don-t-advertise-pcm-resume.patch",
+      "sha256": "2e7200f240e7592137897ce45dd96d77a27e42b7c2a5561e9292e81526235a35",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 184/225] don't advertise pcm resume"
+    },
+    {
+      "file": "0185-usb-musb-sprd-start-the-controller-when-switching-to.patch",
+      "sha256": "0a9031195c775361e87ba6de0a72f21e6349bdb42be48e769fcd3a095240d5a4",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 185/225] usb: musb: sprd: start the controller when switching"
+    },
+    {
+      "file": "0186-usb-musb-sprd-report-host-disconnect-when-leaving-ho.patch",
+      "sha256": "4f22108a6d0ad3dd08acc67b17916690a22c87fae82641e70bde635318d937e6",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 186/225] usb: musb: sprd: report host disconnect when leaving"
+    },
+    {
+      "file": "0187-fix-suspend-insta-wake-when-using-gadget-capable-USB.patch",
+      "sha256": "52d4c044da1e5f07c5a2609ce95716cc3812d4e25de44d27dcdb66bd4cac1ba7",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 187/225] fix suspend insta-wake when using gadget-capable USB"
+    },
+    {
+      "file": "0188-make-usb-plug-unplug-wakeup-opt-in.patch",
+      "sha256": "92c45c87ed32f39de431d830dae433c2345eb1aa4a1b966c0ec3a538edbf7f7f",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 188/225] make usb plug/unplug wakeup opt-in"
+    },
+    {
+      "file": "0189-make-tx-threads-freezable-quiet-loopcheck-a-bit.patch",
+      "sha256": "5f2ba7157ee47b7c208da2bd89253d373f9633885e30abbf4a6380e893d323de",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 189/225] make tx threads freezable, quiet loopcheck a bit"
+    },
+    {
+      "file": "0190-rg-rotate-wake-on-swivel-open-only.patch",
+      "sha256": "9a9a5e15e489c512afa1696655cb41a315bed4be6095a275ac0d690fa82bdaf7",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 190/225] rg-rotate: wake on swivel open only"
+    },
+    {
+      "file": "0191-ums512.dtsi-fix-nvmem-cell-address-drift-from-reads.patch",
+      "sha256": "a858ea776c93a56f5b572dfb2d357e73be72360a0e0e76f203c572766cb102df",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 191/225] ums512.dtsi: fix nvmem cell address drift from reads"
+    },
+    {
+      "file": "0192-vbc-dai-restore-ag_iis0_ext_sel-each-stream.patch",
+      "sha256": "999b51a45f014fc4da2f9a14add303b6ddba5afdd4d53b0ee47f2f47f12f6e66",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 192/225] vbc-dai: restore ag_iis0_ext_sel each stream"
+    },
+    {
+      "file": "0193-vbc-dai-move-ag-iis0-restore-a-bit-later.patch",
+      "sha256": "61820dfe076120b8b7f4d87c72bfa8fa3a97d3eff27f711b28f75d1cc7faca3c",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 193/225] vbc-dai: move ag iis0 restore a bit later"
+    },
+    {
+      "file": "0194-audio-add-proper-register-replays-via-write-through-.patch",
+      "sha256": "a84781b07f819d9b4c1f1895a85d2ff5732c23477c149a02077a4d7c9abd152a",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 194/225] audio: add proper register replays via write-through"
+    },
+    {
+      "file": "0195-ums512-fix-all-pmic-and-ap-gpio-interrupts-waking.patch",
+      "sha256": "8423201017f143ccf27a67acf837d4dfc564d8ff28d49c1bce0374184c9c719a",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 195/225] ums512: fix all pmic and ap-gpio interrupts waking"
+    },
+    {
+      "file": "0196-sdiohal_main-fix-certain-wifi-tx-rx-waking-from-slee.patch",
+      "sha256": "95c0aeb651d4dacbc2026dceac77249b6e1fcdae202f2cbbadc9b7297009143a",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 196/225] sdiohal_main: fix certain wifi tx/rx waking from"
+    },
+    {
+      "file": "0197-sprd-dmaengine-pcm-fix-use-after-free-on-dma-descrip.patch",
+      "sha256": "c7b0f1cd5dfe795f2080aae988de1fe5ea8d9f3e42e9203275cd3b2928467a91",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 197/225] sprd-dmaengine-pcm: fix use-after-free on dma"
+    },
+    {
+      "file": "0198-arm64-dts-ums512-make-thermal-throttling-actually-wo.patch",
+      "sha256": "12bc4bf724be7a5eff5fb9dbd06021c4a1915f627a4cdbab4753110177619579",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 198/225] arm64: dts: ums512: make thermal throttling actually"
+    },
+    {
+      "file": "0199-arm64-dts-ums512-select-POWERCAP-cap-idle-injection-.patch",
+      "sha256": "b06fe9d6488cfb9ecb4146c21ae5940e382509ab182924956c38a7b3590740b6",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 199/225] arm64: dts: ums512: select POWERCAP, cap idle"
+    },
+    {
+      "file": "0200-arm64-dts-ums512-raise-idle-injection-cap-to-80.patch",
+      "sha256": "040691311c264537e1b0e534c6293ace1877f0bac356b1781fe57179bb31a99f",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 200/225] arm64: dts: ums512: raise idle injection cap to 80%"
+    },
+    {
+      "file": "0201-arm64-dts-ums512-reserve-stock-widevine-region-at-0x.patch",
+      "sha256": "4a022169a7804043b67ae2a0c4291bb41843f6bc3cc599b80ad17977c522c537",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 201/225] arm64: dts: ums512: reserve stock widevine region at"
+    },
+    {
+      "file": "0202-arm64-dts-ums512-give-every-cpu-an-idle-injection-co.patch",
+      "sha256": "8100ec85b8d23574dd296788009e59477b7aa1a9070ab8e916d2e5c164bf62f8",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 202/225] arm64: dts: ums512: give every cpu an idle-injection"
+    },
+    {
+      "file": "0203-cpufreq-sprd-hwdvfs-switch-MPLL-output-to-DVFS-contr.patch",
+      "sha256": "27499e06c9536906dea8d681519e8f466c1dc7b757fb51238cb059ba2338d0b1",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 203/225] cpufreq: sprd-hwdvfs: switch MPLL output to DVFS"
+    },
+    {
+      "file": "0204-cpufreq-sprd-hwdvfs-fix-inverted-polarity-on-TOP-DVF.patch",
+      "sha256": "f6a5fbc2c37d09ceb341a350e25eac30c4ddda769ed09dae05fd109ddb44adc3",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 204/225] cpufreq: sprd-hwdvfs: fix inverted polarity on TOP"
+    },
+    {
+      "file": "0205-cpufreq-sprd-hwdvfs-point-the-polarity-fix-comment-a.patch",
+      "sha256": "f4974ae164526997b151726e39620cb3451ac4f1919e04fc256144582a9f07dd",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 205/225] cpufreq: sprd-hwdvfs: point the polarity-fix comment"
+    },
+    {
+      "file": "0206-cpufreq-sprd-port-top-dvfs-subsystem-driver-for-devi.patch",
+      "sha256": "be8740419a55205d3236a2978077a293b8cc7c08a2cab81da8dbebff9bbe7f27",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 206/225] cpufreq: sprd: port top-dvfs subsystem driver for"
+    },
+    {
+      "file": "0207-cpufreq-sprd-port-realme-5.4-generation-hwdvfs-stack.patch",
+      "sha256": "068adcb4368bd4947764bc26b62fc6c0f3c8e4a90ff54efa9b5d600f1f5ccf3a",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 207/225] cpufreq: sprd: port realme 5.4-generation hwdvfs"
+    },
+    {
+      "file": "0208-cpufreq-sprd-default-the-realme-gen-hwdvfs-symbols-o.patch",
+      "sha256": "0cc5e0cac7d4d223a56a96902868adb8288334a8e98922b74cad928c50e20ca2",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 208/225] cpufreq: sprd: default the realme-gen hwdvfs symbols"
+    },
+    {
+      "file": "0209-cpufreq-sprd-hwdvfs-cpufreq-fix-of_node_put-underflo.patch",
+      "sha256": "7221f1cb9bd26fce78116ba1259b2b18701132464d29a983c4e6f4fcb14dbdb2",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 209/225] cpufreq: sprd-hwdvfs-cpufreq: fix of_node_put"
+    },
+    {
+      "file": "0210-dts-rg-rotate-mux-SDA3-SCL3-to-func4-for-the-DVFS-I2.patch",
+      "sha256": "826e61605086a729911bb917a856633d704564f03230f50ce0c3a21468bf7bd4",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 210/225] dts: rg-rotate: mux SDA3/SCL3 to func4 for the DVFS"
+    },
+    {
+      "file": "0211-cpufreq-sprd-hwdvfs-interim-voltage-meet-bypass-for-.patch",
+      "sha256": "020ed4fa4c8f3a1994a1fd3b8ffe11bc746ff0d494c6395d3aec0461954dce8e",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 211/225] cpufreq: sprd-hwdvfs: interim voltage-meet bypass for"
+    },
+    {
+      "file": "0212-ums512-update-sensorhub-compat.patch",
+      "sha256": "817729a46c32539c9c9327724240cb52c441059014473b2855e554091a0039f7",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 212/225] ums512: update sensorhub compat"
+    },
+    {
+      "file": "0213-sprd_pmsys-add-sp-init-kernel-side.patch",
+      "sha256": "32ebd49c2c32adee2dec49c29a49882e3d7b0f99ebf1af6c00b4d2ef611f70a5",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 213/225] sprd_pmsys: add sp init kernel-side"
+    },
+    {
+      "file": "0214-sprd_sipc_core-add-open-acknowledge-for-CM4.patch",
+      "sha256": "9a69a2db9cff4291fb06067a96d0feec3a172b468af3b3eee4ae15e80601fc6d",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 214/225] sprd_sipc_core: add open/acknowledge for CM4"
+    },
+    {
+      "file": "0215-sprd_pmsys-don-t-assert-just-clear.patch",
+      "sha256": "31a07adbb2cf5f043654a0537942975608f1d4540a0a57d831cfd4cbc007bd4f",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 215/225] sprd_pmsys: don't assert, just clear"
+    },
+    {
+      "file": "0216-rpmsg-sprd_sipc-add-raw-smsg-DFS-control-channel-to-.patch",
+      "sha256": "cc19b4b8b62cef67d4ec9d43ebe1c12ed8f5e3f001f965edff0caf63da2e2526",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 216/225] rpmsg: sprd_sipc: add raw-smsg DFS control channel to"
+    },
+    {
+      "file": "0217-dts-fix-accidental-pinctrl-reparent.patch",
+      "sha256": "c8f859d7dadc3324eba4531c42caed8ee8b84be6f603787020ac46b286ecbf2f",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 217/225] dts: fix accidental pinctrl reparent"
+    },
+    {
+      "file": "0218-arm64-dts-ums512-wire-stock-pmsys-sipc-channels-5-6-.patch",
+      "sha256": "43612051c4708cfb1f9caa52f5db4f3167a3c75ca6f9ac52e4a65ca600231668",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 218/225] arm64: dts: ums512: wire stock pmsys sipc channels"
+    },
+    {
+      "file": "0219-arm64-dts-rg-rotate-DVFS-I2C-pads-SDA3-SCL3-back-to-.patch",
+      "sha256": "b411925e4314be280e04b0f06fd1da6d8ecd0f55b332508bf396afb112da305b",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 219/225] arm64: dts: rg-rotate: DVFS I2C pads SDA3/SCL3 back"
+    },
+    {
+      "file": "0220-i2c-sprd-hw-switch-to-v1-register-layout-for-sharkl5.patch",
+      "sha256": "1eb104157e8fe8cf50810bb87f795740ce9ae997273946968cfa7bfaea492a77",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 220/225] i2c: sprd-hw: switch to v1 register layout for"
+    },
+    {
+      "file": "0221-i2c-sprd-hw-program-the-TOP_DVFS-hardware-channels-a.patch",
+      "sha256": "e86ef95c5c1c153a6771df12a44fcbc0e9c3386a8e43d6b68d6b14a7e5b23076",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 221/225] i2c: sprd-hw: program the TOP_DVFS hardware channels"
+    },
+    {
+      "file": "0222-cpufreq-sprd-hwdvfs-drop-the-DCDC_CPU1-voltage-meet-.patch",
+      "sha256": "8c3a42d23ad5906c5af6cfdf26740b66f5def57d504feb6d91b224fa6535e50c",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 222/225] cpufreq: sprd-hwdvfs: drop the DCDC_CPU1 voltage-meet"
+    },
+    {
+      "file": "0223-arm64-dts-ums512-drop-idle-injection-cooling-maps.patch",
+      "sha256": "93d06a0cb8fb5a9d448d8ae0b063201db4ea2ed12e7a75f1c3d6493a2a031e0d",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 223/225] arm64: dts: ums512: drop idle-injection cooling maps"
+    },
+    {
+      "file": "0224-arm64-dts-ums512-disable-pmsys-rproc-CM4-stays-behin.patch",
+      "sha256": "8e9913e1843ef6341ccaef5a09f734c45058561b9bef583dcd9bc0c4304cc7d3",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 224/225] arm64: dts: ums512: disable pmsys rproc - CM4 stays"
+    },
+    {
+      "file": "0225-arm64-dts-rg-rotate-reserve-all-stock-carveouts-fixe.patch",
+      "sha256": "5dbb6950384eb5b12778ea8f9ba4e2eca790bcbe24e35df26f1ac5e8b4a6c00d",
+      "from": "Noxwell <beebono@yahoo.com>",
+      "subject": "[PATCH 225/225] arm64: dts: rg-rotate: reserve all stock carveouts"
+    }
+  ],
+  "application": "GNU patch -p1, matching ROCKNIX scripts/unpack",
+  "result_tree": "8742e78ff1da046df93871b573241f20899ba6cb"
+}

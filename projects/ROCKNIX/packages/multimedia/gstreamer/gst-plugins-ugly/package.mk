@@ -3,6 +3,7 @@
 
 PKG_NAME="gst-plugins-ugly"
 PKG_VERSION="$(get_pkg_version gstreamer)"
+PKG_SHA256="64019b97890e0d888b0ed09548e1b6c8e789911d13c7c0a5211ca3e4a8cb621e"
 PKG_LICENSE="LGPL-2.1-or-later"
 PKG_SITE="https://gstreamer.freedesktop.org/modules/gst-plugins-ugly.html"
 PKG_URL="https://gstreamer.freedesktop.org/src/gst-plugins-ugly/${PKG_NAME}-${PKG_VERSION}.tar.xz"

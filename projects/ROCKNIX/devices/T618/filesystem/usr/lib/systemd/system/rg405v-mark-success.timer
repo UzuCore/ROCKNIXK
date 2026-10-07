@@ -1,0 +1,9 @@
+[Unit]
+Description=Refresh the approved RG405V ROCKNIX slot after startup
+
+[Timer]
+OnBootSec=90
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

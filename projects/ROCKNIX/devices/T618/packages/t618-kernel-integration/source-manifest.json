@@ -1,0 +1,58 @@
+{
+  "kernel_repo": "kernel.org linux-7.1.2 + patches/linux/rg-rotate (beebono/linux-mainline-sprd 464b3e7 rebased)",
+  "kernel_commit": "464b3e7bf45bb300e190339977abba36c8078e1f",
+  "vendor_repo": "marohinmark/kernel_ums512_5.4",
+  "vendor_commit": "ead7c4e34de9a1465cb9badd7e0cf56691800b16",
+  "files": [
+    {
+      "path": "drivers/power/supply/bq2415x_charger.c",
+      "base_sha256": "fb932973cbb84f992c65e1bd3a32329ec3b289af37f5bcd9b62160a6cb64d21b",
+      "sha256": "c48507ac36e70fe8a9d54d0efb79dd114fb09e4edf7b34cc0ebe531945aed63b",
+      "size": 60668
+    },
+    {
+      "path": "sound/soc/sprd/vendor/Makefile",
+      "base_sha256": "8e69bdd020d5e207ce649bb569ce105dbb735640cc7e4f2be9d2e2b2ee61c66e",
+      "sha256": "f7e4959024cc55f33645181f9ef12894d22c3413b12332a28f5ff94efed86923",
+      "size": 1373
+    },
+    {
+      "path": "sound/soc/sprd/vendor/sprd-codec.c",
+      "base_sha256": "4b849021c0585ac15026b31bcd5104496428065cf5128d11394900f4d5d5f46a",
+      "sha256": "f4a53dcbd4ad4804ab46a00820598dcdcf8c6d166e3a2bbc49644a4ed9124575",
+      "size": 129269
+    },
+    {
+      "path": "sound/soc/sprd/vendor/sprd-headset-2730.h",
+      "base_sha256": null,
+      "sha256": "d8c6b34368477c7a1e0d574095a91c0acbafca06f03b5603c44dba57c58c2bc1",
+      "size": 8610
+    },
+    {
+      "path": "sound/soc/sprd/vendor/sprd-headset-sc2730.c",
+      "base_sha256": null,
+      "sha256": "d1f207a8f35c11843c6b0dfb1ba1a31bd2e774cd256bc10af6cce06b6a6dca37",
+      "size": 97314
+    },
+    {
+      "path": "sound/soc/sprd/vendor/sprd-rg405m-aux.c",
+      "base_sha256": null,
+      "sha256": "dba4c6363b23effff017dbadf8c879e03ba5b899083bdeee9ce23c8546e0585c",
+      "size": 266
+    },
+    {
+      "path": "sound/soc/sprd/vendor/vbc-dai.c",
+      "base_sha256": "d51cab82a7bf332eea778ca28a9245edeb4dd1e6d81547784acd06ab534c5590",
+      "sha256": "34632bdf0a8715c951ce62f0e737907b7f13beca9885d23075475e675be2a6f2",
+      "size": 377872
+    },
+    {
+      "path": "sound/soc/sprd/vendor/vbc-phy-v4.h",
+      "base_sha256": "cc30932d35d172954c06b09aeb6ee1e2e904fb9f1de7580c3d05982e026d904f",
+      "sha256": "ebed40103676fcbda5311fd21fe95f7431784237b8581929aa50606cdfde22cb",
+      "size": 50256
+    }
+  ],
+  "hardware_tested": false,
+  "kernel_or_module_linked": false
+}

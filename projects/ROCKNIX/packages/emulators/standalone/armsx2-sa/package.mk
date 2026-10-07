@@ -12,6 +12,10 @@ PKG_DEPENDS_TARGET="toolchain llvm:host SDL3 libpng zlib libjpeg-turbo zstd lz4 
 PKG_TOOLCHAIN="manual"
 PKG_BUILD_FLAGS="speed"
 
+if [ "${DEVICE}" = "T618" ]; then
+  PKG_DEPENDS_TARGET+=" scummvm-sa"
+fi
+
 PATCHES_URL="https://github.com/PCSX2/pcsx2_patches/releases/download/latest/patches.zip"
 
 get_graphicdrivers
@@ -117,6 +121,13 @@ makeinstall_target() {
 
   mkdir -p ${INSTALL}/usr/share/armsx2-sa
     cp -a ${PKG_BUILD}/.${TARGET_NAME}/bin/* ${INSTALL}/usr/share/armsx2-sa
+
+  if [ "${DEVICE}" = "T618" ]; then
+    # Reuse the bundled Korean font instead of downloading it at runtime.
+    mkdir -p ${INSTALL}/usr/share/armsx2-sa/resources/fonts
+    ln -s /usr/config/scummvm/themes/themes/fonts-cjk/NotoSansKR-Regular.otf \
+      ${INSTALL}/usr/share/armsx2-sa/resources/fonts/NotoSansKR-Regular.ttf
+  fi
 
   mkdir -p ${INSTALL}/usr/config
     cp -a ${PKG_DIR}/config/common/ARMSX2 ${INSTALL}/usr/config

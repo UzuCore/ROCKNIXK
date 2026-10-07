@@ -1,0 +1,3424 @@
+Subject: [PATCH] sprd: usb-phy support for UMS512
+
+Consolidated from beebono/linux-mainline-sprd rg-rotate 464b3e7bf45bb300e190339977abba36c8078e1f, rebased onto Linux 7.1.2.
+Original authors and patch hashes are recorded in series-origin.json.
+
+diff --git a/drivers/phy/Kconfig b/drivers/phy/Kconfig
+index 227b9a4c612e8c7a2ba7374e5ffcd9d9cb22810a..758d5f3bd6faaf21beae1df73248ca886893b8bc 100644
+--- a/drivers/phy/Kconfig
++++ b/drivers/phy/Kconfig
+@@ -126,6 +126,15 @@ config PHY_SNPS_EUSB2
+ 	  Enable support for the USB high-speed SNPS eUSB2 phy on select
+ 	  SoCs. The PHY is usually paired with a Synopsys DWC3 USB controller.
+ 
++config PHY_SPRD_USB2
++	tristate "Unisoc USB2 PHY driver"
++	depends on ARCH_SPRD || COMPILE_TEST
++	depends on OF
++	select GENERIC_PHY
++	help
++	  Enable support for the USB2.0 PHY found on Unisoc SoCs such as
++	  UMS9230.
++
+ config PHY_XGENE
+ 	tristate "APM X-Gene 15Gbps PHY support"
+ 	depends on HAS_IOMEM && OF && (ARCH_XGENE || COMPILE_TEST)
+diff --git a/drivers/phy/Makefile b/drivers/phy/Makefile
+index f49d83f00a3d877df998c596fca68ea653ee7a0d..140c6cff40e67cc521e25b9fc1b2710a65ed901d 100644
+--- a/drivers/phy/Makefile
++++ b/drivers/phy/Makefile
+@@ -15,6 +15,7 @@ obj-$(CONFIG_PHY_LPC18XX_USB_OTG)	+= phy-lpc18xx-usb-otg.o
+ obj-$(CONFIG_PHY_NXP_PTN3222)		+= phy-nxp-ptn3222.o
+ obj-$(CONFIG_PHY_PISTACHIO_USB)		+= phy-pistachio-usb.o
+ obj-$(CONFIG_PHY_SNPS_EUSB2)		+= phy-snps-eusb2.o
++obj-$(CONFIG_PHY_SPRD_USB2)		+= phy-sprd-usb2.o
+ obj-$(CONFIG_PHY_XGENE)			+= phy-xgene.o
+ 
+ obj-$(CONFIG_GENERIC_PHY)		+= allwinner/	\
+diff --git a/drivers/phy/phy-sprd-usb2.c b/drivers/phy/phy-sprd-usb2.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..d0edc9f19ff4163e99d3cd5ae01e5788e5d1e2eb
+--- /dev/null
++++ b/drivers/phy/phy-sprd-usb2.c
+@@ -0,0 +1,320 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Unisoc USB2 PHY driver
++ *
++ * Copyright (C) 2024 Otto Pflüger
++ */
++
++#include <linux/delay.h>
++#include <linux/mfd/syscon.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/phy/phy.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++
++/* otg_test_reg */
++#define BIT_AON_USB2_PHY_IDDIG		BIT(3)
++#define BIT_AON_OTG_VBUS_VALID_PHYREG	BIT(24)
++
++/* otg_ctrl_reg */
++#define BIT_AON_UTMI_WIDTH_SEL		BIT(30)
++
++/* pll_reg */
++#define BIT_ANLG_USB20_ISO_SW_EN	BIT(0)
++
++/* pd_reg */
++#define BIT_ANLG_USB20_PS_PD_L		BIT(3)
++#define BIT_ANLG_USB20_PS_PD_S		BIT(4)
++
++/* utmi_ctl1_reg */
++#define BIT_ANLG_USB20_RESERVED		GENMASK(15, 0) /* undocumented */
++#define BIT_ANLG_USB20_VBUSVLDEXT	BIT(16)
++#define BIT_ANLG_USB20_DATABUS16_8	BIT(28)
++
++/* utmi_ctl2_reg */
++#define BIT_ANLG_USB20_DMPULLDOWN	BIT(3)
++#define BIT_ANLG_USB20_DPPULLDOWN	BIT(4)
++
++#define DEFAULT_EYE_PATTERN	0x04f3d1c0
++
++/* AON APB APB_EB1: module enables */
++#define BIT_AON_APB_ANA_EB		BIT(12)	/* analog PHY block clock */
++
++/* AON APB CGM_REG1: USB reference-clock gates */
++#define BIT_AON_APB_CGM_OTG_REF_EN	BIT(12)
++#define BIT_AON_APB_CGM_DPHY_REF_EN	BIT(10)
++
++/* AON APB APB_RST1: PHY/UTMI soft reset */
++#define BIT_AON_APB_OTG_PHY_SOFT_RST	BIT(9)
++#define BIT_AON_APB_OTG_UTMI_SOFT_RST	BIT(8)
++
++struct sprd_hsphy_data {
++	/* AON APB regs */
++	u32 otg_test_reg;
++	u32 otg_ctrl_reg;
++	u32 apb_eb1;	/* module enables (ANA_EB); 0 = not wired */
++	u32 cgm_reg1;	/* USB ref-clock gates; 0 = not wired */
++	u32 apb_rst1;	/* PHY soft-reset; 0 = not wired */
++
++	/* analog regs */
++	u32 pll_reg;
++	u32 pd_reg;
++	u32 utmi_ctl1_reg;
++	u32 utmi_ctl2_reg;
++	u32 trimming_reg;
++	u32 reg_sel_cfg_reg;
++	u32 reg_sel_mask;
++};
++
++struct sprd_hsphy {
++	struct device *dev;
++	struct regmap *aon_apb;
++	struct regmap *ana_regs;
++	const struct sprd_hsphy_data *data;
++};
++
++static int sprd_hsphy_init(struct phy *phy)
++{
++	struct sprd_hsphy *hsphy = phy_get_drvdata(phy);
++
++	dev_dbg(hsphy->dev, "%s()\n", __func__);
++
++	/*
++	 * Enable the USB reference-clock gates. On a USB-plug boot U-Boot sets
++	 * these, which is why mainline got away without it; on a cold
++	 * (power-button) boot nothing does, leaving the PHY reference clock
++	 * dead so the gadget's EP0 never answers and the host fails every
++	 * descriptor read with -71. Mirror the vendor BSP and assert them here.
++	 */
++	if (hsphy->data->cgm_reg1)
++		regmap_set_bits(hsphy->aon_apb, hsphy->data->cgm_reg1,
++				BIT_AON_APB_CGM_OTG_REF_EN |
++				BIT_AON_APB_CGM_DPHY_REF_EN);
++
++	regmap_set_bits(hsphy->aon_apb, hsphy->data->otg_ctrl_reg,
++			BIT_AON_UTMI_WIDTH_SEL);
++	regmap_set_bits(hsphy->ana_regs, hsphy->data->utmi_ctl1_reg,
++			BIT_ANLG_USB20_DATABUS16_8);
++
++	/*
++	 * Soft-reset the PHY/UTMI once, as the vendor BSP does, so a cold boot
++	 * starts from a known state instead of inheriting whatever U-Boot left
++	 * (or didn't leave). The vendor delay is 20-30ms.
++	 */
++	if (hsphy->data->apb_rst1) {
++		regmap_set_bits(hsphy->aon_apb, hsphy->data->apb_rst1,
++				BIT_AON_APB_OTG_PHY_SOFT_RST |
++				BIT_AON_APB_OTG_UTMI_SOFT_RST);
++		usleep_range(20000, 30000);
++		regmap_clear_bits(hsphy->aon_apb, hsphy->data->apb_rst1,
++				  BIT_AON_APB_OTG_PHY_SOFT_RST |
++				  BIT_AON_APB_OTG_UTMI_SOFT_RST);
++	}
++
++	return 0;
++}
++
++static int sprd_hsphy_power_on(struct phy *phy)
++{
++	struct sprd_hsphy *hsphy = phy_get_drvdata(phy);
++
++	dev_dbg(hsphy->dev, "%s()\n", __func__);
++
++	regmap_clear_bits(hsphy->ana_regs, hsphy->data->pll_reg,
++			  BIT_ANLG_USB20_ISO_SW_EN);
++	regmap_clear_bits(hsphy->ana_regs, hsphy->data->pd_reg,
++			  BIT_ANLG_USB20_PS_PD_L | BIT_ANLG_USB20_PS_PD_S);
++
++	/*
++	 * Enable the analog PHY block clock (APB_EB1.ANA_EB). Nothing else in our
++	 * USB path enables it; U-Boot does it first thing. Without the analog
++	 * clock the PHY can't drive HS signalling and EP0 answers garbage (-71).
++	 */
++	if (hsphy->data->apb_eb1)
++		regmap_set_bits(hsphy->aon_apb, hsphy->data->apb_eb1,
++				BIT_AON_APB_ANA_EB);
++
++	/* VBUS-valid (both the AON test reg and the analog VBUSVLDEXT), early. */
++	regmap_set_bits(hsphy->aon_apb, hsphy->data->otg_test_reg,
++			BIT_AON_OTG_VBUS_VALID_PHYREG);
++	regmap_set_bits(hsphy->ana_regs, hsphy->data->utmi_ctl1_reg,
++			BIT_ANLG_USB20_VBUSVLDEXT);
++
++	/* 16-bit UTMI width. */
++	regmap_set_bits(hsphy->aon_apb, hsphy->data->otg_ctrl_reg,
++			BIT_AON_UTMI_WIDTH_SEL);
++	regmap_set_bits(hsphy->ana_regs, hsphy->data->utmi_ctl1_reg,
++			BIT_ANLG_USB20_DATABUS16_8);
++
++	return 0;
++}
++
++static int sprd_hsphy_power_off(struct phy *phy)
++{
++	struct sprd_hsphy *hsphy = phy_get_drvdata(phy);
++
++	dev_dbg(hsphy->dev, "%s()\n", __func__);
++
++	regmap_clear_bits(hsphy->aon_apb, hsphy->data->otg_test_reg,
++			  BIT_AON_OTG_VBUS_VALID_PHYREG);
++	regmap_clear_bits(hsphy->ana_regs, hsphy->data->utmi_ctl1_reg,
++			  BIT_ANLG_USB20_VBUSVLDEXT);
++
++	regmap_set_bits(hsphy->ana_regs, hsphy->data->pll_reg,
++			BIT_ANLG_USB20_ISO_SW_EN);
++	regmap_set_bits(hsphy->ana_regs, hsphy->data->pd_reg,
++			BIT_ANLG_USB20_PS_PD_L | BIT_ANLG_USB20_PS_PD_S);
++
++	return 0;
++}
++
++static int sprd_hsphy_set_mode(struct phy *phy, enum phy_mode mode, int submode)
++{
++	struct sprd_hsphy *hsphy = phy_get_drvdata(phy);
++
++	switch (mode) {
++	case PHY_MODE_USB_HOST:
++		dev_dbg(hsphy->dev, "%s(host)\n", __func__);
++		regmap_clear_bits(hsphy->aon_apb, hsphy->data->otg_ctrl_reg,
++				  BIT_AON_USB2_PHY_IDDIG);
++		regmap_set_bits(hsphy->ana_regs, hsphy->data->reg_sel_cfg_reg,
++				hsphy->data->reg_sel_mask);
++		regmap_set_bits(hsphy->ana_regs, hsphy->data->utmi_ctl2_reg,
++				BIT_ANLG_USB20_DMPULLDOWN |
++				BIT_ANLG_USB20_DPPULLDOWN);
++		regmap_update_bits(hsphy->ana_regs, hsphy->data->utmi_ctl1_reg,
++				   BIT_ANLG_USB20_RESERVED, 0x200);
++		break;
++
++	case PHY_MODE_USB_DEVICE:
++		dev_dbg(hsphy->dev, "%s(device)\n", __func__);
++		regmap_set_bits(hsphy->aon_apb, hsphy->data->otg_ctrl_reg,
++				BIT_AON_USB2_PHY_IDDIG);
++		regmap_set_bits(hsphy->ana_regs, hsphy->data->reg_sel_cfg_reg,
++				hsphy->data->reg_sel_mask);
++		regmap_clear_bits(hsphy->ana_regs, hsphy->data->utmi_ctl2_reg,
++				  BIT_ANLG_USB20_DMPULLDOWN |
++				  BIT_ANLG_USB20_DPPULLDOWN);
++		regmap_update_bits(hsphy->ana_regs, hsphy->data->utmi_ctl1_reg,
++				   BIT_ANLG_USB20_RESERVED, 0);
++		break;
++
++	default:
++		dev_dbg(hsphy->dev, "%s(other)\n", __func__);
++		break;
++	}
++
++	/* enable to activate mode */
++	regmap_set_bits(hsphy->aon_apb, hsphy->data->otg_test_reg,
++			BIT_AON_OTG_VBUS_VALID_PHYREG);
++	regmap_set_bits(hsphy->ana_regs, hsphy->data->utmi_ctl1_reg,
++			BIT_ANLG_USB20_VBUSVLDEXT);
++
++	return 0;
++}
++
++static const struct phy_ops sprd_hsphy_ops = {
++	.init = sprd_hsphy_init,
++	.power_on = sprd_hsphy_power_on,
++	.power_off = sprd_hsphy_power_off,
++	.set_mode = sprd_hsphy_set_mode,
++	.owner = THIS_MODULE,
++};
++
++static int sprd_hsphy_probe(struct platform_device *pdev)
++{
++	struct sprd_hsphy *hsphy;
++	struct phy_provider *provider;
++	struct phy *phy;
++
++	hsphy = devm_kzalloc(&pdev->dev, sizeof(*hsphy), GFP_KERNEL);
++	if (!hsphy)
++		return -ENOMEM;
++
++	hsphy->dev = &pdev->dev;
++
++	hsphy->data = of_device_get_match_data(hsphy->dev);
++	if (!hsphy->data)
++		return -EINVAL;
++
++	hsphy->aon_apb = syscon_regmap_lookup_by_phandle(hsphy->dev->of_node,
++							 "sprd,syscon-aon-apb");
++	if (IS_ERR(hsphy->aon_apb))
++		return dev_err_probe(hsphy->dev, PTR_ERR(hsphy->aon_apb),
++				     "failed to get AON APB syscon\n");
++
++	hsphy->ana_regs = syscon_node_to_regmap(hsphy->dev->of_node->parent);
++	if (IS_ERR(hsphy->ana_regs))
++		return dev_err_probe(hsphy->dev, PTR_ERR(hsphy->ana_regs),
++				     "failed to get ANLG_PHY_G2 syscon\n");
++
++	phy = devm_phy_create(hsphy->dev, NULL, &sprd_hsphy_ops);
++	if (IS_ERR(phy))
++		return dev_err_probe(hsphy->dev, PTR_ERR(phy),
++				     "failed to create phy\n");
++
++	phy_set_drvdata(phy, hsphy);
++
++	provider = devm_of_phy_provider_register(hsphy->dev,
++						 of_phy_simple_xlate);
++	if (IS_ERR(provider))
++		return dev_err_probe(hsphy->dev, PTR_ERR(provider),
++				     "failed to register phy provider\n");
++
++	return 0;
++}
++
++static const struct sprd_hsphy_data ums9230_data = {
++	/* AON APB regs */
++	.otg_test_reg		= 0x0204,
++	.otg_ctrl_reg		= 0x0208,
++
++	/* analog g2 regs */
++	.pll_reg		= 0x001c,
++	.pd_reg			= 0x0008,
++	.utmi_ctl1_reg		= 0x0004,
++	.utmi_ctl2_reg		= 0x000c,
++	.trimming_reg		= 0x0010,
++	.reg_sel_cfg_reg	= 0x0020,
++	.reg_sel_mask		= BIT(2) | BIT(1),
++};
++
++static const struct sprd_hsphy_data ums512_data = {
++	/* AON APB regs */
++	.otg_test_reg		= 0x0204,
++	.otg_ctrl_reg		= 0x0208,
++	.apb_eb1		= 0x0004,
++	.cgm_reg1		= 0x0138,
++	.apb_rst1		= 0x0010,
++
++	/* analog g2 regs (offsets from anlg_phy_g2 syscon base 0x323b0000) */
++	.pll_reg		= 0x0070,	/* ISO_SW */
++	.pd_reg			= 0x005c,	/* BATTER_PLL (PS_PD_L/S) */
++	.utmi_ctl1_reg		= 0x0058,	/* UTMI_CTL1 */
++	.utmi_ctl2_reg		= 0x0060,	/* UTMI_CTL2 */
++	.trimming_reg		= 0x0064,	/* TRIMMING */
++	.reg_sel_cfg_reg	= 0x0074,	/* REG_SEL_CFG_0 */
++	.reg_sel_mask		= BIT(2) | BIT(1),
++};
++
++static const struct of_device_id sprd_hsphy_of_match[] = {
++	{ .compatible = "sprd,ums512-hsphy", .data = &ums512_data },
++	{ .compatible = "sprd,ums9230-hsphy", .data = &ums9230_data },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sprd_hsphy_of_match);
++
++static struct platform_driver sprd_hsphy_driver = {
++	.probe	= sprd_hsphy_probe,
++	.driver	= {
++		.name		= "sprd-usb2-phy",
++		.of_match_table	= sprd_hsphy_of_match,
++	},
++};
++
++module_platform_driver(sprd_hsphy_driver);
++
++MODULE_AUTHOR("Otto Pflüger <otto.pflueger@abscue.de>");
++MODULE_DESCRIPTION("Unisoc USB2 PHY driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/usb/musb/Kconfig b/drivers/usb/musb/Kconfig
+index f56929267eaa9199a814734b464d2f15b7155eb1..4a6d616288749c4e51c4aa68ea24bed2bb3f756b 100644
+--- a/drivers/usb/musb/Kconfig
++++ b/drivers/usb/musb/Kconfig
+@@ -123,6 +123,12 @@ config USB_MUSB_POLARFIRE_SOC
+ 	  This support is also available as a module.  If so, the module
+ 	  will be called mpfs.
+ 
++config USB_MUSB_SPRD
++	tristate "Unisoc SoC platforms"
++	depends on ARCH_SPRD || COMPILE_TEST
++	depends on !MUSB_PIO_ONLY
++	select USB_MUSB_DUAL_ROLE
++
+ comment "MUSB DMA mode"
+ 
+ config MUSB_PIO_ONLY
+diff --git a/drivers/usb/musb/Makefile b/drivers/usb/musb/Makefile
+index 5dccf0e453e1b05a133b58ab3023742c7c68bd30..b773a04c006640fb69d0f23cf3e6ab8bfd9bb5d9 100644
+--- a/drivers/usb/musb/Makefile
++++ b/drivers/usb/musb/Makefile
+@@ -24,6 +24,7 @@ obj-$(CONFIG_USB_MUSB_JZ4740)			+= jz4740.o
+ obj-$(CONFIG_USB_MUSB_SUNXI)			+= sunxi.o
+ obj-$(CONFIG_USB_MUSB_MEDIATEK)      		+= mediatek.o
+ obj-$(CONFIG_USB_MUSB_POLARFIRE_SOC)		+= mpfs.o
++obj-$(CONFIG_USB_MUSB_SPRD)			+= sprd.o sprd_dma.o
+ 
+ # the kconfig must guarantee that only one of the
+ # possible I/O schemes will be enabled at a time ...
+diff --git a/drivers/usb/musb/musb_core.c b/drivers/usb/musb/musb_core.c
+index 73ac25f53698f491c6f5a0a8b14e7c99193c8367..b66e1a6aad55926f96764ab2c0bbc0df388ab376 100644
+--- a/drivers/usb/musb/musb_core.c
++++ b/drivers/usb/musb/musb_core.c
+@@ -2508,13 +2508,18 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
+ 		goto fail3;
+ 	}
+ 	musb->nIrq = nIrq;
+-	/* FIXME this handles wakeup irqs wrong */
+-	if (enable_irq_wake(nIrq) == 0) {
+-		musb->irq_wake = 1;
+-		device_init_wakeup(dev, 1);
+-	} else {
+-		musb->irq_wake = 0;
+-	}
++	/*
++	 * The musb IRQ fires on ordinary USB activity (SOF, packets, DMA), not
++	 * just on wake-worthy events, so arming it as a system wake source for
++	 * the controller's whole lifetime makes it abort every suspend while a
++	 * cable is attached. Advertise wakeup capability instead and let the
++	 * suspend/resume hooks arm the wake IRQ only when userspace has enabled
++	 * wakeup for this device (device_may_wakeup()); default to disabled so
++	 * the system can suspend while enumerated.
++	 */
++	device_set_wakeup_capable(dev, true);
++	device_wakeup_disable(dev);
++	musb->irq_wake = 0;
+ 
+ 	/* program PHY to use external vBus if required */
+ 	if (plat->extvbus) {
+@@ -2838,6 +2843,17 @@ static int musb_suspend(struct device *dev)
+ 	musb_save_context(musb);
+ 
+ 	spin_unlock_irqrestore(&musb->lock, flags);
++
++	/*
++	 * Only let the USB controller wake the system if userspace has opted
++	 * in via the device's power/wakeup attribute. Otherwise leave the IRQ
++	 * un-armed so routine USB activity doesn't abort system suspend.
++	 */
++	if (device_may_wakeup(dev) && !musb->irq_wake) {
++		enable_irq_wake(musb->nIrq);
++		musb->irq_wake = 1;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -2883,6 +2899,11 @@ static int musb_resume(struct device *dev)
+ 			error);
+ 	spin_unlock_irqrestore(&musb->lock, flags);
+ 
++	if (musb->irq_wake) {
++		disable_irq_wake(musb->nIrq);
++		musb->irq_wake = 0;
++	}
++
+ 	pm_runtime_put_autosuspend(dev);
+ 
+ 	return 0;
+diff --git a/drivers/usb/musb/musb_core.h b/drivers/usb/musb/musb_core.h
+index 91b5b6b66f963a2f42e766bfe62271620e3223b8..7722134a1bd3fbf4030aaf80c79628b6fde365d3 100644
+--- a/drivers/usb/musb/musb_core.h
++++ b/drivers/usb/musb/musb_core.h
+@@ -143,6 +143,7 @@ struct musb_io;
+  */
+ struct musb_platform_ops {
+ 
++#define MUSB_DMA_SPRD		BIT(10)
+ #define MUSB_G_NO_SKB_RESERVE	BIT(9)
+ #define MUSB_DA8XX		BIT(8)
+ #define MUSB_PRESERVE_SESSION	BIT(7)
+diff --git a/drivers/usb/musb/musb_dma.h b/drivers/usb/musb/musb_dma.h
+index 0cd7fc468de852f2cca1b4b99e2bcf5e8d89d6cc..f2170f7e9a410044d70012b2836397241aefce23 100644
+--- a/drivers/usb/musb/musb_dma.h
++++ b/drivers/usb/musb/musb_dma.h
+@@ -49,6 +49,12 @@ struct musb_hw_ep;
+ #define	is_dma_capable()	(1)
+ #endif
+ 
++#ifdef CONFIG_USB_MUSB_SPRD
++#define musb_dma_sprd(musb)		(musb->ops->quirks & MUSB_DMA_SPRD)
++#else
++#define musb_dma_sprd(musb)		0
++#endif
++
+ #ifdef CONFIG_USB_UX500_DMA
+ #define musb_dma_ux500(musb)		(musb->ops->quirks & MUSB_DMA_UX500)
+ #else
+diff --git a/drivers/usb/musb/musb_gadget.c b/drivers/usb/musb/musb_gadget.c
+index 016d3f3fc1e053e7318bd7324f84c9399f71bde5..56ffd5e2ab2678e33f9527d56abaf4933a20fedf 100644
+--- a/drivers/usb/musb/musb_gadget.c
++++ b/drivers/usb/musb/musb_gadget.c
+@@ -281,7 +281,8 @@ static void txstate(struct musb *musb, struct musb_request *req)
+ 
+ 		/* MUSB_TXCSR_P_ISO is still set correctly */
+ 
+-		if (musb_dma_inventra(musb) || musb_dma_ux500(musb)) {
++		if (musb_dma_inventra(musb) || musb_dma_ux500(musb) ||
++		    musb_dma_sprd(musb)) {
+ 			if (request_size < musb_ep->packet_sz)
+ 				musb_ep->dma->desired_mode = 0;
+ 			else
+@@ -554,6 +555,22 @@ static void rxstate(struct musb *musb, struct musb_request *req)
+ 		return;
+ 	}
+ 
++	if (musb_dma_sprd(musb) && is_buffer_mapped(req)) {
++		struct dma_controller	*c = musb->dma_controller;
++		struct dma_channel	*channel = musb_ep->dma;
++
++		csr |= MUSB_RXCSR_AUTOCLEAR | MUSB_RXCSR_DMAMODE |
++			MUSB_RXCSR_DMAENAB;
++		musb_writew(epio, MUSB_RXCSR, csr);
++
++		c->channel_program(channel,
++				   musb_ep->packet_sz,
++				   0,
++				   request->dma + request->actual,
++				   request->length - request->actual);
++		return;
++	}
++
+ 	if (is_cppi_enabled(musb) && is_buffer_mapped(req)) {
+ 		struct dma_controller	*c = musb->dma_controller;
+ 		struct dma_channel	*channel = musb_ep->dma;
+diff --git a/drivers/usb/musb/musb_host.c b/drivers/usb/musb/musb_host.c
+index 8efd2fa472f9c044de1524a70e5558e92db6866b..989d50372e380648c5b76e7ec6d6bc2952087559 100644
+--- a/drivers/usb/musb/musb_host.c
++++ b/drivers/usb/musb/musb_host.c
+@@ -169,7 +169,7 @@ static inline void musb_h_tx_dma_start(struct musb_hw_ep *ep)
+ 	/* NOTE: no locks here; caller should lock and select EP */
+ 	txcsr = musb_readw(ep->regs, MUSB_TXCSR);
+ 	txcsr |= MUSB_TXCSR_DMAENAB | MUSB_TXCSR_H_WZC_BITS;
+-	if (is_cppi_enabled(ep->musb))
++	if (is_cppi_enabled(ep->musb) || musb_dma_sprd(ep->musb))
+ 		txcsr |= MUSB_TXCSR_DMAMODE;
+ 	musb_writew(ep->regs, MUSB_TXCSR, txcsr);
+ }
+@@ -269,7 +269,8 @@ start:
+ 
+ 		if (!hw_ep->tx_channel)
+ 			musb_h_tx_start(hw_ep);
+-		else if (is_cppi_enabled(musb) || tusb_dma_omap(musb))
++		else if (is_cppi_enabled(musb) || tusb_dma_omap(musb) ||
++			 musb_dma_sprd(musb))
+ 			musb_h_tx_dma_start(hw_ep);
+ 	}
+ }
+@@ -634,7 +635,8 @@ static bool musb_tx_dma_program(struct dma_controller *dma,
+ 	if (musb_dma_inventra(hw_ep->musb) || musb_dma_ux500(hw_ep->musb))
+ 		musb_tx_dma_set_mode_mentor(hw_ep, qh,
+ 					    &length, &mode);
+-	else if (is_cppi_enabled(hw_ep->musb) || tusb_dma_omap(hw_ep->musb))
++	else if (is_cppi_enabled(hw_ep->musb) || tusb_dma_omap(hw_ep->musb) ||
++		 musb_dma_sprd(hw_ep->musb))
+ 		musb_tx_dma_set_mode_cppi_tusb(hw_ep, urb, &mode);
+ 	else
+ 		return false;
+@@ -861,7 +863,8 @@ finish:
+ 
+ 		/* kick things off */
+ 
+-		if ((is_cppi_enabled(musb) || tusb_dma_omap(musb)) && dma_channel) {
++		if ((is_cppi_enabled(musb) || tusb_dma_omap(musb) ||
++		     musb_dma_sprd(musb)) && dma_channel) {
+ 			/* Candidate for DMA */
+ 			dma_channel->actual_len = 0L;
+ 			qh->segsize = len;
+@@ -1411,7 +1414,8 @@ done:
+ 	} else if ((usb_pipeisoc(pipe) || transfer_pending) && dma) {
+ 		if (musb_tx_dma_program(musb->dma_controller, hw_ep, qh, urb,
+ 				offset, length)) {
+-			if (is_cppi_enabled(musb) || tusb_dma_omap(musb))
++			if (is_cppi_enabled(musb) || tusb_dma_omap(musb) ||
++			    musb_dma_sprd(musb))
+ 				musb_h_tx_dma_start(hw_ep);
+ 			return;
+ 		}
+@@ -1459,7 +1463,7 @@ done:
+ 			MUSB_TXCSR_H_WZC_BITS | MUSB_TXCSR_TXPKTRDY);
+ }
+ 
+-#ifdef CONFIG_USB_TI_CPPI41_DMA
++#if defined(CONFIG_USB_TI_CPPI41_DMA)
+ /* Seems to set up ISO for cppi41 and not advance len. See commit c57c41d */
+ static int musb_rx_dma_iso_cppi41(struct dma_controller *dma,
+ 				  struct musb_hw_ep *hw_ep,
+@@ -1497,7 +1501,7 @@ static inline int musb_rx_dma_iso_cppi41(struct dma_controller *dma,
+ #endif
+ 
+ #if defined(CONFIG_USB_INVENTRA_DMA) || defined(CONFIG_USB_UX500_DMA) || \
+-	defined(CONFIG_USB_TI_CPPI41_DMA)
++	defined(CONFIG_USB_TI_CPPI41_DMA) || defined(CONFIG_USB_MUSB_SPRD)
+ /* Host side RX (IN) using Mentor DMA works as follows:
+ 	submit_urb ->
+ 		- if queue was empty, ProgramEndpoint
+@@ -1883,7 +1887,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
+ 		musb_writew(hw_ep->regs, MUSB_RXCSR, val);
+ 
+ 		if (musb_dma_inventra(musb) || musb_dma_ux500(musb) ||
+-		    musb_dma_cppi41(musb)) {
++		    musb_dma_cppi41(musb) || musb_dma_sprd(musb)) {
+ 			    done = musb_rx_dma_inventra_cppi41(c, hw_ep, qh, urb, xfer_len);
+ 			    musb_dbg(hw_ep->musb,
+ 				    "ep %d dma %s, rxcsr %04x, rxcount %d",
+@@ -1912,7 +1916,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
+ 
+ 		/* we are expecting IN packets */
+ 		if ((musb_dma_inventra(musb) || musb_dma_ux500(musb) ||
+-		    musb_dma_cppi41(musb)) && dma) {
++		    musb_dma_cppi41(musb) || musb_dma_sprd(musb)) && dma) {
+ 			musb_dbg(hw_ep->musb,
+ 				"RX%d count %d, buffer 0x%llx len %d/%d",
+ 				epnum, musb_readw(epio, MUSB_RXCOUNT),
+@@ -2746,7 +2750,17 @@ int musb_host_setup(struct musb *musb, int power_budget)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	device_wakeup_enable(hcd->self.controller);
++	/*
++	 * Advertise wakeup capability but leave it switched off. Enabling it
++	 * here made device_may_wakeup() true at probe on every port_mode that
++	 * runs host setup -- including MUSB_OTG -- so musb_suspend() armed
++	 * enable_irq_wake() unconditionally, contradicting its own comment that
++	 * wakeup should only be armed if userspace opted in. Nothing ever undid
++	 * it: the only device_init_wakeup(dev, 0) calls are on the probe-failure
++	 * and remove paths. The device stays wakeup-capable, so power/wakeup is
++	 * still present and userspace can turn it on.
++	 */
++	device_set_wakeup_capable(hcd->self.controller, true);
+ 	return 0;
+ }
+ 
+diff --git a/drivers/usb/musb/sprd.c b/drivers/usb/musb/sprd.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..993c4505d23b0d9067d594dee02833021ac0d6a0
+--- /dev/null
++++ b/drivers/usb/musb/sprd.c
+@@ -0,0 +1,472 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (C) 2024 Otto Pflüger
++ */
++
++#include <linux/clk.h>
++#include <linux/delay.h>
++#include <linux/dma-mapping.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/of_platform.h>
++#include <linux/platform_device.h>
++#include <linux/regulator/consumer.h>
++#include <linux/usb/role.h>
++#include "musb_core.h"
++#include "sprd_dma.h"
++
++struct sprd_glue {
++	struct device *dev;
++	struct musb *musb;
++	struct platform_device *musb_pdev;
++	struct phy *phy;
++	struct clk *clk;
++	enum usb_role role;
++	enum usb_role role_suspended;
++	struct usb_role_switch *role_sw;
++	struct regulator *vbus;
++};
++
++static int sprd_otg_switch_set(struct sprd_glue *glue, enum usb_role role)
++{
++	struct musb *musb = glue->musb;
++	unsigned long flags;
++	u8 devctl;
++	int ret;
++
++	if (role == glue->role)
++		return 0;
++
++	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
++
++	if (glue->role != USB_ROLE_NONE) {
++		/*
++		 * Leaving host role: tell the root hub the port lost its
++		 * connection. Detach is signalled out of band by the TCPM (no ID
++		 * pin on this board), so the controller never raises a disconnect
++		 * interrupt of its own and usbcore would otherwise keep the
++		 * enumerated device around forever.
++		 */
++		if (glue->role == USB_ROLE_HOST) {
++			spin_lock_irqsave(&musb->lock, flags);
++			if (musb->port1_status & USB_PORT_STAT_ENABLE)
++				musb_root_disconnect(musb);
++			spin_unlock_irqrestore(&musb->lock, flags);
++		}
++
++		/* force disconnect */
++		musb->is_active = 0;
++		devctl &= ~MUSB_DEVCTL_SESSION;
++		musb_writeb(musb->mregs, MUSB_DEVCTL, devctl);
++		phy_power_off(glue->phy);
++		/* wait for disconnect event */
++		msleep(20);
++		/* drop VBUS if we were sourcing it as host */
++		if (glue->role == USB_ROLE_HOST && glue->vbus)
++			regulator_disable(glue->vbus);
++	}
++
++	switch (role) {
++	case USB_ROLE_HOST:
++		/*
++		 * The TCPM only resolves the data/power role; sourcing VBUS is
++		 * ours to do, via the charger's OTG boost regulator.
++		 */
++		if (glue->vbus) {
++			ret = regulator_enable(glue->vbus);
++			if (ret)
++				dev_err(glue->dev,
++					"failed to enable vbus: %d\n", ret);
++		}
++		musb_set_state(musb, OTG_STATE_A_IDLE);
++		MUSB_HST_MODE(musb);
++		phy_power_on(glue->phy);
++		phy_set_mode(glue->phy, PHY_MODE_USB_HOST);
++		/*
++		 * Nothing else starts the controller in host role: port_mode is
++		 * MUSB_OTG, so musb_has_gadget() is false and the root hub's
++		 * SetPortFeature(POWER) path skips musb_start(). Without it the
++		 * USB interrupts are never enabled and no attach is ever seen,
++		 * even though VBUS is live. Start it here, as the peripheral
++		 * branch below does, then assert the session: musb_start() reads
++		 * DEVCTL itself and would drop a session bit set beforehand.
++		 */
++		musb_start(musb);
++		musb->is_active = 1;
++		musb_writeb(musb->mregs, MUSB_DEVCTL,
++			    musb_readb(musb->mregs, MUSB_DEVCTL) |
++			    MUSB_DEVCTL_SESSION);
++		break;
++	case USB_ROLE_DEVICE:
++		MUSB_DEV_MODE(musb);
++		phy_power_on(glue->phy);
++		phy_set_mode(glue->phy, PHY_MODE_USB_DEVICE);
++		/* This SoC's phy force-asserts VBUS with no session edge, so
++		 * start the controller and assert a peripheral session + D+
++		 * pullup ourselves so the host enumerates.
++		 */
++		musb_start(musb);
++		musb->is_active = 1;
++		musb_set_state(musb, OTG_STATE_B_PERIPHERAL);
++		musb_writeb(musb->mregs, MUSB_DEVCTL,
++			    musb_readb(musb->mregs, MUSB_DEVCTL) |
++			    MUSB_DEVCTL_SESSION);
++		musb_writeb(musb->mregs, MUSB_POWER,
++			    musb_readb(musb->mregs, MUSB_POWER) |
++			    MUSB_POWER_HSENAB | MUSB_POWER_SOFTCONN);
++		break;
++	case USB_ROLE_NONE:
++	default:
++		/* keep phy turned off */
++		break;
++	}
++
++	glue->role = role;
++
++	return 0;
++}
++
++static int musb_usb_role_sx_set(struct usb_role_switch *sw, enum usb_role role)
++{
++	return sprd_otg_switch_set(usb_role_switch_get_drvdata(sw), role);
++}
++
++static enum usb_role musb_usb_role_sx_get(struct usb_role_switch *sw)
++{
++	struct sprd_glue *glue = usb_role_switch_get_drvdata(sw);
++
++	return glue->role;
++}
++
++static int sprd_otg_switch_init(struct sprd_glue *glue)
++{
++	struct usb_role_switch_desc role_sx_desc = { 0 };
++
++	role_sx_desc.set = musb_usb_role_sx_set;
++	role_sx_desc.get = musb_usb_role_sx_get;
++	role_sx_desc.allow_userspace_control = true;
++	role_sx_desc.fwnode = dev_fwnode(glue->dev);
++	role_sx_desc.driver_data = glue;
++	glue->role_sw = usb_role_switch_register(glue->dev, &role_sx_desc);
++
++	return PTR_ERR_OR_ZERO(glue->role_sw);
++}
++
++static void sprd_otg_switch_exit(struct sprd_glue *glue)
++{
++	return usb_role_switch_unregister(glue->role_sw);
++}
++
++static irqreturn_t sprd_musb_interrupt(int irq, void *__hci)
++{
++	unsigned long flags;
++	irqreturn_t retval = IRQ_NONE;
++	struct musb *musb = __hci;
++	u32 int_dma;
++
++	spin_lock_irqsave(&musb->lock, flags);
++	musb->int_usb = musb_readb(musb->mregs, MUSB_INTRUSB);
++	musb->int_rx = musb_readw(musb->mregs, MUSB_INTRRX);
++	musb->int_tx = musb_readw(musb->mregs, MUSB_INTRTX);
++
++	int_dma = musb_readl(musb->mregs, MUSB_DMA_INTR_MASK_STATUS);
++
++	if (musb->int_usb || musb->int_tx || musb->int_rx)
++		retval = musb_interrupt(musb);
++
++	if (int_dma)
++		retval |= sprd_musb_dma_interrupt(musb, int_dma);
++
++	spin_unlock_irqrestore(&musb->lock, flags);
++
++	return retval;
++}
++
++static int sprd_musb_set_mode(struct musb *musb, u8 mode)
++{
++	struct device *dev = musb->controller;
++	struct sprd_glue *glue = dev_get_drvdata(dev->parent);
++	enum usb_role new_role;
++
++	switch (mode) {
++	case MUSB_HOST:
++		new_role = USB_ROLE_HOST;
++		break;
++	case MUSB_PERIPHERAL:
++		new_role = USB_ROLE_DEVICE;
++		break;
++	case MUSB_OTG:
++		new_role = USB_ROLE_NONE;
++		break;
++	default:
++		dev_err(glue->dev, "Invalid mode request\n");
++		return -EINVAL;
++	}
++
++	sprd_otg_switch_set(glue, new_role);
++
++	return 0;
++}
++
++static int sprd_musb_init(struct musb *musb)
++{
++	struct device *dev = musb->controller;
++	struct sprd_glue *glue = dev_get_drvdata(dev->parent);
++	int ret;
++
++	glue->musb = musb;
++	musb->phy = glue->phy;
++	musb->is_host = false;
++	musb->isr = sprd_musb_interrupt;
++
++	ret = phy_init(glue->phy);
++	if (ret)
++		return ret;
++
++	if (musb->port_mode == MUSB_OTG) {
++		ret = sprd_otg_switch_init(glue);
++		if (ret)
++			goto err_otg_switch_init;
++	}
++
++	return 0;
++
++err_otg_switch_init:
++	phy_exit(glue->phy);
++
++	return ret;
++}
++
++static int sprd_musb_exit(struct musb *musb)
++{
++	struct device *dev = musb->controller;
++	struct sprd_glue *glue = dev_get_drvdata(dev->parent);
++
++	sprd_otg_switch_set(glue, USB_ROLE_NONE);
++	sprd_otg_switch_exit(glue);
++	phy_exit(glue->phy);
++	clk_disable_unprepare(glue->clk);
++
++	return 0;
++}
++
++static const struct musb_platform_ops sprd_musb_ops = {
++	.quirks = MUSB_DMA_SPRD,
++	.init = sprd_musb_init,
++	.exit = sprd_musb_exit,
++	.dma_init = sprd_musb_dma_controller_create,
++	.dma_exit = sprd_musb_dma_controller_destroy,
++	.set_mode = sprd_musb_set_mode,
++};
++
++#define SPRD_MUSB_MAX_EP_NUM	16
++#define SPRD_MUSB_RAM_BITS	13
++
++static struct musb_fifo_cfg sprd_musb_mode_cfg[] = {
++	MUSB_EP_FIFO_DOUBLE(1, FIFO_TX, 512),
++	MUSB_EP_FIFO_SINGLE(1, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(2, FIFO_TX, 512),
++	MUSB_EP_FIFO_DOUBLE(2, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(3, FIFO_TX, 512),
++	MUSB_EP_FIFO_DOUBLE(3, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(4, FIFO_TX, 512),
++	MUSB_EP_FIFO_DOUBLE(4, FIFO_RX, 512),
++	MUSB_EP_FIFO_SINGLE(5, FIFO_TX, 1024),
++	MUSB_EP_FIFO_SINGLE(5, FIFO_RX, 4096),
++	MUSB_EP_FIFO_DOUBLE(6, FIFO_TX, 1024),
++	MUSB_EP_FIFO_DOUBLE(6, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(7, FIFO_TX, 1024),
++	MUSB_EP_FIFO_DOUBLE(7, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(8, FIFO_TX, 1024),
++	MUSB_EP_FIFO_DOUBLE(8, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(9, FIFO_TX, 1024),
++	MUSB_EP_FIFO_DOUBLE(9, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(10, FIFO_TX, 512),
++	MUSB_EP_FIFO_DOUBLE(10, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(11, FIFO_TX, 512),
++	MUSB_EP_FIFO_DOUBLE(11, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(12, FIFO_TX, 512),
++	MUSB_EP_FIFO_DOUBLE(12, FIFO_RX, 512),
++	MUSB_EP_FIFO_DOUBLE(13, FIFO_TX, 8),
++	MUSB_EP_FIFO_DOUBLE(13, FIFO_RX, 8),
++	MUSB_EP_FIFO_DOUBLE(14, FIFO_TX, 8),
++	MUSB_EP_FIFO_DOUBLE(14, FIFO_RX, 8),
++	MUSB_EP_FIFO_DOUBLE(15, FIFO_TX, 8),
++	MUSB_EP_FIFO_DOUBLE(15, FIFO_RX, 8),
++};
++
++static const struct musb_hdrc_config sprd_musb_hdrc_config = {
++	.fifo_cfg = sprd_musb_mode_cfg,
++	.fifo_cfg_size = ARRAY_SIZE(sprd_musb_mode_cfg),
++	.multipoint = true,
++	.dyn_fifo = true,
++	.num_eps = SPRD_MUSB_MAX_EP_NUM,
++	.ram_bits = SPRD_MUSB_RAM_BITS,
++};
++
++static const struct platform_device_info sprd_dev_info = {
++	.name = "musb-hdrc",
++	.id = PLATFORM_DEVID_AUTO,
++	.dma_mask = DMA_BIT_MASK(32),
++};
++
++static int sprd_musb_probe(struct platform_device *pdev)
++{
++	struct musb_hdrc_platform_data *pdata;
++	struct sprd_glue *glue;
++	struct platform_device_info pinfo;
++	struct device *dev = &pdev->dev;
++	struct device_node *np = dev->of_node;
++	int ret;
++
++	glue = devm_kzalloc(dev, sizeof(*glue), GFP_KERNEL);
++	if (!glue)
++		return -ENOMEM;
++
++	glue->dev = dev;
++	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
++	if (!pdata)
++		return -ENOMEM;
++
++	ret = of_platform_populate(np, NULL, NULL, dev);
++	if (ret)
++		return dev_err_probe(dev, ret,
++				"failed to create child devices at %p\n", np);
++
++	glue->clk = devm_clk_get(dev, NULL);
++	if (IS_ERR(glue->clk))
++		return dev_err_probe(dev, PTR_ERR(glue->clk),
++				"failed to get clock\n");
++
++	pdata->config = &sprd_musb_hdrc_config;
++	pdata->platform_ops = &sprd_musb_ops;
++	pdata->mode = usb_get_dr_mode(dev);
++
++	if (IS_ENABLED(CONFIG_USB_MUSB_HOST))
++		pdata->mode = USB_DR_MODE_HOST;
++	else if (IS_ENABLED(CONFIG_USB_MUSB_GADGET))
++		pdata->mode = USB_DR_MODE_PERIPHERAL;
++
++	glue->role = USB_ROLE_NONE;
++
++	glue->phy = devm_of_phy_get_by_index(dev, dev->of_node, 0);
++	if (IS_ERR(glue->phy)) {
++		return dev_err_probe(dev, PTR_ERR(glue->phy),
++			"failed to get phy\n");
++	}
++
++	/*
++	 * Optional VBUS supply for host mode. On boards with a TCPM the PD
++	 * block drives VBUS instead, so absence is not an error.
++	 */
++	glue->vbus = devm_regulator_get_optional(dev, "vbus");
++	if (IS_ERR(glue->vbus)) {
++		ret = PTR_ERR(glue->vbus);
++		if (ret == -EPROBE_DEFER)
++			return dev_err_probe(dev, ret, "failed to get vbus\n");
++		glue->vbus = NULL;
++	}
++
++	platform_set_drvdata(pdev, glue);
++
++	ret = clk_prepare_enable(glue->clk);
++	if (ret)
++		return ret;
++
++	pinfo = sprd_dev_info;
++	pinfo.parent = dev;
++	pinfo.res = pdev->resource;
++	pinfo.num_res = pdev->num_resources;
++	pinfo.data = pdata;
++	pinfo.size_data = sizeof(*pdata);
++	pinfo.fwnode = of_fwnode_handle(np);
++	pinfo.of_node_reused = true;
++
++	glue->musb_pdev = platform_device_register_full(&pinfo);
++	if (IS_ERR(glue->musb_pdev)) {
++		ret = PTR_ERR(glue->musb_pdev);
++		dev_err(dev, "failed to register musb device: %d\n", ret);
++		goto err_device_register;
++	}
++
++	return 0;
++
++err_device_register:
++	clk_disable_unprepare(glue->clk);
++
++	return ret;
++}
++
++static void sprd_musb_remove(struct platform_device *pdev)
++{
++	struct sprd_glue *glue = platform_get_drvdata(pdev);
++
++	platform_device_unregister(glue->musb_pdev);
++}
++
++/*
++ * Leaving the phy powered and the session asserted across suspend keeps the SoC
++ * out of deep sleep: the PSCI call returns immediately without ever sleeping, no
++ * device suspend fails and no Linux IRQ is reported as the wakeup, so this is
++ * invisible from the usual PM debugging. It only bites once the audio subsystem
++ * has also run since boot -- either condition alone still sleeps -- which is why
++ * it took so long to pin on USB. Drop the role for the duration of suspend and
++ * put it back on resume; that is exactly what writing "none" to the role switch
++ * does, which is how this was confirmed on hardware.
++ */
++static int sprd_musb_suspend(struct device *dev)
++{
++	struct sprd_glue *glue = dev_get_drvdata(dev);
++
++	/* No musb yet means no phy powered and nothing to tear down. */
++	if (!glue->musb || glue->role == USB_ROLE_NONE)
++		return 0;
++
++	glue->role_suspended = glue->role;
++
++	return sprd_otg_switch_set(glue, USB_ROLE_NONE);
++}
++
++static int sprd_musb_resume(struct device *dev)
++{
++	struct sprd_glue *glue = dev_get_drvdata(dev);
++	enum usb_role role = glue->role_suspended;
++
++	if (role == USB_ROLE_NONE)
++		return 0;
++
++	glue->role_suspended = USB_ROLE_NONE;
++
++	/*
++	 * The TCPM only notifies on a role *change*, so it will not re-assert
++	 * the role it already believes is current -- restoring it here is what
++	 * keeps a cable that stayed plugged in across suspend working.
++	 */
++	return sprd_otg_switch_set(glue, role);
++}
++
++static DEFINE_SIMPLE_DEV_PM_OPS(sprd_musb_pm_ops, sprd_musb_suspend,
++				sprd_musb_resume);
++
++#ifdef CONFIG_OF
++static const struct of_device_id sprd_musb_match[] = {
++	{ .compatible = "sprd,musb" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sprd_musb_match);
++#endif
++
++static struct platform_driver sprd_musb_driver = {
++	.probe = sprd_musb_probe,
++	.remove = sprd_musb_remove,
++	.driver = {
++		   .name = "musb-sprd",
++		   .pm = pm_sleep_ptr(&sprd_musb_pm_ops),
++		   .of_match_table = of_match_ptr(sprd_musb_match),
++	},
++};
++
++module_platform_driver(sprd_musb_driver);
++
++MODULE_DESCRIPTION("Unisoc MUSB Glue Layer");
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/usb/musb/sprd_dma.c b/drivers/usb/musb/sprd_dma.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..4d218d16493c886bc4e8047c6b1709683ba0c770
+--- /dev/null
++++ b/drivers/usb/musb/sprd_dma.c
+@@ -0,0 +1,406 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (C) 2024 Otto Pflüger
++ *
++ * Based on Spreadtrum downstream code,
++ *  Copyright (c) 2018 Spreadtrum Co., Ltd.
++ * and on musb_dma.c,
++ *  Copyright 2005 Mentor Graphics Corporation
++ *  Copyright (C) 2005-2007 by Texas Instruments
++ */
++#include <linux/device.h>
++#include <linux/dma-mapping.h>
++#include <linux/interrupt.h>
++#include <linux/platform_device.h>
++#include <linux/slab.h>
++#include "musb_core.h"
++#include "sprd_dma.h"
++
++#define MAX_NODES_PER_CHANNEL 2048
++
++struct sprd_musb_dma_channel {
++	struct dma_channel		channel;
++	struct sprd_musb_dma_controller	*controller;
++	u32				start_addr;
++	u32				len;
++	u8				idx;
++	u8				epnum;
++	u8				transmit;
++};
++
++struct sprd_musb_dma_controller {
++	struct dma_controller		controller;
++	struct sprd_musb_dma_channel	channel[MUSB_DMA_CHANNELS+1];
++	void				*private_data;
++	void __iomem			*base;
++	u32				used_channels;
++	void				*linklist;
++	dma_addr_t 			linklist_dma_addr;
++};
++
++static void dma_channel_release(struct dma_channel *channel);
++
++static void dma_controller_stop(struct sprd_musb_dma_controller *controller)
++{
++	struct musb *musb = controller->private_data;
++	struct dma_channel *channel;
++	u8 bit;
++
++	if (controller->used_channels != 0) {
++		dev_err(musb->controller,
++			"Stopping DMA controller while channel active\n");
++
++		for (bit = 1; bit <= MUSB_DMA_CHANNELS; bit++) {
++			if (controller->used_channels & (1 << bit)) {
++				channel = &controller->channel[bit].channel;
++				dma_channel_release(channel);
++
++				if (!controller->used_channels)
++					break;
++			}
++		}
++	}
++}
++
++static struct dma_channel *dma_channel_allocate(struct dma_controller *c,
++				struct musb_hw_ep *hw_ep, u8 transmit)
++{
++	struct sprd_musb_dma_controller *controller = container_of(c,
++			struct sprd_musb_dma_controller, controller);
++	struct sprd_musb_dma_channel *musb_channel = NULL;
++	struct dma_channel *channel = NULL;
++	u8 bit = hw_ep->epnum + (transmit ? 0 : 15);
++
++	if (controller->used_channels & (1 << bit))
++		return NULL;
++
++	controller->used_channels |= (1 << bit);
++	musb_channel = &(controller->channel[bit]);
++	musb_channel->controller = controller;
++	musb_channel->idx = bit;
++	musb_channel->epnum = hw_ep->epnum;
++	musb_channel->transmit = transmit;
++	channel = &(musb_channel->channel);
++	channel->private_data = musb_channel;
++	channel->status = MUSB_DMA_STATUS_FREE;
++	channel->max_len = 0xfffc * MAX_NODES_PER_CHANNEL + 3;
++	/* Tx => mode 1; Rx => mode 0 */
++	channel->desired_mode = transmit;
++	channel->actual_len = 0;
++
++	return channel;
++}
++
++static void dma_channel_release(struct dma_channel *channel)
++{
++	struct sprd_musb_dma_channel *musb_channel = channel->private_data;
++
++	channel->actual_len = 0;
++
++	musb_channel->controller->used_channels &= ~(1 << musb_channel->idx);
++
++	channel->status = MUSB_DMA_STATUS_UNKNOWN;
++}
++
++static void configure_channel(struct dma_channel *channel,
++				dma_addr_t dma_addr, u32 len)
++{
++	struct sprd_musb_dma_channel *musb_channel = channel->private_data;
++	struct sprd_musb_dma_controller *controller = musb_channel->controller;
++	struct musb *musb = controller->private_data;
++	void __iomem *mbase = controller->base;
++	u8 bchannel = musb_channel->idx;
++	struct sprd_musb_linklist_node *linklist;
++	unsigned long ll_offset;
++	dma_addr_t next_boundary;
++	u64 list_addr;
++	u32 tmp_len, csr = 0;
++	int i = 0;
++
++	dev_dbg(musb->controller, "%cx len=%u on channel %d\n",
++		musb_channel->transmit ? 'T' : 'R', len, bchannel);
++
++	ll_offset = sizeof(struct sprd_musb_linklist_node) *
++		    MAX_NODES_PER_CHANNEL * (bchannel - 1);
++	list_addr = (u64)controller->linklist_dma_addr + ll_offset;
++	linklist = controller->linklist + ll_offset;
++
++	do {
++		if (len < 0x10000)
++			tmp_len = len;
++		else
++			tmp_len = 0xfffc;
++
++		next_boundary = (dma_addr | 0xfffffff) + 1;
++		if ((dma_addr + tmp_len) > next_boundary)
++			tmp_len = (u32)(next_boundary - dma_addr);
++
++		linklist->addr = (u32)dma_addr;
++		linklist->data_addr = 0;
++		linklist->frag_len = 32;
++		linklist->blk_len = tmp_len;
++		linklist->list_end = tmp_len == len;
++		linklist->sp = 0;
++		linklist->ioc = linklist->list_end;
++		linklist++;
++
++		dma_addr += tmp_len;
++		len -= tmp_len;
++		i += 1;
++	} while (len > 0 && i < MAX_NODES_PER_CHANNEL);
++
++	wmb();
++
++	/* set linklist pointer */
++	musb_writel(mbase, MUSB_DMA_CHN_LLIST_PTR(bchannel), (u32)list_addr);
++	musb_writel(mbase, MUSB_DMA_CHN_ADDR_H(bchannel), 0);
++
++	if (musb_channel->transmit) {
++		/* enable linklist end interrupt */
++		csr = musb_readl(mbase, MUSB_DMA_CHN_INTR(bchannel));
++		csr |= CHN_LLIST_INT_EN | CHN_CLEAR_INT_EN;
++		musb_writel(mbase, MUSB_DMA_CHN_INTR(bchannel), csr);
++
++		/* enable channel and trigger tx dma transfer */
++		csr = musb_readl(mbase, MUSB_DMA_CHN_PAUSE(bchannel));
++		if (csr & CHN_CLR)
++			musb_writel(mbase, MUSB_DMA_CHN_PAUSE(bchannel), 0);
++		csr = musb_readl(mbase, MUSB_DMA_CHN_CFG(bchannel));
++		csr |= CHN_EN;
++		musb_writel(mbase, MUSB_DMA_CHN_CFG(bchannel), csr);
++	} else {
++		/* enable linklist end and rx last interrupt */
++		csr = musb_readl(mbase, MUSB_DMA_CHN_INTR(bchannel));
++		csr |= CHN_USBRX_INT_EN | CHN_LLIST_INT_EN | CHN_CLEAR_INT_EN;
++		musb_writel(mbase, MUSB_DMA_CHN_INTR(bchannel), csr);
++
++		/* enable channel and trigger rx dma transfer */
++		csr = musb_readl(mbase, MUSB_DMA_CHN_PAUSE(bchannel));
++		if (csr & CHN_CLR)
++			musb_writel(mbase, MUSB_DMA_CHN_PAUSE(bchannel), 0);
++		csr = musb_readl(mbase, MUSB_DMA_CHN_CFG(bchannel));
++		csr |= CHN_EN;
++		musb_writel(mbase, MUSB_DMA_CHN_CFG(bchannel), csr);
++	}
++}
++
++static int dma_channel_program(struct dma_channel *channel,
++				u16 packet_sz, u8 mode,
++				dma_addr_t dma_addr, u32 len)
++{
++	struct sprd_musb_dma_channel *musb_channel = channel->private_data;
++
++	BUG_ON(channel->status == MUSB_DMA_STATUS_UNKNOWN ||
++		channel->status == MUSB_DMA_STATUS_BUSY);
++
++	channel->actual_len = 0;
++	musb_channel->start_addr = (u32)dma_addr;
++	musb_channel->len = len;
++	channel->status = MUSB_DMA_STATUS_BUSY;
++
++	configure_channel(channel, dma_addr, len);
++
++	return true;
++}
++
++static int dma_channel_abort(struct dma_channel *channel)
++{
++	struct sprd_musb_dma_channel *musb_channel = channel->private_data;
++	void __iomem *mbase = musb_channel->controller->base;
++	struct musb *musb = musb_channel->controller->private_data;
++
++	u8 bchannel = musb_channel->idx;
++	int offset;
++	u16 csr;
++
++	if (channel->status == MUSB_DMA_STATUS_BUSY) {
++		if (musb_channel->transmit) {
++			offset = musb->io.ep_offset(musb_channel->epnum,
++						MUSB_TXCSR);
++
++			/*
++			 * The programming guide says that we must clear
++			 * the DMAENAB bit before the DMAMODE bit...
++			 */
++			csr = musb_readw(mbase, offset);
++			csr &= ~(MUSB_TXCSR_AUTOSET | MUSB_TXCSR_DMAENAB);
++			musb_writew(mbase, offset, csr);
++			csr &= ~MUSB_TXCSR_DMAMODE;
++			musb_writew(mbase, offset, csr);
++		} else {
++			offset = musb->io.ep_offset(musb_channel->epnum,
++						MUSB_RXCSR);
++
++			csr = musb_readw(mbase, offset);
++			csr &= ~(MUSB_RXCSR_AUTOCLEAR |
++				 MUSB_RXCSR_DMAENAB |
++				 MUSB_RXCSR_DMAMODE);
++			musb_writew(mbase, offset, csr);
++		}
++
++		musb_writel(mbase, MUSB_DMA_CHN_LLIST_PTR(bchannel), 0);
++		musb_writel(mbase, MUSB_DMA_CHN_ADDR(bchannel), 0);
++		channel->status = MUSB_DMA_STATUS_FREE;
++	}
++
++	return 0;
++}
++
++static void sprd_musb_dma_complete(struct musb *musb,
++				   struct sprd_musb_dma_channel *musb_channel)
++{
++	struct dma_channel *channel = &musb_channel->channel;
++	void __iomem *mbase = musb->mregs;
++	u32 dma_addr;
++
++	dma_addr = musb_readl(mbase, MUSB_DMA_CHN_ADDR(musb_channel->idx));
++
++	/* Incomplete transfers are not possible when transmitting */
++	if (musb_channel->transmit)
++		channel->actual_len = musb_channel->len;
++	else
++		channel->actual_len = dma_addr - musb_channel->start_addr;
++
++	/*
++	 * When receiving data, dma_addr sometimes points to a location that
++	 * is not related to the current transfer. When this happens, we assume
++	 * that the transfer did not actually happen and reconfigure DMA to
++	 * receive again.
++	 */
++	if (channel->actual_len > musb_channel->len) {
++		dev_warn(musb->controller,
++			 "unexpected dma_addr=%08x, start=%08x\n",
++			 dma_addr, musb_channel->start_addr);
++		configure_channel(channel, musb_channel->start_addr,
++				  musb_channel->len);
++		return;
++	}
++
++	channel->status = MUSB_DMA_STATUS_FREE;
++
++	dev_dbg(musb->controller, "%cx actual_len=%lu on channel %d\n",
++		musb_channel->transmit ? 'T' : 'R', channel->actual_len,
++		musb_channel->idx);
++	musb_dma_completion(musb, musb_channel->epnum,
++			    musb_channel->transmit);
++}
++
++irqreturn_t sprd_musb_dma_interrupt(struct musb *musb, u32 int_hsdma)
++{
++	struct sprd_musb_dma_controller *controller = container_of(
++			musb->dma_controller,
++			struct sprd_musb_dma_controller,
++			controller);
++	struct sprd_musb_dma_channel *musb_channel = NULL;
++	void __iomem *mbase = musb->mregs;
++	u8 bchannel;
++	u32 intr;
++
++	for (bchannel = 1; bchannel <= MUSB_DMA_CHANNELS; bchannel++) {
++		if (int_hsdma & (1 << (bchannel - 1))) {
++			musb_channel = (struct sprd_musb_dma_channel *)
++					&(controller->channel[bchannel]);
++
++			intr = musb_readl(mbase, MUSB_DMA_CHN_INTR(bchannel));
++
++			if (intr & CHN_START_INT_MASK_STATUS) {
++				intr |= CHN_START_INT_CLR;
++				musb_writel(mbase, MUSB_DMA_CHN_INTR(bchannel), intr);
++			}
++
++			if (intr & CHN_CLEAR_INT_MASK_STATUS) {
++				musb_writel(mbase, MUSB_DMA_CHN_PAUSE(bchannel), 0);
++				musb_writel(mbase, MUSB_DMA_CHN_CFG(bchannel), 0);
++			}
++
++			if (intr & CHN_LLIST_INT_MASK_STATUS) {
++				intr |= CHN_LLIST_INT_CLR | CHN_START_INT_CLR |
++					CHN_FRAG_INT_CLR | CHN_BLK_INT_CLR |
++					CHN_USBRX_LAST_INT_CLR;
++				musb_writel(mbase, MUSB_DMA_CHN_INTR(bchannel), intr);
++
++				sprd_musb_dma_complete(musb, musb_channel);
++			}
++		}
++	}
++
++	return IRQ_HANDLED;
++}
++EXPORT_SYMBOL_GPL(sprd_musb_dma_interrupt);
++
++void sprd_musb_dma_controller_destroy(struct dma_controller *c)
++{
++	struct sprd_musb_dma_controller *controller = container_of(c,
++			struct sprd_musb_dma_controller, controller);
++	struct musb *musb = controller->private_data;
++
++	if (controller->linklist) {
++		dma_free_coherent(musb->controller,
++				  sizeof(struct sprd_musb_linklist_node) *
++				  MAX_NODES_PER_CHANNEL * MUSB_DMA_CHANNELS,
++				  controller->linklist,
++				  controller->linklist_dma_addr);
++	}
++
++	dma_controller_stop(controller);
++
++	kfree(controller);
++}
++EXPORT_SYMBOL_GPL(sprd_musb_dma_controller_destroy);
++
++static struct sprd_musb_dma_controller *
++dma_controller_alloc(struct musb *musb, void __iomem *base)
++{
++	struct sprd_musb_dma_controller *controller;
++
++	controller = kzalloc(sizeof(*controller), GFP_KERNEL);
++	if (!controller)
++		return NULL;
++
++	controller->private_data = musb;
++	controller->base = base;
++
++	controller->controller.channel_alloc = dma_channel_allocate;
++	controller->controller.channel_release = dma_channel_release;
++	controller->controller.channel_program = dma_channel_program;
++	controller->controller.channel_abort = dma_channel_abort;
++
++	controller->linklist = dma_alloc_coherent(musb->controller,
++			sizeof(struct sprd_musb_linklist_node) *
++			MAX_NODES_PER_CHANNEL * MUSB_DMA_CHANNELS,
++			&controller->linklist_dma_addr, GFP_KERNEL);
++	if (!controller->linklist) {
++		dev_err(musb->controller, "Failed to allocate DMA list\n");
++		sprd_musb_dma_controller_destroy(&controller->controller);
++		return NULL;
++	}
++
++	return controller;
++}
++
++struct dma_controller *
++sprd_musb_dma_controller_create(struct musb *musb, void __iomem *base)
++{
++	struct sprd_musb_dma_controller *controller;
++	int i;
++
++	controller = dma_controller_alloc(musb, base);
++	if (!controller)
++		return NULL;
++
++	/* reset DMA to avoid unexpected problems if USB was already enabled */
++	for (i = 1; i <= MUSB_DMA_CHANNELS; i++) {
++		musb_writel(base, MUSB_DMA_CHN_PAUSE(i), CHN_CLR);
++		musb_writel(base, MUSB_DMA_CHN_CFG(i), 0);
++		musb_writel(base, MUSB_DMA_CHN_INTR(i), CHN_CLEAR_INT_EN |
++			CHN_LLIST_INT_CLR | CHN_START_INT_CLR |
++			CHN_FRAG_INT_CLR | CHN_BLK_INT_CLR |
++			CHN_USBRX_LAST_INT_CLR);
++		musb_writel(base, MUSB_DMA_CHN_ADDR(i), 0);
++		musb_writel(base, MUSB_DMA_CHN_LLIST_PTR(i), 0);
++		musb_writel(base, MUSB_DMA_CHN_ADDR_H(i), 0);
++	}
++
++	return &controller->controller;
++}
++EXPORT_SYMBOL_GPL(sprd_musb_dma_controller_create);
+diff --git a/drivers/usb/musb/sprd_dma.h b/drivers/usb/musb/sprd_dma.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..62fa5e1fb1a3183ae5ce8388714edeeba5371a2c
+--- /dev/null
++++ b/drivers/usb/musb/sprd_dma.h
+@@ -0,0 +1,105 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (C) 2018 Spreadtrum Communications Inc.
++ */
++
++#ifndef __SPRD_DMA_H__
++#define __SPRD_DMA_H__
++
++#define MUSB_DMA_PAUSE			0x1000
++#define MUSB_DMA_FRAG_WAIT		0x1004
++#define MUSB_DMA_INTR_RAW_STATUS	0x1008
++#define MUSB_DMA_INTR_MASK_STATUS	0x100C
++#define MUSB_DMA_REQ_STATUS		0x1010
++#define MUSB_DMA_EN_STATUS		0x1014
++#define MUSB_DMA_DEBUG_STATUS		0x1018
++
++/* multi LL which is supported by r4p0 */
++#define MUSB_DMA_MULT_LL_Q_CTRL_STATUS	0x1080
++#define MUSB_DMA_MULT_LL_CTRL		0x1084
++#define MUSB_DMA_TX_CMD_QUEUE_LOW	0x1088
++#define MUSB_DMA_TX_CMD_QUEUE_HIGH	0x108C
++#define MUSB_DMA_TX_CMPLT_QUEUE_LOW	0x1090
++#define MUSB_DMA_TX_CMPLT_QUEUE_HIGH	0x1094
++#define MUSB_DMA_RX_CMD_QUEUE_LOW	0x1098
++#define MUSB_DMA_RX_CMD_QUEUE_HIGH	0x109C
++#define MUSB_DMA_RX_CMPLT_QUEUE_LOW	0x10A0
++#define MUSB_DMA_RX_CMPLT_QUEUE_HIGH	0x10A4
++
++#define MUSB_DMA_CHN_PAUSE(n)		(0x1C00 + ((n) - 1) * 0x20)
++#define MUSB_DMA_CHN_CFG(n)		(0x1C04 + ((n) - 1) * 0x20)
++#define MUSB_DMA_CHN_INTR(n)		(0x1C08 + ((n) - 1) * 0x20)
++#define MUSB_DMA_CHN_ADDR(n)		(0x1C0C + ((n) - 1) * 0x20)
++#define MUSB_DMA_CHN_LEN(n)		(0x1C10 + ((n) - 1) * 0x20)
++#define MUSB_DMA_CHN_LLIST_PTR(n)	(0x1C14 + ((n) - 1) * 0x20)
++#define MUSB_DMA_CHN_ADDR_H(n)		(0x1C18 + ((n) - 1) * 0x20)
++#define MUSB_DMA_CHN_REQ(n)		(0x1C1C + ((n) - 1) * 0x20)
++
++#define CHN_EN			BIT(0)
++#define CHN_LLIST_INT_EN	BIT(2)
++#define CHN_START_INT_EN	BIT(3)
++#define CHN_USBRX_INT_EN	BIT(4)
++#define CHN_CLEAR_INT_EN	BIT(5)
++
++#define CHN_LLIST_INT_MASK_STATUS	BIT(18)
++#define CHN_START_INT_MASK_STATUS	BIT(19)
++#define CHN_USBRX_INT_MASK_STATUS	BIT(20)
++#define CHN_CLEAR_INT_MASK_STATUS	BIT(21)
++
++#define CHN_CLR			BIT(15)
++#define CHN_CLR_STATUS		BIT(31)
++
++#define CHN_FRAG_INT_CLR	BIT(24)
++#define CHN_BLK_INT_CLR		BIT(25)
++#define CHN_LLIST_INT_CLR	BIT(26)
++#define CHN_START_INT_CLR	BIT(27)
++#define CHN_USBRX_LAST_INT_CLR	BIT(28)
++
++#define MUSB_DMA_CHANNELS	30
++
++/* MUSB_DMA_MULT_LL_Q_CTRL_STATUS bit defines */
++#define BIT_TX_CMD_DEPTH_MASK	GENMASK(23, 20)
++#define BIT_TX_CMPLT_DEPTH_MASK	GENMASK(19, 16)
++#define BIT_TX_CMD_FULL		BIT(15)
++#define BIT_TX_CMPLT_EMPTY	BIT(14)
++#define BIT_TX_CMD_CLR		BIT(13)
++#define BIT_TX_CMPLT_CLR	BIT(12)
++#define BIT_RX_CMD_DEPTH_MASK	GENMASK(11, 8)
++#define BIT_RX_CMPLT_DEPTH_MASK	GENMASK(7, 4)
++#define BIT_RX_CMD_FULL		BIT(3)
++#define BIT_RX_CMPLT_EMPTY	BIT(2)
++#define BIT_RX_CMD_CLR		BIT(1)
++#define BIT_RX_CMPLT_CLR	BIT(0)
++
++/* MUSB_DMA_MULT_LL_CTRL bit defines */
++#define BIT_TX_CMD_QUEUE_WR	BIT(11)
++#define BIT_TX_CMPLT_QUEUE_RD	BIT(10)
++#define BIT_RX_CMD_QUEUE_WR	BIT(9)
++#define BIT_RX_CMPLT_QUEUE_RD	BIT(8)
++#define BIT_TX_IPA_CHN_MASK	GENMASK(7, 4)
++#define BIT_RX_IPA_CHN_MASK	GENMASK(3, 0)
++
++struct sprd_musb_dma_controller;
++
++struct sprd_musb_linklist_node {
++	u32	addr;
++
++	u16	frag_len;
++	u16	blk_len;
++
++	u32	list_end	:  1;
++	u32	sp		:  1;
++	u32	ioc		:  1;
++	u32	reserved	:  5;
++	u32	data_addr	:  4;
++	u32	pad		: 20;
++
++	u32	reserved1;
++} __packed;
++
++irqreturn_t sprd_musb_dma_interrupt(struct musb *musb, u32 int_hsdma);
++struct dma_controller *sprd_musb_dma_controller_create(struct musb *musb,
++						       void __iomem *base);
++void sprd_musb_dma_controller_destroy(struct dma_controller *c);
++
++#endif
+diff --git a/drivers/usb/typec/tcpm/Kconfig b/drivers/usb/typec/tcpm/Kconfig
+index 00baa7503d45275683358dfb23cdb932421309cb..fd39e1c9ddaa6b0a7e1f60347ac5b38fd08dd7f8 100644
+--- a/drivers/usb/typec/tcpm/Kconfig
++++ b/drivers/usb/typec/tcpm/Kconfig
+@@ -91,4 +91,11 @@ config TYPEC_QCOM_PMIC
+ 	  This driver enables Type-C role switching, orientation, Alternate
+ 	  mode and Power Delivery support both for VBUS and VCONN.
+ 
++config TYPEC_SC27XX_PD
++	tristate "Unisoc SC27xx series PMIC USB PD driver"
++	depends on MFD_SC27XX_PMIC
++	help
++	  This driver adds support for USB PD and Type-C
++	  functionalities sprovided by Unisoc SC27xx PMICs.
++
+ endif # TYPEC_TCPM
+diff --git a/drivers/usb/typec/tcpm/Makefile b/drivers/usb/typec/tcpm/Makefile
+index 7a8cad0c0bdb486f77fcfc2c2d930c11c84800df..4ed21dc0b2bf1fdd55675732f32e5ebdea620303 100644
+--- a/drivers/usb/typec/tcpm/Makefile
++++ b/drivers/usb/typec/tcpm/Makefile
+@@ -10,3 +10,4 @@ obj-$(CONFIG_TYPEC_TCPCI_MT6370)	+= tcpci_mt6370.o
+ obj-$(CONFIG_TYPEC_TCPCI_MAXIM)		+= tcpci_maxim.o
+ tcpci_maxim-y				+= tcpci_maxim_core.o maxim_contaminant.o
+ obj-$(CONFIG_TYPEC_QCOM_PMIC)		+= qcom/
++obj-$(CONFIG_TYPEC_SC27XX_PD)		+= sc27xx_pd.o
+diff --git a/drivers/usb/typec/tcpm/sc27xx_pd.c b/drivers/usb/typec/tcpm/sc27xx_pd.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..cb0f7a377df2692f0706be2c2429d803e1870a2c
+--- /dev/null
++++ b/drivers/usb/typec/tcpm/sc27xx_pd.c
+@@ -0,0 +1,1766 @@
++// SPDX-License-Identifier: GPL-2.0
++// Copyright (C) 2019 Spreadtrum Communications Inc.
++
++#include <linux/delay.h>
++#include <linux/interrupt.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/nvmem-consumer.h>
++#include <linux/of.h>
++#include <linux/of_device.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++#include <linux/regulator/consumer.h>
++#include <linux/usb/typec.h>
++#include <linux/usb/tcpm.h>
++#include <linux/usb/pd.h>
++#include <linux/usb/typec_dp.h>
++
++/* PMIC global registers definition */
++#define SC27XX_MODULE_EN		0x1808
++#define SC27XX_ARM_CLK_EN0		0x180c
++#define SC27XX_RTC_CLK_EN0		0x1810
++#define SC27XX_XTL_WAIT_CTRL0		0x1b78
++#define UMP9620_MODULE_EN		0x2008
++#define UMP9620_ARM_CLK_EN0		0x200c
++#define UMP9620_RTC_CLK_EN0		0x2010
++#define UMP9620_XTL_WAIT_CTRL0		0x2378
++#define SC27XX_TYPEC_PD_EN		BIT(13)
++#define SC27XX_CLK_PD_SEL		BIT(10)
++#define SC27XX_CLK_PD_EN		BIT(9)
++#define SC27XX_XTL_EN			BIT(8)
++
++/* Typec controller registers definition */
++#define SC27XX_TYPEC_EN			0x0
++#define SC27XX_TYPEC_MODE		0x4
++#define SC27XX_TYPEC_PD_CFG		0x8
++#define SC27XX_TYPEC_INT_EN		0x0c
++#define SC27XX_TYPEC_INT_CLR		0x10
++#define SC27XX_TYPEC_INT_RAW		0x14
++#define SC27XX_TYPEC_INT_MASK		0x18
++#define SC27XX_TYPEC_STATUS		0x1c
++#define SC27XX_TYPEC_RTRIM		0x3c
++#define SC27XX_TYPEC_SW_CFG		0x54
++#define SC27XX_TYPEC_WC_REG		0x58
++#define SC27XX_TYPEC_DBG1		0x60
++#define SC27XX_TYPEC_IBIAS		0x70
++
++/* PD controller registers definition */
++#define SC27XX_PD_TX_BUF		0x0
++#define SC27XX_PD_RX_BUF		0x4
++#define SC27XX_PD_HEAD_CFG		0x8
++#define SC27XX_PD_CTRL			0xc
++#define SC27XX_PD_CFG0			0x10
++#define SC27XX_PD_CFG1			0x14
++#define SC27XX_PD_MESG_ID_CFG		0x18
++#define SC27XX_PD_STS0			0x1c
++#define SC27XX_PD_STS1			0x20
++#define SC27XX_INT_STS			0x24
++#define SC27XX_INT_FLG			0x28
++#define SC27XX_INT_CLR			0x2c
++#define SC27XX_INT_EN			0x30
++#define SC27XX_PD_PHY_CFG0		0x50
++#define SC27XX_PD_PHY_CFG1		0x54
++#define SC27XX_PD_PHY_CFG2		0x58
++
++/* Bit definitions for SC27XX_TYPEC_EN register */
++#define SC27XX_TYPEC_TRY_SRC_EN		BIT(7)
++#define SC27XX_TYPEC_TRY_SINK_EN	BIT(8)
++
++/* Bit definitions for SC27XX_TYPEC_MODE register */
++#define SC27XX_TYPEC_MODE_MASK		GENMASK(1, 0)
++#define SC27XX_TYPEC_RP_LEVEL_MASK	GENMASK(3, 2)
++#define SC27XX_TYPEC_RP_LEVEL(x)	(((x) << 2) & GENMASK(3, 2))
++
++/* Bit definitions for SC27XX_TYPEC_PD_CFG register */
++#define SC27XX_TYPEC_PD_SUPPORT		BIT(0)
++#define SC27XX_TYPEC_PD_CONSTRUCT	BIT(6)
++#define SC27XX_TYPEC_PD_NO_CHEK_DETACH	BIT(9)
++#define SC27XX_TYPEC_SW_FORCE_CC(x)	(((x) << 10) & GENMASK(11, 10))
++#define SC27XX_TYPEC_VCCON_LDO_RDY	BIT(12)
++#define SC27XX_TYPEC_VCCON_LDO_EN	BIT(13)
++
++/* Bit definitions for SC27XX_TYPEC_INT_EN register */
++#define SC27XX_TYPEC_ATTACH_INT		BIT(0)
++#define SC27XX_TYPEC_DETACH_INT		BIT(1)
++
++/* Bit definitions for SC27XX_TYPEC_STATUS register */
++#define SC27XX_TYPEC_CURRENT_STATUS	GENMASK(4, 0)
++#define SC27XX_TYPEC_FINAL_SWITCH	BIT(5)
++#define SC27XX_TYPEC_VBUS_CL(x)		(((x) & GENMASK(7, 6)) >> 6)
++
++/* Bit definitions for SC27XX_TYPEC_WC_REG register */
++#define SC27XX_TYPEC_PD_PR_SWAP		BIT(2)
++#define SC27XX_TYPEC_PD_VCONN_SWAP	BIT(1)
++
++/* Bit definitions for SC27XX_TYPEC_DBG1 register */
++#define SC27XX_TYPEC_VBUS_OK		BIT(8)
++#define SC27XX_TYPEC_CONN_CC		BIT(9)
++
++/* Bit definitions for SC27XX_TYPEC_IBIAS register */
++#define SC27XX_TYPEC_RX_REF_DECREASE	BIT(7)
++
++/* Bit definitions for SC27XX_PD_HEAD_CFG register */
++#define SC27XX_PD_EXTHEAD		BIT(15)
++#define SC27XX_PD_NUM_DO(x)		(((x) << 12) & GENMASK(14, 12))
++#define SC27XX_PD_MESS_ID(x)		(((x) << 9) & GENMASK(11, 9))
++#define SC27XX_PD_POWER_ROLE		BIT(8)
++#define SC27XX_PD_SPEC_REV(x)		(((x) << 6) & GENMASK(7, 6))
++#define SC27XX_PD_DATA_ROLE		BIT(5)
++#define SC27XX_PD_MESSAGE_TYPE(x)	((x) & GENMASK(4, 0))
++#define SC27XX_PD_SPEC_MASK		GENMASK(7, 6)
++
++/* Bit definitions for SC27XX_PD_CTRL register */
++#define SC27XX_PD_TX_START		BIT(0)
++#define SC27XX_PD_HARD_RESET		BIT(2)
++#define SC27XX_PD_TX_FLUSH		BIT(3)
++#define SC27XX_PD_RX_FLUSH		BIT(4)
++#define SC27XX_PD_FAST_START		BIT(6)
++#define SC27XX_PD_CABLE_RESET		BIT(7)
++#define SC27XX_PD_RX_ID_CLR		BIT(8)
++#define SC27XX_PD_RP_SINKTXNG_CLR	BIT(9)
++
++/* Bit definitions for SC27XX_PD_CFG0 register */
++#define SC27XX_PD_RP_CONTROL(x)		((x) & GENMASK(1, 0))
++#define SC27XX_PD_SINK_RP		GENMASK(3, 2)
++#define SC27XX_PD_EN_SOP1_TX		BIT(6)
++#define SC27XX_PD_EN_SOP2_TX		BIT(7)
++#define SC27XX_PD_EN_SOP		BIT(8)
++#define SC27XX_PD_SRC_SINK_MODE		BIT(9)
++#define SC27XX_PD_CTL_EN		BIT(10)
++#define SC27XX_PD_BIST_MODE_EN		BIT(11)
++
++/* Bit definitions for SC27XX_PD_CFG1 register */
++#define SC27XX_PD_AUTO_RETRY		BIT(0)
++#define SC27XX_PD_RETRY(x)		(((x) << 1) & GENMASK(2, 1))
++#define SC27XX_PD_HEADER_REG_EN		BIT(3)
++#define SC27XX_PD_EN_SOP1_RX		BIT(6)
++#define SC27XX_PD_EN_SOP2_RX		BIT(7)
++#define SC27XX_PD_EN_SOP_RX		BIT(8)
++#define SC27XX_PD_RX_AUTO_GOOD_CRC	BIT(9)
++#define SC27XX_PD_FRS_DETECT_EN		BIT(10)
++#define SC27XX_PD_PHY_13M		BIT(11)
++#define SC27XX_PD_TX_AUTO_GOOD_CRC	BIT(12)
++
++/* Bit definitions for SC27XX_PD_MESG_ID_CFG register */
++#define SC27XX_PD_MESS_ID_TX(x)		((x) & GENMASK(2, 0))
++#define SC27XX_PD_MESS_ID_RX(x)		(((x) << 4) & GENMASK(6, 4))
++#define SC27XX_PD_RETRY_MASK		GENMASK(2, 1)
++#define SC27XX_PD_MESS_ID_MASK		GENMASK(2, 0)
++
++/* Bit definitions for SC27XX_TYPEC_SW_CFG register */
++#define SC27XX_TYPEC_SW_SWITCH_MASK	GENMASK(11, 10)
++#define SC27XX_TYPEC_SW_SWITCH(x)	(((x) << 10) & GENMASK(11, 10))
++
++/* Bit definitions for SC27XX_INT_FLG register */
++#define SC27XX_PD_HARD_RST_FLAG		BIT(0)
++#define SC27XX_PD_CABLE_RST_FLAG	BIT(1)
++#define SC27XX_PD_SOFT_RST_FLAG		BIT(2)
++#define SC27XX_PD_PS_RDY_FLAG		BIT(3)
++#define SC27XX_PD_PKG_RV_FLAG		BIT(4)
++#define SC27XX_PD_TX_OK_FLAG		BIT(5)
++#define SC27XX_PD_TX_ERROR_FLAG		BIT(6)
++#define SC27XX_PD_TX_COLLSION_FLAG	BIT(7)
++#define SC27XX_PD_PKG_RV_ERROR_FLAG	BIT(8)
++#define SC27XX_PD_FRS_RV_FLAG		BIT(9)
++#define SC27XX_PD_RX_FIFO_OVERFLOW_FLAG	BIT(10)
++
++/* Bit definitions for SC27XX_PD_STS1 register */
++#define SC27XX_PD_RX_DATA_NUM_MASK	GENMASK(8, 0)
++#define SC27XX_PD_RX_EMPTY		BIT(13)
++
++/* Bit definitions for SC27XX_INT_CLR register */
++#define SC27XX_PD_HARD_RST_RV_CLR	BIT(0)
++#define SC27XX_PD_CABLE_RST_RV_CLR	BIT(1)
++#define SC27XX_PD_SOFT_RST_RV_CLR	BIT(2)
++#define SC27XX_PD_PS_RDY_CLR		BIT(3)
++#define SC27XX_PD_PKG_RV_CLR		BIT(4)
++#define SC27XX_PD_TX_OK_CLR		BIT(5)
++#define SC27XX_PD_TX_ERROR_CLR		BIT(6)
++#define SC27XX_PD_TX_COLLSION_CLR	BIT(7)
++#define SC27XX_PD_PKG_RV_ERROR_CLR	BIT(8)
++#define SC27XX_PD_FRS_RV_CLR		BIT(9)
++#define SC27XX_PD_RX_FIFO_OVERFLOW_CLR	BIT(10)
++
++/* Bit definitions for SC27XX_INT_EN register */
++#define SC27XX_PD_HARD_RST_RV_EN	BIT(0)
++#define SC27XX_PD_CABLE_RST_RV_EN	BIT(1)
++#define SC27XX_PD_SOFT_RST_RV_EN	BIT(2)
++#define SC27XX_PD_PS_RDY_EN		BIT(3)
++#define SC27XX_PD_PKG_RV_EN		BIT(4)
++#define SC27XX_PD_TX_OK_EN		BIT(5)
++#define SC27XX_PD_TX_ERROR_EN		BIT(6)
++#define SC27XX_PD_TX_COLLSION_EN	BIT(7)
++#define SC27XX_PD_PKG_RV_ERROR_EN	BIT(8)
++#define SC27XX_PD_FRS_RV_EN		BIT(9)
++#define SC27XX_PD_RX_FIFO_OVERFLOW_EN	BIT(10)
++
++/* SC27XX_PD_PHY_CFG1 */
++#define SC27XX_PD_CC1_SW		BIT(3)
++#define SC27XX_PD_CC2_SW		BIT(2)
++
++/* SC27XX_PD_PHY_CFG2 */
++#define SC27XX_PD_CFG2_PD_CLK_BIT	BIT(6)
++#define SC27XX_PD_CFG2_RX_REF_CAL_BIT	BIT(7)
++#define SC27XX_PD_CFG2_RX_REF_CAL_SHIFT	7
++
++#define SC27XX_TX_RX_BUF_MASK		GENMASK(15, 0)
++
++#define SC27XX_PD_CFG0_RCCAL_MASK	GENMASK(8, 6)
++#define SC27XX_PD_CFG0_VTL_MASK		GENMASK(3, 2)
++#define SC27XX_PD_CFG0_VTH_MASK		GENMASK(1, 0)
++#define SC27XX_PD_CFG0_RCCAL_SHIFT	6
++#define SC27XX_PD_CFG0_VTL_SHIFT	2
++#define SC27XX_PD_CFG1_VREF_SEL_MASK	GENMASK(7, 6)
++#define SC27XX_PD_CFG1_REF_CAL_MASK	GENMASK(14, 12)
++#define SC27XX_PD_CFG1_VREF_SEL_SHIFT	6
++#define SC27XX_PD_CFG1_REF_CAL_SHIFT	12
++
++#define SC27XX_PD_DATA_MASK		GENMASK(15, 0)
++#define SC27XX_INT_CLR_MASK		0x3fff
++#define SC27XX_INT_EN_MASK		0x85ff
++
++/* chunked extended message */
++#define SC27XX_CHUNKED_EXT_MSG_MASK	GENMASK(7, 0)
++#define SC27XX_CHUNKED_EXT_MSG_SHIFT	8
++
++/* Timeout (us) for pd data ready according to pd datasheet */
++#define SC27XX_PD_RDY_TIMEOUT		2000
++#define SC27XX_PD_RDY_POLL_INTERVAL	50
++
++/* Timeout (us) for vbus ready according to need */
++#define SC27XX_VBUS_OK_TIMEOUT		500000
++#define SC27XX_VBUS_OK_POLL_INTERVAL	100
++
++#define PMIC_SC2730			1
++#define PMIC_UMP9620			2
++
++/* values for SC27XX_TYPEC_CURRENT_STATUS field */
++enum sc27xx_state {
++	SC27XX_DETACHED_SNK = 0,
++	SC27XX_ATTACHWAIT_SNK,
++	SC27XX_ATTACHED_SNK,
++	SC27XX_DETACHED_SRC,
++	SC27XX_ATTACHWAIT_SRC,
++	SC27XX_ATTACHED_SRC,
++	SC27XX_POWERED_CABLE,
++	SC27XX_AUDIO_CABLE,
++	SC27XX_DEBUG_CABLE,
++};
++
++/* values for SC27XX_TYPEC_MODE */
++enum sc27xx_typec_mode {
++	SC27XX_MODE_SNK = 0,
++	SC27XX_MODE_SRC,
++	SC27XX_MODE_DRP,
++};
++
++enum sc27xx_pd_clk_mode {
++	SC27XX_PD_CLK_D6M_A6M = 0,
++	SC27XX_PD_CLK_D13M_A6P5M,
++	SC27XX_PD_CLK_D13M_A13M,
++};
++
++struct sc27xx_pd_variant_data {
++	u32 id;
++	u32 module_en;
++	u32 arm_clk_en0;
++	u32 rtc_clk_en0;
++	u32 xtl_wait_ctrl0;
++};
++
++static const struct sc27xx_pd_variant_data sc2730_data = {
++	.id = PMIC_SC2730,
++	.module_en = SC27XX_MODULE_EN,
++	.arm_clk_en0 = SC27XX_ARM_CLK_EN0,
++	.rtc_clk_en0 = SC27XX_RTC_CLK_EN0,
++	.xtl_wait_ctrl0 = SC27XX_XTL_WAIT_CTRL0,
++};
++
++static const struct sc27xx_pd_variant_data ump9620_data = {
++	.id = PMIC_UMP9620,
++	.module_en = UMP9620_MODULE_EN,
++	.arm_clk_en0 = UMP9620_ARM_CLK_EN0,
++	.rtc_clk_en0 = UMP9620_RTC_CLK_EN0,
++	.xtl_wait_ctrl0 = UMP9620_XTL_WAIT_CTRL0,
++};
++
++struct sc27xx_pd {
++	struct device *dev;
++	struct tcpm_port *tcpm_port;
++	struct work_struct typec_detect_work;
++	struct regmap *regmap;
++	struct tcpc_dev tcpc;
++	struct mutex lock;
++	struct regulator *vbus;
++	struct regulator *vconn;
++	const struct sc27xx_pd_variant_data *var_data;
++	enum typec_cc_polarity cc_polarity;
++	enum typec_cc_status cc1;
++	enum typec_cc_status cc2;
++	enum sc27xx_state state;
++	bool detect_pending;
++	bool constructed;
++	bool vbus_present;
++	bool vbus_on;
++	bool vconn_on;
++	u32 base;
++	u32 typec_base;
++	u32 rc_cal;
++	u32 delta_cal;
++	u32 ref_cal;
++	bool typec_online;
++};
++
++static inline struct sc27xx_pd *tcpc_to_sc27xx_pd(struct tcpc_dev *tcpc)
++{
++	return container_of(tcpc, struct sc27xx_pd, tcpc);
++}
++
++static int sc27xx_pd_clk_cfg(struct sc27xx_pd *pd)
++{
++	int ret;
++
++	ret = regmap_set_bits(pd->regmap, pd->var_data->module_en,
++			      SC27XX_TYPEC_PD_EN);
++	if (ret)
++		return ret;
++
++	ret = regmap_set_bits(pd->regmap, pd->var_data->arm_clk_en0,
++			      SC27XX_CLK_PD_EN);
++	if (ret)
++		return ret;
++
++	return regmap_set_bits(pd->regmap, pd->var_data->xtl_wait_ctrl0,
++			       SC27XX_XTL_EN);
++}
++
++static int sc27xx_pd_disable_clk(struct sc27xx_pd *pd)
++{
++	int ret;
++
++	ret = regmap_clear_bits(pd->regmap, pd->var_data->module_en,
++				SC27XX_TYPEC_PD_EN);
++	if (ret)
++		return ret;
++
++	return regmap_clear_bits(pd->regmap, pd->var_data->arm_clk_en0,
++				 SC27XX_CLK_PD_EN);
++}
++
++static int sc27xx_pd_start_drp_toggling(struct tcpc_dev *tcpc,
++					enum typec_port_type port_type,
++					enum typec_cc_status cc)
++{
++	struct sc27xx_pd *pd = tcpc_to_sc27xx_pd(tcpc);
++	enum sc27xx_typec_mode mode;
++	int ret;
++
++	mutex_lock(&pd->lock);
++
++	switch (port_type) {
++	case TYPEC_PORT_SRC:
++		mode = SC27XX_MODE_SRC;
++		break;
++	case TYPEC_PORT_SNK:
++		mode = SC27XX_MODE_SNK;
++		break;
++	case TYPEC_PORT_DRP:
++		mode = SC27XX_MODE_DRP;
++		break;
++	}
++
++	ret = regmap_update_bits(pd->regmap, pd->typec_base + SC27XX_TYPEC_MODE,
++				 SC27XX_TYPEC_MODE_MASK, mode);
++
++	/* make sure already connected cables are detected */
++	if (!pd->detect_pending) {
++		pd->detect_pending = true;
++		schedule_work(&pd->typec_detect_work);
++	}
++
++	mutex_unlock(&pd->lock);
++
++	return ret;
++}
++
++static int sc27xx_pd_set_cc(struct tcpc_dev *tcpc, enum typec_cc_status cc)
++{
++	struct sc27xx_pd *pd = tcpc_to_sc27xx_pd(tcpc);
++	u32 cfg, rp_level;
++	int ret;
++
++	mutex_lock(&pd->lock);
++
++	switch (cc) {
++	case TYPEC_CC_RD:
++		cfg = SC27XX_TYPEC_TRY_SINK_EN;
++		rp_level = 1;
++		break;
++	case TYPEC_CC_RP_DEF:
++		cfg = SC27XX_TYPEC_TRY_SRC_EN;
++		rp_level = 1;
++		break;
++	case TYPEC_CC_RP_1_5:
++		cfg = SC27XX_TYPEC_TRY_SRC_EN;
++		rp_level = 2;
++		break;
++	case TYPEC_CC_RP_3_0:
++		cfg = SC27XX_TYPEC_TRY_SRC_EN;
++		rp_level = 3;
++		break;
++	default:
++		cfg = 0;
++		rp_level = 1;
++		break;
++	}
++
++	ret = regmap_update_bits(pd->regmap, pd->typec_base + SC27XX_TYPEC_MODE,
++				 SC27XX_TYPEC_RP_LEVEL_MASK,
++				 SC27XX_TYPEC_RP_LEVEL(rp_level));
++	if (ret < 0)
++		goto out;
++
++	ret = regmap_update_bits(pd->regmap, pd->typec_base + SC27XX_TYPEC_EN,
++				 SC27XX_TYPEC_TRY_SINK_EN | SC27XX_TYPEC_TRY_SRC_EN,
++				 cfg);
++
++out:
++	mutex_unlock(&pd->lock);
++
++	return ret;
++}
++
++static int sc27xx_pd_get_cc(struct tcpc_dev *tcpc,
++			    enum typec_cc_status *cc1,
++			    enum typec_cc_status *cc2)
++{
++	struct sc27xx_pd *pd = tcpc_to_sc27xx_pd(tcpc);
++
++	mutex_lock(&pd->lock);
++	*cc1 = pd->cc1;
++	*cc2 = pd->cc2;
++	mutex_unlock(&pd->lock);
++
++	return 0;
++}
++
++static int sc27xx_pd_set_vbus(struct tcpc_dev *tcpc, bool on, bool charge)
++{
++	struct sc27xx_pd *pd = tcpc_to_sc27xx_pd(tcpc);
++	int ret = 0;
++
++	mutex_lock(&pd->lock);
++
++	if (!pd->vbus || pd->vbus_on == on)
++		goto out;
++
++	pd->vbus_on = on;
++
++	if (on)
++		ret = regulator_enable(pd->vbus);
++	else
++		ret = regulator_disable(pd->vbus);
++
++	if (ret < 0)
++		goto out;
++
++	/* no VBUS interrupts are sent, so polling is needed */
++	if (!pd->detect_pending) {
++		pd->detect_pending = true;
++		schedule_work(&pd->typec_detect_work);
++	}
++
++out:
++	mutex_unlock(&pd->lock);
++
++	return ret;
++}
++
++static int sc27xx_pd_get_vbus(struct tcpc_dev *tcpc)
++{
++	struct sc27xx_pd *pd = tcpc_to_sc27xx_pd(tcpc);
++
++	return pd->vbus_present;
++}
++
++static int sc27xx_pd_set_current_limit(struct tcpc_dev *dev, u32 max_ma, u32 mv)
++{
++	return 0;
++}
++
++static int sc27xx_pd_get_current_limit(struct tcpc_dev *dev)
++{
++	return 0;
++}
++
++static int sc27xx_pd_set_polarity(struct tcpc_dev *tcpc,
++				  enum typec_cc_polarity polarity)
++{
++	return 0;
++}
++
++static int sc27xx_pd_set_roles(struct tcpc_dev *tcpc, bool attached,
++			       enum typec_role role, enum typec_data_role data)
++{
++	struct sc27xx_pd *pd = tcpc_to_sc27xx_pd(tcpc);
++	int ret;
++
++	mutex_lock(&pd->lock);
++	ret = regmap_assign_bits(pd->regmap,
++				 pd->base + SC27XX_PD_CFG0,
++				 SC27XX_PD_SRC_SINK_MODE,
++				 role != TYPEC_SINK);
++	mutex_unlock(&pd->lock);
++
++	return ret;
++}
++
++static int sc27xx_pd_set_vconn(struct tcpc_dev *tcpc, bool on)
++{
++	struct sc27xx_pd *pd = tcpc_to_sc27xx_pd(tcpc);
++	int ret = 0;
++
++	mutex_lock(&pd->lock);
++
++	if (!pd->vconn || pd->vconn_on == on)
++		goto out;
++
++	pd->vconn_on = on;
++
++	if (on)
++		ret = regulator_enable(pd->vconn);
++	else
++		ret = regulator_disable(pd->vconn);
++
++out:
++	mutex_unlock(&pd->lock);
++
++	return ret;
++}
++
++static int sc27xx_pd_tx_flush(struct sc27xx_pd *pd)
++{
++	return regmap_set_bits(pd->regmap, pd->base + SC27XX_PD_CTRL,
++			       SC27XX_PD_TX_FLUSH);
++}
++
++static int sc27xx_pd_rx_flush(struct sc27xx_pd *pd)
++{
++	return regmap_set_bits(pd->regmap, pd->base + SC27XX_PD_CTRL,
++			       SC27XX_PD_RX_FLUSH);
++}
++
++static int sc27xx_pd_clear_rx_id(struct sc27xx_pd *pd)
++{
++	return regmap_set_bits(pd->regmap, pd->base + SC27XX_PD_CTRL,
++			       SC27XX_PD_RX_ID_CLR);
++}
++
++static int sc27xx_pd_clear_tx_id(struct sc27xx_pd *pd)
++{
++	return regmap_update_bits(pd->regmap, pd->base + SC27XX_PD_MESG_ID_CFG,
++				  SC27XX_PD_MESS_ID_MASK, 0x0);
++}
++
++static int sc27xx_pd_reset(struct sc27xx_pd *pd, bool clear_tx_id)
++{
++	int ret;
++
++	ret = sc27xx_pd_rx_flush(pd);
++	if (ret < 0)
++		return ret;
++
++	ret = sc27xx_pd_tx_flush(pd);
++	if (ret < 0)
++		return ret;
++
++	ret = sc27xx_pd_clear_rx_id(pd);
++	if (ret < 0)
++		return ret;
++
++	if (clear_tx_id) {
++		ret = sc27xx_pd_clear_tx_id(pd);
++		if (ret < 0)
++			return ret;
++	}
++
++	return 0;
++}
++
++static int sc27xx_pd_send_hardreset(struct sc27xx_pd *pd)
++{
++	int ret;
++
++	ret = sc27xx_pd_reset(pd, true);
++	if (ret < 0) {
++		dev_err(pd->dev, "cannot PD reset, ret=%d\n", ret);
++		return ret;
++	}
++
++	ret = regmap_set_bits(pd->regmap, pd->base + SC27XX_PD_CTRL,
++			      SC27XX_PD_HARD_RESET);
++	if (ret < 0)
++		return ret;
++
++	return 0;
++}
++
++static int sc27xx_pd_set_rx(struct tcpc_dev *tcpc, bool on)
++{
++	struct sc27xx_pd *pd = tcpc_to_sc27xx_pd(tcpc);
++	int ret;
++
++	mutex_lock(&pd->lock);
++	ret = sc27xx_pd_reset(pd, false);
++	if (ret < 0)
++		goto done;
++
++	if (on) {
++		ret = regmap_set_bits(pd->regmap, pd->base + SC27XX_INT_EN,
++				      SC27XX_PD_PKG_RV_EN);
++		if (ret < 0)
++			goto done;
++
++		ret = regmap_set_bits(pd->regmap, pd->base + SC27XX_PD_CFG1,
++				      SC27XX_PD_RX_AUTO_GOOD_CRC);
++		if (ret < 0)
++			goto done;
++
++		ret = regmap_set_bits(pd->regmap, pd->base + SC27XX_PD_CFG0,
++				      SC27XX_PD_CTL_EN);
++		if (ret < 0)
++			goto done;
++	} else {
++		ret = regmap_clear_bits(pd->regmap, pd->base + SC27XX_PD_CFG0,
++					SC27XX_PD_CTL_EN);
++		if (ret < 0)
++			goto done;
++
++		ret = regmap_clear_bits(pd->regmap, pd->base + SC27XX_INT_EN,
++					SC27XX_PD_PKG_RV_EN);
++		if (ret < 0)
++			goto done;
++
++		ret = regmap_clear_bits(pd->regmap, pd->base + SC27XX_PD_CFG1,
++					SC27XX_PD_RX_AUTO_GOOD_CRC);
++		if (ret < 0)
++			goto done;
++	}
++
++done:
++	mutex_unlock(&pd->lock);
++	return ret;
++}
++
++static int sc27xx_pd_tx_msg(struct sc27xx_pd *pd, const struct pd_message *msg)
++{
++	u16 header;
++	u32 data_obj_num, data[PD_MAX_PAYLOAD * 2] = {0}, head = 0;
++	int i, ret;
++
++	ret = sc27xx_pd_tx_flush(pd);
++	if (ret < 0)
++		return ret;
++
++	data_obj_num = msg ? pd_header_cnt_le(msg->header) : 0;
++	if (data_obj_num > PD_MAX_PAYLOAD) {
++		dev_err(pd->dev, "pd tmsg too long, num=%d\n", data_obj_num);
++		return -EINVAL;
++	}
++
++	header = msg ? le16_to_cpu(msg->header) : 0;
++	ret = regmap_write(pd->regmap, pd->base + SC27XX_PD_HEAD_CFG, header);
++	if (ret < 0)
++		return ret;
++
++	ret = regmap_read(pd->regmap, pd->base + SC27XX_PD_HEAD_CFG, &head);
++	if (ret < 0)
++		return ret;
++
++	if (msg) {
++		for (i = 0; i < data_obj_num; i++) {
++			data[2 * i] = le32_to_cpu(msg->payload[i]) & SC27XX_PD_DATA_MASK;
++			data[2 * i + 1] = (le32_to_cpu(msg->payload[i]) >> 16) &
++					  SC27XX_PD_DATA_MASK;
++		}
++	}
++
++	for (i = 0; i < data_obj_num * 2; i++) {
++		ret = regmap_write(pd->regmap, pd->base + SC27XX_PD_TX_BUF,
++				   data[i]);
++		if (ret < 0)
++			return ret;
++	}
++
++	return regmap_set_bits(pd->regmap, pd->base + SC27XX_PD_CTRL,
++			       SC27XX_PD_TX_START);
++}
++
++static int sc27xx_pd_transmit(struct tcpc_dev *tcpc,
++			      enum tcpm_transmit_type type,
++			      const struct pd_message *msg,
++			      unsigned int negotiated_rev)
++{
++	struct sc27xx_pd *pd = tcpc_to_sc27xx_pd(tcpc);
++	int ret;
++
++	mutex_lock(&pd->lock);
++	switch (type) {
++	case TCPC_TX_SOP:
++		ret = sc27xx_pd_tx_msg(pd, msg);
++		if (ret < 0)
++			dev_err(pd->dev, "cannot send PD message, ret=%d\n",
++				ret);
++		break;
++	case TCPC_TX_HARD_RESET:
++		ret = sc27xx_pd_send_hardreset(pd);
++		if (ret < 0)
++			dev_err(pd->dev, "cann't send hardreset ret=%d\n", ret);
++		break;
++	default:
++		dev_err(pd->dev, "type %d not supported", type);
++		ret = -EINVAL;
++	}
++	mutex_unlock(&pd->lock);
++
++	return ret;
++}
++
++static int sc27xx_pd_read_ext_message(struct sc27xx_pd *pd, struct pd_message *msg)
++{
++	int ret, i, ext_msg_data_size;
++	u32 data[PD_MAX_PAYLOAD * 2] = {0};
++	u32 ext_msg_header = 0;
++
++	ret = regmap_read(pd->regmap, pd->base + SC27XX_PD_RX_BUF, &ext_msg_header);
++	if (ret < 0)
++		return ret;
++
++	msg->ext_msg.header = cpu_to_le16(ext_msg_header);
++	if (!(le16_to_cpu(msg->ext_msg.header) & PD_EXT_HDR_CHUNKED)) {
++		dev_info(pd->dev, "unchunked ext_msg unsupported\n");
++		goto done;
++	}
++
++	ext_msg_data_size = pd_ext_header_data_size_le(msg->ext_msg.header);
++	if (ext_msg_data_size > PD_EXT_MAX_CHUNK_DATA) {
++		dev_err(pd->dev, "chunked ext_msg too long, data_size=%d\n",
++			ext_msg_data_size);
++		goto done;
++	}
++
++	/*
++	 * According to the datasheet, sc27xx_pd_rx_buf is 16bit,
++	 * but PD protocol source code msg->ext_msg.data is 8bit.
++	 */
++	for (i = 0; i < (ext_msg_data_size + 1) / 2; i++) {
++		ret = regmap_read(pd->regmap, pd->base + SC27XX_PD_RX_BUF,
++				  (u32 *)&data[i]);
++		if (ret < 0)
++			return ret;
++
++		msg->ext_msg.data[2 * i] = data[i] & SC27XX_CHUNKED_EXT_MSG_MASK;
++		if (2 * i + 1 < ext_msg_data_size)
++			msg->ext_msg.data[2 * i + 1] = (data[i] >> SC27XX_CHUNKED_EXT_MSG_SHIFT) &
++						       SC27XX_CHUNKED_EXT_MSG_MASK;
++	}
++
++done:
++	return sc27xx_pd_rx_flush(pd);
++}
++
++static int sc27xx_pd_read_msg_pdo(struct sc27xx_pd *pd, struct pd_message *msg)
++{
++	u32 data_obj_num, data[PD_MAX_PAYLOAD * 2] = {0};
++	int i, ret = 0;
++
++	if (le16_to_cpu(msg->header) & PD_HEADER_EXT_HDR)
++		return 0;
++
++	data_obj_num = pd_header_cnt_le(msg->header);
++	if (data_obj_num > PD_MAX_PAYLOAD) {
++		dev_err(pd->dev, "pd msg too long, num=%d\n", data_obj_num);
++		return -EINVAL;
++	}
++
++	for (i = 0; i < data_obj_num * 2; i++) {
++		ret = regmap_read(pd->regmap, pd->base + SC27XX_PD_RX_BUF, (u32 *)&data[i]);
++		if (ret < 0)
++			return ret;
++	}
++
++	/*
++	 * According to the datasheet, sc27xx_pd_rx_buf is 16bit,
++	 * but PD protocol source code msg->payload is 32bit,
++	 * so need two 16bit assignment one 32bit.
++	 */
++	for (i = 0; i < data_obj_num; i++)
++		msg->payload[i] = cpu_to_le32(data[2 * i + 1] << 16 | data[2 * i]);
++
++	return 0;
++}
++
++static int sc27xx_pd_retry_cnt_cfg(struct sc27xx_pd *pd, struct pd_message *msg)
++{
++	u32 spec = 0;
++	int ret = 0;
++
++	spec = pd_header_rev_le(msg->header);
++	if (spec == 1)
++		ret = regmap_update_bits(pd->regmap, pd->base + SC27XX_PD_CFG1,
++					 SC27XX_PD_RETRY_MASK,
++					 SC27XX_PD_RETRY(3));
++	else if (spec == 2)
++		ret = regmap_update_bits(pd->regmap, pd->base + SC27XX_PD_CFG1,
++					 SC27XX_PD_RETRY_MASK,
++					 SC27XX_PD_RETRY(1));
++
++	return ret;
++}
++
++static int sc27xx_pd_read_message(struct sc27xx_pd *pd, struct pd_message *msg)
++{
++	int ret;
++	u32 header = 0;
++
++	ret = regmap_read(pd->regmap, pd->base + SC27XX_PD_RX_BUF, &header);
++	if (ret < 0)
++		return ret;
++
++	header &= SC27XX_TX_RX_BUF_MASK;
++	msg->header = cpu_to_le16(header);
++
++	ret = sc27xx_pd_retry_cnt_cfg(pd, msg);
++	if (ret)
++		return ret;
++
++	if (le16_to_cpu(msg->header) & PD_HEADER_EXT_HDR) {
++		ret = sc27xx_pd_read_ext_message(pd, msg);
++		if (ret < 0) {
++			dev_err(pd->dev, "failed to read pd ext_msg, ret=%d\n", ret);
++			return ret;
++		}
++
++		tcpm_pd_receive(pd->tcpm_port, msg, TCPC_TX_SOP);
++		return 0;
++	}
++
++	ret = sc27xx_pd_read_msg_pdo(pd, msg);
++	if (ret)
++		return ret;
++
++	if (!pd_header_cnt_le(msg->header) &&
++	    pd_header_type_le(msg->header) == PD_CTRL_GOOD_CRC) {
++		if (!pd->constructed) {
++			ret = regmap_set_bits(pd->regmap,
++					      pd->typec_base + SC27XX_TYPEC_PD_CFG,
++					      SC27XX_TYPEC_PD_CONSTRUCT);
++			if (ret < 0)
++				return ret;
++			pd->constructed = true;
++		}
++		tcpm_pd_transmit_complete(pd->tcpm_port, TCPC_TX_SUCCESS);
++	} else {
++		tcpm_pd_receive(pd->tcpm_port, msg, TCPC_TX_SOP);
++	}
++
++	return sc27xx_pd_rx_flush(pd);
++}
++
++static int sc27xx_pd_rc_ref_cal(struct sc27xx_pd *pd)
++{
++	u32 vol = pd->rc_cal;
++	u32 pd_ref = pd->ref_cal;
++	u32 val = 0;
++	u32 cfg2_bit7, cfg0_vth = 0, cfg0_vtl = 0, typec_ibis = 0;
++	u32 cfg0, cfg2, cfg0_mask, cfg2_mask = 0;
++	int ret;
++
++	/*
++	 * According to the datasheet, depending on the calibration
++	 * voltage, different register values should be configured.
++	 */
++
++	if (vol >= 0 && vol <= 26)
++		val = 0x0;
++	if (vol >= 27 && vol <= 37)
++		val = 0x1;
++	if (vol >= 38 && vol <= 48)
++		val = 0x2;
++	if (vol >= 49 && vol <= 59)
++		val = 0x3;
++	if (vol >= 60 && vol <= 69)
++		val = 0x4;
++	if (vol >= 70 && vol <= 80)
++		val = 0x5;
++	if (vol >= 81 && vol <= 90)
++		val = 0x6;
++	if (vol >= 91 && vol <= 127)
++		val = 0x7;
++
++	switch (pd_ref) {
++	case 0:
++		cfg2_bit7 = 0;
++		cfg0_vth = 0;
++		cfg0_vtl = 2;
++		typec_ibis = 0;
++		break;
++	case 1:
++		cfg2_bit7 = 0;
++		cfg0_vth = 1;
++		cfg0_vtl = 1;
++		typec_ibis = 1;
++		break;
++	case 2:
++		cfg2_bit7 = 0;
++		cfg0_vth = 1;
++		cfg0_vtl = 1;
++		typec_ibis = 0;
++		break;
++	case 3:
++		cfg2_bit7 = 1;
++		cfg0_vth = 1;
++		cfg0_vtl = 1;
++		typec_ibis = 0;
++		break;
++	case 4:
++		cfg2_bit7 = 0;
++		cfg0_vth = 2;
++		cfg0_vtl = 0;
++		typec_ibis = 0;
++		break;
++	}
++
++	ret = regmap_assign_bits(pd->regmap,
++				 pd->typec_base + SC27XX_TYPEC_IBIAS,
++				 SC27XX_TYPEC_RX_REF_DECREASE,
++				 typec_ibis == 1);
++
++	cfg0 = (cfg0_vtl << SC27XX_PD_CFG0_VTL_SHIFT) & SC27XX_PD_CFG0_VTL_MASK;
++	cfg0 |= (val << SC27XX_PD_CFG0_RCCAL_SHIFT) & SC27XX_PD_CFG0_RCCAL_MASK;
++	cfg0 |= cfg0_vth & SC27XX_PD_CFG0_VTH_MASK;
++	cfg0_mask = SC27XX_PD_CFG0_RCCAL_MASK |
++		    SC27XX_PD_CFG0_VTL_MASK | SC27XX_PD_CFG0_VTH_MASK;
++
++	ret = regmap_update_bits(pd->regmap,
++				 pd->base + SC27XX_PD_PHY_CFG0,
++				 cfg0_mask, cfg0);
++	if (ret < 0)
++		return ret;
++
++	cfg2 = (cfg2_bit7 << SC27XX_PD_CFG2_RX_REF_CAL_SHIFT) & 0x80;
++	cfg2_mask = SC27XX_PD_CFG2_RX_REF_CAL_BIT;
++
++	return regmap_update_bits(pd->regmap, pd->base + SC27XX_PD_PHY_CFG2,
++				  cfg2_mask, cfg2);
++}
++
++static int sc27xx_pd_select_clk_mode(struct sc27xx_pd *pd, u8 pd_clk_mode)
++{
++	int ret;
++	u32 arm_clk_en0_mask, pd_cfg1_mask, pd_phy_cfg2_mask;
++
++	switch (pd_clk_mode) {
++	case SC27XX_PD_CLK_D6M_A6M:
++		arm_clk_en0_mask = SC27XX_CLK_PD_SEL;
++		pd_cfg1_mask = 0;
++		pd_phy_cfg2_mask = 0;
++		break;
++	case SC27XX_PD_CLK_D13M_A13M:
++		arm_clk_en0_mask = 0;
++		pd_cfg1_mask = SC27XX_PD_PHY_13M;
++		pd_phy_cfg2_mask = 0;
++		break;
++	case SC27XX_PD_CLK_D13M_A6P5M:
++	default:
++		arm_clk_en0_mask = 0;
++		pd_cfg1_mask = SC27XX_PD_PHY_13M;
++		pd_phy_cfg2_mask = SC27XX_PD_CFG2_PD_CLK_BIT;
++		break;
++	}
++
++	ret = regmap_update_bits(pd->regmap, pd->var_data->arm_clk_en0,
++				 SC27XX_CLK_PD_SEL, arm_clk_en0_mask);
++	if (ret < 0)
++		return ret;
++
++	ret = regmap_update_bits(pd->regmap, pd->base + SC27XX_PD_CFG1,
++				 SC27XX_PD_PHY_13M, pd_cfg1_mask);
++	if (ret < 0)
++		return ret;
++
++	ret = regmap_update_bits(pd->regmap, pd->base + SC27XX_PD_PHY_CFG2,
++				 SC27XX_PD_CFG2_PD_CLK_BIT, pd_phy_cfg2_mask);
++	if (ret < 0)
++		return ret;
++
++	return 0;
++}
++
++static int sc27xx_pd_get_clk_mode(struct sc27xx_pd *pd)
++{
++	int ret;
++	u32 val;
++
++	ret = regmap_read(pd->regmap, pd->var_data->arm_clk_en0, &val);
++	if (ret < 0)
++		return ret;
++
++	ret = regmap_read(pd->regmap, pd->base + SC27XX_PD_CFG1, &val);
++	if (ret < 0)
++		return ret;
++
++	return regmap_read(pd->regmap, pd->base + SC27XX_PD_PHY_CFG2, &val);
++}
++
++static int sc27xx_pd_delta_cal(struct sc27xx_pd *pd)
++{
++	u32 delta = pd->delta_cal;
++	u32 vol, vref_sel = 0, ref_cal = 0;
++	u32 cfg1, cfg1_mask;
++
++	cfg1_mask = SC27XX_PD_CC1_SW | SC27XX_PD_CC2_SW |
++		    SC27XX_PD_CFG1_VREF_SEL_MASK |
++		    SC27XX_PD_CFG1_REF_CAL_MASK;
++	/*
++	 * According to the datasheet, delta is efuse caliration
++	 * vol = delta * 2 + 1000
++	 */
++	vol = delta * 2 + 1000;
++
++	/*
++	 * According to the datasheet, depending on the calibration
++	 * voltage, different register values should be configured.
++	 */
++
++	if (vol >= 1185 && vol <= 1195) {
++		vref_sel = 0x0;
++		ref_cal = 0x0;
++	} else if (vol >= 1175 && vol < 1185) {
++		vref_sel = 0x0;
++		ref_cal = 0x1;
++	} else if (vol >= 1165 && vol < 1175) {
++		vref_sel = 0x0;
++		ref_cal = 0x2;
++	} else if (vol >= 1155 && vol < 1165) {
++		vref_sel = 0x0;
++		ref_cal = 0x3;
++	} else if (vol >= 1145 && vol < 1155) {
++		vref_sel = 0x0;
++		ref_cal = 0x4;
++	} else if (vol >= 1135 && vol < 1145) {
++		vref_sel = 0x0;
++		ref_cal = 0x5;
++	} else if (vol >= 1125 && vol < 1135) {
++		vref_sel = 0x0;
++		ref_cal = 0x6;
++	} else if (vol >= 1115 && vol < 1125) {
++		vref_sel = 0x1;
++		ref_cal = 0x2;
++	} else if (vol >= 1105 && vol < 1115) {
++		vref_sel = 0x1;
++		ref_cal = 0x3;
++	} else if (vol >= 1095 && vol < 1105) {
++		vref_sel = 0x1;
++		ref_cal = 0x4;
++	} else if (vol >= 1085 && vol < 1095) {
++		vref_sel = 0x1;
++		ref_cal = 0x5;
++	} else if (vol >= 1075 && vol < 1085) {
++		vref_sel = 0x1;
++		ref_cal = 0x6;
++	} else if (vol >= 1065 && vol < 1075) {
++		vref_sel = 0x2;
++		ref_cal = 0x2;
++	} else if (vol >= 1055 && vol < 1065) {
++		vref_sel = 0x2;
++		ref_cal = 0x3;
++	} else if (vol >= 1045 && vol < 1055) {
++		vref_sel = 0x2;
++		ref_cal = 0x4;
++	} else if (vol >= 1035 && vol < 1045) {
++		vref_sel = 0x2;
++		ref_cal = 0x5;
++	} else if (vol >= 1025 && vol < 1035) {
++		vref_sel = 0x2;
++		ref_cal = 0x6;
++	} else if (vol >= 1015 && vol < 1025) {
++		vref_sel = 0x3;
++		ref_cal = 0x2;
++	} else if (vol >= 1005 && vol < 1015) {
++		vref_sel = 0x3;
++		ref_cal = 0x3;
++	} else if (vol >= 1000 && vol < 1005) {
++		vref_sel = 0x3;
++		ref_cal = 0x4;
++	}
++
++	cfg1 = SC27XX_PD_CC1_SW | SC27XX_PD_CC2_SW;
++	cfg1 |= (vref_sel << SC27XX_PD_CFG1_VREF_SEL_SHIFT)
++		& SC27XX_PD_CFG1_VREF_SEL_MASK;
++	cfg1 |= (ref_cal << SC27XX_PD_CFG1_REF_CAL_SHIFT)
++		& SC27XX_PD_CFG1_REF_CAL_MASK;
++
++	return regmap_update_bits(pd->regmap, pd->base + SC27XX_PD_PHY_CFG1,
++				  cfg1_mask, cfg1);
++}
++
++static int sc27xx_pd_module_init(struct sc27xx_pd *pd)
++{
++	int ret;
++
++	ret = sc27xx_pd_delta_cal(pd);
++	if (ret < 0)
++		return ret;
++
++	ret = sc27xx_pd_rc_ref_cal(pd);
++	if (ret < 0)
++		return ret;
++
++	ret = sc27xx_pd_select_clk_mode(pd, SC27XX_PD_CLK_D6M_A6M);
++	if (ret < 0)
++		return ret;
++
++	ret = regmap_update_bits(pd->regmap, pd->base + SC27XX_PD_CFG1,
++				 SC27XX_PD_RETRY_MASK, SC27XX_PD_RETRY(3));
++	if (ret < 0)
++		return ret;
++
++	ret = regmap_set_bits(pd->regmap, pd->typec_base + SC27XX_TYPEC_PD_CFG,
++			      SC27XX_TYPEC_PD_SUPPORT);
++	if (ret < 0)
++		return ret;
++
++	ret = regmap_update_bits(pd->regmap, pd->base + SC27XX_PD_MESG_ID_CFG,
++				 SC27XX_PD_MESS_ID_MASK, 0x0);
++	if (ret < 0)
++		return ret;
++
++	ret = regmap_set_bits(pd->regmap, pd->base + SC27XX_PD_CFG0,
++			      SC27XX_PD_BIST_MODE_EN);
++	if (ret < 0)
++		return ret;
++
++	ret = regmap_write(pd->regmap, pd->base + SC27XX_INT_CLR,
++			   SC27XX_INT_CLR_MASK);
++	if (ret < 0)
++		return ret;
++
++	ret = regmap_clear_bits(pd->regmap, pd->base + SC27XX_PD_CFG1,
++				SC27XX_PD_RX_AUTO_GOOD_CRC);
++	if (ret < 0)
++		return ret;
++
++	sc27xx_pd_get_clk_mode(pd);
++
++	return regmap_write(pd->regmap, pd->base + SC27XX_INT_EN,
++			    SC27XX_INT_EN_MASK);
++}
++
++static int sc27xx_pd_init(struct tcpc_dev *tcpc)
++{
++	struct sc27xx_pd *pd = tcpc_to_sc27xx_pd(tcpc);
++	int ret;
++
++	ret = sc27xx_pd_clk_cfg(pd);
++	if (ret)
++		return ret;
++
++	return sc27xx_pd_module_init(pd);
++}
++
++static irqreturn_t sc27xx_pd_irq(int irq, void *dev_id)
++{
++	struct sc27xx_pd *pd = dev_id;
++	struct pd_message pd_msg;
++	u32 int_sts = 0, pd_sts1 = 0;
++	int ret;
++
++	mutex_lock(&pd->lock);
++	ret = regmap_read(pd->regmap, pd->base + SC27XX_INT_FLG, &int_sts);
++	if (ret < 0)
++		goto done;
++
++	int_sts &= SC27XX_INT_CLR_MASK;
++	ret = regmap_update_bits(pd->regmap, pd->base + SC27XX_INT_CLR,
++				 SC27XX_INT_CLR_MASK, int_sts);
++	if (ret < 0)
++		goto done;
++
++	if (int_sts & SC27XX_PD_HARD_RST_FLAG) {
++		dev_dbg(pd->dev, "received hard reset\n");
++
++		ret = sc27xx_pd_reset(pd, true);
++		if (ret < 0) {
++			dev_err(pd->dev, "cannot reset, ret=%d\n", ret);
++			goto done;
++		}
++
++		tcpm_pd_hard_reset(pd->tcpm_port);
++	}
++
++	if (int_sts & SC27XX_PD_CABLE_RST_FLAG)
++		dev_warn(pd->dev, "received cable reset\n");
++
++	if (int_sts & SC27XX_PD_SOFT_RST_FLAG) {
++		ret = sc27xx_pd_reset(pd, true);
++		if (ret < 0) {
++			dev_err(pd->dev, "cannot reset, ret=%d\n", ret);
++			goto done;
++		}
++	}
++
++	if ((int_sts & SC27XX_PD_PKG_RV_FLAG)) {
++		/*
++		 * According to the requirements of SC2730 ASIC spec, after receiving
++		 * the interrupt,the data should be read after 500us.
++		 */
++		if (pd->var_data->id == PMIC_SC2730) {
++			usleep_range(500, 510);
++		}
++		ret = regmap_read_poll_timeout(pd->regmap,
++					       pd->base + SC27XX_PD_STS1,
++					       pd_sts1,
++					       (pd_sts1 & (~SC27XX_PD_RX_EMPTY)),
++					       SC27XX_PD_RDY_POLL_INTERVAL,
++					       SC27XX_PD_RDY_TIMEOUT);
++		if (ret < 0) {
++			dev_err(pd->dev, "wait for rx status failed, ret = %d\n", ret);
++			goto done;
++		}
++
++		ret = sc27xx_pd_read_message(pd, &pd_msg);
++		if (ret < 0) {
++			dev_err(pd->dev, "failed to read PD msg, ret=%d\n", ret);
++			goto done;
++		}
++	}
++
++	if (int_sts & SC27XX_PD_TX_OK_FLAG)
++		tcpm_pd_transmit_complete(pd->tcpm_port, TCPC_TX_SUCCESS);
++
++	if (int_sts & SC27XX_PD_TX_ERROR_FLAG) {
++		dev_dbg(pd->dev, "PD tx error\n");
++		tcpm_pd_transmit_complete(pd->tcpm_port, TCPC_TX_FAILED);
++	}
++
++	if (int_sts & SC27XX_PD_TX_COLLSION_FLAG) {
++		dev_err(pd->dev, "PD collision\n");
++		tcpm_pd_transmit_complete(pd->tcpm_port, TCPC_TX_FAILED);
++	}
++
++	if (int_sts & SC27XX_PD_PKG_RV_ERROR_FLAG)
++		dev_dbg(pd->dev, "PD rx error\n");
++
++	if (int_sts & SC27XX_PD_RX_FIFO_OVERFLOW_FLAG)
++		dev_err(pd->dev, "PD rx fifo overflow\n");
++
++done:
++	mutex_unlock(&pd->lock);
++
++	return IRQ_HANDLED;
++}
++
++static void sc27xx_cc_polarity_status(struct sc27xx_pd *pd, u32 status)
++{
++	if (status & SC27XX_TYPEC_FINAL_SWITCH)
++		pd->cc_polarity = TYPEC_POLARITY_CC1;
++	else
++		pd->cc_polarity = TYPEC_POLARITY_CC2;
++}
++
++static void sc27xx_cc_status(struct sc27xx_pd *pd, u32 status)
++{
++	u32 cc_rp, rp_sts = SC27XX_TYPEC_VBUS_CL(status);
++
++	switch (rp_sts) {
++	case 0:
++		cc_rp = TYPEC_CC_RP_DEF;
++		break;
++	case 1:
++		cc_rp = TYPEC_CC_RP_1_5;
++		break;
++	case 2:
++		cc_rp = TYPEC_CC_RP_3_0;
++		break;
++	default:
++		cc_rp = TYPEC_CC_OPEN;
++		break;
++	}
++
++	switch (pd->state) {
++	case SC27XX_ATTACHED_SNK:
++	case SC27XX_DEBUG_CABLE:
++		if (pd->cc_polarity == TYPEC_POLARITY_CC1) {
++			pd->cc1 = cc_rp;
++			pd->cc2 = TYPEC_CC_OPEN;
++		} else {
++			pd->cc1 = TYPEC_CC_OPEN;
++			pd->cc2 = cc_rp;
++		}
++		break;
++
++	case SC27XX_ATTACHED_SRC:
++		if (pd->cc_polarity == TYPEC_POLARITY_CC1) {
++			pd->cc1 = TYPEC_CC_RD;
++			pd->cc2 = TYPEC_CC_OPEN;
++		} else {
++			pd->cc1 = TYPEC_CC_OPEN;
++			pd->cc2 = TYPEC_CC_RD;
++		}
++		break;
++
++	case SC27XX_POWERED_CABLE:
++		if (pd->cc_polarity == TYPEC_POLARITY_CC1) {
++			pd->cc1 = TYPEC_CC_RD;
++			pd->cc2 = TYPEC_CC_RA;
++		} else {
++			pd->cc1 = TYPEC_CC_RA;
++			pd->cc2 = TYPEC_CC_RD;
++		}
++		break;
++	default:
++		pd->cc1 = TYPEC_CC_OPEN;
++		pd->cc2 = TYPEC_CC_OPEN;
++		break;
++	}
++
++	tcpm_cc_change(pd->tcpm_port);
++}
++
++static int sc27xx_pd_update_header(struct sc27xx_pd *pd)
++{
++	int ret;
++
++	if (pd->state == SC27XX_ATTACHED_SNK) {
++		ret = regmap_clear_bits(pd->regmap,
++					pd->base + SC27XX_PD_HEAD_CFG,
++					SC27XX_PD_POWER_ROLE);
++		if (ret < 0)
++			return ret;
++
++		ret = regmap_clear_bits(pd->regmap,
++					pd->base + SC27XX_PD_HEAD_CFG,
++					SC27XX_PD_DATA_ROLE);
++		if (ret < 0)
++			return ret;
++	}
++
++	return 0;
++}
++
++static int sc27xx_get_vbus_status(struct sc27xx_pd *pd)
++{
++	u32 status = 0;
++	bool vbus_present;
++	int ret;
++
++	/*
++	 * As a source, VBUS is supplied by the external charger's OTG boost,
++	 * which the PMIC's VBUS_OK comparator (TYPEC_DBG1 bit 8) does not sense
++	 * -- it only ever sees incoming VBUS when we are a sink. Polling it here
++	 * always times out (-110) and stalls the TCPM SRC state machine, so
++	 * trust the commanded VBUS state instead while attached as source.
++	 */
++	if (pd->state == SC27XX_ATTACHED_SRC) {
++		if (pd->vbus_on != pd->vbus_present) {
++			pd->vbus_present = pd->vbus_on;
++			tcpm_vbus_change(pd->tcpm_port);
++		}
++		return 0;
++	}
++
++	if (pd->typec_online) {
++		ret = regmap_read_poll_timeout(pd->regmap,
++					       pd->typec_base + SC27XX_TYPEC_DBG1,
++					       status,
++					       status & SC27XX_TYPEC_VBUS_OK,
++					       SC27XX_VBUS_OK_POLL_INTERVAL,
++					       SC27XX_VBUS_OK_TIMEOUT);
++		if (ret < 0) {
++			/* vbus may be off when entering source state */
++			if (pd->state == SC27XX_ATTACHED_SRC && !pd->vbus_on)
++				return 0;
++
++			dev_err(pd->dev, "wait for vbus failed, ret = %d\n", ret);
++			return ret;
++		}
++	} else {
++		ret = regmap_read_poll_timeout(pd->regmap,
++					       pd->typec_base + SC27XX_TYPEC_DBG1,
++					       status,
++					       !(status & SC27XX_TYPEC_VBUS_OK),
++					       SC27XX_VBUS_OK_POLL_INTERVAL,
++					       SC27XX_VBUS_OK_TIMEOUT);
++		if (ret < 0) {
++			/* vbus may be on when leaving source state */
++			if (pd->vbus_on)
++				return 0;
++
++			dev_err(pd->dev, "wait for vbus off failed, ret = %d\n", ret);
++			return ret;
++		}
++	}
++
++	vbus_present = !!(status & SC27XX_TYPEC_VBUS_OK);
++	if (vbus_present != pd->vbus_present) {
++		pd->vbus_present = vbus_present;
++		tcpm_vbus_change(pd->tcpm_port);
++	}
++
++	return 0;
++}
++
++static int sc27xx_pd_check_vbus_cc_status(struct sc27xx_pd *pd)
++{
++	u32 val = 0;
++	int ret;
++
++	ret = sc27xx_pd_clk_cfg(pd);
++	if (ret)
++		return ret;
++
++	ret = regmap_read(pd->regmap, pd->typec_base + SC27XX_TYPEC_STATUS,
++			  &val);
++	if (ret)
++		return ret;
++
++	pd->state = val & SC27XX_TYPEC_CURRENT_STATUS;
++
++	if (pd->state == SC27XX_ATTACHED_SNK || pd->state == SC27XX_ATTACHED_SRC ||
++	    pd->state == SC27XX_DEBUG_CABLE)
++		pd->typec_online = true;
++	else
++		pd->typec_online = false;
++
++	sc27xx_pd_update_header(pd);
++	sc27xx_pd_reset(pd, true);
++	sc27xx_cc_polarity_status(pd, val);
++	sc27xx_cc_status(pd, val);
++	sc27xx_get_vbus_status(pd);
++
++	return 0;
++}
++
++static irqreturn_t sc27xx_typec_irq(int irq, void *dev_id)
++{
++	struct sc27xx_pd *pd = dev_id;
++	u32 event;
++	int ret;
++
++	mutex_lock(&pd->lock);
++
++	ret = regmap_read(pd->regmap, pd->typec_base + SC27XX_TYPEC_INT_MASK, &event);
++	if (ret < 0)
++		goto out;
++
++	regmap_write(pd->regmap, pd->typec_base + SC27XX_TYPEC_INT_CLR, event);
++
++	ret = sc27xx_pd_check_vbus_cc_status(pd);
++	if (ret < 0) {
++		dev_err(pd->dev, "failed to check status, ret = %d\n", ret);
++		goto out;
++	}
++
++	mutex_unlock(&pd->lock);
++
++out:
++	return IRQ_HANDLED;
++}
++
++static void sc27xx_init_tcpc_dev(struct sc27xx_pd *pd)
++{
++	pd->tcpc.init = sc27xx_pd_init;
++	pd->tcpc.get_vbus = sc27xx_pd_get_vbus;
++	pd->tcpc.get_current_limit = sc27xx_pd_get_current_limit;
++	pd->tcpc.set_cc = sc27xx_pd_set_cc;
++	pd->tcpc.get_cc = sc27xx_pd_get_cc;
++	pd->tcpc.set_polarity = sc27xx_pd_set_polarity;
++	pd->tcpc.set_vconn = sc27xx_pd_set_vconn;
++	pd->tcpc.set_vbus = sc27xx_pd_set_vbus;
++	pd->tcpc.set_current_limit = sc27xx_pd_set_current_limit;
++	pd->tcpc.set_pd_rx = sc27xx_pd_set_rx;
++	pd->tcpc.set_roles = sc27xx_pd_set_roles;
++	pd->tcpc.start_toggling = sc27xx_pd_start_drp_toggling;
++	pd->tcpc.pd_transmit = sc27xx_pd_transmit;
++}
++
++static int sc27xx_pd_efuse_read(struct sc27xx_pd *pd,
++				const char *cell_id, u32 *val)
++{
++	struct nvmem_cell *cell;
++	void *buf;
++	size_t len = 0;
++
++	cell = nvmem_cell_get(pd->dev, cell_id);
++	if (IS_ERR_OR_NULL(cell))
++		return PTR_ERR(cell);
++
++	buf = nvmem_cell_read(cell, &len);
++	nvmem_cell_put(cell);
++
++	if (IS_ERR(buf))
++		return PTR_ERR(buf);
++
++	memcpy(val, buf, min(len, sizeof(u16)));
++
++	kfree(buf);
++	return 0;
++}
++
++static int sc27xx_pd_cal(struct sc27xx_pd *pd)
++{
++	u32 cc1_cal, cc2_cal;
++	int ret;
++
++	ret = sc27xx_pd_efuse_read(pd, "pdrc_calib", &pd->rc_cal);
++	if (ret)
++		return ret;
++
++	ret = sc27xx_pd_efuse_read(pd, "pddelta_calib", &pd->delta_cal);
++	if (ret)
++		return ret;
++
++	ret = sc27xx_pd_efuse_read(pd, "pdref_calib", &pd->ref_cal);
++	if (ret)
++		return ret;
++
++	ret = sc27xx_pd_efuse_read(pd, "typec_cc1_cal", &cc1_cal);
++	if (ret)
++		return ret;
++
++	ret = sc27xx_pd_efuse_read(pd, "typec_cc2_cal", &cc2_cal);
++	if (ret)
++		return ret;
++
++	ret = regmap_write(pd->regmap, pd->typec_base + SC27XX_TYPEC_RTRIM,
++			   cc1_cal | (cc2_cal << 5));
++	if (ret)
++		return ret;
++
++	return 0;
++}
++
++static void sc27xx_typec_int_enable(struct sc27xx_pd *pd)
++{
++	regmap_set_bits(pd->regmap, pd->typec_base + SC27XX_TYPEC_INT_EN,
++			SC27XX_TYPEC_ATTACH_INT | SC27XX_TYPEC_DETACH_INT);
++}
++
++static void sc27xx_pd_detect_typec_work(struct work_struct *work)
++{
++	struct sc27xx_pd *pd = container_of(work, struct sc27xx_pd, typec_detect_work);
++	int ret;
++
++	mutex_lock(&pd->lock);
++
++	ret = sc27xx_pd_check_vbus_cc_status(pd);
++	if (ret < 0)
++		dev_err(pd->dev, "failed to check status, ret = %d\n", ret);
++
++	pd->detect_pending = false;
++
++	mutex_unlock(&pd->lock);
++}
++
++static int sc27xx_pd_probe(struct platform_device *pdev)
++{
++	struct sc27xx_pd *pd;
++	const struct sc27xx_pd_variant_data *pdata;
++	int pd_irq, typec_irq, ret;
++
++	pdata = of_device_get_match_data(&pdev->dev);
++	if (!pdata) {
++		dev_err(&pdev->dev, "No matching driver data found\n");
++		return -EINVAL;
++	}
++
++	pd = devm_kzalloc(&pdev->dev, sizeof(*pd), GFP_KERNEL);
++	if (!pd) {
++		dev_err(&pdev->dev, "failed to alloc memory\n");
++		return -ENOMEM;
++	}
++
++	pd->dev = &pdev->dev;
++	pd->regmap = dev_get_regmap(pdev->dev.parent, NULL);
++	if (!pd->regmap) {
++		dev_err(&pdev->dev, "failed to get pd regmap\n");
++		return -ENODEV;
++	}
++
++	ret = of_property_read_u32_index(pdev->dev.of_node, "reg", 0,
++					 &pd->base);
++	if (ret) {
++		dev_err(&pdev->dev, "failed to get pd reg address\n");
++		return ret;
++	}
++
++	ret = of_property_read_u32_index(pdev->dev.of_node, "reg", 1,
++					 &pd->typec_base);
++	if (ret) {
++		dev_err(&pdev->dev, "failed to get typec reg address\n");
++		return ret;
++	}
++
++	pd_irq = platform_get_irq(pdev, 0);
++	if (pd_irq < 0) {
++		dev_err(&pdev->dev, "failed to get pd irq number\n");
++		return pd_irq;
++	}
++
++	typec_irq = platform_get_irq(pdev, 1);
++	if (typec_irq < 0) {
++		dev_err(&pdev->dev, "failed to get typec irq number\n");
++		return typec_irq;
++	}
++
++	mutex_init(&pd->lock);
++	pd->var_data = pdata;
++	pd->vbus_present = false;
++	pd->constructed = false;
++	pd->tcpc.fwnode = device_get_named_child_node(&pdev->dev, "connector");
++
++	ret = sc27xx_pd_cal(pd);
++	if (ret) {
++		dev_err(&pdev->dev, "failed to calibrate with efuse data\n");
++		return ret;
++	}
++	sc27xx_init_tcpc_dev(pd);
++
++	pd->vbus = devm_regulator_get_exclusive(pd->dev, "vbus");
++	if (IS_ERR(pd->vbus)) {
++		ret = PTR_ERR(pd->vbus);
++		if (ret != -ENODEV) {
++			dev_err(&pdev->dev, "failed to get vbus regulator\n");
++			return ret;
++		}
++		pd->vbus = NULL;
++	} else {
++		if (regulator_is_enabled(pd->vbus) > 0)
++			regulator_disable(pd->vbus);
++	}
++
++	/*
++	 * VCONN is only needed to power e-marked/active cables (Ra detection);
++	 * normal DRP host/device operation never enables it, and this board has
++	 * no VCONN switch. Use an optional get so an absent supply yields
++	 * -ENODEV (NULL) instead of a dummy that -EINVALs the exclusive request.
++	 */
++	pd->vconn = devm_regulator_get_optional(pd->dev, "vconn");
++	if (IS_ERR(pd->vconn)) {
++		ret = PTR_ERR(pd->vconn);
++		if (ret != -ENODEV) {
++			dev_err(&pdev->dev, "failed to get vconn regulator\n");
++			return ret;
++		}
++		pd->vconn = NULL;
++	} else {
++		if (regulator_is_enabled(pd->vconn) > 0)
++			regulator_disable(pd->vconn);
++	}
++
++	ret = devm_request_threaded_irq(pd->dev, pd_irq, NULL,
++					sc27xx_pd_irq,
++					IRQF_ONESHOT | IRQF_TRIGGER_LOW,
++					"sc27xx_pd", pd);
++	if (ret < 0) {
++		dev_err(pd->dev, "failed to request irq\n");
++		return ret;
++	}
++
++	ret = devm_request_threaded_irq(pd->dev, typec_irq, NULL,
++					sc27xx_typec_irq,
++					IRQF_ONESHOT | IRQF_TRIGGER_LOW,
++					"sc27xx_typec", pd);
++	if (ret < 0) {
++		dev_err(pd->dev, "failed to request typec irq\n");
++		return ret;
++	}
++
++	platform_set_drvdata(pdev, pd);
++
++	/* typec_detect_work is not initialized yet, so this must be true */
++	pd->detect_pending = true;
++
++	pd->tcpm_port = tcpm_register_port(pd->dev, &pd->tcpc);
++	if (IS_ERR(pd->tcpm_port)) {
++		dev_err(pd->dev, "failed to register tcpm port\n");
++		return PTR_ERR(pd->tcpm_port);
++	}
++
++	INIT_WORK(&pd->typec_detect_work, sc27xx_pd_detect_typec_work);
++	schedule_work(&pd->typec_detect_work);
++
++	sc27xx_typec_int_enable(pd);
++
++	return 0;
++}
++
++static void sc27xx_pd_remove(struct platform_device *pdev)
++{
++	struct sc27xx_pd *pd = platform_get_drvdata(pdev);
++
++	tcpm_unregister_port(pd->tcpm_port);
++}
++
++#ifdef CONFIG_PM_SLEEP
++static int sc27xx_pd_suspend(struct device *dev)
++{
++	struct sc27xx_pd *pd = dev_get_drvdata(dev);
++	int ret;
++
++	if (pd->typec_online)
++		return 0;
++
++	ret = sc27xx_pd_disable_clk(pd);
++	if (ret) {
++		dev_err(pd->dev, "failed to disable pd clock when suspend, ret = %d\n", ret);
++		return ret;
++	}
++
++	return 0;
++}
++
++static int sc27xx_pd_resume(struct device *dev)
++{
++	struct sc27xx_pd *pd = dev_get_drvdata(dev);
++	int ret;
++
++	ret = sc27xx_pd_clk_cfg(pd);
++	if (ret) {
++		dev_err(pd->dev, "failed to enable pd clock when resume, ret = %d\n", ret);
++		return ret;
++	}
++
++	return 0;
++}
++#endif
++
++static const struct dev_pm_ops sc27xx_pd_pm_ops = {
++	SET_SYSTEM_SLEEP_PM_OPS(sc27xx_pd_suspend, sc27xx_pd_resume)
++};
++
++static const struct of_device_id sc27xx_pd_of_match[] = {
++	{ .compatible = "sprd,sc2730-pd", .data = &sc2730_data },
++	{ .compatible = "sprd,ump9620-pd", .data = &ump9620_data },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sc27xx_pd_of_match);
++
++static struct platform_driver sc27xx_pd_driver = {
++	.probe = sc27xx_pd_probe,
++	.remove = sc27xx_pd_remove,
++	.driver = {
++		.name = "sc27xx-typec-pd",
++		.of_match_table = sc27xx_pd_of_match,
++		.pm = &sc27xx_pd_pm_ops,
++	},
++};
++
++module_platform_driver(sc27xx_pd_driver);
++
++MODULE_AUTHOR("Freeman Liu <freeman.liu@spreadtrum.com>");
++MODULE_DESCRIPTION("Spreadtrum SC27xx Type-C driver");
++MODULE_LICENSE("GPL v2");

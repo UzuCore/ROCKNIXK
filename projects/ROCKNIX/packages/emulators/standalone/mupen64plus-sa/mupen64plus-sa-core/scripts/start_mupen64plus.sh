@@ -57,7 +57,11 @@ fi
 if [ $(echo $1 | grep -i .zip | wc -l) -eq 1 ]; then
     # Unzip the game ROM if needed
     unzip -q -o "$1" -d ${TMP}
-    ROM=$(unzip -Zl -1 "$1")
+    # BusyBox unzip lacks zipinfo mode.
+    ROM=$(python3 -c 'import sys, zipfile
+with zipfile.ZipFile(sys.argv[1]) as archive:
+    print(next((i.filename for i in archive.infolist() if not i.is_dir()), ""))' "$1" 2>/dev/null)
+    [ -n "${ROM}" ] || ROM=$(unzip -Zl -1 "$1" 2>/dev/null)
 else
     cp "$1" ${TMP}
     ROM="${GAME}"

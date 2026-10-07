@@ -1,0 +1,5073 @@
+Subject: [PATCH] sprd: soc-ipc support for UMS512
+
+Consolidated from beebono/linux-mainline-sprd rg-rotate 464b3e7bf45bb300e190339977abba36c8078e1f, rebased onto Linux 7.1.2.
+Original authors and patch hashes are recorded in series-origin.json.
+
+diff --git a/drivers/remoteproc/Kconfig b/drivers/remoteproc/Kconfig
+index ee54436fea5ad08a9c198ce74d44ce7a9aa206de..bda2a7939d8fd0fb3724714ff4c27e3b01122473 100644
+--- a/drivers/remoteproc/Kconfig
++++ b/drivers/remoteproc/Kconfig
+@@ -300,6 +300,33 @@ config RCAR_REMOTEPROC
+ 	  This can be either built-in or a loadable module.
+ 	  If compiled as module (M), the module name is rcar_rproc.
+ 
++config SPRD_REMOTEPROC_COMMON
++	tristate
++
++config SPRD_MODEM_REMOTEPROC
++	tristate "Unisoc integrated modem processor support"
++	depends on ARCH_SPRD || COMPILE_TEST
++	select SPRD_REMOTEPROC_COMMON
++	help
++	  Say y here to support the integrated modem processor (also
++	  known as PUBCP) found on Spreadtrum/Unisoc SoCs.
++
++config SPRD_PMSYS_REMOTEPROC
++	tristate "Unisoc PMSYS remoteproc support"
++	depends on ARCH_SPRD || COMPILE_TEST
++	select SPRD_REMOTEPROC_COMMON
++	help
++	  Say y here to support the PMSYS remote processor found on
++	  Spreadtrum/Unisoc SoCs.
++
++config SPRD_WCN_REMOTEPROC
++	tristate "Unisoc wireless connectivity processor support"
++	depends on ARCH_SPRD || COMPILE_TEST
++	select SPRD_REMOTEPROC_COMMON
++	help
++	  Say y here to support the integrated WCN processor found on
++	  Spreadtrum/Unisoc SoCs.
++
+ config ST_REMOTEPROC
+ 	tristate "ST remoteproc support"
+ 	depends on ARCH_STI
+diff --git a/drivers/remoteproc/Makefile b/drivers/remoteproc/Makefile
+index 1c7598b8475d6057a3e044b41e3515103b7aa9f1..d7a3c005e7c1146586e2cb22817084ff1f68e385 100644
+--- a/drivers/remoteproc/Makefile
++++ b/drivers/remoteproc/Makefile
+@@ -33,6 +33,10 @@ obj-$(CONFIG_QCOM_WCNSS_PIL)		+= qcom_wcnss_pil.o
+ qcom_wcnss_pil-y			+= qcom_wcnss.o
+ qcom_wcnss_pil-y			+= qcom_wcnss_iris.o
+ obj-$(CONFIG_RCAR_REMOTEPROC)		+= rcar_rproc.o
++obj-$(CONFIG_SPRD_REMOTEPROC_COMMON)	+= sprd_common.o
++obj-$(CONFIG_SPRD_MODEM_REMOTEPROC)	+= sprd_modem.o
++obj-$(CONFIG_SPRD_PMSYS_REMOTEPROC)	+= sprd_pmsys.o
++obj-$(CONFIG_SPRD_WCN_REMOTEPROC)	+= sprd_wcn.o
+ obj-$(CONFIG_ST_REMOTEPROC)		+= st_remoteproc.o
+ obj-$(CONFIG_ST_SLIM_REMOTEPROC)	+= st_slim_rproc.o
+ obj-$(CONFIG_STM32_RPROC)		+= stm32_rproc.o
+diff --git a/drivers/remoteproc/sprd_common.c b/drivers/remoteproc/sprd_common.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..17606149fc04d311c8a219a0cd8a86884423eb87
+--- /dev/null
++++ b/drivers/remoteproc/sprd_common.c
+@@ -0,0 +1,73 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Unisoc remoteproc helpers
++ *
++ * Copyright (C) 2024 Otto Pflüger
++ */
++
++#include <linux/rpmsg/sprd_sipc.h>
++
++#include "sprd_common.h"
++
++#define to_sipc_subdev(_sd) container_of(_sd, struct sprd_sipc_subdev, subdev)
++
++static int sipc_subdev_prepare(struct rproc_subdev *rpsubdev)
++{
++	struct sprd_sipc_subdev *sd = to_sipc_subdev(rpsubdev);
++
++	sd->sipc = sprd_sipc_register(sd->dev, sd->node);
++
++	return PTR_ERR_OR_ZERO(sd->sipc);
++}
++
++static void sipc_subdev_stop(struct rproc_subdev *rpsubdev, bool crashed)
++{
++	struct sprd_sipc_subdev *sd = to_sipc_subdev(rpsubdev);
++
++	sprd_sipc_unregister(sd->sipc);
++	sd->sipc = NULL;
++}
++
++static void sipc_subdev_unprepare(struct rproc_subdev *rpsubdev)
++{
++	struct sprd_sipc_subdev *sd = to_sipc_subdev(rpsubdev);
++
++	/* unregister if stop wasn't called due to a start failure */
++	if (sd->sipc) {
++		sprd_sipc_unregister(sd->sipc);
++		sd->sipc = NULL;
++	}
++}
++
++static void remove_sipc_subdev(void *data)
++{
++	struct sprd_sipc_subdev *sd = data;
++
++	rproc_remove_subdev(sd->rproc, &sd->subdev);
++	of_node_put(sd->node);
++}
++
++int devm_sprd_rproc_add_sipc_subdev(struct rproc *rproc,
++				    struct device_node *np,
++				    struct sprd_sipc_subdev *sd)
++{
++	struct device *dev = &rproc->dev;
++
++	sd->node = of_get_child_by_name(np, "sipc");
++	if (!sd->node)
++		return 0;
++
++	sd->dev = dev;
++	sd->rproc = rproc;
++	sd->subdev.prepare = sipc_subdev_prepare;
++	sd->subdev.unprepare = sipc_subdev_unprepare;
++	sd->subdev.stop = sipc_subdev_stop;
++
++	rproc_add_subdev(rproc, &sd->subdev);
++
++	return devm_add_action_or_reset(rproc->dev.parent, remove_sipc_subdev, sd);
++}
++EXPORT_SYMBOL_GPL(devm_sprd_rproc_add_sipc_subdev);
++
++MODULE_DESCRIPTION("Unisoc remoteproc helper driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/remoteproc/sprd_common.h b/drivers/remoteproc/sprd_common.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..26eec6394fe4fe7485d7d6c6ece2685d3aceac88
+--- /dev/null
++++ b/drivers/remoteproc/sprd_common.h
+@@ -0,0 +1,24 @@
++// SPDX-License-Identifier: GPL-2.0
++#ifndef __RPROC_SPRD_COMMON_H__
++#define __RPROC_SPRD_COMMON_H__
++
++#include <linux/remoteproc.h>
++
++#include "remoteproc_internal.h"
++
++struct sprd_sipc;
++
++struct sprd_sipc_subdev {
++	struct rproc_subdev subdev;
++
++	struct rproc *rproc;
++	struct device *dev;
++	struct device_node *node;
++	struct sprd_sipc *sipc;
++};
++
++int devm_sprd_rproc_add_sipc_subdev(struct rproc *rproc,
++				    struct device_node *np,
++				    struct sprd_sipc_subdev *subdev);
++
++#endif
+diff --git a/drivers/remoteproc/sprd_modem.c b/drivers/remoteproc/sprd_modem.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..55689adf2c8b2fa0db49ad71239b4391394f47f8
+--- /dev/null
++++ b/drivers/remoteproc/sprd_modem.c
+@@ -0,0 +1,357 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (c) 2024 Otto Pflüger
++ */
++
++#include <linux/mfd/syscon.h>
++#include <linux/module.h>
++#include <linux/of_reserved_mem.h>
++#include <linux/platform_device.h>
++#include <linux/pm_runtime.h>
++#include <linux/regmap.h>
++#include <linux/remoteproc.h>
++#include <linux/reset.h>
++
++#include "sprd_common.h"
++
++struct sprd_modem_region_header {
++	char name[24];
++	__le64 base;
++	__le64 size;
++	__le64 flags;
++} __packed;
++
++struct sprd_modem_image_header {
++	__be32 magic;
++	__be32 version;
++	__le32 length;
++	__le32 unused;
++	u8 rsvmem_info[4 * 48];
++	__le32 bootcode_len;
++	u8 bootcode[200];
++	u32 unused2;
++	struct sprd_modem_region_header region_info[8];
++	/* more fields exist, but are not used here */
++} __packed;
++
++struct sprd_modem_info {
++	u32 corereset_reg;
++	u32 corereset_mask;
++};
++
++struct sprd_modem {
++	struct device *dev;
++	struct sprd_sipc_subdev sipc;
++	struct reset_control *reset;
++	struct regmap *aon_apb_regs;
++	const struct sprd_modem_info *info;
++	phys_addr_t mem_base;
++	size_t mem_size;
++	void *bootmem;
++};
++
++struct sprd_modem_region_def {
++	const char *name;
++	const char *filename;
++	bool zero;
++};
++
++const struct sprd_modem_region_def sprd_modem_region_defs[] = {
++	{ .name = "modem", .filename = NULL /* use main image */ },
++	{ .name = "cpcmdline", .zero = true },
++	{ .name = "deltanv", .filename = "sprd/l_deltanv.bin" },
++	{ .name = "fixnv", .filename = "sprd/l_fixnv.bin" },
++	{ .name = "runnv", .filename = "sprd/l_runtimenv.bin" },
++	{ .name = "gdsp", .filename = "sprd/l_gdsp.bin" },
++	{ .name = "ldsp", .filename = "sprd/l_ldsp.bin" },
++	{ /* sentinel */ }
++};
++
++static int sprd_modem_load_region(struct sprd_modem *m,
++				  const struct firmware *fw,
++				  void *mem, int idx,
++				  const struct sprd_modem_region_def *rdef,
++				  struct sprd_modem_region_header *rhdr)
++{
++	u64 region_start, region_end, region_size;
++	int ret;
++
++	if (rdef->filename)
++		dev_dbg(m->dev, "loading file %s into region %s\n", rdef->filename, rdef->name);
++	else
++		dev_dbg(m->dev, "loading base image into region %s\n", rdef->name);
++
++	region_start = le64_to_cpu(rhdr->base);
++	region_size = le64_to_cpu(rhdr->size);
++	region_end = region_start + region_size;
++
++	if (region_end > (m->mem_base + m->mem_size) || region_start < m->mem_base) {
++		dev_err(m->dev, "region %d (%s) outside memory range\n", idx, rdef->name);
++		return -EINVAL;
++	}
++
++	if (rdef->filename) {
++		ret = request_firmware(&fw, rdef->filename, m->dev);
++		if (ret < 0)
++			return ret;
++	}
++
++	if (rdef->zero) {
++		memset(mem + (region_start - m->mem_base), 0, region_size);
++	} else if (fw->size > region_size) {
++		if (rdef->filename)
++			release_firmware(fw);
++		dev_err(m->dev, "firmware too large for region %s\n", rdef->name);
++		return -ENOMEM;
++	} else {
++		memcpy(mem + (region_start - m->mem_base), fw->data, fw->size);
++	}
++
++	if (rdef->filename)
++		release_firmware(fw);
++
++	return 0;
++}
++
++static int sprd_modem_load(struct rproc *rproc, const struct firmware *fw)
++{
++	struct sprd_modem_image_header *hdr = (void *)fw->data;
++	const struct sprd_modem_region_def *rdef;
++	struct sprd_modem_region_header *rhdr;
++	struct sprd_modem *m = rproc->priv;
++	int i, ret = 0;
++	void *mem;
++
++	if (le32_to_cpu(hdr->bootcode_len) * 4 > sizeof(hdr->bootcode)) {
++		dev_err(m->dev, "invalid bootcode size in image\n");
++		return -EINVAL;
++	}
++
++	memcpy_toio(m->bootmem, hdr->bootcode, le32_to_cpu(hdr->bootcode_len) * 4);
++
++	mem = memremap(m->mem_base, m->mem_size, MEMREMAP_WC);
++	if (!mem) {
++		dev_err(m->dev, "failed to map memory region\n");
++		return -EBUSY;
++	}
++
++	for (i = 0; i < ARRAY_SIZE(hdr->region_info); i++) {
++		rhdr = &hdr->region_info[i];
++		if (!rhdr->base)
++			break;
++
++		dev_dbg(m->dev, "found region %-*s at %08llx\n",
++			(int)sizeof(rhdr->name), rhdr->name, le64_to_cpu(rhdr->base));
++
++		for (rdef = sprd_modem_region_defs; rdef->name; rdef++) {
++			if (!strncmp(rhdr->name, rdef->name, sizeof(rhdr->name))) {
++				ret = sprd_modem_load_region(m, fw, mem, i, rdef, rhdr);
++				if (ret < 0)
++					goto out;
++			}
++		}
++	}
++
++out:
++	memunmap(mem);
++	return ret;
++}
++
++static int sprd_modem_start(struct rproc *rproc)
++{
++	struct sprd_modem *m = rproc->priv;
++	int ret;
++
++	pm_runtime_enable(m->dev);
++	ret = pm_runtime_resume_and_get(m->dev);
++	if (ret < 0)
++		goto err_pm_disable;
++
++	ret = reset_control_deassert(m->reset);
++	if (ret < 0)
++		goto err_pm_put;
++
++	/* start processor */
++	regmap_clear_bits(m->aon_apb_regs, m->info->corereset_reg,
++			  m->info->corereset_mask);
++
++	return 0;
++
++err_pm_put:
++	pm_runtime_put_sync(m->dev);
++err_pm_disable:
++	pm_runtime_disable(m->dev);
++	return ret;
++}
++
++static int sprd_modem_stop(struct rproc *rproc)
++{
++	struct sprd_modem *m = rproc->priv;
++
++	/* stop processor */
++	regmap_set_bits(m->aon_apb_regs, m->info->corereset_reg,
++			m->info->corereset_mask);
++
++	reset_control_assert(m->reset);
++
++	pm_runtime_put_sync_suspend(m->dev);
++	pm_runtime_disable(m->dev);
++
++	return 0;
++}
++
++static const struct rproc_ops sprd_modem_ops = {
++	.load		= sprd_modem_load,
++	.start		= sprd_modem_start,
++	.stop		= sprd_modem_stop,
++};
++
++static int sprd_modem_parse_memory_region(struct sprd_modem *m)
++{
++	struct device_node *np;
++	struct reserved_mem *rmem;
++
++	np = of_parse_phandle(m->dev->of_node, "memory-region", 0);
++	if (!np) {
++		dev_err(m->dev, "no memory region specified\n");
++		return -EINVAL;
++	}
++
++	rmem = of_reserved_mem_lookup(np);
++	if (!rmem) {
++		of_node_put(np);
++		dev_err(m->dev, "failed to look up memory region\n");
++		return -EINVAL;
++	}
++
++	m->mem_base = rmem->base;
++	m->mem_size = rmem->size;
++
++	of_node_put(np);
++
++	return 0;
++}
++
++static int sprd_modem_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct sprd_modem *m;
++	struct rproc *rproc;
++	const char *fw_name;
++	int ret;
++
++	ret = of_property_read_string_index(dev->of_node, "firmware-name",
++					    0, &fw_name);
++	if (ret < 0) {
++		dev_err(&pdev->dev, "unable to read firmware-name\n");
++		return ret;
++	}
++
++	rproc = devm_rproc_alloc(dev, dev->of_node->name, &sprd_modem_ops,
++				 fw_name, sizeof(*m));
++	if (!rproc)
++		return -ENOMEM;
++
++	platform_set_drvdata(pdev, rproc);
++
++	m = rproc->priv;
++	m->dev = dev;
++
++	m->info = of_device_get_match_data(dev);
++	if (!m->info)
++		return -EINVAL;
++
++	m->bootmem = devm_platform_get_and_ioremap_resource(pdev, 0, NULL);
++	if (IS_ERR(m->bootmem))
++		return PTR_ERR(m->bootmem);
++
++	ret = sprd_modem_parse_memory_region(m);
++	if (ret < 0)
++		return ret;
++
++	m->aon_apb_regs = syscon_regmap_lookup_by_phandle(dev->of_node, "sprd,syscon-aon-apb");
++	if (IS_ERR(m->aon_apb_regs)) {
++		dev_err(m->dev, "failed to get aon-apb syscon handle\n");
++		return PTR_ERR(m->aon_apb_regs);
++	}
++
++	m->reset = devm_reset_control_get(dev, NULL);
++	if (IS_ERR(m->reset)) {
++		dev_err(m->dev, "failed to get modem reset\n");
++		return PTR_ERR(m->reset);
++	}
++
++	device_set_wakeup_capable(dev, true);
++
++	if (of_property_read_bool(dev->of_node, "wakeup-source"))
++		device_wakeup_enable(dev);
++
++	ret = devm_sprd_rproc_add_sipc_subdev(rproc, dev->of_node, &m->sipc);
++	if (ret < 0) {
++		dev_err(dev, "failed to add SIPC subdev\n");
++		return ret;
++	}
++
++	ret = devm_rproc_add(dev, rproc);
++	if (ret < 0) {
++		dev_err(dev, "failed to add rproc\n");
++		return ret;
++	}
++
++	return 0;
++}
++
++static const struct sprd_modem_info ums9230_modem_info = {
++	.corereset_reg = 0x0174,
++	.corereset_mask = BIT(10),
++};
++
++static const struct of_device_id sprd_modem_of_match[] = {
++	{ .compatible = "sprd,ums9230-modem", .data = &ums9230_modem_info },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sprd_modem_of_match);
++
++static int sprd_modem_suspend(struct device *dev)
++{
++	struct rproc *rproc = dev_get_drvdata(dev);
++
++	if (device_may_wakeup(dev))
++		return 0;
++
++	if (rproc->state == RPROC_RUNNING)
++		return sprd_modem_stop(rproc->priv);
++
++	return 0;
++}
++
++static int sprd_modem_resume(struct device *dev)
++{
++	struct rproc *rproc = dev_get_drvdata(dev);
++
++	if (device_may_wakeup(dev))
++		return 0;
++
++	if (rproc->state == RPROC_RUNNING)
++		return sprd_modem_start(rproc->priv);
++
++	return 0;
++}
++
++static struct dev_pm_ops sprd_modem_pm_ops = {
++	SET_SYSTEM_SLEEP_PM_OPS(sprd_modem_suspend, sprd_modem_resume)
++};
++
++static struct platform_driver sprd_modem_driver = {
++	.probe = sprd_modem_probe,
++	.driver = {
++		.name = "sprd-modem",
++		.of_match_table = sprd_modem_of_match,
++		.pm = &sprd_modem_pm_ops,
++	},
++};
++
++module_platform_driver(sprd_modem_driver);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Unisoc modem remoteproc driver");
+diff --git a/drivers/remoteproc/sprd_pmsys.c b/drivers/remoteproc/sprd_pmsys.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..f48a2b6090a141eb18462377e786f43ba8390688
+--- /dev/null
++++ b/drivers/remoteproc/sprd_pmsys.c
+@@ -0,0 +1,330 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (c) 2024 Otto Pflüger
++ */
++
++#include <linux/delay.h>
++#include <linux/mfd/syscon.h>
++#include <linux/module.h>
++#include <linux/of_reserved_mem.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++#include <linux/remoteproc.h>
++#include <linux/reset.h>
++
++#include "sprd_common.h"
++
++struct sprd_pmsys_info {
++	u32 corereset_reg;
++	u32 corereset_mask;
++	/*
++	 * Some SoCs leave the whole SP subsystem in reset and in forced deep
++	 * sleep out of AP reset. Its IRAM - the reg window the boot stub is
++	 * written to - does not answer until both are cleared, and touching it
++	 * early hangs the bus rather than failing. Where that applies, these
++	 * describe the two extra controls; sysreset lives in AON_APB next to
++	 * corereset, deepsleep in PMU_APB. Zero means the SoC needs no such
++	 * sequence and no PMU_APB handle.
++	 */
++	u32 sysreset_reg;
++	u32 sysreset_mask;
++	u32 deepsleep_reg;
++	u32 deepsleep_mask;
++};
++
++struct sprd_pmsys {
++	struct device *dev;
++	struct sprd_sipc_subdev sipc;
++	struct reset_control *reset;
++	struct regmap *aon_apb_regs;
++	struct regmap *pmu_apb_regs;
++	const struct sprd_pmsys_info *info;
++	phys_addr_t mem_base;
++	size_t mem_size;
++	const char *sys_fw_name;
++	void *bootmem;
++	size_t bootmem_size;
++};
++
++/*
++ * Bring the SP subsystem far enough up that its IRAM is reachable. rproc calls
++ * prepare before load, which is where the boot stub is written, so this has to
++ * happen here rather than in start. The order mirrors u-boot's
++ * pmic_arm7_RAM_active(): SP_SYS out of reset, forced deep sleep cleared, then
++ * CM4_SYS out of reset. The core itself stays in reset until start.
++ */
++static int sprd_pmsys_prepare(struct rproc *rproc)
++{
++	struct sprd_pmsys *p = rproc->priv;
++	int ret;
++
++	if (!p->info->sysreset_mask)
++		return 0;
++
++	/*
++	 * Only ever clear, never assert. Asserting core reset here to hold the
++	 * core while loading looks safe but idles the SP subsystem straight
++	 * into deep sleep (SP_SYS_SLP_STATUS 0 -> 6 in PMU_APB 0xd4), and it
++	 * does not come back - the wake sources are all masked and forcing the
++	 * AHB clock on does not rouse it. The vendor sequence only ever clears
++	 * bits, for what is presumably this reason.
++	 */
++	ret = reset_control_deassert(p->reset);
++	if (ret < 0)
++		return ret;
++
++	ret = regmap_clear_bits(p->pmu_apb_regs, p->info->deepsleep_reg,
++				p->info->deepsleep_mask);
++	if (ret)
++		return ret;
++
++	ret = regmap_clear_bits(p->aon_apb_regs, p->info->sysreset_reg,
++				p->info->sysreset_mask);
++	if (ret)
++		return ret;
++
++	/* vendor code settles for 50ms before touching the subsystem */
++	msleep(50);
++
++	return 0;
++}
++
++static int sprd_pmsys_unprepare(struct rproc *rproc)
++{
++	struct sprd_pmsys *p = rproc->priv;
++
++	if (!p->info->sysreset_mask)
++		return 0;
++
++	regmap_set_bits(p->aon_apb_regs, p->info->sysreset_reg,
++			p->info->sysreset_mask);
++	regmap_set_bits(p->pmu_apb_regs, p->info->deepsleep_reg,
++			p->info->deepsleep_mask);
++
++	return reset_control_assert(p->reset);
++}
++
++static int sprd_pmsys_load(struct rproc *rproc, const struct firmware *fw)
++{
++	struct sprd_pmsys *p = rproc->priv;
++	int ret = 0;
++	void *mem;
++
++	if (fw->size > p->bootmem_size) {
++		dev_err(p->dev, "bootcode firmware too large\n");
++		return -ENOMEM;
++	}
++
++	memcpy_toio(p->bootmem, fw->data, fw->size);
++
++	mem = memremap(p->mem_base, p->mem_size, MEMREMAP_WC);
++	if (!mem) {
++		dev_err(p->dev, "failed to map memory region\n");
++		return -EBUSY;
++	}
++
++	ret = request_firmware(&fw, p->sys_fw_name, p->dev);
++	if (ret)
++		goto out_unmap;
++
++	if (fw->size > p->mem_size) {
++		dev_err(p->dev, "pmsys firmware too large\n");
++		ret = -ENOMEM;
++		goto out_release;
++	}
++
++	memcpy(mem, fw->data, fw->size);
++
++out_release:
++	release_firmware(fw);
++out_unmap:
++	memunmap(mem);
++	return ret;
++}
++
++static int sprd_pmsys_start(struct rproc *rproc)
++{
++	struct sprd_pmsys *p = rproc->priv;
++	int ret;
++
++	ret = reset_control_deassert(p->reset);
++	if (ret < 0)
++		return ret;
++
++	/* start processor */
++	regmap_clear_bits(p->aon_apb_regs, p->info->corereset_reg,
++			  p->info->corereset_mask);
++
++	return 0;
++}
++
++static int sprd_pmsys_stop(struct rproc *rproc)
++{
++	struct sprd_pmsys *p = rproc->priv;
++
++	/* stop processor */
++	regmap_set_bits(p->aon_apb_regs, p->info->corereset_reg,
++			p->info->corereset_mask);
++
++	reset_control_assert(p->reset);
++
++	return 0;
++}
++
++static const struct rproc_ops sprd_pmsys_ops = {
++	.prepare	= sprd_pmsys_prepare,
++	.unprepare	= sprd_pmsys_unprepare,
++	.load		= sprd_pmsys_load,
++	.start		= sprd_pmsys_start,
++	.stop		= sprd_pmsys_stop,
++};
++
++static int sprd_pmsys_parse_memory_region(struct sprd_pmsys *p)
++{
++	struct device_node *np;
++	struct reserved_mem *rmem;
++
++	np = of_parse_phandle(p->dev->of_node, "memory-region", 0);
++	if (!np) {
++		dev_err(p->dev, "no memory region specified\n");
++		return -EINVAL;
++	}
++
++	rmem = of_reserved_mem_lookup(np);
++	if (!rmem) {
++		of_node_put(np);
++		dev_err(p->dev, "failed to look up memory region\n");
++		return -EINVAL;
++	}
++
++	p->mem_base = rmem->base;
++	p->mem_size = rmem->size;
++
++	of_node_put(np);
++
++	return 0;
++}
++
++static int sprd_pmsys_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct resource *bootmem;
++	struct sprd_pmsys *p;
++	struct rproc *rproc;
++	const char *fw_name;
++	int ret;
++
++	ret = of_property_read_string_index(dev->of_node, "firmware-name",
++					    0, &fw_name);
++	if (ret < 0) {
++		dev_err(&pdev->dev, "unable to read firmware-name\n");
++		return ret;
++	}
++
++	rproc = devm_rproc_alloc(dev, dev->of_node->name, &sprd_pmsys_ops,
++				 fw_name, sizeof(*p));
++	if (!rproc)
++		return -ENOMEM;
++
++	platform_set_drvdata(pdev, rproc);
++
++	p = rproc->priv;
++	p->dev = dev;
++
++	ret = of_property_read_string_index(dev->of_node, "firmware-name",
++					    1, &p->sys_fw_name);
++	if (ret < 0) {
++		dev_err(p->dev, "unable to read second firmware-name\n");
++		return ret;
++	}
++
++	p->info = of_device_get_match_data(dev);
++	if (!p->info)
++		return -EINVAL;
++
++	p->bootmem = devm_platform_get_and_ioremap_resource(pdev, 0, &bootmem);
++	if (IS_ERR(p->bootmem))
++		return PTR_ERR(p->bootmem);
++
++	p->bootmem_size = bootmem->end - bootmem->start + 1;
++
++	ret = sprd_pmsys_parse_memory_region(p);
++	if (ret < 0)
++		return ret;
++
++	p->aon_apb_regs = syscon_regmap_lookup_by_phandle(dev->of_node, "sprd,syscon-aon-apb");
++	if (IS_ERR(p->aon_apb_regs)) {
++		dev_err(p->dev, "failed to get aon-apb syscon handle\n");
++		return PTR_ERR(p->aon_apb_regs);
++	}
++
++	if (p->info->deepsleep_mask) {
++		p->pmu_apb_regs = syscon_regmap_lookup_by_phandle(dev->of_node,
++								  "sprd,syscon-pmu-apb");
++		if (IS_ERR(p->pmu_apb_regs))
++			return dev_err_probe(dev, PTR_ERR(p->pmu_apb_regs),
++					     "failed to get pmu-apb syscon handle\n");
++	}
++
++	p->reset = devm_reset_control_get_optional(dev, NULL);
++	if (IS_ERR(p->reset)) {
++		dev_err(p->dev, "failed to get pmsys reset\n");
++		return PTR_ERR(p->reset);
++	}
++
++	ret = devm_sprd_rproc_add_sipc_subdev(rproc, dev->of_node, &p->sipc);
++	if (ret < 0) {
++		dev_err(dev, "failed to add SIPC subdev\n");
++		return ret;
++	}
++
++	ret = devm_rproc_add(dev, rproc);
++	if (ret < 0) {
++		dev_err(dev, "failed to add rproc\n");
++		return ret;
++	}
++
++	return 0;
++}
++
++static const struct sprd_pmsys_info ums9230_pmsys_info = {
++	.corereset_reg = 0x008c,
++	.corereset_mask = BIT(0),
++};
++
++/*
++ * ums512 keeps the SP core reset in the same AON_APB bit as ums9230. The
++ * vendor 5.4 DT states it independently - its unisoc,modem node carries
++ * syscon2 = <&aon_apb 0x8c 0x1> under syscon-names "corereset" - so the two
++ * agreeing is a cross-check, not an assumption inherited from ums9230.
++ */
++static const struct sprd_pmsys_info ums512_pmsys_info = {
++	.corereset_reg = 0x008c,
++	.corereset_mask = BIT(0),
++	/* AON_APB CM4_SYS_SOFT_RST shares the register with corereset */
++	.sysreset_reg = 0x008c,
++	.sysreset_mask = BIT(4),
++	/* PMU_APB SLEEP_CTRL, the register audcp-boot also uses */
++	.deepsleep_reg = 0x00cc,
++	.deepsleep_mask = BIT(20),
++};
++
++static const struct of_device_id sprd_pmsys_of_match[] = {
++	{ .compatible = "sprd,ums9230-pmsys", .data = &ums9230_pmsys_info },
++	{ .compatible = "sprd,ums512-pmsys", .data = &ums512_pmsys_info },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sprd_pmsys_of_match);
++
++static struct platform_driver sprd_pmsys_driver = {
++	.probe = sprd_pmsys_probe,
++	.driver = {
++		.name = "sprd-pmsys",
++		.of_match_table = sprd_pmsys_of_match,
++	},
++};
++
++module_platform_driver(sprd_pmsys_driver);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Unisoc PMSYS remoteproc driver");
+diff --git a/drivers/remoteproc/sprd_wcn.c b/drivers/remoteproc/sprd_wcn.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..dd6168f482c99ef9e6c1ade99e99e73e8764d7a2
+--- /dev/null
++++ b/drivers/remoteproc/sprd_wcn.c
+@@ -0,0 +1,653 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (c) 2024 Otto Pflüger
++ */
++
++#include <linux/gpio/consumer.h>
++#include <linux/mfd/syscon.h>
++#include <linux/module.h>
++#include <linux/of_reserved_mem.h>
++#include <linux/platform_device.h>
++#include <linux/pm_runtime.h>
++#include <linux/regmap.h>
++#include <linux/regulator/consumer.h>
++#include <linux/remoteproc.h>
++#include <linux/reset.h>
++
++#include "sprd_common.h"
++
++struct sprd_wcn_subsys_info {
++	u32 init_status_offset;
++	u32 init_status_boot_magic;
++	u32 sys_rst_reg;
++	u32 sys_rst_mask;
++	u32 sync_addr_reg;
++	u32 deep_sleep_reg;
++	u32 deep_sleep_mask;
++	u32 boot_sel_reg;
++};
++
++struct sprd_wcn_info {
++	const struct regulator_bulk_data *regulators;
++	unsigned int num_regulators;
++	u32 dram_offset;
++	u32 mem_remap_reg;
++	u32 mem_remap_val;
++	u32 ap_wcn_sleep_ctrl_reg;
++	u32 ap_wcn_sleep_allow_mask;
++	u32 deep_sleep_ctrl_reg;
++	u32 deep_sleep_ctrl_mask;
++	struct sprd_wcn_subsys_info btwf;
++	struct sprd_wcn_subsys_info gnss;
++};
++
++struct sprd_wcn_shared {
++	struct device *dev;
++	struct device btwf_dev;
++	struct device gnss_dev;
++
++	const struct sprd_wcn_info *info;
++	struct regulator_bulk_data *regulators;
++	struct gpio_desc *en_gpio;
++	struct gpio_desc *rst_gpio;
++	struct reset_control *reset;
++	struct regmap *ap_pub_apb_regs;
++	struct regmap *ap_aon_apb_regs;
++	struct regmap *wcn_aon_apb_regs;
++	struct regmap *wcn_aon_ahb_regs;
++
++	unsigned int rf_power_count;
++	unsigned int sleep_disable_count;
++
++	struct mutex lock;
++};
++
++struct sprd_wcn_proc {
++	struct device *dev;
++	struct sprd_wcn_shared *wcn;
++	struct sprd_sipc_subdev sipc;
++
++	const struct sprd_wcn_subsys_info *info;
++	struct regmap *wcn_ahb_regs;
++
++	phys_addr_t mem_base;
++	size_t mem_size;
++
++	phys_addr_t sync_base;
++	void __iomem *sync_virt;
++	size_t sync_size;
++};
++
++static int sprd_wcn_rf_power_on(struct sprd_wcn_shared *wcn)
++{
++	int ret;
++
++	if (wcn->rf_power_count++ != 0)
++		return 0;
++
++	ret = regulator_bulk_enable(wcn->info->num_regulators, wcn->regulators);
++	if (ret < 0) {
++		wcn->rf_power_count--;
++		return ret;
++	}
++
++	gpiod_set_value(wcn->en_gpio, 1);
++	usleep_range(500, 1000);
++	gpiod_set_value(wcn->rst_gpio, 0);
++
++	return 0;
++}
++
++static void sprd_wcn_rf_power_off(struct sprd_wcn_shared *wcn)
++{
++	if (WARN_ON(wcn->rf_power_count == 0))
++		return;
++
++	if (wcn->rf_power_count-- != 1)
++		return;
++
++	gpiod_set_value(wcn->rst_gpio, 1);
++	gpiod_set_value(wcn->en_gpio, 0);
++
++	regulator_bulk_disable(wcn->info->num_regulators, wcn->regulators);
++}
++
++static void sprd_wcn_sleep_disable(struct sprd_wcn_shared *wcn)
++{
++	if (wcn->sleep_disable_count++ != 0)
++		return;
++
++	regmap_write(wcn->ap_aon_apb_regs, wcn->info->ap_wcn_sleep_ctrl_reg + 0x2000,
++		     wcn->info->ap_wcn_sleep_allow_mask);
++}
++
++static void sprd_wcn_sleep_enable(struct sprd_wcn_shared *wcn)
++{
++	if (WARN_ON(wcn->sleep_disable_count == 0))
++		return;
++
++	if (wcn->sleep_disable_count-- != 1)
++		return;
++
++	regmap_write(wcn->ap_aon_apb_regs, wcn->info->ap_wcn_sleep_ctrl_reg + 0x1000,
++		     wcn->info->ap_wcn_sleep_allow_mask);
++}
++
++static int sprd_wcn_load(struct rproc *rproc, const struct firmware *fw)
++{
++	struct sprd_wcn_proc *wp = rproc->priv;
++	struct sprd_wcn_shared *wcn = wp->wcn;
++	void *mem;
++
++	if (fw->size > wp->mem_size) {
++		dev_err(wcn->dev, "firmware too large\n");
++		return -EINVAL;
++	}
++
++	mem = memremap(wp->mem_base, wp->mem_size, MEMREMAP_WC);
++	if (!mem) {
++		dev_err(wp->dev, "failed to map memory region\n");
++		return -EBUSY;
++	}
++	memcpy(mem, fw->data, fw->size);
++	memunmap(mem);
++
++	return 0;
++}
++
++static int sprd_wcn_poll_boot_status(struct sprd_wcn_proc *wp)
++{
++	unsigned int retries = 100;
++	u32 init_status;
++	int ret = -ETIMEDOUT;
++
++	while (retries--) {
++		init_status = readl(wp->sync_virt + wp->info->init_status_offset);
++		dev_dbg(wp->dev, "init status: %08x\n", init_status);
++		if (init_status == wp->info->init_status_boot_magic) {
++			ret = 0;
++			break;
++		}
++		msleep(20);
++	}
++
++	return ret;
++}
++
++static int sprd_wcn_start(struct rproc *rproc)
++{
++	struct sprd_wcn_proc *wp = rproc->priv;
++	struct sprd_wcn_shared *wcn = wp->wcn;
++	int ret;
++
++	mutex_lock(&wcn->lock);
++
++	ret = sprd_wcn_rf_power_on(wcn);
++	if (ret < 0)
++		goto err_out;
++
++	regmap_write(wcn->ap_pub_apb_regs, wcn->info->mem_remap_reg,
++		     wcn->info->mem_remap_val);
++
++	memset_io(wp->sync_virt, 0, wp->sync_size);
++
++	ret = pm_runtime_resume_and_get(wcn->dev);
++	if (ret < 0)
++		goto err_rf_off;
++
++	ret = reset_control_deassert(wcn->reset);
++	if (ret < 0)
++		goto err_pm_put;
++
++	sprd_wcn_sleep_disable(wcn);
++
++	/* wait for stable WCN power */
++	msleep(20);
++
++	/* assert cpu reset to avoid accidental startup */
++	regmap_set_bits(wcn->wcn_aon_ahb_regs, wp->info->sys_rst_reg,
++			wp->info->sys_rst_mask);
++
++	/* disable force deep sleep */
++	regmap_clear_bits(wcn->wcn_aon_apb_regs, wp->info->deep_sleep_reg,
++			  wp->info->deep_sleep_mask);
++	/* allow wcn to control deep sleep */
++	regmap_set_bits(wcn->wcn_aon_apb_regs, wcn->info->deep_sleep_ctrl_reg,
++			wcn->info->deep_sleep_ctrl_mask);
++	/* wait for stable subsystem power */
++	msleep(20);
++	/* select boot from dram */
++	regmap_update_bits(wp->wcn_ahb_regs, wp->info->boot_sel_reg,
++			   0x3ffffff, 0x3000000 |
++			   (u32)(wp->mem_base - wcn->info->dram_offset));
++	/* write shared memory address */
++	regmap_write(wcn->wcn_aon_ahb_regs, wp->info->sync_addr_reg,
++		     (u32)(wp->sync_base - wp->mem_base));
++	/* deassert cpu reset */
++	regmap_clear_bits(wcn->wcn_aon_ahb_regs, wp->info->sys_rst_reg,
++			  wp->info->sys_rst_mask);
++
++	sprd_wcn_sleep_enable(wcn);
++
++	ret = sprd_wcn_poll_boot_status(wp);
++	if (ret < 0)
++		goto err_cpu_stop;
++
++	mutex_unlock(&wcn->lock);
++
++	return 0;
++
++err_cpu_stop:
++	/* assert cpu reset */
++	regmap_set_bits(wcn->wcn_aon_ahb_regs, wp->info->sys_rst_reg,
++			wp->info->sys_rst_mask);
++	/* force deep sleep */
++	regmap_set_bits(wcn->wcn_aon_apb_regs, wp->info->deep_sleep_reg,
++			wp->info->deep_sleep_mask);
++	reset_control_assert(wcn->reset);
++err_pm_put:
++	pm_runtime_put_sync(wcn->dev);
++err_rf_off:
++	sprd_wcn_rf_power_off(wcn);
++err_out:
++	mutex_unlock(&wcn->lock);
++	return ret;
++}
++
++static int sprd_wcn_stop(struct rproc *rproc)
++{
++	struct sprd_wcn_proc *wp = rproc->priv;
++	struct sprd_wcn_shared *wcn = wp->wcn;
++
++	mutex_lock(&wcn->lock);
++
++	/* needed to access registers from AP */
++	sprd_wcn_sleep_disable(wcn);
++	/* wait for stable power */
++	msleep(40);
++
++	/* assert reset */
++	regmap_set_bits(wcn->wcn_aon_ahb_regs, wp->info->sys_rst_reg,
++			wp->info->sys_rst_mask);
++	/* force deep sleep */
++	regmap_set_bits(wcn->wcn_aon_apb_regs, wp->info->deep_sleep_reg,
++			wp->info->deep_sleep_mask);
++
++	sprd_wcn_sleep_enable(wcn);
++	reset_control_assert(wcn->reset);
++	pm_runtime_put_sync_suspend(wcn->dev);
++	sprd_wcn_rf_power_off(wcn);
++
++	mutex_unlock(&wcn->lock);
++
++	return 0;
++}
++
++static const struct rproc_ops wcn_ops = {
++	.load		= sprd_wcn_load,
++	.start		= sprd_wcn_start,
++	.stop		= sprd_wcn_stop,
++};
++
++static int sprd_wcn_parse_memory_region(struct sprd_wcn_proc *wp)
++{
++	struct device_node *np;
++	struct reserved_mem *rmem;
++
++	np = of_parse_phandle(wp->dev->of_node, "memory-region", 0);
++	if (!np) {
++		dev_err(wp->dev, "no memory region specified for\n");
++		return -EINVAL;
++	}
++
++	rmem = of_reserved_mem_lookup(np);
++	if (!rmem) {
++		of_node_put(np);
++		dev_err(wp->dev, "failed to look up memory region\n");
++		return -EINVAL;
++	}
++
++	wp->mem_base = rmem->base;
++	wp->mem_size = rmem->size;
++
++	of_node_put(np);
++
++	np = of_parse_phandle(wp->dev->of_node, "sprd,sync-region", 0);
++	if (!np) {
++		dev_err(wp->dev, "no sync region specified\n");
++		return -EINVAL;
++	}
++
++	rmem = of_reserved_mem_lookup(np);
++	if (!rmem) {
++		of_node_put(np);
++		dev_err(wp->dev, "failed to look up sync region\n");
++		return -EINVAL;
++	}
++
++	wp->sync_base = rmem->base;
++	wp->sync_size = rmem->size;
++	wp->sync_virt = devm_ioremap_wc(wp->dev, rmem->base, rmem->size);
++	if (!wp->sync_virt) {
++		dev_err(wp->dev, "failed to map sync region\n");
++		return -EBUSY;
++	}
++
++	of_node_put(np);
++
++	return 0;
++}
++
++static int sprd_wcn_init_proc(struct sprd_wcn_shared *wcn,
++			      const struct sprd_wcn_subsys_info *info,
++			      const char *node_name,
++			      struct device *dev)
++{
++	struct sprd_wcn_proc *wp;
++	struct rproc *rproc;
++	const char *fw_name;
++	int ret;
++
++	dev->of_node = of_get_child_by_name(wcn->dev->of_node, node_name);
++	if (!dev->of_node) {
++		dev_err(wcn->dev, "unable to get %s child node\n", node_name);
++		return -ENOENT;
++	}
++
++	dev->parent = wcn->dev;
++	dev_set_name(dev, "%s:%s", dev_name(wcn->dev), node_name);
++
++	ret = device_register(dev);
++	if (ret < 0)
++		return ret;
++
++	ret = of_property_read_string_index(dev->of_node, "firmware-name",
++					    0, &fw_name);
++	if (ret < 0) {
++		dev_err(dev, "unable to read firmware-name\n");
++		goto err;
++	}
++
++	rproc = devm_rproc_alloc(dev, node_name, &wcn_ops,
++				 fw_name, sizeof(*wp));
++	if (!rproc)
++		goto err;
++
++	rproc->auto_boot = !strcmp(node_name, "btwf");
++
++	wp = rproc->priv;
++	wp->wcn = wcn;
++	wp->dev = dev;
++	wp->info = info;
++
++	ret = sprd_wcn_parse_memory_region(wp);
++	if (ret < 0)
++		goto err;
++
++	wp->wcn_ahb_regs = syscon_regmap_lookup_by_phandle(dev->of_node,
++							"sprd,syscon-wcn-ahb");
++	if (IS_ERR(wp->wcn_ahb_regs)) {
++		dev_err(wp->dev, "failed to get wcn-ahb syscon handle\n");
++		ret = PTR_ERR(wp->wcn_ahb_regs);
++		goto err;
++	}
++
++	ret = devm_sprd_rproc_add_sipc_subdev(rproc, dev->of_node, &wp->sipc);
++	if (ret < 0) {
++		dev_err(wp->dev, "failed to add SIPC subdev\n");
++		goto err;
++	}
++
++	ret = devm_rproc_add(wp->dev, rproc);
++	if (ret < 0) {
++		dev_err(wp->dev, "failed to register remoteproc\n");
++		goto err;
++	}
++
++	dev_set_drvdata(wp->dev, rproc);
++
++	return 0;
++
++err:
++	device_unregister(dev);
++	return ret;
++}
++
++static int sprd_wcn_probe(struct platform_device *pdev)
++{
++	struct sprd_wcn_shared *wcn;
++	int ret;
++
++	wcn = devm_kzalloc(&pdev->dev, sizeof(*wcn), GFP_KERNEL);
++	if (!wcn)
++		return -ENOMEM;
++
++	mutex_init(&wcn->lock);
++
++	wcn->dev = &pdev->dev;
++	platform_set_drvdata(pdev, wcn);
++
++	wcn->info = of_device_get_match_data(wcn->dev);
++	if (!wcn->info)
++		return -EINVAL;
++
++	ret = devm_pm_runtime_enable(wcn->dev);
++	if (ret < 0) {
++		dev_err(wcn->dev, "failed to enable runtime PM\n");
++		return ret;
++	}
++
++	ret = devm_regulator_bulk_get_const(wcn->dev, wcn->info->num_regulators,
++					    wcn->info->regulators, &wcn->regulators);
++	if (ret < 0) {
++		dev_err(wcn->dev, "failed to get regulators\n");
++		return ret;
++	}
++
++	wcn->en_gpio = devm_gpiod_get(wcn->dev, "enable", GPIOD_OUT_LOW);
++	if (IS_ERR(wcn->en_gpio)) {
++		dev_err(wcn->dev, "failed to get enable gpio\n");
++		return ret;
++	}
++
++	wcn->rst_gpio = devm_gpiod_get(wcn->dev, "reset", GPIOD_OUT_HIGH);
++	if (IS_ERR(wcn->rst_gpio)) {
++		dev_err(wcn->dev, "failed to get reset gpio\n");
++		return ret;
++	}
++
++	wcn->ap_pub_apb_regs = syscon_regmap_lookup_by_phandle(wcn->dev->of_node,
++							       "sprd,syscon-ap-pub-apb");
++	if (IS_ERR(wcn->ap_pub_apb_regs)) {
++		dev_err(wcn->dev, "failed to get ap-pub-apb syscon handle\n");
++		return PTR_ERR(wcn->ap_pub_apb_regs);
++	}
++
++	wcn->ap_aon_apb_regs = syscon_regmap_lookup_by_phandle(wcn->dev->of_node,
++							       "sprd,syscon-ap-aon-apb");
++	if (IS_ERR(wcn->ap_aon_apb_regs)) {
++		dev_err(wcn->dev, "failed to get ap-aon-apb syscon handle\n");
++		return PTR_ERR(wcn->ap_aon_apb_regs);
++	}
++
++	wcn->wcn_aon_apb_regs = syscon_regmap_lookup_by_phandle(wcn->dev->of_node,
++								"sprd,syscon-wcn-aon-apb");
++	if (IS_ERR(wcn->wcn_aon_apb_regs)) {
++		dev_err(wcn->dev, "failed to get wcn-aon-apb syscon handle\n");
++		return PTR_ERR(wcn->wcn_aon_apb_regs);
++	}
++
++	wcn->wcn_aon_ahb_regs = syscon_regmap_lookup_by_phandle(wcn->dev->of_node,
++								"sprd,syscon-wcn-aon-ahb");
++	if (IS_ERR(wcn->wcn_aon_ahb_regs)) {
++		dev_err(wcn->dev, "failed to get wcn-aon-ahb syscon handle\n");
++		return PTR_ERR(wcn->wcn_aon_ahb_regs);
++	}
++
++	wcn->reset = devm_reset_control_get_shared(wcn->dev, NULL);
++	if (IS_ERR(wcn->reset)) {
++		dev_err(wcn->dev, "failed to get wcn reset\n");
++		return PTR_ERR(wcn->reset);
++	}
++
++	device_set_wakeup_capable(wcn->dev, true);
++
++	if (of_property_read_bool(wcn->dev->of_node, "wakeup-source"))
++		device_wakeup_enable(wcn->dev);
++
++	ret = sprd_wcn_init_proc(wcn, &wcn->info->btwf, "btwf", &wcn->btwf_dev);
++	if (ret < 0)
++		return ret;
++
++	ret = sprd_wcn_init_proc(wcn, &wcn->info->gnss, "gnss", &wcn->gnss_dev);
++	if (ret < 0) {
++		device_unregister(&wcn->btwf_dev);
++		return ret;
++	}
++
++	return 0;
++}
++
++static void sprd_wcn_remove(struct platform_device *pdev)
++{
++	struct sprd_wcn_shared *wcn = platform_get_drvdata(pdev);
++
++	device_unregister(&wcn->btwf_dev);
++	device_unregister(&wcn->gnss_dev);
++}
++
++static const struct regulator_bulk_data ums9230_wcn_regulators[] = {
++	{ "vdd" },
++	{ "vddwifipa" },
++	{ "dcxo1v8" },
++};
++
++static const struct sprd_wcn_info ums9230_wcn_info = {
++	.regulators = ums9230_wcn_regulators,
++	.num_regulators = ARRAY_SIZE(ums9230_wcn_regulators),
++
++	.dram_offset = 0x87000000,
++
++	/* ap-pub-apb */
++	.mem_remap_reg = 0x9018,
++	.mem_remap_val = 0x70,
++
++	/* ap-aon-apb */
++	.ap_wcn_sleep_ctrl_reg = 0x034c,
++	.ap_wcn_sleep_allow_mask = BIT(16),
++
++	/* wcn-aon-apb */
++	.deep_sleep_ctrl_reg = 0x0090,
++	.deep_sleep_ctrl_mask = BIT(30),
++
++	.btwf = {
++		.init_status_offset = 0,
++		.init_status_boot_magic = 0xf0f0f0ff,
++
++		/* wcn-aon-ahb */
++		.sys_rst_reg = 0x000c,
++		.sys_rst_mask = BIT(6) | BIT(4) | BIT(2) | BIT(0),
++		.sync_addr_reg = 0x004c,
++
++		/* wcn-aon-apb */
++		.deep_sleep_reg = 0x0098,
++		.deep_sleep_mask = BIT(12) | BIT(3) | BIT(2),
++
++		/* wcn-btwf-ahb */
++		.boot_sel_reg = 0x0410,
++	},
++
++	.gnss = {
++		.init_status_offset = 0x34,
++		.init_status_boot_magic = 0x12345678,
++
++		/* wcn-aon-ahb */
++		.sys_rst_reg = 0x000c,
++		.sys_rst_mask = BIT(5) | BIT(1),
++		.sync_addr_reg = 0x0050,
++
++		/* wcn-aon-apb */
++		.deep_sleep_reg = 0x00c8,
++		.deep_sleep_mask = BIT(12) | BIT(3),
++
++		/* wcn-gnss-ahb */
++		.boot_sel_reg = 0x0404,
++	},
++};
++
++static const struct of_device_id sprd_wcn_of_match[] = {
++	{ .compatible = "sprd,ums9230-wcn", .data = &ums9230_wcn_info },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sprd_wcn_of_match);
++
++static int sprd_wcn_suspend(struct device *dev)
++{
++	struct sprd_wcn_shared *wcn = dev_get_drvdata(dev);
++	struct rproc *proc;
++
++	if (device_may_wakeup(dev))
++		return 0;
++
++	proc = dev_get_drvdata(&wcn->btwf_dev);
++	if (proc->state == RPROC_RUNNING)
++		sprd_wcn_stop(proc);
++
++	proc = dev_get_drvdata(&wcn->gnss_dev);
++	if (proc->state == RPROC_RUNNING)
++		sprd_wcn_stop(proc);
++
++	return 0;
++}
++
++static int sprd_wcn_resume(struct device *dev)
++{
++	struct sprd_wcn_shared *wcn = dev_get_drvdata(dev);
++	struct rproc *proc;
++	int ret;
++
++	if (device_may_wakeup(dev))
++		return 0;
++
++	proc = dev_get_drvdata(&wcn->gnss_dev);
++	if (proc->state == RPROC_RUNNING) {
++		ret = sprd_wcn_start(proc);
++		if (ret < 0)
++			return ret;
++	}
++
++	proc = dev_get_drvdata(&wcn->btwf_dev);
++	if (proc->state == RPROC_RUNNING) {
++		ret = sprd_wcn_start(proc);
++		if (ret < 0)
++			goto stop_gnss;
++	}
++
++	return 0;
++
++stop_gnss:
++	proc = dev_get_drvdata(&wcn->gnss_dev);
++	if (proc->state == RPROC_RUNNING)
++		sprd_wcn_stop(proc);
++
++	return ret;
++}
++
++static struct dev_pm_ops sprd_wcn_pm_ops = {
++	SET_SYSTEM_SLEEP_PM_OPS(sprd_wcn_suspend, sprd_wcn_resume)
++};
++
++static struct platform_driver sprd_wcn_driver = {
++	.probe = sprd_wcn_probe,
++	.remove = sprd_wcn_remove,
++	.driver = {
++		.name = "sprd-wcn",
++		.of_match_table = sprd_wcn_of_match,
++		.pm = &sprd_wcn_pm_ops,
++	},
++};
++
++module_platform_driver(sprd_wcn_driver);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Unisoc WCN remoteproc driver");
+diff --git a/drivers/rpmsg/Kconfig b/drivers/rpmsg/Kconfig
+index d3795860f5c080d36c8ea71691dfff90df7c889c..cb50617639fbc886cf0a61a0a439576d1af1a622 100644
+--- a/drivers/rpmsg/Kconfig
++++ b/drivers/rpmsg/Kconfig
+@@ -74,6 +74,17 @@ config RPMSG_QCOM_SMD
+ 	  providing communication channels to remote processors in Qualcomm
+ 	  platforms.
+ 
++config RPMSG_SPRD_SIPC
++	tristate "Spreadtrum IPC (SIPC)"
++	depends on ARCH_SPRD || COMPILE_TEST
++	depends on MAILBOX
++	depends on OF_RESERVED_MEM
++	select RPMSG
++	help
++	  This enables support for communication between the application
++	  processor and remote processors in Unisoc/Spreadtrum SoCs using
++	  a shared memory interface.
++
+ config RPMSG_VIRTIO
+ 	tristate "Virtio RPMSG bus driver"
+ 	depends on HAS_DMA
+diff --git a/drivers/rpmsg/Makefile b/drivers/rpmsg/Makefile
+index 1e02b58ff61fe12a0ab92d45355b47704b9fda41..4471840db64629160a5ebb3982f92429364e3a8a 100644
+--- a/drivers/rpmsg/Makefile
++++ b/drivers/rpmsg/Makefile
+@@ -10,4 +10,10 @@ obj-$(CONFIG_RPMSG_QCOM_GLINK) += qcom_glink.o
+ obj-$(CONFIG_RPMSG_QCOM_GLINK_RPM) += qcom_glink_rpm.o
+ obj-$(CONFIG_RPMSG_QCOM_GLINK_SMEM) += qcom_glink_smem.o
+ obj-$(CONFIG_RPMSG_QCOM_SMD)	+= qcom_smd.o
++obj-$(CONFIG_RPMSG_SPRD_SIPC)	+= sprd_sipc.o
++sprd_sipc-objs			:= sprd_sipc_core.o \
++				   sprd_sipc_sblock.o \
++				   sprd_sipc_sbuf.o \
++				   sprd_sipc_dfs.o \
++				   sprd_sipc_sipx.o
+ obj-$(CONFIG_RPMSG_VIRTIO)	+= virtio_rpmsg_bus.o
+diff --git a/drivers/rpmsg/sprd_sipc.h b/drivers/rpmsg/sprd_sipc.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..dd778f7e4e749b4a7790201c5d49ce9bc75dd26d
+--- /dev/null
++++ b/drivers/rpmsg/sprd_sipc.h
+@@ -0,0 +1,102 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/*
++ * Copyright (C) 2026 Otto Pflüger
++ */
++#ifndef __SPRD_SIPC_H__
++#define __SPRD_SIPC_H__
++
++#include <linux/rpmsg.h>
++#include <linux/rpmsg/sprd_sipc.h>
++
++#define SMSG_OPEN_MAGIC		0xBEEE
++#define SMSG_CLOSE_MAGIC	0xEDDD
++
++struct sprd_sipc;
++struct sipc_sipx;
++
++struct sipc_queued_message {
++	struct list_head node;
++	u8 channel;
++	u8 type;
++	u16 cmd;
++	u32 value;
++};
++
++enum {
++	SIPC_OPEN,
++	SIPC_REMOTE_OPEN,
++	SIPC_FORCE_CLOSE,
++};
++
++struct sipc_channel {
++	refcount_t refcount;
++	struct work_struct state_work;
++	struct completion remote_init;
++	unsigned long state;
++	u8 id;
++	const char *name;
++	struct device *parent;
++	struct sprd_sipc *sipc;
++	struct device_node *node;
++	struct sipc_channel_ops *ops;
++	void *priv;
++};
++
++struct sipc_channel_ops {
++	void (*rx)(struct sipc_channel *channel, u8 type, u16 cmd, u32 value);
++	int (*open)(struct sipc_channel *channel);
++	void (*close)(struct sipc_channel *channel);
++	void (*free)(struct sipc_channel *channel);
++	struct rpmsg_endpoint * (*setup_ept)(struct sipc_channel *channel,
++					     struct rpmsg_device *rpdev,
++					     rpmsg_rx_cb_t cb, void *priv);
++};
++
++enum {
++	SMSG_TYPE_OPEN = 1,
++	SMSG_TYPE_CLOSE,
++	SMSG_TYPE_DATA,
++	SMSG_TYPE_EVENT,
++	SMSG_TYPE_CMD,
++	SMSG_TYPE_DONE,
++	SMSG_TYPE_DFS = 13,
++	SMSG_TYPE_DFS_RSP = 14,
++};
++
++int __sipc_send(struct sprd_sipc *sipc, u8 channel, u8 type, u16 cmd,
++		u32 value);
++
++static inline int sipc_send(struct sipc_channel *channel, u8 type, u16 cmd,
++			    u32 value)
++{
++	return __sipc_send(channel->sipc, channel->id, type, cmd, value);
++}
++
++static inline void sipc_init_message(struct sipc_queued_message *msg,
++				     struct sipc_channel *channel, u8 type,
++				     u16 cmd, u32 value)
++{
++	INIT_LIST_HEAD(&msg->node);
++	msg->channel = channel->id;
++	msg->type = type;
++	msg->cmd = cmd;
++	msg->value = value;
++}
++
++void sipc_queue(struct sprd_sipc *sipc, struct sipc_queued_message *msg);
++void sipc_cancel(struct sprd_sipc *sipc, struct sipc_queued_message *msg);
++
++struct rpmsg_endpoint *sipc_create_ept(struct sprd_sipc *sipc,
++				       struct rpmsg_device *rpdev,
++				       rpmsg_rx_cb_t cb, void *priv,
++				       struct rpmsg_channel_info *chinfo);
++
++int sipc_sbuf_init(struct sipc_channel *channel);
++int sipc_dfs_init(struct sipc_channel *channel);
++int sipc_sblock_init(struct sipc_channel *channel);
++
++struct sipc_sipx *sipx_init(struct device *parent);
++int sipx_channel_init(struct sipc_sipx *sipx, struct sipc_channel *channel);
++void sipx_destroy(struct sipc_sipx *sipx);
++
++#endif
+diff --git a/drivers/rpmsg/sprd_sipc_core.c b/drivers/rpmsg/sprd_sipc_core.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..27d683a27146c0654804e9161689859d43f00554
+--- /dev/null
++++ b/drivers/rpmsg/sprd_sipc_core.c
+@@ -0,0 +1,486 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#include <linux/dma-mapping.h>
++#include <linux/kthread.h>
++#include <linux/mailbox_client.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/of_device.h>
++#include <linux/of_platform.h>
++#include <linux/of_reserved_mem.h>
++#include <linux/platform_device.h>
++#include <linux/xarray.h>
++
++#include "sprd_sipc.h"
++
++struct sipc_msg {
++	u8 channel;
++	u8 type;
++	u16 cmd;
++	u32 value;
++} __packed;
++
++struct sprd_sipc {
++	struct device dev;
++	struct mbox_client mbox_client;
++	struct mbox_chan *mbox_chan;
++	struct mbox_chan *mbox_oob_chan;
++	struct workqueue_struct *wq;
++
++	struct sipc_sipx *sipx;
++	struct xarray channels;
++
++	spinlock_t queue_lock;
++	struct list_head queue;
++	bool tx_in_progress;
++};
++
++int __sipc_send(struct sprd_sipc *sipc, u8 channel, u8 type, u16 cmd, u32 value)
++{
++	struct sipc_msg *msg;
++	int ret;
++
++	msg = kmalloc_obj(*msg, GFP_ATOMIC);
++	msg->channel = channel;
++	msg->type = type;
++	msg->cmd = cmd;
++	msg->value = value;
++
++	ret = mbox_send_message(sipc->mbox_chan, msg);
++	if (ret < 0) {
++		dev_err(&sipc->dev, "failed to send %02x %04x on channel %d: %d\n",
++			type, cmd, channel, ret);
++		kfree(msg);
++		return ret;
++	}
++
++	return 0;
++}
++
++void sipc_queue(struct sprd_sipc *sipc, struct sipc_queued_message *msg)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&sipc->queue_lock, flags);
++	if (list_empty(&msg->node)) {
++		if (sipc->tx_in_progress) {
++			list_add_tail(&msg->node, &sipc->queue);
++		} else {
++			__sipc_send(sipc, msg->channel, msg->type, msg->cmd, msg->value);
++			sipc->tx_in_progress = true;
++		}
++	}
++	spin_unlock_irqrestore(&sipc->queue_lock, flags);
++}
++
++void sipc_cancel(struct sprd_sipc *sipc, struct sipc_queued_message *msg)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&sipc->queue_lock, flags);
++	if (!list_empty(&msg->node))
++		list_del_init(&msg->node);
++	spin_unlock_irqrestore(&sipc->queue_lock, flags);
++}
++
++static void sipc_channel_state_work(struct work_struct *work)
++{
++	struct sipc_channel *channel = container_of(work, struct sipc_channel, state_work);
++
++	if (!test_bit(SIPC_FORCE_CLOSE, &channel->state) &&
++	    test_bit(SIPC_REMOTE_OPEN, &channel->state) &&
++	    !test_and_set_bit(SIPC_OPEN, &channel->state)) {
++		if (channel->ops) {
++			int ret = channel->ops->open(channel);
++
++			if (ret) {
++				dev_err(channel->parent, "failed to open channel %d: %d\n",
++					channel->id, ret);
++			}
++		}
++
++		dev_dbg(channel->parent, "channel %d: opened\n", channel->id);
++	}
++
++	if ((test_bit(SIPC_FORCE_CLOSE, &channel->state) ||
++	     !test_bit(SIPC_REMOTE_OPEN, &channel->state)) &&
++	    test_and_clear_bit(SIPC_OPEN, &channel->state)) {
++		if (channel->ops)
++			channel->ops->close(channel);
++
++		reinit_completion(&channel->remote_init);
++
++		dev_dbg(channel->parent, "channel %d: closed\n", channel->id);
++	}
++}
++
++static void sipc_free_channel(struct sipc_channel *channel)
++{
++	if (channel->ops)
++		channel->ops->free(channel);
++	of_node_put(channel->node);
++	kfree(channel);
++}
++
++static struct sipc_channel *sipc_alloc_channel(struct sprd_sipc *sipc, u8 id,
++					       struct device_node *node,
++					       const char *name)
++{
++	struct sipc_channel *channel;
++
++	channel = kzalloc_obj(*channel, GFP_KERNEL);
++	if (!channel)
++		return NULL;
++
++	channel->parent = &sipc->dev;
++	channel->sipc = sipc;
++	channel->id = id;
++	channel->node = of_node_get(node);
++	channel->name = name;
++	init_completion(&channel->remote_init);
++	INIT_WORK(&channel->state_work, sipc_channel_state_work);
++
++	return channel;
++}
++
++struct rpmsg_endpoint *sipc_create_ept(struct sprd_sipc *sipc,
++				       struct rpmsg_device *rpdev,
++				       rpmsg_rx_cb_t cb, void *priv,
++				       struct rpmsg_channel_info *chinfo)
++{
++	struct sipc_channel *channel = NULL, *ch;
++	unsigned long id;
++
++	xa_for_each_start(&sipc->channels, id, ch, 0) {
++		if ((ch->name && !strncmp(chinfo->name, ch->name, RPMSG_NAME_SIZE)) ||
++		    chinfo->dst == id || chinfo->src == id) {
++			channel = ch;
++		}
++	}
++
++	if (!channel) {
++		dev_err(&sipc->dev, "channel %d/%d/%s not found\n",
++			chinfo->dst, chinfo->src, chinfo->name);
++		return NULL;
++	}
++
++	if (!channel->ops->setup_ept) {
++		dev_err(&sipc->dev, "channel %d is not an rpmsg endpoint\n", channel->id);
++		return NULL;
++	}
++
++	/* We only allow predefined source/destination combinations. */
++	if (chinfo->src == RPMSG_ADDR_ANY)
++		chinfo->src = channel->id;
++	else if (chinfo->src != channel->id)
++		return NULL;
++
++	if (chinfo->dst == RPMSG_ADDR_ANY)
++		chinfo->dst = channel->id;
++	else if (chinfo->dst != channel->id)
++		return NULL;
++
++	return channel->ops->setup_ept(channel, rpdev, cb, priv);
++}
++
++static void sipc_rx_callback(struct mbox_client *mbox_client, void *msg_data)
++{
++	struct sprd_sipc *sipc =
++		container_of(mbox_client, struct sprd_sipc, mbox_client);
++	struct sipc_msg *msg = msg_data;
++	struct sipc_channel *channel;
++
++	channel = xa_load(&sipc->channels, msg->channel);
++
++	if (msg->type == SMSG_TYPE_OPEN) {
++		dev_dbg(&sipc->dev, "remote side is opening channel %d\n", msg->channel);
++
++		/*
++		 * Acknowledge on the edge only. Now that we also open channels
++		 * ourselves (see sipc_populate), a remote that likewise replies
++		 * to every OPEN it receives would trade acknowledgements with us
++		 * forever. Replying only when the channel actually transitions
++		 * to remote-open terminates the exchange from our side whatever
++		 * the remote does.
++		 */
++		if (channel) {
++			if (!test_and_set_bit(SIPC_REMOTE_OPEN, &channel->state)) {
++				queue_work(sipc->wq, &channel->state_work);
++				sipc_send(channel, SMSG_TYPE_OPEN, SMSG_OPEN_MAGIC, 0);
++			}
++		}
++	} else if (msg->type == SMSG_TYPE_CLOSE) {
++		dev_dbg(&sipc->dev, "remote side is closing channel %d\n", msg->channel);
++
++		if (channel) {
++			if (test_and_clear_bit(SIPC_REMOTE_OPEN, &channel->state))
++				queue_work(sipc->wq, &channel->state_work);
++		}
++	} else if (channel && channel->ops) {
++		channel->ops->rx(channel, msg->type, msg->cmd, msg->value);
++	}
++}
++
++static void sipc_tx_done(struct mbox_client *mbox_client, void *msg_data, int r)
++{
++	struct sprd_sipc *sipc =
++		container_of(mbox_client, struct sprd_sipc, mbox_client);
++	struct sipc_msg *msg = msg_data;
++
++	if (r)
++		dev_warn(mbox_client->dev, "message on channel %d was not delivered: %d\n",
++			 msg->channel, r);
++
++	kfree(msg_data);
++
++	spin_lock(&sipc->queue_lock);
++	if (list_empty(&sipc->queue)) {
++		sipc->tx_in_progress = false;
++	} else {
++		struct sipc_queued_message *qmsg =
++			list_first_entry(&sipc->queue, struct sipc_queued_message, node);
++
++		list_del_init(&qmsg->node);
++		__sipc_send(sipc, qmsg->channel, qmsg->type, qmsg->cmd, qmsg->value);
++	}
++	spin_unlock(&sipc->queue_lock);
++}
++
++static int sipc_populate(struct sprd_sipc *sipc)
++{
++	struct sipc_channel *channel, *old;
++	struct device_node *child;
++	const char *name, *chtype;
++	int ret;
++	u32 id;
++
++	for_each_available_child_of_node(sipc->dev.of_node, child) {
++		ret = of_property_read_u32(child, "reg", &id);
++		if (ret)
++			continue;
++
++		ret = of_property_read_string(child, "sprd,channel-type", &chtype);
++		if (ret)
++			continue;
++
++		ret = of_property_read_string(child, "sprd,channel-name", &name);
++		if (ret)
++			continue;
++
++		channel = sipc_alloc_channel(sipc, id, child, name);
++		if (!channel)
++			return -ENOMEM;
++
++		if (!strcmp(chtype, "sbuf")) {
++			ret = sipc_sbuf_init(channel);
++		} else if (!strcmp(chtype, "dfs")) {
++			ret = sipc_dfs_init(channel);
++		} else if (!strcmp(chtype, "sblock")) {
++			ret = sipc_sblock_init(channel);
++		} else if (!strcmp(chtype, "sipx")) {
++			ret = 0;
++			if (!sipc->sipx) {
++				sipc->sipx = sipx_init(&sipc->dev);
++				if (IS_ERR(sipc->sipx)) {
++					ret = PTR_ERR(sipc->sipx);
++					sipc->sipx = NULL;
++				}
++			}
++			if (!ret)
++				ret = sipx_channel_init(sipc->sipx, channel);
++		} else {
++			ret = 0;
++		}
++
++		if (ret) {
++			dev_err(&sipc->dev, "failed to initialize channel %d: %d\n", id, ret);
++			sipc_free_channel(channel);
++			continue;
++		}
++
++		old = xa_store(&sipc->channels, id, channel, GFP_KERNEL);
++		if (old) {
++			dev_warn(&sipc->dev, "duplicate channel ID %d\n", id);
++			sipc_free_channel(old);
++		}
++
++		/*
++		 * Announce the channel to the remote rather than waiting to be
++		 * announced at. The rx path only ever replied to an OPEN, which
++		 * is sufficient when the remote initiates - but a remote that
++		 * takes the client role waits for the host to open first, and
++		 * then neither side ever speaks and the mailbox stays silent in
++		 * both directions. The vendor driver's smsg_ch_open() opens from
++		 * this side too, so this is the protocol's normal case, not a
++		 * workaround.
++		 */
++		sipc_send(channel, SMSG_TYPE_OPEN, SMSG_OPEN_MAGIC, 0);
++	}
++
++	return 0;
++}
++
++static void sipc_depopulate(struct sprd_sipc *sipc)
++{
++	struct sipc_channel *channel;
++	unsigned long id;
++
++	xa_for_each_start(&sipc->channels, id, channel, 0) {
++		if (!test_and_set_bit(SIPC_FORCE_CLOSE, &channel->state))
++			queue_work(sipc->wq, &channel->state_work);
++	}
++
++	flush_workqueue(sipc->wq);
++
++	xa_for_each_start(&sipc->channels, id, channel, 0) {
++		if (channel->ops)
++			channel->ops->free(channel);
++	}
++
++	xa_destroy(&sipc->channels);
++
++	if (sipc->sipx) {
++		sipx_destroy(sipc->sipx);
++		sipc->sipx = NULL;
++	}
++}
++
++static void sprd_sipc_release(struct device *dev)
++{
++	struct sprd_sipc *sipc = container_of(dev, struct sprd_sipc, dev);
++
++	WARN_ON(!xa_empty(&sipc->channels));
++	WARN_ON(!list_empty(&sipc->queue));
++
++	mbox_free_channel(sipc->mbox_chan);
++	mbox_free_channel(sipc->mbox_oob_chan);
++
++	of_reserved_mem_device_release(dev);
++	destroy_workqueue(sipc->wq);
++	kfree(sipc);
++}
++
++static ssize_t rpmsg_name_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	int ret = 0;
++	const char *name;
++
++	ret = of_property_read_string(dev->of_node, "label", &name);
++	if (ret < 0)
++		name = dev->of_node->name;
++
++	return sysfs_emit(buf, "%s\n", name);
++}
++static DEVICE_ATTR_RO(rpmsg_name);
++
++static struct attribute *sprd_sipc_attrs[] = {
++	&dev_attr_rpmsg_name.attr,
++	NULL
++};
++ATTRIBUTE_GROUPS(sprd_sipc);
++
++struct sprd_sipc *sprd_sipc_register(struct device *parent, struct device_node *node)
++{
++	struct sprd_sipc *sipc;
++	struct device *dev;
++	int ret, count;
++
++	sipc = kzalloc_obj(*sipc, GFP_KERNEL);
++	if (!sipc)
++		return ERR_PTR(-ENOMEM);
++
++	spin_lock_init(&sipc->queue_lock);
++	xa_init(&sipc->channels);
++	INIT_LIST_HEAD(&sipc->queue);
++
++	sipc->wq = alloc_ordered_workqueue("%s-%pOFn", 0, dev_name(parent), node);
++	if (!sipc->wq) {
++		kfree(sipc);
++		return ERR_PTR(-ENOMEM);
++	}
++
++	dev = &sipc->dev;
++	dev->parent = parent;
++	dev->release = sprd_sipc_release;
++	dev->of_node = node;
++	dev->groups = sprd_sipc_groups;
++	dev->coherent_dma_mask = DMA_BIT_MASK(32);
++	dev->dma_mask = &dev->coherent_dma_mask;
++	dev_set_name(dev, "%s:%pOFn", dev_name(parent), node);
++
++	ret = device_register(dev);
++	if (ret) {
++		dev_err(dev, "failed to register\n");
++		put_device(dev);
++		return ERR_PTR(ret);
++	}
++
++	ret = of_dma_configure(dev, node->parent, true);
++	if (ret) {
++		dev_err(dev, "failed to initialize address mapping: %d\n", ret);
++		goto unregister;
++	}
++
++	ret = of_reserved_mem_device_init(dev);
++	if (ret) {
++		dev_err(dev, "failed to initialize shared memory: %d\n", ret);
++		goto unregister;
++	}
++
++	sipc->mbox_client.dev = dev;
++	sipc->mbox_client.rx_callback = sipc_rx_callback;
++	sipc->mbox_client.tx_done = sipc_tx_done;
++
++	count = of_count_phandle_with_args(node, "mboxes", "#mbox-cells");
++	if (count <= 0) {
++		dev_err(dev, "no mailboxes specified\n");
++		ret = count ?: -ENOENT;
++		goto unregister;
++	}
++
++	if (count >= 2) {
++		sipc->mbox_oob_chan = mbox_request_channel(&sipc->mbox_client, 1);
++		if (IS_ERR(sipc->mbox_oob_chan)) {
++			ret = PTR_ERR(sipc->mbox_oob_chan);
++			sipc->mbox_oob_chan = NULL;
++			dev_err(dev, "failed to request supplementary mailbox: %d\n", ret);
++			goto unregister;
++		}
++	}
++
++	sipc->mbox_chan = mbox_request_channel(&sipc->mbox_client, 0);
++	if (IS_ERR(sipc->mbox_chan)) {
++		ret = PTR_ERR(sipc->mbox_chan);
++		sipc->mbox_chan = NULL;
++		dev_err(dev, "failed to request mailbox: %d\n", ret);
++		goto unregister;
++	}
++
++	ret = sipc_populate(sipc);
++	if (ret) {
++		dev_err(dev, "failed to populate channels: %d\n", ret);
++		goto depopulate;
++	}
++
++	return sipc;
++
++depopulate:
++	sipc_depopulate(sipc);
++unregister:
++	device_unregister(dev);
++	return ERR_PTR(ret);
++}
++EXPORT_SYMBOL_GPL(sprd_sipc_register);
++
++void sprd_sipc_unregister(struct sprd_sipc *sipc)
++{
++	sipc_depopulate(sipc);
++	device_unregister(&sipc->dev);
++}
++EXPORT_SYMBOL_GPL(sprd_sipc_unregister);
++
++MODULE_DESCRIPTION("Spreadtrum IPC driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/rpmsg/sprd_sipc_dfs.c b/drivers/rpmsg/sprd_sipc_dfs.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..5d740a6ef7925c7288eb43caa5d1f73983a9aabe
+--- /dev/null
++++ b/drivers/rpmsg/sprd_sipc_dfs.c
+@@ -0,0 +1,150 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Raw smsg "DFS" control channel to the PM sys (SP/CM4) firmware.
++ *
++ * The vendor DDR-DVFS driver talks to the pm_sys DFS task over bare smsg
++ * on channel 22 (SMSG_CH_PM_CTRL): requests are SMSG_TYPE_DFS with the
++ * command in the flag field, replies come back as SMSG_TYPE_DFS_RSP.
++ * There is no shared-memory ring behind this channel - the 8-byte mailbox
++ * message is the whole protocol.
++ *
++ * This implementation exposes the channel through debugfs for probing:
++ *   echo "<cmd> [value]" > /sys/kernel/debug/sprd-sipc-dfs/send   (hex)
++ *   cat /sys/kernel/debug/sprd-sipc-dfs/status
++ * Responses are also logged to the kernel log.
++ */
++
++#include <linux/debugfs.h>
++#include <linux/slab.h>
++
++#include "sprd_sipc.h"
++
++struct sipc_dfs {
++	struct sipc_channel *channel;
++	struct dentry *debugfs;
++	spinlock_t lock;
++	bool have_rsp;
++	u8 rsp_type;
++	u16 rsp_cmd;
++	u32 rsp_value;
++	struct completion rsp_done;
++};
++
++static void sipc_dfs_rx(struct sipc_channel *channel, u8 type, u16 cmd, u32 value)
++{
++	struct sipc_dfs *dfs = channel->priv;
++	unsigned long flags;
++
++	dev_info(channel->parent, "dfs rx: type=0x%02x flag=0x%04x value=0x%08x\n",
++		 type, cmd, value);
++
++	spin_lock_irqsave(&dfs->lock, flags);
++	dfs->have_rsp = true;
++	dfs->rsp_type = type;
++	dfs->rsp_cmd = cmd;
++	dfs->rsp_value = value;
++	spin_unlock_irqrestore(&dfs->lock, flags);
++	complete(&dfs->rsp_done);
++}
++
++static int sipc_dfs_open(struct sipc_channel *channel)
++{
++	dev_info(channel->parent, "dfs channel %d: remote opened\n", channel->id);
++	return 0;
++}
++
++static void sipc_dfs_close(struct sipc_channel *channel)
++{
++	dev_info(channel->parent, "dfs channel %d: closed\n", channel->id);
++}
++
++static void sipc_dfs_free(struct sipc_channel *channel)
++{
++	struct sipc_dfs *dfs = channel->priv;
++
++	debugfs_remove_recursive(dfs->debugfs);
++	kfree(dfs);
++}
++
++static ssize_t sipc_dfs_send_write(struct file *file, const char __user *buf,
++				   size_t count, loff_t *ppos)
++{
++	struct sipc_dfs *dfs = file->private_data;
++	char kbuf[32];
++	unsigned int cmd, value = 0;
++	int n, ret;
++
++	if (count >= sizeof(kbuf))
++		return -EINVAL;
++	if (copy_from_user(kbuf, buf, count))
++		return -EFAULT;
++	kbuf[count] = '\0';
++
++	n = sscanf(kbuf, "%x %x", &cmd, &value);
++	if (n < 1 || cmd > 0xffff)
++		return -EINVAL;
++
++	reinit_completion(&dfs->rsp_done);
++	ret = sipc_send(dfs->channel, SMSG_TYPE_DFS, cmd, value);
++	if (ret)
++		return ret;
++
++	if (!wait_for_completion_timeout(&dfs->rsp_done, msecs_to_jiffies(2000)))
++		dev_warn(dfs->channel->parent, "dfs cmd 0x%04x: no response\n", cmd);
++
++	return count;
++}
++
++static const struct file_operations sipc_dfs_send_fops = {
++	.owner = THIS_MODULE,
++	.open = simple_open,
++	.write = sipc_dfs_send_write,
++};
++
++static int sipc_dfs_status_show(struct seq_file *s, void *unused)
++{
++	struct sipc_dfs *dfs = s->private;
++	struct sipc_channel *channel = dfs->channel;
++	unsigned long flags;
++
++	seq_printf(s, "remote_open: %d\n",
++		   !!test_bit(SIPC_REMOTE_OPEN, &channel->state));
++	spin_lock_irqsave(&dfs->lock, flags);
++	if (dfs->have_rsp)
++		seq_printf(s, "last_rsp: type=0x%02x flag=0x%04x value=0x%08x\n",
++			   dfs->rsp_type, dfs->rsp_cmd, dfs->rsp_value);
++	else
++		seq_puts(s, "last_rsp: none\n");
++	spin_unlock_irqrestore(&dfs->lock, flags);
++	return 0;
++}
++DEFINE_SHOW_ATTRIBUTE(sipc_dfs_status);
++
++static struct sipc_channel_ops sipc_dfs_ops = {
++	.rx = sipc_dfs_rx,
++	.open = sipc_dfs_open,
++	.close = sipc_dfs_close,
++	.free = sipc_dfs_free,
++};
++
++int sipc_dfs_init(struct sipc_channel *channel)
++{
++	struct sipc_dfs *dfs;
++
++	dfs = kzalloc_obj(*dfs, GFP_KERNEL);
++	if (!dfs)
++		return -ENOMEM;
++
++	dfs->channel = channel;
++	spin_lock_init(&dfs->lock);
++	init_completion(&dfs->rsp_done);
++
++	dfs->debugfs = debugfs_create_dir("sprd-sipc-dfs", NULL);
++	debugfs_create_file("send", 0200, dfs->debugfs, dfs, &sipc_dfs_send_fops);
++	debugfs_create_file("status", 0444, dfs->debugfs, dfs, &sipc_dfs_status_fops);
++
++	channel->priv = dfs;
++	channel->ops = &sipc_dfs_ops;
++
++	return 0;
++}
+diff --git a/drivers/rpmsg/sprd_sipc_sblock.c b/drivers/rpmsg/sprd_sipc_sblock.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..672f48b7fc6fc3925dcd610c2f1d45dfc64844a2
+--- /dev/null
++++ b/drivers/rpmsg/sprd_sipc_sblock.c
+@@ -0,0 +1,584 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (C) 2026 Otto Pflüger
++ */
++
++#include <linux/delay.h>
++#include <linux/dma-mapping.h>
++#include <linux/of.h>
++
++#include "rpmsg_internal.h"
++#include "sprd_sipc.h"
++
++enum {
++	SBLOCK_CMD_INIT = 1,
++	SBLOCK_DONE_INIT = 2,
++};
++
++enum {
++	SBLOCK_EVENT_SEND = 1,
++	SBLOCK_EVENT_RELEASE = 2,
++};
++
++struct sblock_blk_header {
++	__le32 addr;
++	__le32 length;
++} __packed;
++
++struct sblock_blk_fifo {
++	__le32 addr;
++	__le32 count;
++	__le32 size;
++	__le32 blks;
++	__le32 rdptr;
++	__le32 wrptr;
++} __packed;
++
++struct sblock_pool_header {
++	struct sblock_blk_fifo tx;
++	struct sblock_blk_fifo rx;
++} __packed;
++
++struct sblock_smem_header {
++	struct sblock_pool_header ring;
++	struct sblock_pool_header pool;
++} __packed;
++
++struct sipc_sblock {
++	struct rpmsg_endpoint ept;
++	struct sipc_channel *channel;
++	struct sipc_sblock_device *sdev;
++	struct sipc_queued_message send_event;
++	struct sipc_queued_message release_event;
++	bool in_use;
++	spinlock_t ept_lock;
++	spinlock_t tx_lock;
++	wait_queue_head_t block_avail;
++	void *smem_virt;
++	dma_addr_t smem_addr;
++	u32 smem_size;
++	u32 tx_blk_count;
++	u32 tx_blk_size;
++	u32 rx_blk_count;
++	u32 rx_blk_size;
++	void *tx_pool_virt;
++	void *rx_pool_virt;
++	void *tx_ring_virt;
++	void *rx_ring_virt;
++};
++
++struct sipc_sblock_device {
++	struct rpmsg_device rpdev;
++	struct sipc_sblock *sblock;
++};
++
++static void sipc_sblock_destroy_ept(struct rpmsg_endpoint *ept)
++{
++	struct sipc_sblock *sblock = container_of(ept, struct sipc_sblock, ept);
++	unsigned long flags;
++
++	spin_lock_irqsave(&sblock->ept_lock, flags);
++	sblock->in_use = false;
++	spin_unlock_irqrestore(&sblock->ept_lock, flags);
++}
++
++static int __sipc_sblock_send(struct sipc_sblock *sblock, const void *data,
++			      int length, bool wait)
++{
++	struct sipc_channel *channel = sblock->channel;
++	struct sblock_smem_header *hdr = sblock->smem_virt;
++	struct sblock_blk_header *pool_blk, *blk;
++	u32 *ring_rdptr, *ring_wrptr, *pool_rdptr, *pool_wrptr;
++	u32 ring_i, pool_i, blk_addr;
++	unsigned long flags;
++	int ret = 0;
++
++	if (wait) {
++		ret = wait_for_completion_interruptible_timeout(&channel->remote_init,
++								15 * HZ);
++		if (ret < 0)
++			return ret;
++		if (!ret)
++			return -ETIMEDOUT;
++	} else if (!completion_done(&channel->remote_init)) {
++		return -EAGAIN;
++	}
++
++	/* channel is closing */
++	if (!test_bit(SIPC_REMOTE_OPEN, &channel->state))
++		return -EPIPE;
++
++	if (length > sblock->tx_blk_size)
++		return -EINVAL;
++
++	pool_wrptr = &hdr->pool.tx.wrptr;
++	pool_rdptr = &hdr->pool.tx.rdptr;
++	ring_wrptr = &hdr->ring.tx.wrptr;
++	ring_rdptr = &hdr->ring.tx.rdptr;
++
++	spin_lock_irqsave(&sblock->tx_lock, flags);
++	while ((pool_i = readl(pool_rdptr)) == readl(pool_wrptr)) {
++		spin_unlock_irqrestore(&sblock->tx_lock, flags);
++
++		if (!wait)
++			return -EAGAIN;
++
++		ret = wait_event_interruptible_timeout(sblock->block_avail,
++						       readl(pool_wrptr) != pool_i,
++						       15 * HZ);
++		if (ret < 0)
++			return ret;
++		if (!ret)
++			return -ETIMEDOUT;
++
++		spin_lock_irqsave(&sblock->tx_lock, flags);
++	}
++
++	pool_blk = sblock->tx_pool_virt +
++		   (pool_i % sblock->tx_blk_count) *
++		   sizeof(struct sblock_blk_header);
++	blk_addr = readl(&pool_blk->addr);
++
++	writel(pool_i + 1, pool_rdptr);
++
++	ring_i = readl(ring_wrptr);
++	if ((ring_i - readl(ring_rdptr)) >= sblock->tx_blk_count) {
++		dev_err(channel->parent, "channel %d: block available but ring is full\n",
++			channel->id);
++		ret = -EIO;
++		goto out;
++	}
++
++	blk = sblock->tx_ring_virt +
++	      (ring_i % sblock->tx_blk_count) *
++	      sizeof(struct sblock_blk_header);
++	blk->addr = blk_addr;
++	blk->length = length;
++
++	memcpy_toio(sblock->smem_virt + (blk->addr - sblock->smem_addr),
++		    data, length);
++
++	writel(ring_i + 1, ring_wrptr);
++
++	sipc_queue(channel->sipc, &sblock->send_event);
++
++	ret = 0;
++out:
++	spin_unlock_irqrestore(&sblock->tx_lock, flags);
++	return ret;
++}
++
++static int sipc_sblock_send(struct rpmsg_endpoint *ept, const void *data, int len)
++{
++	struct sipc_sblock *sblock = container_of(ept, struct sipc_sblock, ept);
++
++	return __sipc_sblock_send(sblock, data, len, true);
++}
++
++static int sipc_sblock_sendto(struct rpmsg_endpoint *ept, const void *data, int len, u32 dst)
++{
++	struct sipc_sblock *sblock = container_of(ept, struct sipc_sblock, ept);
++
++	return __sipc_sblock_send(sblock, data, len, true);
++}
++
++static int sipc_sblock_trysend(struct rpmsg_endpoint *ept, const void *data, int len)
++{
++	struct sipc_sblock *sblock = container_of(ept, struct sipc_sblock, ept);
++
++	return __sipc_sblock_send(sblock, data, len, false);
++}
++
++static int sipc_sblock_trysendto(struct rpmsg_endpoint *ept, const void *data, int len, u32 dst)
++{
++	struct sipc_sblock *sblock = container_of(ept, struct sipc_sblock, ept);
++
++	return __sipc_sblock_send(sblock, data, len, false);
++}
++
++static ssize_t sipc_sblock_get_mtu(struct rpmsg_endpoint *ept)
++{
++	struct sipc_sblock *sblock = container_of(ept, struct sipc_sblock, ept);
++
++	return sblock->tx_blk_size;
++}
++
++static __poll_t sipc_sblock_poll(struct rpmsg_endpoint *ept,
++				 struct file *filp, poll_table *wait)
++{
++	struct sipc_sblock *sblock = container_of(ept, struct sipc_sblock, ept);
++	struct sblock_smem_header *hdr = sblock->smem_virt;
++
++	poll_wait(filp, &sblock->block_avail, wait);
++
++	if (readl(&hdr->pool.tx.wrptr) != readl(&hdr->pool.tx.rdptr))
++		return EPOLLOUT | EPOLLWRNORM;
++
++	return 0;
++}
++
++static const struct rpmsg_endpoint_ops sipc_sblock_endpoint_ops = {
++	.destroy_ept = sipc_sblock_destroy_ept,
++	.send = sipc_sblock_send,
++	.sendto = sipc_sblock_sendto,
++	.trysend = sipc_sblock_trysend,
++	.trysendto = sipc_sblock_trysendto,
++	.poll = sipc_sblock_poll,
++	.get_mtu = sipc_sblock_get_mtu,
++};
++
++static void sipc_sblock_rx_msg(struct sipc_channel *channel, u8 type, u16 cmd, u32 value);
++static int sipc_sblock_open(struct sipc_channel *channel);
++static void sipc_sblock_close(struct sipc_channel *channel);
++static void sipc_sblock_free(struct sipc_channel *channel);
++
++static bool sipc_sblock_rx_block(struct sipc_sblock *sblock)
++{
++	struct sipc_channel *channel = sblock->channel;
++	struct sblock_smem_header *hdr = sblock->smem_virt;
++	struct sblock_blk_header *blk, *pool_blk;
++	u32 *ring_rdptr, *ring_wrptr, *pool_rdptr, *pool_wrptr;
++	u32 ring_i, pool_i, blk_addr, blk_length;
++	unsigned long flags;
++
++	pool_rdptr = &hdr->pool.rx.rdptr;
++	pool_wrptr = &hdr->pool.rx.wrptr;
++	ring_rdptr = &hdr->ring.rx.rdptr;
++	ring_wrptr = &hdr->ring.rx.wrptr;
++
++	ring_i = readl(ring_rdptr);
++	if (ring_i == readl(ring_wrptr))
++		return false;
++
++	blk = sblock->rx_ring_virt +
++	      (ring_i % sblock->rx_blk_count) *
++	      sizeof(struct sblock_blk_header);
++	blk_addr = readl(&blk->addr);
++	blk_length = readl(&blk->length);
++
++	spin_lock_irqsave(&sblock->ept_lock, flags);
++	if (sblock->in_use) {
++		sblock->ept.cb(sblock->ept.rpdev,
++			       sblock->smem_virt + (blk_addr - sblock->smem_addr),
++			       blk_length,
++			       sblock->ept.priv,
++			       channel->id);
++	} else {
++		spin_unlock_irqrestore(&sblock->ept_lock, flags);
++		dev_dbg(channel->parent, "not ready to receive data on channel %d\n",
++			channel->id);
++		return false;
++	}
++	spin_unlock_irqrestore(&sblock->ept_lock, flags);
++
++	writel(ring_i + 1, ring_rdptr);
++
++	dev_dbg(channel->parent, "channel %d: block %08x len %08x in rx ring fifo\n",
++		channel->id, blk_addr, blk_length);
++
++	/* return to pool */
++	pool_i = readl(pool_wrptr);
++	if ((pool_i - readl(pool_rdptr)) >= sblock->rx_blk_count) {
++		dev_err(channel->parent, "channel %d: pool full while releasing block\n",
++			channel->id);
++		return false;
++	}
++
++	pool_blk = sblock->rx_pool_virt +
++		   (pool_i % sblock->rx_blk_count) *
++		   sizeof(struct sblock_blk_header);
++	writel(blk_addr, &pool_blk->addr);
++	writel(sblock->rx_blk_size, &pool_blk->length);
++
++	writel(pool_i + 1, pool_wrptr);
++
++	sipc_queue(channel->sipc, &sblock->release_event);
++
++	return true;
++}
++
++static struct rpmsg_endpoint *
++sipc_sblock_setup_ept(struct sipc_channel *channel, struct rpmsg_device *rpdev,
++		      rpmsg_rx_cb_t cb, void *priv)
++{
++	struct rpmsg_driver *rpdrv = to_rpmsg_driver(rpdev->dev.driver);
++	struct sipc_sblock *sblock = channel->priv;
++	struct rpmsg_endpoint *ept;
++	unsigned long flags;
++
++	spin_lock_irqsave(&sblock->ept_lock, flags);
++
++	if (sblock->in_use) {
++		dev_err(&rpdev->dev, "channel %d is in use\n",
++			channel->id);
++		spin_unlock_irqrestore(&sblock->ept_lock, flags);
++		return NULL;
++	}
++
++	ept = &sblock->ept;
++	ept->rpdev = rpdev;
++	ept->cb = cb;
++	ept->priv = priv;
++	ept->ops = &sipc_sblock_endpoint_ops;
++	ept->addr = channel->id;
++	sblock->in_use = true;
++
++	spin_unlock_irqrestore(&sblock->ept_lock, flags);
++
++	if (!sblock->sdev || rpdev != &sblock->sdev->rpdev || !rpdrv->callback) {
++		while (sipc_sblock_rx_block(sblock))
++			;
++	}
++
++	return ept;
++}
++
++struct sipc_channel_ops sipc_sblock_ops = {
++	.rx = sipc_sblock_rx_msg,
++	.open = sipc_sblock_open,
++	.close = sipc_sblock_close,
++	.free = sipc_sblock_free,
++	.setup_ept = sipc_sblock_setup_ept,
++};
++
++static struct rpmsg_endpoint *
++sipc_sblock_create_ept(struct rpmsg_device *rpdev,
++		       rpmsg_rx_cb_t cb, void *priv,
++		       struct rpmsg_channel_info chinfo)
++{
++	struct sipc_sblock_device *sdev =
++		container_of(rpdev, struct sipc_sblock_device, rpdev);
++
++	return sipc_create_ept(sdev->sblock->channel->sipc, rpdev,
++			       cb, priv, &chinfo);
++}
++
++static int sipc_sblock_announce_create(struct rpmsg_device *rpdev)
++{
++	struct sipc_sblock_device *sdev =
++		container_of(rpdev, struct sipc_sblock_device, rpdev);
++	struct sipc_sblock *sblock = sdev->sblock;
++
++	/* Receive buffered data */
++	while (sipc_sblock_rx_block(sblock))
++		;
++
++	return 0;
++}
++
++static const struct rpmsg_device_ops sipc_sblock_rpdev_ops = {
++	.create_ept = sipc_sblock_create_ept,
++	.announce_create = sipc_sblock_announce_create,
++};
++
++static void sipc_sblock_device_release(struct device *dev)
++{
++	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
++	struct sipc_sblock_device *sdev =
++		container_of(rpdev, struct sipc_sblock_device, rpdev);
++
++	kfree(sdev);
++}
++
++static void sipc_sblock_rx_msg(struct sipc_channel *channel, u8 type, u16 cmd, u32 value)
++{
++	struct sipc_sblock *sblock = channel->priv;
++
++	if (type == SMSG_TYPE_CMD) {
++		if (cmd != SBLOCK_CMD_INIT) {
++			dev_warn(channel->parent, "channel %d: unexpected command %04x\n",
++				 channel->id, cmd);
++			return;
++		}
++		sipc_send(channel, SMSG_TYPE_DONE, SBLOCK_DONE_INIT,
++			  sblock->smem_addr);
++		complete_all(&channel->remote_init);
++		dev_dbg(channel->parent, "sblock channel %d initialized\n",
++			channel->id);
++		return;
++	}
++
++	if (type != SMSG_TYPE_EVENT) {
++		dev_warn(channel->parent, "channel %d: unexpected message type %02x\n",
++			 channel->id, type);
++		return;
++	}
++
++	switch (cmd) {
++	case SBLOCK_EVENT_SEND:
++		/* Continue receiving until read/write pointers meet */
++		while (sipc_sblock_rx_block(sblock))
++			;
++		break;
++	case SBLOCK_EVENT_RELEASE:
++		wake_up_interruptible_all(&sblock->block_avail);
++		break;
++	default:
++		dev_warn(channel->parent, "channel %d: unexpected event %04x\n",
++			 channel->id, cmd);
++		break;
++	}
++}
++
++static int sipc_sblock_open(struct sipc_channel *channel)
++{
++	struct sipc_sblock *sblock = channel->priv;
++	struct sipc_sblock_device *sdev;
++	struct rpmsg_device *rpdev;
++
++	sdev = kzalloc_obj(*sdev, GFP_KERNEL);
++	if (!sdev)
++		return -ENOMEM;
++
++	sdev->sblock = sblock;
++
++	rpdev = &sdev->rpdev;
++	strscpy_pad(rpdev->id.name, channel->name, RPMSG_NAME_SIZE);
++	rpdev->src = channel->id;
++	rpdev->dst = channel->id;
++	rpdev->ops = &sipc_sblock_rpdev_ops;
++	rpdev->dev.parent = channel->parent;
++	rpdev->dev.release = sipc_sblock_device_release;
++	rpdev->dev.of_node = channel->node;
++
++	sblock->sdev = sdev;
++
++	return rpmsg_register_device(&sdev->rpdev);
++}
++
++static void sipc_sblock_close(struct sipc_channel *channel)
++{
++	struct sipc_sblock *sblock = channel->priv;
++
++	device_unregister(&sblock->sdev->rpdev.dev);
++	sblock->sdev = NULL;
++}
++
++static void sipc_sblock_free(struct sipc_channel *channel)
++{
++	struct sipc_sblock *sblock = channel->priv;
++
++	sipc_cancel(channel->sipc, &sblock->send_event);
++	sipc_cancel(channel->sipc, &sblock->release_event);
++
++	dma_free_coherent(channel->parent, sblock->smem_size,
++			  sblock->smem_virt, sblock->smem_addr);
++	kfree(sblock);
++}
++
++int sipc_sblock_init(struct sipc_channel *channel)
++{
++	u32 tx_blk_count, tx_blk_size, rx_blk_count, rx_blk_size;
++	struct sblock_smem_header *hdr;
++	struct sblock_blk_header *blk;
++	struct sipc_sblock *sblock;
++	u32 blk_addr;
++	int i, ret;
++
++	ret = of_property_read_u32(channel->node, "sprd,tx-blk-count", &tx_blk_count);
++	ret |= of_property_read_u32(channel->node, "sprd,tx-blk-size", &tx_blk_size);
++	ret |= of_property_read_u32(channel->node, "sprd,rx-blk-count", &rx_blk_count);
++	ret |= of_property_read_u32(channel->node, "sprd,rx-blk-size", &rx_blk_size);
++	if (ret) {
++		dev_err(channel->parent, "invalid or missing sblock properties on channel %d\n",
++			channel->id);
++		return -EINVAL;
++	}
++
++	sblock = kzalloc_obj(*sblock, GFP_KERNEL);
++	if (!sblock)
++		return -ENOMEM;
++
++	spin_lock_init(&sblock->ept_lock);
++	spin_lock_init(&sblock->tx_lock);
++	init_waitqueue_head(&sblock->block_avail);
++	sipc_init_message(&sblock->send_event, channel, SMSG_TYPE_EVENT,
++			  SBLOCK_EVENT_SEND, 0);
++	sipc_init_message(&sblock->release_event, channel, SMSG_TYPE_EVENT,
++			  SBLOCK_EVENT_RELEASE, 0);
++
++	sblock->smem_size = sizeof(struct sblock_smem_header) +
++		(tx_blk_count + rx_blk_count) * sizeof(struct sblock_blk_header) +
++		tx_blk_size * tx_blk_count + rx_blk_size * rx_blk_count;
++
++	sblock->smem_virt = dma_alloc_coherent(channel->parent,
++					       sblock->smem_size,
++					       &sblock->smem_addr,
++					       GFP_KERNEL);
++	if (!sblock->smem_virt) {
++		kfree(sblock);
++		return -ENOMEM;
++	}
++
++	hdr = sblock->smem_virt;
++	blk = sblock->smem_virt + sizeof(struct sblock_smem_header);
++	blk_addr = sblock->smem_addr + sizeof(struct sblock_smem_header) +
++		2 * (tx_blk_count + rx_blk_count) * sizeof(struct sblock_blk_header);
++
++	sblock->tx_blk_count = tx_blk_count;
++	sblock->tx_blk_size = tx_blk_size;
++	sblock->rx_blk_count = rx_blk_count;
++	sblock->rx_blk_size = rx_blk_size;
++
++	sblock->tx_pool_virt = sblock->smem_virt +
++			       sizeof(struct sblock_smem_header);
++
++	writel(blk_addr, &hdr->pool.tx.addr);
++	writel(tx_blk_count, &hdr->pool.tx.count);
++	writel(tx_blk_size, &hdr->pool.tx.size);
++	writel(sblock->tx_pool_virt - sblock->smem_virt + sblock->smem_addr,
++	       &hdr->pool.tx.blks);
++	writel(0, &hdr->pool.tx.rdptr);
++	writel(tx_blk_count, &hdr->pool.tx.wrptr);
++
++	for (i = 0; i < tx_blk_count; i++, blk++) {
++		writel(blk_addr, &blk->addr);
++		writel(tx_blk_size, &blk->length);
++		blk_addr += tx_blk_size;
++	}
++
++	sblock->rx_pool_virt = sblock->tx_pool_virt +
++			       tx_blk_count * sizeof(struct sblock_blk_header);
++
++	writel(blk_addr, &hdr->pool.rx.addr);
++	writel(rx_blk_count, &hdr->pool.rx.count);
++	writel(rx_blk_size, &hdr->pool.rx.size);
++	writel(sblock->rx_pool_virt - sblock->smem_virt + sblock->smem_addr,
++	       &hdr->pool.rx.blks);
++	writel(0, &hdr->pool.rx.rdptr);
++	writel(rx_blk_count, &hdr->pool.rx.wrptr);
++
++	for (i = 0; i < rx_blk_count; i++, blk++) {
++		writel(blk_addr, &blk->addr);
++		writel(rx_blk_size, &blk->length);
++		blk_addr += rx_blk_size;
++	}
++
++	sblock->tx_ring_virt = sblock->rx_pool_virt +
++			       rx_blk_count * sizeof(struct sblock_blk_header);
++
++	writel(blk_addr, &hdr->ring.tx.addr);
++	writel(tx_blk_count, &hdr->ring.tx.count);
++	writel(tx_blk_size, &hdr->ring.tx.size);
++	writel(sblock->tx_ring_virt - sblock->smem_virt + sblock->smem_addr,
++	       &hdr->ring.tx.blks);
++	writel(0, &hdr->ring.tx.rdptr);
++	writel(0, &hdr->ring.tx.wrptr);
++
++	sblock->rx_ring_virt = sblock->tx_ring_virt +
++			       tx_blk_count * sizeof(struct sblock_blk_header);
++
++	writel(blk_addr, &hdr->ring.rx.addr);
++	writel(rx_blk_count, &hdr->ring.rx.count);
++	writel(rx_blk_size, &hdr->ring.rx.size);
++	writel(sblock->rx_ring_virt - sblock->smem_virt + sblock->smem_addr,
++	       &hdr->ring.rx.blks);
++	writel(0, &hdr->ring.rx.rdptr);
++	writel(0, &hdr->ring.rx.wrptr);
++
++	sblock->channel = channel;
++	channel->priv = sblock;
++	channel->ops = &sipc_sblock_ops;
++
++	return 0;
++}
+diff --git a/drivers/rpmsg/sprd_sipc_sbuf.c b/drivers/rpmsg/sprd_sipc_sbuf.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..6a654c4bee1eac32e0811252da8b50567960a0ae
+--- /dev/null
++++ b/drivers/rpmsg/sprd_sipc_sbuf.c
+@@ -0,0 +1,750 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (C) 2026 Otto Pflüger
++ */
++
++#include <linux/delay.h>
++#include <linux/dma-mapping.h>
++#include <linux/of.h>
++
++#include "rpmsg_internal.h"
++#include "sprd_sipc.h"
++
++enum {
++	SBUF_CMD_INIT = 1,
++	SBUF_DONE_INIT = 2,
++};
++
++enum {
++	SBUF_EVENT_WRPTR = 1,
++	SBUF_EVENT_RDPTR = 2,
++};
++
++struct sbuf_buffer_info {
++	__le32 addr;
++	__le32 size;
++	__le32 rdptr;
++	__le32 wrptr;
++} __packed;
++
++struct sbuf_ring_header {
++	struct sbuf_buffer_info tx;
++	struct sbuf_buffer_info rx;
++} __packed;
++
++struct sbuf_smem_header {
++	__le32 num_rings;
++	struct sbuf_ring_header rings[];
++} __packed;
++
++struct sipc_sbuf_device {
++	struct rpmsg_device rpdev;
++	struct rpmsg_endpoint ept;
++	struct sipc_sbuf *sbuf;
++	bool in_use;
++	spinlock_t ept_lock;
++	spinlock_t tx_lock;
++	wait_queue_head_t tx_wait;
++};
++
++struct sipc_sbuf_buffer {
++	struct sipc_queued_message rd_event;
++	struct sipc_queued_message wr_event;
++	struct sipc_sbuf_device __rcu *sdev;
++};
++
++struct sipc_sbuf {
++	struct device dev;
++	struct sipc_channel *channel;
++
++	spinlock_t buffer_sdev_lock;
++	struct sipc_sbuf_buffer *buffers;
++	u32 num_buffers;
++
++	struct rpmsg_device *ctrldev;
++
++	void *rx_bounce;
++	void *smem_virt;
++	dma_addr_t smem_addr;
++	u32 smem_size;
++	u32 tx_buf_size;
++	u32 rx_buf_size;
++};
++
++#define rpdev_to_sbuf_device(d) container_of(d, struct sipc_sbuf_device, rpdev)
++#define ept_to_sbuf_device(e) container_of(e, struct sipc_sbuf_device, ept)
++
++static void sipc_sbuf_destroy_ept(struct rpmsg_endpoint *ept)
++{
++	struct sipc_sbuf_device *sdev = ept_to_sbuf_device(ept);
++	unsigned long flags;
++
++	spin_lock_irqsave(&sdev->ept_lock, flags);
++	sdev->in_use = false;
++	spin_unlock_irqrestore(&sdev->ept_lock, flags);
++}
++
++static int __sipc_sbuf_send(struct sipc_sbuf_device *sdev, const void *data,
++			    int total, bool wait)
++{
++	struct sipc_sbuf *sbuf = sdev->sbuf;
++	struct sipc_channel *channel = sbuf->channel;
++	struct sbuf_smem_header *hdr = sbuf->smem_virt;
++	struct sbuf_ring_header *ring = &hdr->rings[sdev->rpdev.dst];
++	ktime_t timeout = ktime_add_us(ktime_get(), 15000000);
++	u32 pos, offset, taillen;
++	unsigned long flags;
++	void *fifo;
++
++	if (wait) {
++		int ret = wait_for_completion_interruptible_timeout(&channel->remote_init,
++								    15 * HZ);
++		if (ret < 0)
++			return ret;
++		if (!ret)
++			return -ETIMEDOUT;
++	} else if (!completion_done(&channel->remote_init)) {
++		return -EAGAIN;
++	}
++
++	if (!test_bit(SIPC_REMOTE_OPEN, &channel->state))
++		return -EPIPE;
++
++	if (total > sbuf->tx_buf_size)
++		return -EINVAL;
++
++	spin_lock_irqsave(&sdev->tx_lock, flags);
++	pos = readl(&ring->tx.wrptr);
++	while (pos + total > readl(&ring->tx.rdptr) + sbuf->tx_buf_size) {
++		spin_unlock_irqrestore(&sdev->tx_lock, flags);
++
++		if (!wait)
++			return -EAGAIN;
++		/*
++		 * The remote processor only sends RDPTR events when the FIFO
++		 * is completely full, so busy-polling is needed here since
++		 * the rpmsg API does not allow partial writes.
++		 */
++		if (ktime_compare(ktime_get(), timeout) > 0)
++			return -ETIMEDOUT;
++
++		usleep_range(10000, 100000);
++
++		spin_lock_irqsave(&sdev->tx_lock, flags);
++	}
++
++	fifo = sbuf->smem_virt + readl(&ring->tx.addr) - sbuf->smem_addr;
++	offset = pos % sbuf->tx_buf_size;
++	taillen = min_t(u32, total, sbuf->tx_buf_size - offset);
++
++	memcpy_toio(fifo + offset, data, taillen);
++	memcpy_toio(fifo, data + taillen, total - taillen);
++
++	pos += total;
++	writel(pos, &ring->tx.wrptr);
++
++	sipc_queue(channel->sipc, &sbuf->buffers[sdev->rpdev.dst].wr_event);
++
++	spin_unlock_irqrestore(&sdev->tx_lock, flags);
++
++	return 0;
++}
++
++static int sipc_sbuf_send(struct rpmsg_endpoint *ept, const void *data, int len)
++{
++	struct sipc_sbuf_device *sdev = ept_to_sbuf_device(ept);
++
++	return __sipc_sbuf_send(sdev, data, len, true);
++}
++
++static int sipc_sbuf_sendto(struct rpmsg_endpoint *ept, const void *data,
++			    int len, u32 dst)
++{
++	struct sipc_sbuf_device *sdev = ept_to_sbuf_device(ept);
++
++	return __sipc_sbuf_send(sdev, data, len, true);
++}
++
++static int sipc_sbuf_trysend(struct rpmsg_endpoint *ept, const void *data, int len)
++{
++	struct sipc_sbuf_device *sdev = ept_to_sbuf_device(ept);
++
++	return __sipc_sbuf_send(sdev, data, len, false);
++}
++
++static int sipc_sbuf_trysendto(struct rpmsg_endpoint *ept, const void *data,
++			       int len, u32 dst)
++{
++	struct sipc_sbuf_device *sdev = ept_to_sbuf_device(ept);
++
++	return __sipc_sbuf_send(sdev, data, len, false);
++}
++
++static __poll_t sipc_sbuf_poll(struct rpmsg_endpoint *ept,
++			       struct file *filp, poll_table *wait)
++{
++	struct sipc_sbuf_device *sdev = ept_to_sbuf_device(ept);
++	struct sbuf_smem_header *hdr = sdev->sbuf->smem_virt;
++	struct sbuf_ring_header *ring = &hdr->rings[sdev->rpdev.dst];
++
++	poll_wait(filp, &sdev->tx_wait, wait);
++
++	/*
++	 * The remote side does not send any RDPTR events when the FIFO is
++	 * not full, so we can only check whether the FIFO is full here.
++	 * If not enough space is available, trysend() will return -EAGAIN.
++	 * Unfortunately, this may cause busy loops if the FIFO is only
++	 * partially full.
++	 */
++	if ((readl(&ring->tx.wrptr) - readl(&ring->tx.rdptr)) < sdev->sbuf->tx_buf_size)
++		return EPOLLOUT | EPOLLWRNORM;
++
++	return 0;
++}
++
++static ssize_t sipc_sbuf_get_mtu(struct rpmsg_endpoint *ept)
++{
++	struct sipc_sbuf_device *sdev = ept_to_sbuf_device(ept);
++	struct sipc_sbuf *sbuf = sdev->sbuf;
++
++	return sbuf->tx_buf_size;
++}
++
++static const struct rpmsg_endpoint_ops sipc_sbuf_endpoint_ops = {
++	.destroy_ept = sipc_sbuf_destroy_ept,
++	.send = sipc_sbuf_send,
++	.sendto = sipc_sbuf_sendto,
++	.trysend = sipc_sbuf_trysend,
++	.trysendto = sipc_sbuf_trysendto,
++	.poll = sipc_sbuf_poll,
++	.get_mtu = sipc_sbuf_get_mtu,
++};
++
++static bool sipc_sbuf_try_rx(struct sipc_sbuf *sbuf, struct sipc_sbuf_device *sdev, int id)
++{
++	struct sipc_channel *channel = sbuf->channel;
++	struct sbuf_smem_header *hdr = sbuf->smem_virt;
++	struct sbuf_ring_header *ring = &hdr->rings[id];
++	u32 pos, offset, taillen, total;
++	unsigned long flags;
++	void *fifo;
++
++	pos = readl(&ring->rx.rdptr);
++	total = readl(&ring->rx.wrptr) - pos;
++	if (total == 0)
++		return false;
++
++	dev_dbg(&sbuf->dev, "rx %08x len %08x in fifo %d\n", pos, total, id);
++
++	if (total > sbuf->rx_buf_size) {
++		dev_err(&sbuf->dev, "FIFO %d overrun\n", id);
++		writel(readl(&ring->rx.wrptr), &ring->rx.rdptr);
++		sipc_queue(channel->sipc, &sbuf->buffers[id].rd_event);
++		return false;
++	}
++
++	fifo = sbuf->smem_virt + (readl(&ring->rx.addr) - sbuf->smem_addr);
++	offset = pos % sbuf->rx_buf_size;
++	taillen = min(total, sbuf->rx_buf_size - offset);
++
++	if (!sdev) {
++		rcu_read_lock();
++		sdev = rcu_dereference(sbuf->buffers[id].sdev);
++		rcu_read_unlock();
++	}
++
++	if (sdev) {
++		spin_lock_irqsave(&sdev->ept_lock, flags);
++		if (sdev->in_use) {
++			memcpy_fromio(sbuf->rx_bounce, fifo + offset, taillen);
++			memcpy_fromio(sbuf->rx_bounce + taillen, fifo,
++				      total - taillen);
++			sdev->ept.cb(&sdev->rpdev, sbuf->rx_bounce, total,
++				     sdev->ept.priv, id);
++		} else {
++			spin_unlock_irqrestore(&sdev->ept_lock, flags);
++			dev_dbg(&sbuf->dev, "not ready to receive data from %d\n", id);
++			return false;
++		}
++		spin_unlock_irqrestore(&sdev->ept_lock, flags);
++	} else {
++		dev_dbg(&sbuf->dev, "channel %d not regsistered yet\n", id);
++		return false;
++	}
++
++	writel(pos + total, &ring->rx.rdptr);
++	/*
++	 * If the remote side has written more data to the FIFO and does not
++	 * see the rdptr update, it will not send another wrptr event. Ensure
++	 * that the receiving loop may only exit when all writes to rdptr are
++	 * seen by the remote side.
++	 */
++	mb();
++
++	/* If the FIFO was full, tell the remote side to continue writing */
++	if (readl(&ring->rx.wrptr) - pos >= sbuf->rx_buf_size)
++		sipc_queue(channel->sipc, &sbuf->buffers[id].rd_event);
++
++	return true;
++}
++
++static struct rpmsg_endpoint *
++__sipc_sbuf_create_ept(struct sipc_sbuf *sbuf, struct rpmsg_device *rpdev,
++		       rpmsg_rx_cb_t cb, void *priv,
++		       struct rpmsg_channel_info *chinfo)
++{
++	struct rpmsg_driver *rpdrv = to_rpmsg_driver(rpdev->dev.driver);
++	struct sipc_sbuf_device *sdev = NULL, *sd;
++	struct rpmsg_endpoint *ept;
++	unsigned long flags;
++	int id;
++
++	rcu_read_lock();
++	for (id = 0; id < sbuf->num_buffers; id++) {
++		sd = rcu_dereference(sbuf->buffers[id].sdev);
++		if (!sd)
++			continue;
++
++		if (chinfo->dst == sd->rpdev.dst || chinfo->src == sd->rpdev.src ||
++		    !strncmp(chinfo->name, sd->rpdev.id.name, RPMSG_NAME_SIZE)) {
++			sdev = sd;
++			break;
++		}
++	}
++	rcu_read_unlock();
++
++	if (!sdev) {
++		dev_err(&sbuf->dev, "channel %d/%d/%s not found\n",
++			chinfo->dst, chinfo->src, chinfo->name);
++		return NULL;
++	}
++
++	/* We only allow predefined source/destination combinations. */
++	if (chinfo->src == RPMSG_ADDR_ANY)
++		chinfo->src = sdev->rpdev.src;
++	else if (chinfo->src != sdev->rpdev.src)
++		return NULL;
++
++	if (chinfo->dst == RPMSG_ADDR_ANY)
++		chinfo->dst = sdev->rpdev.dst;
++	else if (chinfo->dst != sdev->rpdev.dst)
++		return NULL;
++
++	spin_lock_irqsave(&sdev->ept_lock, flags);
++
++	if (sdev->in_use) {
++		dev_err(&sbuf->dev, "channel %d is in use\n", chinfo->src);
++		spin_unlock_irqrestore(&sdev->ept_lock, flags);
++		return NULL;
++	}
++
++	ept = &sdev->ept;
++	ept->rpdev = rpdev;
++	ept->cb = cb;
++	ept->priv = priv;
++	ept->ops = &sipc_sbuf_endpoint_ops;
++	ept->addr = chinfo->src;
++	sdev->in_use = true;
++
++	spin_unlock_irqrestore(&sdev->ept_lock, flags);
++
++	/*
++	 * Detect if announce_create() will be called for this device, which
++	 * is the case if this is the default endpoint of the device and the
++	 * driver provides a default callback. If not, receive all buffered
++	 * data on the endpoint as soon as it is created.
++	 */
++	if (rpdev != &sdev->rpdev || !rpdrv->callback) {
++		while (sipc_sbuf_try_rx(sdev->sbuf, sdev, chinfo->src))
++			;
++	}
++
++	return ept;
++}
++
++static struct rpmsg_endpoint *
++sipc_sbuf_create_ept(struct rpmsg_device *rpdev,
++		     rpmsg_rx_cb_t cb, void *priv,
++		     struct rpmsg_channel_info chinfo)
++{
++	struct sipc_sbuf_device *sdev = rpdev_to_sbuf_device(rpdev);
++
++	return __sipc_sbuf_create_ept(sdev->sbuf, rpdev, cb, priv, &chinfo);
++}
++
++static int sipc_sbuf_announce_create(struct rpmsg_device *rpdev)
++{
++	struct sipc_sbuf_device *sdev = rpdev_to_sbuf_device(rpdev);
++
++	/* Receive buffered data */
++	while (sipc_sbuf_try_rx(sdev->sbuf, sdev, rpdev->src))
++		;
++
++	return 0;
++}
++
++static const struct rpmsg_device_ops sipc_sbuf_rpdev_ops = {
++	.create_ept = sipc_sbuf_create_ept,
++	.announce_create = sipc_sbuf_announce_create,
++};
++
++static struct rpmsg_endpoint *
++sipc_sbuf_ctrl_create_ept(struct rpmsg_device *rpdev,
++			  rpmsg_rx_cb_t cb, void *priv,
++			  struct rpmsg_channel_info chinfo)
++{
++	struct sipc_sbuf *sbuf =
++		container_of(rpdev->dev.parent, struct sipc_sbuf, dev);
++
++	return __sipc_sbuf_create_ept(sbuf, rpdev, cb, priv, &chinfo);
++}
++
++static const struct rpmsg_device_ops sipc_sbuf_ctrldev_ops = {
++	.create_ept = sipc_sbuf_ctrl_create_ept,
++};
++
++static void sipc_sbuf_rpdev_release(struct device *dev)
++{
++	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
++	struct sipc_sbuf_device *sdev = rpdev_to_sbuf_device(rpdev);
++
++	kfree(rpdev->driver_override);
++	kfree(sdev);
++}
++
++static void sipc_sbuf_tx_avail_notify(struct sipc_sbuf *sbuf, int id)
++{
++	struct sipc_sbuf_device *sdev;
++
++	spin_lock(&sbuf->buffer_sdev_lock);
++	sdev = sbuf->buffers[id].sdev;
++	if (sdev)
++		wake_up_interruptible_all(&sdev->tx_wait);
++	spin_unlock(&sbuf->buffer_sdev_lock);
++}
++
++static void sipc_sbuf_rx_msg(struct sipc_channel *channel, u8 type, u16 cmd, u32 value)
++{
++	struct sipc_sbuf *sbuf = channel->priv;
++
++	if (type == SMSG_TYPE_CMD) {
++		if (cmd != SBUF_CMD_INIT) {
++			dev_warn(&sbuf->dev, "unexpected command %04x\n", cmd);
++			return;
++		}
++		sipc_send(channel, SMSG_TYPE_DONE, SBUF_DONE_INIT, sbuf->smem_addr);
++		complete_all(&channel->remote_init);
++		dev_dbg(&sbuf->dev, "initialized\n");
++		return;
++	}
++
++	if (type != SMSG_TYPE_EVENT) {
++		dev_warn(&sbuf->dev, "unexpected message type %02x\n", type);
++		return;
++	}
++
++	if (value > sbuf->num_buffers) {
++		dev_warn(&sbuf->dev, "unexpected buffer ID %d\n", value);
++		return;
++	}
++
++	switch (cmd) {
++	case SBUF_EVENT_WRPTR:
++		/* Continue receiving until read/write pointers meet */
++		while (sipc_sbuf_try_rx(sbuf, NULL, value))
++			;
++		break;
++	case SBUF_EVENT_RDPTR:
++		sipc_sbuf_tx_avail_notify(sbuf, value);
++		break;
++	default:
++		dev_warn(&sbuf->dev, "unexpected event %04x\n", cmd);
++		break;
++	}
++}
++
++static void sipc_sbuf_release_ctrldev(struct device *dev)
++{
++	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
++
++	kfree(rpdev);
++}
++
++static int sipc_sbuf_create_ctrldev(struct sipc_sbuf *sbuf)
++{
++	struct rpmsg_device *rpdev;
++	int ret;
++
++	rpdev = kzalloc_obj(*rpdev, GFP_KERNEL);
++	if (!rpdev)
++		return -ENOMEM;
++
++	rpdev->ops = &sipc_sbuf_ctrldev_ops;
++	rpdev->dev.parent = &sbuf->dev;
++	rpdev->dev.release = sipc_sbuf_release_ctrldev;
++
++	ret = rpmsg_ctrldev_register_device(rpdev);
++	if (ret)
++		return ret;
++
++	sbuf->ctrldev = rpdev;
++
++	return 0;
++}
++
++static void sipc_sbuf_unregister_devs(struct sipc_sbuf *sbuf)
++{
++	struct sipc_sbuf_device *sdev;
++	unsigned long flags;
++	int id;
++
++	for (id = 0; id < sbuf->num_buffers; id++) {
++		spin_lock_irqsave(&sbuf->buffer_sdev_lock, flags);
++		sdev = rcu_replace_pointer(sbuf->buffers[id].sdev, NULL,
++					   lockdep_is_held(&sbuf->buffer_sdev_lock));
++		spin_unlock_irqrestore(&sbuf->buffer_sdev_lock, flags);
++
++		if (sdev) {
++			synchronize_rcu();
++			device_unregister(&sdev->rpdev.dev);
++		}
++	}
++}
++
++static int sipc_sbuf_open(struct sipc_channel *channel)
++{
++	struct sipc_sbuf *sbuf = channel->priv;
++	struct sipc_sbuf_device *sdev;
++	struct rpmsg_device *rpdev;
++	struct device_node *child;
++	unsigned long flags;
++	u32 rx_id, tx_id;
++	const char *name;
++	int ret;
++
++	for_each_available_child_of_node(channel->node, child) {
++		ret = of_property_read_u32_index(child, "reg", 0, &rx_id);
++		if (ret) {
++			dev_warn(&sbuf->dev, "%pOF: cannot read reg property\n", child);
++			continue;
++		}
++
++		ret = of_property_read_u32_index(child, "reg", 1, &tx_id);
++		if (ret)
++			tx_id = rx_id;
++
++		if (rx_id >= sbuf->num_buffers || tx_id >= sbuf->num_buffers) {
++			dev_warn(&sbuf->dev, "%pOF: buffer ID out of range\n", child);
++			continue;
++		}
++
++		ret = of_property_read_string(child, "sprd,channel-name", &name);
++		if (ret) {
++			dev_warn(&sbuf->dev, "%pOF: cannot read channel name\n", child);
++			continue;
++		}
++
++		sdev = kzalloc_obj(*sdev, GFP_KERNEL);
++		if (!sdev) {
++			ret = -ENOMEM;
++			goto unregister;
++		}
++
++		spin_lock_init(&sdev->ept_lock);
++		spin_lock_init(&sdev->tx_lock);
++		init_waitqueue_head(&sdev->tx_wait);
++		sdev->sbuf = sbuf;
++
++		rpdev = &sdev->rpdev;
++		strscpy_pad(rpdev->id.name, name, RPMSG_NAME_SIZE);
++		rpdev->src = rx_id;
++		rpdev->dst = tx_id;
++		rpdev->ops = &sipc_sbuf_rpdev_ops;
++
++		rpdev->dev.of_node = child;
++		rpdev->dev.parent = &sbuf->dev;
++		rpdev->dev.release = sipc_sbuf_rpdev_release;
++
++		ret = rpmsg_register_device(rpdev);
++		if (ret) {
++			dev_err(&sbuf->dev, "failed to register %d/%d\n", rx_id, tx_id);
++			/* rpmsg_register_device calls put_device on error */
++			continue;
++		}
++
++		spin_lock_irqsave(&sbuf->buffer_sdev_lock, flags);
++		if (rcu_access_pointer(sbuf->buffers[rx_id].sdev))
++			ret = -EEXIST;
++		else
++			rcu_assign_pointer(sbuf->buffers[rx_id].sdev, sdev);
++		spin_unlock_irqrestore(&sbuf->buffer_sdev_lock, flags);
++
++		if (ret < 0) {
++			device_unregister(&rpdev->dev);
++			goto unregister;
++		}
++	}
++
++	ret = sipc_sbuf_create_ctrldev(sbuf);
++	if (ret)
++		dev_err(&sbuf->dev, "failed to register ctrldev: %d\n", ret);
++
++	return 0;
++
++unregister:
++	sipc_sbuf_unregister_devs(sbuf);
++	return ret;
++}
++
++static void sipc_sbuf_close(struct sipc_channel *channel)
++{
++	struct sipc_sbuf *sbuf = channel->priv;
++
++	if (sbuf->ctrldev) {
++		device_unregister(&sbuf->ctrldev->dev);
++		sbuf->ctrldev = NULL;
++	}
++
++	sipc_sbuf_unregister_devs(sbuf);
++}
++
++static void sipc_sbuf_free(struct sipc_channel *channel)
++{
++	struct sipc_sbuf *sbuf = channel->priv;
++	int id;
++
++	for (id = 0; id < sbuf->num_buffers; id++) {
++		sipc_cancel(channel->sipc, &sbuf->buffers[id].rd_event);
++		sipc_cancel(channel->sipc, &sbuf->buffers[id].wr_event);
++	}
++
++	device_unregister(&sbuf->dev);
++}
++
++static void sipc_sbuf_release(struct device *dev)
++{
++	struct sipc_sbuf *sbuf = container_of(dev, struct sipc_sbuf, dev);
++
++	dma_free_coherent(sbuf->dev.parent, sbuf->smem_size, sbuf->smem_virt, sbuf->smem_addr);
++	kfree(sbuf->rx_bounce);
++	kfree(sbuf->buffers);
++	kfree(sbuf);
++}
++
++struct sipc_channel_ops sipc_sbuf_ops = {
++	.rx = sipc_sbuf_rx_msg,
++	.open = sipc_sbuf_open,
++	.close = sipc_sbuf_close,
++	.free = sipc_sbuf_free,
++};
++
++static ssize_t sbuf_channel_name_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	struct sipc_sbuf *sbuf = container_of(dev, struct sipc_sbuf, dev);
++
++	return sysfs_emit(buf, "%s\n", sbuf->channel->name);
++}
++static DEVICE_ATTR_RO(sbuf_channel_name);
++
++static struct attribute *sipc_sbuf_attrs[] = {
++	&dev_attr_sbuf_channel_name.attr,
++	NULL
++};
++ATTRIBUTE_GROUPS(sipc_sbuf);
++
++int sipc_sbuf_init(struct sipc_channel *channel)
++{
++	u32 buf_addr, tx_buf_size, rx_buf_size;
++	struct sbuf_ring_header *ring;
++	struct sbuf_smem_header *hdr;
++	struct sipc_sbuf *sbuf;
++	int i, ret;
++
++	sbuf = kzalloc_obj(*sbuf, GFP_KERNEL);
++	if (!sbuf)
++		return -ENOMEM;
++
++	device_initialize(&sbuf->dev);
++	sbuf->dev.parent = channel->parent;
++	sbuf->dev.release = sipc_sbuf_release;
++	sbuf->dev.of_node = channel->node;
++	sbuf->dev.groups = sipc_sbuf_groups;
++	dev_set_name(&sbuf->dev, "%s.%d.sbuf", dev_name(sbuf->dev.parent), channel->id);
++	sbuf->channel = channel;
++	channel->priv = sbuf;
++
++	spin_lock_init(&sbuf->buffer_sdev_lock);
++
++	ret = of_property_read_u32(channel->node, "sprd,tx-buf-size", &tx_buf_size);
++	ret |= of_property_read_u32(channel->node, "sprd,rx-buf-size", &rx_buf_size);
++	if (ret) {
++		dev_err(&sbuf->dev, "invalid or missing sbuf properties\n");
++		put_device(&sbuf->dev);
++		return -EINVAL;
++	}
++
++	ret = of_property_read_u32(channel->node, "sprd,num-buffers", &sbuf->num_buffers);
++	if (ret || !sbuf->num_buffers)
++		sbuf->num_buffers = 1;
++
++	sbuf->buffers = kzalloc_objs(*sbuf->buffers, sbuf->num_buffers, GFP_KERNEL);
++	if (!sbuf->buffers) {
++		put_device(&sbuf->dev);
++		return -ENOMEM;
++	}
++
++	for (i = 0; i < sbuf->num_buffers; i++) {
++		sipc_init_message(&sbuf->buffers[i].rd_event, channel,
++				  SMSG_TYPE_EVENT, SBUF_EVENT_RDPTR, i);
++		sipc_init_message(&sbuf->buffers[i].wr_event, channel,
++				  SMSG_TYPE_EVENT, SBUF_EVENT_WRPTR, i);
++	}
++
++	sbuf->rx_bounce = kmalloc(rx_buf_size, GFP_KERNEL);
++	if (!sbuf->rx_bounce) {
++		put_device(&sbuf->dev);
++		return -ENOMEM;
++	}
++
++	sbuf->smem_size = sizeof(struct sbuf_smem_header) +
++			  sizeof(struct sbuf_ring_header) * sbuf->num_buffers +
++			  (tx_buf_size + rx_buf_size) * sbuf->num_buffers;
++
++	sbuf->smem_virt = dma_alloc_coherent(sbuf->dev.parent, sbuf->smem_size,
++					     &sbuf->smem_addr, GFP_KERNEL);
++	if (!sbuf->smem_virt) {
++		put_device(&sbuf->dev);
++		return -ENOMEM;
++	}
++
++	sbuf->tx_buf_size = tx_buf_size;
++	sbuf->rx_buf_size = rx_buf_size;
++
++	hdr = sbuf->smem_virt;
++	writel(sbuf->num_buffers, &hdr->num_rings);
++	buf_addr = sbuf->smem_addr + sizeof(struct sbuf_smem_header) +
++		   sizeof(struct sbuf_ring_header) * sbuf->num_buffers;
++
++	for (i = 0, ring = hdr->rings; i < sbuf->num_buffers; i++, ring++) {
++		writel(buf_addr, &ring->tx.addr);
++		writel(tx_buf_size, &ring->tx.size);
++		writel(0, &ring->tx.rdptr);
++		writel(0, &ring->tx.wrptr);
++		buf_addr += tx_buf_size;
++		writel(buf_addr, &ring->rx.addr);
++		writel(rx_buf_size, &ring->rx.size);
++		writel(0, &ring->rx.rdptr);
++		writel(0, &ring->rx.wrptr);
++		buf_addr += rx_buf_size;
++	}
++
++	ret = device_add(&sbuf->dev);
++	if (ret) {
++		put_device(&sbuf->dev);
++		return ret;
++	}
++
++	channel->ops = &sipc_sbuf_ops;
++
++	return 0;
++}
+diff --git a/drivers/rpmsg/sprd_sipc_sipx.c b/drivers/rpmsg/sprd_sipc_sipx.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..9539c31375ffb2e74f6e431cea287e49f3986874
+--- /dev/null
++++ b/drivers/rpmsg/sprd_sipc_sipx.c
+@@ -0,0 +1,668 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (C) 2026 Otto Pflüger
++ */
++
++#include <linux/bitfield.h>
++#include <linux/delay.h>
++#include <linux/dma-mapping.h>
++#include <linux/of.h>
++
++#include "rpmsg_internal.h"
++#include "sprd_sipc.h"
++
++/* Required for modem network interfaces */
++#define SIPX_BLOCK_SIZE		1600
++
++enum {
++	SBLOCK_CMD_INIT = 1,
++	SBLOCK_DONE_INIT = 2,
++};
++
++enum {
++	SBLOCK_EVENT_SEND = 1,
++	SBLOCK_EVENT_RELEASE = 2,
++};
++
++#define SIPX_BLK_INDEX	((u32)GENMASK(15, 0))
++#define SIPX_BLK_LENGTH	((u32)GENMASK(26, 16))
++#define SIPX_BLK_OFFSET	((u32)GENMASK(31, 27))
++
++struct sipx_fifo_header {
++	__le32 blks;
++	__le32 blk_size;
++	__le32 count;
++	__le32 rdptr;
++	__le32 wrptr;
++	__le32 addr;
++} __packed;
++
++struct sipx_mem_header {
++	struct sipx_fifo_header dl;
++	struct sipx_fifo_header dl_ack;
++	struct sipx_fifo_header ul;
++	struct sipx_fifo_header ul_ack;
++} __packed;
++
++struct sipx_shared_mem_header {
++	struct sipx_mem_header pool;
++	__le32 channel_count;
++	__le32 channels[255];
++} __packed;
++
++struct sipc_sipx {
++	struct device *parent;
++	spinlock_t tx_lock;
++	wait_queue_head_t block_avail;
++	void *smem_virt;
++	dma_addr_t smem_addr;
++	u32 smem_size;
++	u32 dl_blk_count;
++	u32 dl_ack_count;
++	u32 ul_blk_count;
++	u32 ul_ack_count;
++	__le32 *dl_pool_virt;
++	__le32 *dl_ack_pool_virt;
++	__le32 *ul_pool_virt;
++	__le32 *ul_ack_pool_virt;
++	void *dl_blks;
++	void *dl_ack_blks;
++	void *ul_blks;
++	void *ul_ack_blks;
++};
++
++struct sipx_channel {
++	struct rpmsg_endpoint ept;
++	struct sipc_sipx *sipx;
++	struct sipc_channel *channel;
++	struct sipx_channel_device *sdev;
++	struct sipc_queued_message send_event;
++	struct sipc_queued_message release_event;
++	bool in_use;
++	spinlock_t ept_lock;
++	void *smem_virt;
++	dma_addr_t smem_addr;
++	u32 smem_size;
++	__le32 *dl_ring_virt;
++	__le32 *dl_ack_ring_virt;
++	__le32 *ul_ring_virt;
++	__le32 *ul_ack_ring_virt;
++};
++
++struct sipx_channel_device {
++	struct rpmsg_device rpdev;
++	struct sipx_channel *ch;
++};
++
++static void sipx_ch_destroy_ept(struct rpmsg_endpoint *ept)
++{
++	struct sipx_channel *sipx_ch =
++		container_of(ept, struct sipx_channel, ept);
++	unsigned long flags;
++
++	spin_lock_irqsave(&sipx_ch->ept_lock, flags);
++	sipx_ch->in_use = false;
++	spin_unlock_irqrestore(&sipx_ch->ept_lock, flags);
++}
++
++static int __sipx_ch_send(struct sipx_channel *sipx_ch, const void *data,
++			  int length, u32 dst, bool wait)
++{
++	struct sipc_channel *channel = sipx_ch->channel;
++	struct sipx_mem_header *pool_hdr = sipx_ch->sipx->smem_virt;
++	struct sipx_mem_header *ring_hdr = sipx_ch->smem_virt;
++	u32 *ring_rdptr, *ring_wrptr, *pool_rdptr, *pool_wrptr;
++	u32 ring_i, pool_i, blk_count, blk_desc;
++	unsigned long flags;
++	__le32 *pool, *ring;
++	void *blks;
++	int ret = 0;
++
++	if (wait) {
++		ret = wait_for_completion_interruptible_timeout(&channel->remote_init,
++								15 * HZ);
++		if (ret < 0)
++			return ret;
++		if (!ret)
++			return -ETIMEDOUT;
++	} else if (!completion_done(&channel->remote_init)) {
++		return -EAGAIN;
++	}
++
++	if (!test_bit(SIPC_REMOTE_OPEN, &channel->state))
++		return -EPIPE;
++
++	if (length > SIPX_BLOCK_SIZE)
++		return -EINVAL;
++
++	if (dst & SIPX_ACK_POOL) {
++		pool_rdptr = &pool_hdr->ul_ack.rdptr;
++		pool_wrptr = &pool_hdr->ul_ack.wrptr;
++		ring_rdptr = &ring_hdr->ul_ack.rdptr;
++		ring_wrptr = &ring_hdr->ul_ack.wrptr;
++		blk_count = sipx_ch->sipx->ul_ack_count;
++		pool = sipx_ch->sipx->ul_ack_pool_virt;
++		ring = sipx_ch->ul_ack_ring_virt;
++		blks = sipx_ch->sipx->ul_ack_blks;
++	} else {
++		pool_rdptr = &pool_hdr->ul.rdptr;
++		pool_wrptr = &pool_hdr->ul.wrptr;
++		ring_rdptr = &ring_hdr->ul.rdptr;
++		ring_wrptr = &ring_hdr->ul.wrptr;
++		blk_count = sipx_ch->sipx->ul_blk_count;
++		pool = sipx_ch->sipx->ul_pool_virt;
++		ring = sipx_ch->ul_ring_virt;
++		blks = sipx_ch->sipx->ul_blks;
++	}
++
++	spin_lock_irqsave(&sipx_ch->sipx->tx_lock, flags);
++	while ((pool_i = readl(pool_rdptr)) == readl(pool_wrptr)) {
++		spin_unlock_irqrestore(&sipx_ch->sipx->tx_lock, flags);
++
++		if (!wait)
++			return -EAGAIN;
++
++		ret = wait_event_interruptible_timeout(sipx_ch->sipx->block_avail,
++						       readl(pool_wrptr) != pool_i,
++						       15 * HZ);
++		if (ret < 0)
++			return ret;
++		if (!ret)
++			return -ETIMEDOUT;
++
++		spin_lock_irqsave(&sipx_ch->sipx->tx_lock, flags);
++	}
++
++	blk_desc = readl(&pool[pool_i % blk_count]);
++
++	writel(pool_i + 1, pool_rdptr);
++
++	ring_i = readl(ring_wrptr);
++	if ((ring_i - readl(ring_rdptr)) >= blk_count) {
++		dev_err(channel->parent, "channel %d: block available but ring is full\n",
++			channel->id);
++		ret = -EIO;
++		goto out;
++	}
++
++	blk_desc &= ~(SIPX_BLK_LENGTH | SIPX_BLK_OFFSET);
++	blk_desc |= FIELD_PREP(SIPX_BLK_LENGTH, length);
++
++	dev_dbg(channel->parent, "channel %d: tx block %04x len %03x offset %02x from %spool\n",
++		channel->id, FIELD_GET(SIPX_BLK_INDEX, blk_desc),
++		FIELD_GET(SIPX_BLK_LENGTH, blk_desc),
++		FIELD_GET(SIPX_BLK_OFFSET, blk_desc),
++		(dst & SIPX_ACK_POOL) ? "ack " : "");
++
++	memcpy_toio(blks + FIELD_GET(SIPX_BLK_INDEX, blk_desc) *
++		    SIPX_BLOCK_SIZE, data, length);
++
++	writel(blk_desc, &ring[ring_i % blk_count]);
++	writel(ring_i + 1, ring_wrptr);
++
++	sipc_queue(channel->sipc, &sipx_ch->send_event);
++
++	ret = 0;
++out:
++	spin_unlock_irqrestore(&sipx_ch->sipx->tx_lock, flags);
++	return ret;
++}
++
++static int sipx_ch_send(struct rpmsg_endpoint *ept, const void *data, int len)
++{
++	struct sipx_channel *sipx_ch = container_of(ept, struct sipx_channel, ept);
++
++	return __sipx_ch_send(sipx_ch, data, len, ept->addr, true);
++}
++
++static int sipx_ch_sendto(struct rpmsg_endpoint *ept, const void *data, int len, u32 dst)
++{
++	struct sipx_channel *sipx_ch = container_of(ept, struct sipx_channel, ept);
++
++	return __sipx_ch_send(sipx_ch, data, len, dst, true);
++}
++
++static int sipx_ch_trysend(struct rpmsg_endpoint *ept, const void *data, int len)
++{
++	struct sipx_channel *sipx_ch = container_of(ept, struct sipx_channel, ept);
++
++	return __sipx_ch_send(sipx_ch, data, len, ept->addr, false);
++}
++
++static int sipx_ch_trysendto(struct rpmsg_endpoint *ept, const void *data, int len, u32 dst)
++{
++	struct sipx_channel *sipx_ch = container_of(ept, struct sipx_channel, ept);
++
++	return __sipx_ch_send(sipx_ch, data, len, dst, false);
++}
++
++static ssize_t sipx_ch_get_mtu(struct rpmsg_endpoint *ept)
++{
++	return SIPX_BLOCK_SIZE;
++}
++
++static const struct rpmsg_endpoint_ops sipx_ch_endpoint_ops = {
++	.destroy_ept = sipx_ch_destroy_ept,
++	.send = sipx_ch_send,
++	.sendto = sipx_ch_sendto,
++	.trysend = sipx_ch_trysend,
++	.trysendto = sipx_ch_trysendto,
++	.get_mtu = sipx_ch_get_mtu,
++};
++
++static void sipx_ch_rx_msg(struct sipc_channel *channel, u8 type, u16 cmd, u32 value);
++static int sipx_ch_open(struct sipc_channel *channel);
++static void sipx_ch_close(struct sipc_channel *channel);
++static void sipx_ch_free(struct sipc_channel *channel);
++
++static bool sipx_ch_rx_block(struct sipx_channel *sipx_ch, u32 src)
++{
++	struct sipc_channel *channel = sipx_ch->channel;
++	struct sipx_mem_header *pool_hdr = sipx_ch->sipx->smem_virt;
++	struct sipx_mem_header *ring_hdr = sipx_ch->smem_virt;
++	u32 *ring_rdptr, *ring_wrptr, *pool_rdptr, *pool_wrptr;
++	u32 ring_i, pool_i, blk_count, blk_desc;
++	__le32 *pool, *ring;
++	void *blks;
++
++	if (src & SIPX_ACK_POOL) {
++		pool_rdptr = &pool_hdr->dl_ack.rdptr;
++		pool_wrptr = &pool_hdr->dl_ack.wrptr;
++		ring_rdptr = &ring_hdr->dl_ack.rdptr;
++		ring_wrptr = &ring_hdr->dl_ack.wrptr;
++		blk_count = sipx_ch->sipx->dl_ack_count;
++		pool = sipx_ch->sipx->dl_ack_pool_virt;
++		ring = sipx_ch->dl_ack_ring_virt;
++		blks = sipx_ch->sipx->dl_ack_blks;
++	} else {
++		pool_rdptr = &pool_hdr->dl.rdptr;
++		pool_wrptr = &pool_hdr->dl.wrptr;
++		ring_rdptr = &ring_hdr->dl.rdptr;
++		ring_wrptr = &ring_hdr->dl.wrptr;
++		blk_count = sipx_ch->sipx->dl_blk_count;
++		pool = sipx_ch->sipx->dl_pool_virt;
++		ring = sipx_ch->dl_ring_virt;
++		blks = sipx_ch->sipx->dl_blks;
++	}
++
++	ring_i = readl(ring_rdptr);
++	if (ring_i == readl(ring_wrptr))
++		return false;
++
++	blk_desc = readl(&ring[ring_i % blk_count]);
++
++	writel(ring_i + 1, ring_rdptr);
++
++	dev_dbg(channel->parent, "channel %d: block %04x len %03x offset %02x in dl %sfifo\n",
++		channel->id, FIELD_GET(SIPX_BLK_INDEX, blk_desc),
++		FIELD_GET(SIPX_BLK_LENGTH, blk_desc),
++		FIELD_GET(SIPX_BLK_OFFSET, blk_desc),
++		(src & SIPX_ACK_POOL) ? "ack " : "");
++
++	spin_lock(&sipx_ch->ept_lock);
++	if (sipx_ch->in_use) {
++		void *blk_addr = blks +
++			FIELD_GET(SIPX_BLK_INDEX, blk_desc) * SIPX_BLOCK_SIZE +
++			FIELD_GET(SIPX_BLK_OFFSET, blk_desc);
++
++		sipx_ch->ept.cb(sipx_ch->ept.rpdev,
++				blk_addr,
++				FIELD_GET(SIPX_BLK_LENGTH, blk_desc),
++				sipx_ch->ept.priv,
++				src);
++	}
++	spin_unlock(&sipx_ch->ept_lock);
++
++	/* return to pool */
++	pool_i = readl(pool_wrptr);
++	if ((pool_i - readl(pool_rdptr)) >= blk_count) {
++		dev_err(channel->parent, "channel %d: pool full while releasing block\n",
++			channel->id);
++		return false;
++	}
++
++	writel(blk_desc, &pool[pool_i % blk_count]);
++	writel(pool_i + 1, pool_wrptr);
++
++	sipc_queue(channel->sipc, &sipx_ch->release_event);
++
++	return true;
++}
++
++static void sipx_ch_rx_process(struct sipx_channel *sipx_ch)
++{
++	u32 id = sipx_ch->channel->id;
++
++	while (sipx_ch_rx_block(sipx_ch, id))
++		;
++	while (sipx_ch_rx_block(sipx_ch, id | SIPX_ACK_POOL))
++		;
++}
++
++static struct rpmsg_endpoint *sipx_ch_setup_ept(struct sipc_channel *channel,
++						struct rpmsg_device *rpdev,
++						rpmsg_rx_cb_t cb, void *priv)
++{
++	struct rpmsg_driver *rpdrv = to_rpmsg_driver(rpdev->dev.driver);
++	struct sipx_channel *sipx_ch = channel->priv;
++	struct rpmsg_endpoint *ept;
++	unsigned long flags;
++
++	spin_lock_irqsave(&sipx_ch->ept_lock, flags);
++
++	if (sipx_ch->in_use) {
++		dev_err(&rpdev->dev, "channel %d is in use\n", channel->id);
++		spin_unlock_irqrestore(&sipx_ch->ept_lock, flags);
++		return NULL;
++	}
++
++	ept = &sipx_ch->ept;
++	ept->rpdev = rpdev;
++	ept->cb = cb;
++	ept->priv = priv;
++	ept->ops = &sipx_ch_endpoint_ops;
++	ept->addr = channel->id;
++	sipx_ch->in_use = true;
++
++	spin_unlock_irqrestore(&sipx_ch->ept_lock, flags);
++
++	if (!sipx_ch->sdev || rpdev != &sipx_ch->sdev->rpdev || !rpdrv->callback)
++		sipx_ch_rx_process(sipx_ch);
++
++	return ept;
++}
++
++struct sipc_channel_ops sipx_ch_ops = {
++	.rx = sipx_ch_rx_msg,
++	.open = sipx_ch_open,
++	.close = sipx_ch_close,
++	.free = sipx_ch_free,
++	.setup_ept = sipx_ch_setup_ept,
++};
++
++static struct rpmsg_endpoint *sipx_ch_create_ept(struct rpmsg_device *rpdev,
++						 rpmsg_rx_cb_t cb, void *priv,
++						 struct rpmsg_channel_info chinfo)
++{
++	struct sipx_channel_device *sdev =
++		container_of(rpdev, struct sipx_channel_device, rpdev);
++
++	return sipc_create_ept(sdev->ch->channel->sipc, rpdev,
++			       cb, priv, &chinfo);
++}
++
++static int sipx_ch_announce_create(struct rpmsg_device *rpdev)
++{
++	struct sipx_channel_device *sdev =
++		container_of(rpdev, struct sipx_channel_device, rpdev);
++
++	/* Receive buffered data */
++	sipx_ch_rx_process(sdev->ch);
++
++	return 0;
++}
++
++static const struct rpmsg_device_ops sipx_ch_rpdev_ops = {
++	.create_ept = sipx_ch_create_ept,
++	.announce_create = sipx_ch_announce_create,
++};
++
++static void sipx_ch_device_release(struct device *dev)
++{
++	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
++	struct sipx_channel_device *sdev =
++		container_of(rpdev, struct sipx_channel_device, rpdev);
++
++	kfree(sdev);
++}
++
++static void sipx_ch_rx_msg(struct sipc_channel *channel, u8 type, u16 cmd, u32 value)
++{
++	struct sipx_channel *sipx_ch = channel->priv;
++
++	if (type == SMSG_TYPE_CMD) {
++		if (cmd != SBLOCK_CMD_INIT) {
++			dev_warn(channel->parent, "channel %d: unexpected command %04x\n",
++				 channel->id, cmd);
++			return;
++		}
++		sipc_send(channel, SMSG_TYPE_DONE, SBLOCK_DONE_INIT,
++			  sipx_ch->sipx->smem_addr);
++		complete_all(&channel->remote_init);
++		dev_dbg(channel->parent, "sipx channel %d initialized\n",
++			channel->id);
++		return;
++	}
++
++	if (type != SMSG_TYPE_EVENT) {
++		dev_warn(channel->parent, "channel %d: unexpected message type %02x\n",
++			 channel->id, type);
++		return;
++	}
++
++	switch (cmd) {
++	case SBLOCK_EVENT_SEND:
++		sipx_ch_rx_process(sipx_ch);
++		break;
++	case SBLOCK_EVENT_RELEASE:
++		wake_up_interruptible_all(&sipx_ch->sipx->block_avail);
++		break;
++	default:
++		dev_warn(channel->parent, "channel %d: unexpected event %04x\n",
++			 channel->id, cmd);
++		break;
++	}
++}
++
++static int sipx_ch_open(struct sipc_channel *channel)
++{
++	struct sipx_channel *sipx_ch = channel->priv;
++	struct sipx_channel_device *sdev;
++	struct rpmsg_device *rpdev;
++
++	sdev = kzalloc_obj(*sdev, GFP_KERNEL);
++	if (!sdev)
++		return -ENOMEM;
++
++	sdev->ch = sipx_ch;
++
++	rpdev = &sdev->rpdev;
++	strscpy_pad(rpdev->id.name, channel->name, RPMSG_NAME_SIZE);
++	rpdev->src = channel->id;
++	rpdev->dst = channel->id;
++	rpdev->ops = &sipx_ch_rpdev_ops;
++	rpdev->dev.parent = channel->parent;
++	rpdev->dev.release = sipx_ch_device_release;
++	rpdev->dev.of_node = channel->node;
++
++	sipx_ch->sdev = sdev;
++
++	return rpmsg_register_device(&sdev->rpdev);
++}
++
++static void sipx_ch_close(struct sipc_channel *channel)
++{
++	struct sipx_channel *sipx_ch = channel->priv;
++
++	device_unregister(&sipx_ch->sdev->rpdev.dev);
++	sipx_ch->sdev = NULL;
++}
++
++static void sipx_ch_free(struct sipc_channel *channel)
++{
++	struct sipx_channel *sipx_ch = channel->priv;
++
++	sipc_cancel(channel->sipc, &sipx_ch->send_event);
++	sipc_cancel(channel->sipc, &sipx_ch->release_event);
++
++	dma_free_coherent(channel->parent, sipx_ch->smem_size,
++			  sipx_ch->smem_virt, sipx_ch->smem_addr);
++	kfree(sipx_ch);
++}
++
++static void sipx_add_ring(struct sipx_channel *ch, struct sipx_fifo_header *hdr,
++			  __le32 **ring_virt, u32 blk_count)
++{
++	writel(SIPX_BLOCK_SIZE, &hdr->blk_size);
++	writel(blk_count, &hdr->count);
++	writel(0, &hdr->rdptr);
++	writel(0, &hdr->wrptr);
++	writel((void *)*ring_virt - ch->smem_virt + ch->smem_addr, &hdr->addr);
++
++	*ring_virt += blk_count * 4;
++}
++
++int sipx_channel_init(struct sipc_sipx *sipx, struct sipc_channel *channel)
++{
++	struct sipx_shared_mem_header *shared_hdr = sipx->smem_virt;
++	struct sipx_mem_header *hdr;
++	struct sipx_channel *sipx_ch;
++	__le32 *ring_virt;
++
++	sipx_ch = kzalloc_obj(*sipx_ch, GFP_KERNEL);
++	if (!sipx_ch)
++		return -ENOMEM;
++
++	spin_lock_init(&sipx_ch->ept_lock);
++	sipc_init_message(&sipx_ch->send_event, channel, SMSG_TYPE_EVENT,
++			  SBLOCK_EVENT_SEND, 0);
++	sipc_init_message(&sipx_ch->release_event, channel, SMSG_TYPE_EVENT,
++			  SBLOCK_EVENT_RELEASE, 0);
++
++	sipx_ch->sipx = sipx;
++
++	sipx_ch->smem_size = sizeof(struct sipx_mem_header) +
++			     (sipx->dl_blk_count + sipx->dl_ack_count +
++			      sipx->ul_blk_count + sipx->ul_ack_count) * 4;
++	sipx_ch->smem_virt = dma_alloc_coherent(channel->parent,
++						sipx_ch->smem_size,
++						&sipx_ch->smem_addr,
++						GFP_KERNEL);
++	if (!sipx_ch->smem_virt) {
++		kfree(sipx_ch);
++		return -ENOMEM;
++	}
++
++	hdr = sipx_ch->smem_virt;
++	ring_virt = sipx_ch->smem_virt + sizeof(struct sipx_mem_header);
++
++	sipx_ch->dl_ring_virt = ring_virt;
++	sipx_add_ring(sipx_ch, &hdr->dl, &ring_virt, sipx->dl_blk_count);
++
++	sipx_ch->dl_ack_ring_virt = ring_virt;
++	sipx_add_ring(sipx_ch, &hdr->dl_ack, &ring_virt, sipx->dl_ack_count);
++
++	sipx_ch->ul_ring_virt = ring_virt;
++	sipx_add_ring(sipx_ch, &hdr->ul, &ring_virt, sipx->ul_blk_count);
++
++	sipx_ch->ul_ack_ring_virt = ring_virt;
++	sipx_add_ring(sipx_ch, &hdr->ul_ack, &ring_virt, sipx->ul_ack_count);
++
++	writel(sipx_ch->smem_addr, &shared_hdr->channels[channel->id]);
++
++	sipx_ch->channel = channel;
++	channel->priv = sipx_ch;
++	channel->ops = &sipx_ch_ops;
++
++	return 0;
++}
++
++static void sipx_add_pool(struct sipc_sipx *sipx, struct sipx_fifo_header *hdr,
++			  __le32 **pool_virt, u32 blk_count, u32 *blk_addr)
++{
++	u32 i;
++
++	writel(*blk_addr, &hdr->blks);
++	writel(SIPX_BLOCK_SIZE, &hdr->blk_size);
++	writel(blk_count, &hdr->count);
++	writel(0, &hdr->rdptr);
++	writel(blk_count, &hdr->wrptr);
++	writel((void *)*pool_virt - sipx->smem_virt +
++	       sipx->smem_addr, &hdr->addr);
++
++	for (i = 0; i < blk_count; i++)
++		writel(FIELD_PREP(SIPX_BLK_INDEX, i), (*pool_virt)++);
++
++	*blk_addr += blk_count * SIPX_BLOCK_SIZE;
++}
++
++struct sipc_sipx *sipx_init(struct device *parent)
++{
++	struct sipx_shared_mem_header *hdr;
++	struct sipc_sipx *sipx;
++	__le32 *pool_virt;
++	u32 blk_addr;
++	int ret;
++
++	sipx = kzalloc_obj(*sipx, GFP_KERNEL);
++	if (!sipx)
++		return ERR_PTR(-ENOMEM);
++
++	ret = of_property_read_u32(parent->of_node, "sprd,sipx-dl-blk-count",
++				   &sipx->dl_blk_count);
++	ret |= of_property_read_u32(parent->of_node, "sprd,sipx-dl-ack-count",
++				    &sipx->dl_ack_count);
++	ret |= of_property_read_u32(parent->of_node, "sprd,sipx-ul-blk-count",
++				    &sipx->ul_blk_count);
++	ret |= of_property_read_u32(parent->of_node, "sprd,sipx-ul-ack-count",
++				    &sipx->ul_ack_count);
++	if (ret) {
++		dev_err(parent, "invalid or missing sipx properties\n");
++		kfree(sipx);
++		return ERR_PTR(-EINVAL);
++	}
++
++	spin_lock_init(&sipx->tx_lock);
++	init_waitqueue_head(&sipx->block_avail);
++
++	sipx->smem_size = sizeof(struct sipx_shared_mem_header) +
++			  (sipx->dl_blk_count + sipx->dl_ack_count +
++			   sipx->ul_blk_count + sipx->ul_ack_count) *
++			  (SIPX_BLOCK_SIZE + 4);
++	sipx->smem_virt = dma_alloc_coherent(parent, sipx->smem_size,
++					     &sipx->smem_addr, GFP_KERNEL);
++	if (!sipx->smem_virt) {
++		kfree(sipx);
++		return ERR_PTR(-ENOMEM);
++	}
++
++	sipx->parent = get_device(parent);
++
++	hdr = sipx->smem_virt;
++
++	pool_virt = sipx->smem_virt + sizeof(*hdr);
++	blk_addr = sipx->smem_addr + sizeof(*hdr) +
++		   (sipx->dl_blk_count + sipx->dl_ack_count +
++		    sipx->ul_blk_count + sipx->ul_ack_count) * 4;
++
++	sipx->dl_pool_virt = pool_virt;
++	sipx->dl_blks = sipx->smem_virt + (blk_addr - sipx->smem_addr);
++	sipx_add_pool(sipx, &hdr->pool.dl, &pool_virt,
++		      sipx->dl_blk_count, &blk_addr);
++
++	sipx->dl_ack_pool_virt = pool_virt;
++	sipx->dl_ack_blks = sipx->smem_virt + (blk_addr - sipx->smem_addr);
++	sipx_add_pool(sipx, &hdr->pool.dl_ack, &pool_virt,
++		      sipx->dl_ack_count, &blk_addr);
++
++	sipx->ul_pool_virt = pool_virt;
++	sipx->ul_blks = sipx->smem_virt + (blk_addr - sipx->smem_addr);
++	sipx_add_pool(sipx, &hdr->pool.ul, &pool_virt,
++		      sipx->ul_blk_count, &blk_addr);
++
++	sipx->ul_ack_pool_virt = pool_virt;
++	sipx->ul_ack_blks = sipx->smem_virt + (blk_addr - sipx->smem_addr);
++	sipx_add_pool(sipx, &hdr->pool.ul_ack, &pool_virt,
++		      sipx->ul_ack_count, &blk_addr);
++
++	writel(ARRAY_SIZE(hdr->channels), &hdr->channel_count);
++
++	return sipx;
++}
++
++void sipx_destroy(struct sipc_sipx *sipx)
++{
++	dma_free_coherent(sipx->parent, sipx->smem_size, sipx->smem_virt, sipx->smem_addr);
++	put_device(sipx->parent);
++	kfree(sipx);
++}
+diff --git a/drivers/soc/Kconfig b/drivers/soc/Kconfig
+index a2d65adffb8052c0ac5a6b60bf33fa9c644701bb..5011c4c6c8b5f182209c72acb199b227a3d3ab82 100644
+--- a/drivers/soc/Kconfig
++++ b/drivers/soc/Kconfig
+@@ -24,6 +24,7 @@ source "drivers/soc/renesas/Kconfig"
+ source "drivers/soc/rockchip/Kconfig"
+ source "drivers/soc/samsung/Kconfig"
+ source "drivers/soc/sophgo/Kconfig"
++source "drivers/soc/sprd/Kconfig"
+ source "drivers/soc/sunxi/Kconfig"
+ source "drivers/soc/tegra/Kconfig"
+ source "drivers/soc/ti/Kconfig"
+diff --git a/drivers/soc/Makefile b/drivers/soc/Makefile
+index c9e689080ceb759384f690c2b65a82b3cb451c74..2a38a5bb935fad2ec02d194cac14cb502dcf6e3b 100644
+--- a/drivers/soc/Makefile
++++ b/drivers/soc/Makefile
+@@ -30,6 +30,7 @@ obj-y				+= renesas/
+ obj-y				+= rockchip/
+ obj-$(CONFIG_SOC_SAMSUNG)	+= samsung/
+ obj-y				+= sophgo/
++obj-y				+= sprd/
+ obj-y				+= sunxi/
+ obj-$(CONFIG_ARCH_TEGRA)	+= tegra/
+ obj-y				+= ti/
+diff --git a/drivers/soc/sprd/Kconfig b/drivers/soc/sprd/Kconfig
+new file mode 100644
+index 0000000000000000000000000000000000000000..cc9391f05ed5556def661f93ba7a1c768b6550e9
+--- /dev/null
++++ b/drivers/soc/sprd/Kconfig
+@@ -0,0 +1,21 @@
++# SPDX-License-Identifier: GPL-2.0-only
++
++menu "Spreadtrum and Unisoc SoC drivers"
++
++config SPRD_AGDSP
++	tristate "Audio DSP support"
++	depends on ARCH_SPRD || COMPILE_TEST
++	depends on MAILBOX
++	help
++	  Say y here to enable support for communication with the audio
++	  DSP found in Spreadtrum/Unisoc SoCs.
++
++config SPRD_AUDCP_BOOT
++	tristate "Audio DSP (AUDCP) boot support"
++	depends on ARCH_SPRD || COMPILE_TEST
++	help
++	  Say y here to load firmware into and boot the audio co-processor
++	  (AUDCP / AGDSP) on Spreadtrum/Unisoc SoCs, so the sprd-agdsp IPC
++	  and ASoC audio stack can communicate with it.
++
++endmenu
+diff --git a/drivers/soc/sprd/Makefile b/drivers/soc/sprd/Makefile
+new file mode 100644
+index 0000000000000000000000000000000000000000..f4b68036c8ff3749543a6c1b971711e67c46afb4
+--- /dev/null
++++ b/drivers/soc/sprd/Makefile
+@@ -0,0 +1,4 @@
++# SPDX-License-Identifier: GPL-2.0-only
++
++obj-$(CONFIG_SPRD_AGDSP) += sprd-agdsp.o
++obj-$(CONFIG_SPRD_AUDCP_BOOT) += sprd-audcp-boot.o
+diff --git a/drivers/soc/sprd/sprd-agdsp.c b/drivers/soc/sprd/sprd-agdsp.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..6b122b97e0ed000d36d3982c59b6c5112ef5d9eb
+--- /dev/null
++++ b/drivers/soc/sprd/sprd-agdsp.c
+@@ -0,0 +1,334 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (C) 2026 Otto Pflüger
++ */
++
++#include <linux/io.h>
++#include <linux/mailbox_client.h>
++#include <linux/mfd/syscon.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/of_reserved_mem.h>
++#include <linux/platform_device.h>
++#include <linux/pm_domain.h>
++#include <linux/regmap.h>
++#include <linux/reset.h>
++#include <linux/soc/sprd/agdsp.h>
++
++#define UMS9230_AON_AGDSP_ACCESS_REG	0x014C
++#define UMS9230_AON_AGDSP_ACCESS_EN	BIT(5)
++
++/* These sizes are required by the DSP firmware */
++#define CMD_PARAM_BUF_SIZE	1024
++#define SMSG_BUF_SIZE		64
++
++struct agdsp_ring_msg {
++	u16 cmd;
++	u16 channel;
++	u32 param[4];
++} __packed;
++
++struct agdsp_smem {
++	u8 param_buf[CMD_PARAM_BUF_SIZE];
++	struct agdsp_ring_msg tx_msg[SMSG_BUF_SIZE];
++	struct agdsp_ring_msg rx_msg[SMSG_BUF_SIZE];
++	u32 tx_rdptr;
++	u32 tx_wrptr;
++	u32 rx_rdptr;
++	u32 rx_wrptr;
++} __packed;
++
++struct agdsp_shm_params {
++	u32 id;
++	u32 type;
++	u32 phy_addr;
++	u32 size;
++} __packed;
++
++struct sprd_agdsp_ipc {
++	struct generic_pm_domain genpd;
++	struct regmap *aon_apb_regs;
++	struct mbox_client mbox_client;
++	struct mbox_chan *mbox_chan;
++	phys_addr_t smem_phys;
++	struct agdsp_smem __iomem *smem_virt;
++	spinlock_t msg_lock;
++	struct mutex cmd_lock;
++	u16 last_cmd;
++	u16 last_channel;
++	struct completion cmd_response;
++};
++
++static u64 agdsp_wakeup_msg = 1;
++
++static void agdsp_ipc_callback(struct mbox_client *mbox_client, void *msg_data)
++{
++	struct sprd_agdsp_ipc *ipc = container_of(mbox_client, struct sprd_agdsp_ipc, mbox_client);
++	u32 rdptr;
++
++	rdptr = readl_relaxed(&ipc->smem_virt->rx_rdptr);
++
++	while (rdptr != readl_relaxed(&ipc->smem_virt->rx_wrptr)) {
++		struct agdsp_ring_msg msg;
++
++		memcpy_fromio(&msg,
++			      &ipc->smem_virt->rx_msg[rdptr % SMSG_BUF_SIZE],
++			      sizeof(msg));
++
++		if (msg.cmd == ipc->last_cmd && msg.channel == ipc->last_channel)
++			complete_all(&ipc->cmd_response);
++
++		rdptr += 1;
++	}
++
++	writel_relaxed(rdptr, &ipc->smem_virt->rx_rdptr);
++}
++
++int sprd_agdsp_send_msg(struct sprd_agdsp_ipc *ipc, u16 channel, u16 cmd,
++			u32 param0, u32 param1, u32 param2, u32 param3)
++{
++	struct agdsp_ring_msg msg;
++	unsigned long flags;
++	u32 wrptr;
++	int ret;
++
++	msg.channel = channel;
++	msg.cmd = cmd;
++	msg.param[0] = param0;
++	msg.param[1] = param1;
++	msg.param[2] = param2;
++	msg.param[3] = param3;
++
++	spin_lock_irqsave(&ipc->msg_lock, flags);
++
++	wrptr = readl_relaxed(&ipc->smem_virt->tx_wrptr);
++
++	memcpy_toio(&ipc->smem_virt->tx_msg[wrptr % SMSG_BUF_SIZE],
++		    &msg, sizeof(msg));
++
++	writel(wrptr + 1, &ipc->smem_virt->tx_wrptr);
++
++	ret = mbox_send_message(ipc->mbox_chan, &agdsp_wakeup_msg);
++
++	spin_unlock_irqrestore(&ipc->msg_lock, flags);
++
++	if (ret < 0)
++		return ret;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(sprd_agdsp_send_msg);
++
++int sprd_agdsp_send_cmd(struct sprd_agdsp_ipc *ipc, u16 channel, u16 cmd,
++			s32 id, s32 stream, void *params, size_t param_size)
++{
++	int ret;
++
++	if (param_size > CMD_PARAM_BUF_SIZE)
++		return -E2BIG;
++
++	mutex_lock(&ipc->cmd_lock);
++
++	memcpy_toio(ipc->smem_virt->param_buf, params, param_size);
++
++	ipc->last_cmd = cmd;
++	ipc->last_channel = channel;
++	reinit_completion(&ipc->cmd_response);
++
++	ret = sprd_agdsp_send_msg(ipc, channel, cmd, id, stream,
++				  ipc->smem_phys, 0);
++	if (ret)
++		goto out;
++
++	ret = wait_for_completion_timeout(&ipc->cmd_response, 5 * HZ);
++	if (ret == 0) {
++		ret = -ETIMEDOUT;
++		goto out;
++	}
++
++	ret = 0;
++
++out:
++	mutex_unlock(&ipc->cmd_lock);
++	return ret;
++}
++EXPORT_SYMBOL_GPL(sprd_agdsp_send_cmd);
++
++int sprd_agdsp_shm_cmd(struct sprd_agdsp_ipc *ipc, u16 channel, u16 cmd,
++		       s32 id, s32 stream, u32 type, dma_addr_t addr,
++		       size_t size)
++{
++	struct agdsp_shm_params params = {
++		.id = id,
++		.type = type,
++		.phy_addr = addr,
++		.size = size,
++	};
++
++	return sprd_agdsp_send_cmd(ipc, channel, cmd, id, stream, &params,
++				   sizeof(params));
++}
++EXPORT_SYMBOL_GPL(sprd_agdsp_shm_cmd);
++
++static int agdsp_power_on(struct generic_pm_domain *genpd)
++{
++	struct sprd_agdsp_ipc *ipc =
++		container_of(genpd, struct sprd_agdsp_ipc, genpd);
++	int ret;
++
++	regmap_set_bits(ipc->aon_apb_regs, UMS9230_AON_AGDSP_ACCESS_REG,
++			UMS9230_AON_AGDSP_ACCESS_EN);
++
++	ret = mbox_send_message(ipc->mbox_chan, &agdsp_wakeup_msg);
++	if (ret < 0)
++		return ret;
++
++	usleep_range(100, 200);
++	dev_dbg(ipc->mbox_client.dev, "power on complete\n");
++
++	return 0;
++}
++
++static int agdsp_power_off(struct generic_pm_domain *genpd)
++{
++	struct sprd_agdsp_ipc *ipc =
++		container_of(genpd, struct sprd_agdsp_ipc, genpd);
++
++	regmap_clear_bits(ipc->aon_apb_regs, UMS9230_AON_AGDSP_ACCESS_REG,
++			  UMS9230_AON_AGDSP_ACCESS_EN);
++
++	return 0;
++}
++
++static int sprd_agdsp_probe(struct platform_device *pdev)
++{
++	struct sprd_agdsp_ipc *ipc;
++	struct device_node *region;
++	struct reserved_mem *rmem;
++	int ret;
++
++	ipc = devm_kzalloc(&pdev->dev, sizeof(*ipc), GFP_KERNEL);
++	if (!ipc)
++		return -ENOMEM;
++
++	spin_lock_init(&ipc->msg_lock);
++	mutex_init(&ipc->cmd_lock);
++	init_completion(&ipc->cmd_response);
++
++	ipc->aon_apb_regs = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
++							    "sprd,syscon-aon-apb");
++	if (IS_ERR(ipc->aon_apb_regs)) {
++		dev_err(&pdev->dev, "failed to get AON APB syscon\n");
++		return PTR_ERR(ipc->aon_apb_regs);
++	}
++
++	region = of_parse_phandle(pdev->dev.of_node, "memory-region", 0);
++	if (IS_ERR(region)) {
++		dev_err(&pdev->dev, "failed to parse memory-region handle\n");
++		return PTR_ERR(region);
++	}
++
++	rmem = of_reserved_mem_lookup(region);
++	of_node_put(region);
++
++	if (!rmem) {
++		dev_err(&pdev->dev, "failed to look up memory region\n");
++		return -ENOMEM;
++	}
++
++	if (rmem->size < sizeof(struct agdsp_smem)) {
++		dev_err(&pdev->dev, "reserved memory region is too small\n");
++		return -ENOMEM;
++	}
++
++	ipc->smem_phys = rmem->base;
++	ipc->smem_virt = devm_ioremap(&pdev->dev, rmem->base, rmem->size);
++	if (!ipc->smem_virt) {
++		dev_err(&pdev->dev, "failed to map memory region\n");
++		return -ENOMEM;
++	}
++
++	ipc->genpd.name = dev_name(&pdev->dev);
++	ipc->genpd.power_on = agdsp_power_on;
++	ipc->genpd.power_off = agdsp_power_off;
++
++	ret = pm_genpd_init(&ipc->genpd, NULL, true);
++	if (ret < 0) {
++		dev_err(&pdev->dev, "failed to initialize power domain\n");
++		return ret;
++	}
++
++	ret = of_genpd_add_provider_simple(pdev->dev.of_node, &ipc->genpd);
++	if (ret < 0) {
++		dev_err(&pdev->dev, "failed to add power domain provider\n");
++		return ret;
++	}
++
++	ipc->mbox_client.dev = &pdev->dev;
++	ipc->mbox_client.rx_callback = agdsp_ipc_callback;
++
++	/* Receive any messages that might be in the buffer */
++	agdsp_ipc_callback(&ipc->mbox_client, NULL);
++
++	ipc->mbox_chan = mbox_request_channel(&ipc->mbox_client, 0);
++	if (IS_ERR(ipc->mbox_chan)) {
++		of_genpd_del_provider(pdev->dev.of_node);
++		pm_genpd_remove(&ipc->genpd);
++		return dev_err_probe(&pdev->dev, PTR_ERR(ipc->mbox_chan),
++				     "failed to request mailbox\n");
++	}
++
++	platform_set_drvdata(pdev, ipc);
++
++	return 0;
++}
++
++static void sprd_agdsp_remove(struct platform_device *pdev)
++{
++	struct sprd_agdsp_ipc *ipc = platform_get_drvdata(pdev);
++
++	mbox_free_channel(ipc->mbox_chan);
++}
++
++static const struct of_device_id sprd_agdsp_of_match[] = {
++	{ .compatible = "sprd,ums9230-agdsp" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sprd_agdsp_of_match);
++
++static struct platform_driver sprd_agdsp_driver = {
++	.probe = sprd_agdsp_probe,
++	.remove = sprd_agdsp_remove,
++	.driver = {
++		.name = "sprd-agdsp",
++		.of_match_table = sprd_agdsp_of_match,
++	},
++};
++module_platform_driver(sprd_agdsp_driver);
++
++struct sprd_agdsp_ipc *sprd_get_agdsp_ipc(struct device_node *node, const char *name)
++{
++	struct device_node *agdsp_np;
++	struct device *dev;
++
++	agdsp_np = of_parse_phandle(node, name, 0);
++	if (!agdsp_np)
++		return ERR_PTR(-ENODEV);
++
++	dev = driver_find_device_by_of_node(&sprd_agdsp_driver.driver, agdsp_np);
++	of_node_put(agdsp_np);
++	if (!dev)
++		return ERR_PTR(-EPROBE_DEFER);
++
++	return dev_get_drvdata(dev);
++}
++EXPORT_SYMBOL_GPL(sprd_get_agdsp_ipc);
++
++void sprd_put_agdsp_ipc(struct sprd_agdsp_ipc *ipc)
++{
++	put_device(ipc->mbox_client.dev);
++}
++EXPORT_SYMBOL_GPL(sprd_put_agdsp_ipc);
++
++MODULE_DESCRIPTION("Unisoc audio DSP communication driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/soc/sprd/sprd-audcp-boot.c b/drivers/soc/sprd/sprd-audcp-boot.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..19037c0780211e2013c2ee3c9a290f36b6b25c13
+--- /dev/null
++++ b/drivers/soc/sprd/sprd-audcp-boot.c
+@@ -0,0 +1,287 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Spreadtrum/Unisoc audio-DSP (AGDSP / AUDCP) boot driver.
++ */
++
++#include <linux/firmware.h>
++#include <linux/io.h>
++#include <linux/mfd/syscon.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/of_address.h>
++#include <linux/of_reserved_mem.h>
++#include <linux/platform_device.h>
++#include <linux/pm_domain.h>
++#include <linux/regmap.h>
++
++#define AGDSP_FIRMWARE_NAME		"agdsp.bin"
++#define AGDSP_BOOT_OFFSET		0x80
++#define AGDSP_BOOT_PROTECT_MAGIC	0x9620
++
++enum audcp_ctrl {
++	CTRL_SYS_SHUTDOWN,
++	CTRL_CORE_SHUTDOWN,
++	CTRL_DEEP_SLEEP,
++	CTRL_CORE_RESET,
++	CTRL_SYS_RESET,
++	CTRL_RESET_SEL,
++	CTRL_BOOTPROTECT,
++	CTRL_BOOTVECTOR,
++	CTRL_BOOTADDRESS_SEL,
++	CTRL_BOOT_MAX,
++	CTRL_SYS_STATUS = CTRL_BOOT_MAX,
++	CTRL_CORE_STATUS,
++	CTRL_SLEEP_STATUS,
++	CTRL_ACCESS_ENABLE,
++	CTRL_MAX,
++};
++
++static const char * const audcp_ctrl_name[CTRL_MAX] = {
++	[CTRL_SYS_SHUTDOWN] = "sysshutdown",
++	[CTRL_CORE_SHUTDOWN] = "coreshutdown",
++	[CTRL_DEEP_SLEEP] = "deepsleep",
++	[CTRL_CORE_RESET] = "corereset",
++	[CTRL_SYS_RESET] = "sysreset",
++	[CTRL_RESET_SEL] = "reset_sel",
++	[CTRL_BOOTPROTECT] = "bootprotect",
++	[CTRL_BOOTVECTOR] = "bootvector",
++	[CTRL_BOOTADDRESS_SEL] = "bootaddress_sel",
++	[CTRL_SYS_STATUS] = "sysstatus",
++	[CTRL_CORE_STATUS] = "corestatus",
++	[CTRL_SLEEP_STATUS] = "sleepstatus",
++	[CTRL_ACCESS_ENABLE] = "accessenable",
++};
++
++struct audcp_boot {
++	struct device *dev;
++	struct regmap *map[CTRL_MAX];
++	u32 reg[CTRL_MAX];
++	u32 mask[CTRL_MAX];
++	void __iomem *fw_virt;
++	phys_addr_t fw_phys;
++	size_t fw_size;
++	void __iomem *smsg_virt;
++	size_t smsg_size;
++	void __iomem *aon_iram_virt;
++	size_t aon_iram_size;
++	u32 boot_vector;
++	u32 dsp_reboot_mode;
++	struct generic_pm_domain genpd;
++};
++
++static size_t audcp_firmware_size(const struct firmware *fw)
++{
++	static const u8 avb_magic[] = { 'A', 'V', 'B', 'f' };
++
++	if (fw->size >= 64 &&
++	    !memcmp(fw->data + fw->size - 64, avb_magic, sizeof(avb_magic)))
++		return fw->size - 64;
++
++	return fw->size;
++}
++
++static void audcp_set(struct audcp_boot *b, enum audcp_ctrl c, bool on)
++{
++	regmap_update_bits(b->map[c], b->reg[c], b->mask[c],
++			   on ? b->mask[c] : 0);
++}
++
++static void audcp_write_field(struct audcp_boot *b, enum audcp_ctrl c, u32 val)
++{
++	regmap_update_bits(b->map[c], b->reg[c], b->mask[c],
++			   val << (ffs(b->mask[c]) - 1));
++}
++
++static void audcp_boot_start(struct audcp_boot *b)
++{
++	if (b->smsg_virt)
++		memset_io(b->smsg_virt, 0, b->smsg_size);
++	/* mode-0 boots also clear the AUDCP AON IRAM window (vendor parity) */
++	if (!b->dsp_reboot_mode && b->aon_iram_virt)
++		memset_io(b->aon_iram_virt, 0, b->aon_iram_size);
++
++	audcp_set(b, CTRL_RESET_SEL, false);
++	audcp_set(b, CTRL_CORE_RESET, true);
++	audcp_set(b, CTRL_SYS_RESET, true);
++	audcp_set(b, CTRL_SYS_SHUTDOWN, false);
++	audcp_set(b, CTRL_CORE_SHUTDOWN, false);
++	audcp_set(b, CTRL_DEEP_SLEEP, false);
++	audcp_write_field(b, CTRL_BOOTPROTECT, AGDSP_BOOT_PROTECT_MAGIC);
++
++	if (!b->dsp_reboot_mode)
++		audcp_write_field(b, CTRL_BOOTVECTOR, b->boot_vector);
++
++	audcp_set(b, CTRL_BOOTADDRESS_SEL, true);
++	audcp_set(b, CTRL_CORE_RESET, false);
++	audcp_set(b, CTRL_SYS_RESET, false);
++}
++
++static int audcp_boot_load_firmware(struct audcp_boot *b)
++{
++	const struct firmware *fw;
++	size_t fw_size;
++	int ret;
++
++	ret = request_firmware(&fw, AGDSP_FIRMWARE_NAME, b->dev);
++	if (ret)
++		return dev_err_probe(b->dev, ret, "failed to load agdsp firmware\n");
++
++	fw_size = audcp_firmware_size(fw);
++	if (!fw_size || fw_size > b->fw_size) {
++		dev_err(b->dev, "firmware (%#zx) larger than region (%#zx)\n",
++			fw_size, b->fw_size);
++		release_firmware(fw);
++		return -EFBIG;
++	}
++
++	memcpy_toio(b->fw_virt, fw->data, fw_size);
++	if (fw_size < b->fw_size)
++		memset_io(b->fw_virt + fw_size, 0, b->fw_size - fw_size);
++
++	release_firmware(fw);
++
++	b->boot_vector = (b->fw_phys + AGDSP_BOOT_OFFSET) >> 1;
++	return 0;
++}
++
++static int audcp_boot_map_region(struct device *dev, int idx,
++				 void __iomem **virt, phys_addr_t *phys,
++				 size_t *size)
++{
++	struct reserved_mem *rmem;
++	struct device_node *np;
++
++	np = of_parse_phandle(dev->of_node, "memory-region", idx);
++	if (!np)
++		return -ENODEV;
++
++	rmem = of_reserved_mem_lookup(np);
++	of_node_put(np);
++	if (!rmem)
++		return -EINVAL;
++
++	*virt = devm_ioremap_wc(dev, rmem->base, rmem->size);
++	if (!*virt)
++		return -ENOMEM;
++
++	if (phys)
++		*phys = rmem->base;
++	if (size)
++		*size = rmem->size;
++
++	return 0;
++}
++
++static int audcp_boot_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct device_node *np;
++	struct audcp_boot *b;
++	int i, ret;
++
++	b = devm_kzalloc(dev, sizeof(*b), GFP_KERNEL);
++	if (!b)
++		return -ENOMEM;
++	b->dev = dev;
++
++	of_property_read_u32(dev->of_node, "dsp-reboot-mode", &b->dsp_reboot_mode);
++
++	for (i = 0; i < CTRL_MAX; i++) {
++		u32 args[2];
++
++		b->map[i] = syscon_regmap_lookup_by_phandle_args(dev->of_node,
++				audcp_ctrl_name[i], 2, args);
++		if (IS_ERR(b->map[i])) {
++			if (i >= CTRL_BOOT_MAX) {
++				b->map[i] = NULL;
++				continue;
++			}
++
++			return dev_err_probe(dev, PTR_ERR(b->map[i]),
++					     "missing boot-control '%s'\n",
++					     audcp_ctrl_name[i]);
++		}
++
++		b->reg[i] = args[0];
++		b->mask[i] = args[1];
++	}
++
++	ret = audcp_boot_map_region(dev, 0, &b->fw_virt, &b->fw_phys, &b->fw_size);
++	if (ret)
++		return dev_err_probe(dev, ret, "no firmware memory-region\n");
++
++	audcp_boot_map_region(dev, 1, &b->smsg_virt, NULL, &b->smsg_size);
++
++	np = of_parse_phandle(dev->of_node, "sprd,audcp-aon-iram", 0);
++	if (np) {
++		struct resource res;
++
++		if (!of_address_to_resource(np, 0, &res)) {
++			b->aon_iram_virt = devm_ioremap_wc(dev, res.start,
++							   resource_size(&res));
++			b->aon_iram_size = resource_size(&res);
++		}
++		of_node_put(np);
++	}
++
++	ret = audcp_boot_load_firmware(b);
++	if (ret)
++		return ret;
++
++	/*
++	 * The boot sequence drives the AUDCP power/reset controls directly
++	 * through the PMU/AON regmaps, exactly like the vendor
++	 * sprd_audcp_boot driver.
++	 */
++	audcp_boot_start(b);
++
++	/*
++	 * Everything in AGCP address space (audcpahb/audcpapb clock gates,
++	 * the AGCP DMA controller, VBC, MCDT, the digital codec) hangs the
++	 * bus when touched before the DSP is up and AP access is granted.
++	 * Mainline consumers (clk framework, sprd-dma) cannot take the
++	 * vendor agdsp-access votes, so expose an always-on power domain:
++	 * consumers gain both probe ordering (genpd attach defers them
++	 * until this driver has booted the DSP) and a permanently-set
++	 * AP-access-enable bit.
++	 */
++	if (b->map[CTRL_ACCESS_ENABLE])
++		audcp_set(b, CTRL_ACCESS_ENABLE, true);
++
++	b->genpd.name = dev_name(dev);
++	b->genpd.flags = GENPD_FLAG_ALWAYS_ON;
++	ret = pm_genpd_init(&b->genpd, NULL, false);
++	if (ret)
++		return dev_err_probe(dev, ret, "failed to init power domain\n");
++
++	ret = of_genpd_add_provider_simple(dev->of_node, &b->genpd);
++	if (ret) {
++		pm_genpd_remove(&b->genpd);
++		return dev_err_probe(dev, ret, "failed to add genpd provider\n");
++	}
++
++	platform_set_drvdata(pdev, b);
++
++	dev_info(dev, "audio DSP booted (fw@%pa, vector=%#x)\n",
++		 &b->fw_phys, b->boot_vector);
++
++	return 0;
++}
++
++static const struct of_device_id audcp_boot_match[] = {
++	{ .compatible = "sprd,ums512-audcp-boot" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, audcp_boot_match);
++
++static struct platform_driver audcp_boot_driver = {
++	.probe = audcp_boot_probe,
++	.driver = {
++		.name = "sprd-audcp-boot",
++		.of_match_table = audcp_boot_match,
++	},
++};
++module_platform_driver(audcp_boot_driver);
++
++MODULE_DESCRIPTION("Unisoc audio-DSP (AUDCP) boot driver");
++MODULE_LICENSE("GPL");
+diff --git a/include/linux/soc/sprd/agdsp.h b/include/linux/soc/sprd/agdsp.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..dd1d86222134bc050a376a546bb5d6bb1c615b8e
+--- /dev/null
++++ b/include/linux/soc/sprd/agdsp.h
+@@ -0,0 +1,35 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef __SOC_SPRD_AGDSP_H
++#define __SOC_SPRD_AGDSP_H
++
++struct sprd_agdsp_ipc;
++
++enum {
++	AGDSP_CH_VBC_CTL,
++	AGDSP_CH_MP3_OFFLOAD,
++	AGDSP_CH_DSP_ASSERT_CTL,
++	AGDSP_CH_DSP_PCM,
++	AGDSP_CH_DSP_LOG,
++	AGDSP_CH_DSP_MEM,
++	AGDSP_CH_MP3_OFFLOAD_DRAIN,
++	AGDSP_CH_DSP_GET_PARAM_FROM_SMSG_NOREPLY,
++	AGDSP_CH_EFFECT_OFFLOAD,
++	AGDSP_CH_RECORD_PROCESS,
++	AGDSP_CH_DVFS,
++	AGDSP_CH_DSP_BTHAL,
++	AGDSP_CH_DSP_HIFI,
++};
++
++int sprd_agdsp_send_msg(struct sprd_agdsp_ipc *ipc, u16 channel, u16 cmd,
++			u32 param0, u32 param1, u32 param2, u32 param3);
++int sprd_agdsp_send_cmd(struct sprd_agdsp_ipc *ipc, u16 channel, u16 cmd,
++			s32 id, s32 stream, void *params, size_t param_size);
++int sprd_agdsp_shm_cmd(struct sprd_agdsp_ipc *ipc, u16 channel, u16 cmd,
++		       s32 id, s32 stream, u32 type, dma_addr_t addr,
++		       size_t size);
++
++struct sprd_agdsp_ipc *sprd_get_agdsp_ipc(struct device_node *node,
++					  const char *name);
++void sprd_put_agdsp_ipc(struct sprd_agdsp_ipc *ipc);
++
++#endif

@@ -1,0 +1,65 @@
+Subject: [PATCH] usb: musb: handle board-specific SPRD short RX completion
+
+The controller enables USBRX last-packet interrupts, but the interrupt
+handler only completes list-end events. Handle the short RX event and
+acknowledge the residual RXPKTRDY bit for opted-in boards. Start queued
+RX without discarding an already accepted packet. Keep DMA enabled.
+
+--- a/drivers/usb/musb/musb_core.h
++++ b/drivers/usb/musb/musb_core.h
+@@ -282,6 +282,7 @@
+ 
+ 	struct musb_io		io;
+ 	const struct musb_platform_ops *ops;
++	bool rx_short_dma;
+ 	struct musb_context_registers context;
+ 
+ 	irqreturn_t		(*isr)(int, void *);
+--- a/drivers/usb/musb/sprd.c
++++ b/drivers/usb/musb/sprd.c
+@@ -218,6 +218,8 @@
+ 	musb->phy = glue->phy;
+ 	musb->is_host = false;
+ 	musb->isr = sprd_musb_interrupt;
++	musb->rx_short_dma = of_property_read_bool(dev->parent->of_node,
++						 "sprd,rx-short-dma");
+ 
+ 	ret = phy_init(glue->phy);
+ 	if (ret)
+--- a/drivers/usb/musb/musb_gadget.c
++++ b/drivers/usb/musb/musb_gadget.c
+@@ -872,6 +872,12 @@
+ 			MUSB_RXCSR_P_WZC_BITS | csr);
+ 
+ 		request->actual += musb_ep->dma->actual_len;
++		if (musb->rx_short_dma &&
++		    (dma->actual_len % musb_ep->packet_sz)) {
++			csr &= ~MUSB_RXCSR_RXPKTRDY;
++			musb_writew(epio, MUSB_RXCSR,
++				    csr | MUSB_RXCSR_P_WZC_BITS);
++		}
+ 
+ #if defined(CONFIG_USB_INVENTRA_DMA) || defined(CONFIG_USB_TUSB_OMAP_DMA) || \
+ 	defined(CONFIG_USB_UX500_DMA)
+@@ -1186,6 +1192,8 @@
+ 	musb_ep_select(musb->mregs, req->epnum);
+ 	if (req->tx) {
+ 		txstate(musb, req);
++	} else if (musb->rx_short_dma) {
++		rxstate(musb, req);
+ 	} else {
+ 		csr = musb_readw(epio, MUSB_RXCSR);
+ 		csr |= MUSB_RXCSR_FLUSHFIFO | MUSB_RXCSR_P_WZC_BITS;
+--- a/drivers/usb/musb/sprd_dma.c
++++ b/drivers/usb/musb/sprd_dma.c
+@@ -313,7 +313,9 @@
+ 				musb_writel(mbase, MUSB_DMA_CHN_CFG(bchannel), 0);
+ 			}
+ 
+-			if (intr & CHN_LLIST_INT_MASK_STATUS) {
++			if ((intr & CHN_LLIST_INT_MASK_STATUS) ||
++			    (musb->rx_short_dma && !musb_channel->transmit &&
++			     (intr & CHN_USBRX_INT_MASK_STATUS))) {
+ 				intr |= CHN_LLIST_INT_CLR | CHN_START_INT_CLR |
+ 					CHN_FRAG_INT_CLR | CHN_BLK_INT_CLR |
+ 					CHN_USBRX_LAST_INT_CLR;

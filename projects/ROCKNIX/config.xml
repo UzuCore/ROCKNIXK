@@ -1,4 +1,8 @@
 <rocknix>
+  <T618 mkimage_options="dtb,extlinux" fdt="device_trees/ums512-rg405m.dtb" fdt_type="fdt" dtb_prefix="sprd">
+    <file>ums512-rg405m</file>
+    <file>ums512-rg405v</file>
+  </T618>
   <H700 dtb_prefix="allwinner">
     <DDR4 mkimage_options="dtb,extlinux,uboot" fdt="dtb.img" fdt_type="fdt">
         <file>sun50i-h700-anbernic-rg35xx-plus</file>
@@ -119,6 +123,8 @@
     <file>sm6115-mangmi-air-x-mq66</file>
     <file>sm6115-mangmi-air-x-mq66b</file>
     <file>sm6115-mangmi-air-x-mq65</file>
+    <file>sm6115-mangmi-air-y</file>
+    <file>sm6125-retroid-pocket-duo-lite</file>
   </SM6115>
   <SM8250 mkimage_options="abl" dtb_prefix="qcom">
     <file>sm8250-retroidpocket-rp5</file>

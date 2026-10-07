@@ -225,6 +225,11 @@ makeinstall_init() {
 
   cp ${PKG_DIR}/scripts/functions ${INSTALL}
   cp ${PKG_DIR}/scripts/init ${INSTALL}
+  if [ "${DEVICE}" = "T618" ]; then
+    # T618 console guard: stock UMS512 U-Boot args can leave /dev/console unopenable; a failed
+    # "exec 1>/dev/console" kills PID 1 (panic "Attempted to kill init", exitcode 0x100).
+    python3 ${PROJECT_DIR}/${PROJECT}/devices/T618/initramfs-console-guard.py ${INSTALL}/init
+  fi
 
   if [ -e "${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/device.init" ]
   then

@@ -1,0 +1,114 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ShadowBlip/InputPlumber/main/rootfs/usr/share/inputplumber/schema/capability_map_v2.json
+# Anbernic RG405M. Modelled on ROCKNIX RK3576 rg_vita_pro_map.yaml (same gpio-keys + separate analog layout).
+# Face buttons were measured on hardware (2026-09-29): physical A emits BTN_WEST (gpio 113),
+# physical Y emits BTN_EAST (gpio 116), B = BTN_SOUTH (gpio 112), X = BTN_NORTH (gpio 88).
+# Targets are positional (Nintendo layout: A right, B bottom, X top, Y left).
+# The left stick reports both axes inverted (fixed in the kernel driver); the right stick is correct.
+version: 2
+kind: CapabilityMap
+name: RG405M
+id: rg405m_keys
+
+mapping:
+  - name: A (right)
+    source_events:
+      - evdev: {event_type: KEY, event_code: BTN_WEST, value_type: button}
+    target_event:
+      gamepad: {button: East}
+  - name: B (bottom)
+    source_events:
+      - evdev: {event_type: KEY, event_code: BTN_SOUTH, value_type: button}
+    target_event:
+      gamepad: {button: South}
+  - name: X (top)  # InputPlumber ds5 target emits North/West swapped (same fix as ROCKNIX rg_vita_pro_map)
+    source_events:
+      - evdev: {event_type: KEY, event_code: BTN_NORTH, value_type: button}
+    target_event:
+      gamepad: {button: West}
+  - name: Y (left)
+    source_events:
+      - evdev: {event_type: KEY, event_code: BTN_EAST, value_type: button}
+    target_event:
+      gamepad: {button: North}
+  - name: Start
+    source_events:
+      - evdev: {event_type: KEY, event_code: BTN_START, value_type: button}
+    target_event:
+      gamepad: {button: Start}
+  - name: Select
+    source_events:
+      - evdev: {event_type: KEY, event_code: BTN_SELECT, value_type: button}
+    target_event:
+      gamepad: {button: Select}
+  - name: Back key (front, bottom left)
+    source_events:
+      - evdev: {event_type: KEY, event_code: BTN_MODE, value_type: button}
+    target_event:
+      gamepad: {button: Guide}
+  - name: Home key
+    source_events:
+      - evdev: {event_type: KEY, event_code: KEY_F10, value_type: button}
+    target_event:
+      gamepad: {button: Guide}
+  - name: L1
+    source_events:
+      - evdev: {event_type: KEY, event_code: BTN_TL, value_type: button}
+    target_event:
+      gamepad: {button: LeftBumper}
+  - name: R1
+    source_events:
+      - evdev: {event_type: KEY, event_code: BTN_TR, value_type: button}
+    target_event:
+      gamepad: {button: RightBumper}
+  - name: L2
+    source_events:
+      - evdev: {event_type: KEY, event_code: BTN_TL2, value_type: trigger}
+    target_event:
+      gamepad: {trigger: {name: LeftTrigger}}
+  - name: R2
+    source_events:
+      - evdev: {event_type: KEY, event_code: BTN_TR2, value_type: trigger}
+    target_event:
+      gamepad: {trigger: {name: RightTrigger}}
+  - name: L3
+    source_events:
+      - evdev: {event_type: KEY, event_code: BTN_THUMBL, value_type: button}
+    target_event:
+      gamepad: {button: LeftStick}
+  - name: R3
+    source_events:
+      - evdev: {event_type: KEY, event_code: BTN_THUMBR, value_type: button}
+    target_event:
+      gamepad: {button: RightStick}
+  - name: Dpad Up
+    source_events:
+      - evdev: {event_type: KEY, event_code: BTN_DPAD_UP, value_type: button}
+    target_event:
+      gamepad: {button: DPadUp}
+  - name: Dpad Down
+    source_events:
+      - evdev: {event_type: KEY, event_code: BTN_DPAD_DOWN, value_type: button}
+    target_event:
+      gamepad: {button: DPadDown}
+  - name: Dpad Left
+    source_events:
+      - evdev: {event_type: KEY, event_code: BTN_DPAD_LEFT, value_type: button}
+    target_event:
+      gamepad: {button: DPadLeft}
+  - name: Dpad Right
+    source_events:
+      - evdev: {event_type: KEY, event_code: BTN_DPAD_RIGHT, value_type: button}
+    target_event:
+      gamepad: {button: DPadRight}
+  - name: Left Stick (axes are inverted in the rg405m-analog driver via DT invert-absx/invert-absy)
+    source_events:
+      - evdev: {event_type: ABS, event_code: ABS_X, value_type: joystick_x}
+      - evdev: {event_type: ABS, event_code: ABS_Y, value_type: joystick_y}
+    target_event:
+      gamepad: {axis: {name: LeftStick}}
+  - name: Right Stick
+    source_events:
+      - evdev: {event_type: ABS, event_code: ABS_RX, value_type: joystick_x}
+      - evdev: {event_type: ABS, event_code: ABS_RY, value_type: joystick_y}
+    target_event:
+      gamepad: {axis: {name: RightStick}}

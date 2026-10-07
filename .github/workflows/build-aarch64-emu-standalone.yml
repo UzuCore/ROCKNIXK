@@ -141,7 +141,7 @@ jobs:
           inputs.DEVICE == 'S922X'  || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' || inputs.DEVICE == 'SM8750' || inputs.DEVICE == 'SM6115' || inputs.DEVICE == 'SM4450' || inputs.DEVICE == 'T618' || inputs.DEVICE == 'SDM845' }}
         run: rm build.qt6.tar.zst
 
-      # Odin and supported Snapdragon builds reuse the separately built Eden package.
+      # Supported Snapdragon builds reuse the separately built Eden package.
       # Keep this condition in sync with build-device.yml.
       - name: Download eden-sa (${{ inputs.DEVICE }})
         if: ${{ inputs.DEVICE == 'SDM845' || inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' || inputs.DEVICE == 'SM8750' }}

@@ -1,0 +1,10 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# marlin3 (sc23xx) Wi-Fi fails its SDIO suspend handshake (-110) and aborts system suspend; soft-block it first.
+if rfkill list wlan 2>/dev/null | grep -q 'Soft blocked: no'; then
+  echo 1 > /run/rg405m-wlan-was-on
+  rfkill block wlan
+  sleep 1
+else
+  rm -f /run/rg405m-wlan-was-on
+fi

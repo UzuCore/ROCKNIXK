@@ -1,0 +1,1792 @@
+Subject: [PATCH] sprd: pmic-power support for UMS512
+
+Consolidated from beebono/linux-mainline-sprd rg-rotate 464b3e7bf45bb300e190339977abba36c8078e1f, rebased onto Linux 7.1.2.
+Original authors and patch hashes are recorded in series-origin.json.
+
+diff --git a/drivers/mfd/sprd-sc27xx-spi.c b/drivers/mfd/sprd-sc27xx-spi.c
+index d6b4350779e6aecfa19d9fa21b9174447d589e33..a72d2b6886efe1d6f5751e177e0c746796e6ba45 100644
+--- a/drivers/mfd/sprd-sc27xx-spi.c
++++ b/drivers/mfd/sprd-sc27xx-spi.c
+@@ -14,6 +14,11 @@
+ #include <linux/spi/spi.h>
+ #include <uapi/linux/usb/charger.h>
+ 
++enum sprd_pmic_type {
++	PMIC_TYPE_SC2730,
++	PMIC_TYPE_SC2731,
++};
++
+ #define SPRD_PMIC_INT_MASK_STATUS	0x0
+ #define SPRD_PMIC_INT_RAW_STATUS	0x4
+ #define SPRD_PMIC_INT_EN		0x8
+@@ -50,6 +55,34 @@ struct sprd_pmic_data {
+ 	u32 charger_det;
+ };
+ 
++static const struct mfd_cell sc2730_devices[] = {
++	MFD_CELL_OF("sc2730-adc", NULL, NULL, 0, 0, "sprd,sc2730-adc"),
++	MFD_CELL_OF("sc2730-audio-codec", NULL, NULL, 0, 0, "sprd,sc2730-audio-codec"),
++	MFD_CELL_OF("sc2730-bltc", NULL, NULL, 0, 0, "sprd,sc2730-bltc"),
++	MFD_CELL_OF("sc2730-efuse", NULL, NULL, 0, 0, "sprd,sc2730-efuse"),
++	MFD_CELL_OF("sc2730-eic", NULL, NULL, 0, 0, "sprd,sc2730-eic"),
++	MFD_CELL_OF("sc2730-fgu", NULL, NULL, 0, 0, "sprd,sc2730-fgu"),
++	MFD_CELL_OF("sc2730-pd", NULL, NULL, 0, 0, "sprd,sc2730-pd"),
++	MFD_CELL_NAME("sc2730-poweroff"),
++	MFD_CELL_NAME("sc2730-regulator"),
++	MFD_CELL_OF("sc2730-rtc", NULL, NULL, 0, 0, "sprd,sc2730-rtc"),
++	MFD_CELL_OF("sc2730-vibrator", NULL, NULL, 0, 0, "sprd,sc2730-vibrator"),
++	MFD_CELL_OF("sc2730-wdt", NULL, NULL, 0, 0, "sprd,sc2730-wdt"),
++};
++
++static const struct mfd_cell sc2731_devices[] = {
++	MFD_CELL_OF("sc2731-adc", NULL, NULL, 0, 0, "sprd,sc2731-adc"),
++	MFD_CELL_OF("sc2731-bltc", NULL, NULL, 0, 0, "sprd,sc2731-bltc"),
++	MFD_CELL_OF("sc2731-charger", NULL, NULL, 0, 0, "sprd,sc2731-charger"),
++	MFD_CELL_OF("sc2731-efuse", NULL, NULL, 0, 0, "sprd,sc2731-efuse"),
++	MFD_CELL_OF("sc2731-eic", NULL, NULL, 0, 0, "sprd,sc2731-eic"),
++	MFD_CELL_OF("sc2731-fgu", NULL, NULL, 0, 0, "sprd,sc2731-fgu"),
++	MFD_CELL_NAME("sc2731-poweroff"),
++	MFD_CELL_NAME("sc2731-regulator"),
++	MFD_CELL_OF("sc2731-rtc", NULL, NULL, 0, 0, "sprd,sc2731-rtc"),
++	MFD_CELL_OF("sc2731-vibrator", NULL, NULL, 0, 0, "sprd,sc2731-vibrator"),
++};
++
+ /*
+  * Since different PMICs of SC27xx series can have different interrupt
+  * base address and irq number, we should save irq number and irq base
+@@ -152,12 +185,26 @@ static const struct regmap_config sprd_pmic_config = {
+ static int sprd_pmic_probe(struct spi_device *spi)
+ {
+ 	struct sprd_pmic *ddata;
++	enum sprd_pmic_type pmic_type;
+ 	const struct sprd_pmic_data *pdata;
+-	int ret, i;
++	const struct mfd_cell *cells;
++	int ret, i, num_cells;
++
++	pmic_type = (enum sprd_pmic_type)of_device_get_match_data(&spi->dev);
+ 
+-	pdata = of_device_get_match_data(&spi->dev);
+-	if (!pdata) {
+-		dev_err(&spi->dev, "No matching driver data found\n");
++	switch (pmic_type) {
++	case PMIC_TYPE_SC2730:
++		pdata = &sc2730_data;
++		cells = sc2730_devices;
++		num_cells = ARRAY_SIZE(sc2730_devices);
++		break;
++	case PMIC_TYPE_SC2731:
++		pdata = &sc2731_data;
++		cells = sc2731_devices;
++		num_cells = ARRAY_SIZE(sc2731_devices);
++		break;
++	default:
++		dev_err(&spi->dev, "Invalid device ID\n");
+ 		return -EINVAL;
+ 	}
+ 
+@@ -204,7 +251,9 @@ static int sprd_pmic_probe(struct spi_device *spi)
+ 		return ret;
+ 	}
+ 
+-	ret = devm_of_platform_populate(&spi->dev);
++	ret = devm_mfd_add_devices(&spi->dev, PLATFORM_DEVID_AUTO,
++				   cells, num_cells, NULL, 0,
++				   regmap_irq_get_domain(ddata->irq_data));
+ 	if (ret) {
+ 		dev_err(&spi->dev, "Failed to populate sub-devices %d\n", ret);
+ 		return ret;
+@@ -241,15 +290,15 @@ static DEFINE_SIMPLE_DEV_PM_OPS(sprd_pmic_pm_ops,
+ 				sprd_pmic_suspend, sprd_pmic_resume);
+ 
+ static const struct of_device_id sprd_pmic_match[] = {
+-	{ .compatible = "sprd,sc2730", .data = &sc2730_data },
+-	{ .compatible = "sprd,sc2731", .data = &sc2731_data },
++	{ .compatible = "sprd,sc2730", .data = (void *)PMIC_TYPE_SC2730 },
++	{ .compatible = "sprd,sc2731", .data = (void *)PMIC_TYPE_SC2731 },
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(of, sprd_pmic_match);
+ 
+ static const struct spi_device_id sprd_pmic_spi_ids[] = {
+-	{ .name = "sc2730", .driver_data = (unsigned long)&sc2730_data },
+-	{ .name = "sc2731", .driver_data = (unsigned long)&sc2731_data },
++	{ .name = "sc2730", .driver_data = PMIC_TYPE_SC2730 },
++	{ .name = "sc2731", .driver_data = PMIC_TYPE_SC2731 },
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(spi, sprd_pmic_spi_ids);
+diff --git a/drivers/power/reset/sc27xx-poweroff.c b/drivers/power/reset/sc27xx-poweroff.c
+index 393bd1c33b73b1416942a80b60b53cfe89ed5f12..37b43e18c6e271dbb5cce33a40678c9aa9cce5bb 100644
+--- a/drivers/power/reset/sc27xx-poweroff.c
++++ b/drivers/power/reset/sc27xx-poweroff.c
+@@ -6,18 +6,60 @@
+ 
+ #include <linux/cpu.h>
+ #include <linux/kernel.h>
++#include <linux/mod_devicetable.h>
+ #include <linux/module.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm.h>
++#include <linux/reboot.h>
+ #include <linux/regmap.h>
+ #include <linux/syscore_ops.h>
+ 
+-#define SC27XX_PWR_PD_HW	0xc2c
++#define SC2730_PWR_PD_HW	0x1820
++#define SC2730_SLP_CTRL		0x1a48
++#define SC2730_LDO_XTL_EN	BIT(2)
++
++#define SC2730_SOFT_RST_HW	0x1824
++#define SC2730_RST_STATUS	0x1bac
++#define SC2730_SWRST_CTRL0	0x1bf8
++
++#define SC2731_PWR_PD_HW	0xc2c
++#define SC2731_SLP_CTRL		0xdf0
++#define SC2731_LDO_XTL_EN	BIT(3)
++
+ #define SC27XX_PWR_OFF_EN	BIT(0)
+-#define SC27XX_SLP_CTRL		0xdf0
+-#define SC27XX_LDO_XTL_EN	BIT(3)
++#define SC27XX_SOFT_RST_EN	BIT(4)
++#define SC27XX_RESET		BIT(0)
+ 
+-static struct regmap *regmap;
++#define HWRST_STATUS_SECURITY		0x02
++#define HWRST_STATUS_RECOVERY		0x20
++#define HWRST_STATUS_NORMAL		0x40
++#define HWRST_STATUS_ALARM		0x50
++#define HWRST_STATUS_SLEEP		0x60
++#define HWRST_STATUS_FASTBOOT		0x30
++#define HWRST_STATUS_SPECIAL		0x70
++#define HWRST_STATUS_PANIC		0x80
++#define HWRST_STATUS_CFTREBOOT		0x90
++#define HWRST_STATUS_AUTODLOADER	0xa0
++#define HWRST_STATUS_IQMODE		0xb0
++#define HWRST_STATUS_SPRDISK		0xc0
++#define HWRST_STATUS_FACTORYTEST	0xe0
++#define HWRST_STATUS_WATCHDOG		0xf0
++#define HWRST_STATUS_MASK		0xf0
++
++struct sc27xx_poweroff_reg_info {
++	u32 poweroff_reg;
++	u32 slp_ctrl_reg;
++	u32 ldo_xtl_en;
++
++	u32 reset_reg;
++	u32 rst_sts_reg;
++	u32 swrst_ctrl_reg;
++};
++
++struct sc27xx_poweroff_data {
++	struct regmap *regmap;
++	const struct sc27xx_poweroff_reg_info *regs;
++};
+ 
+ /*
+  * On Spreadtrum platform, we need power off system through external SC27xx
+@@ -48,33 +90,136 @@ static struct syscore poweroff_syscore = {
+ 	.ops = &poweroff_syscore_ops,
+ };
+ 
+-static void sc27xx_poweroff_do_poweroff(void)
++static int sc27xx_poweroff_do_poweroff(struct sys_off_data *off_data)
+ {
++	struct sc27xx_poweroff_data *data = off_data->cb_data;
++
+ 	/* Disable the external subsys connection's power firstly */
+-	regmap_write(regmap, SC27XX_SLP_CTRL, SC27XX_LDO_XTL_EN);
++	regmap_write(data->regmap, data->regs->slp_ctrl_reg,
++		     data->regs->ldo_xtl_en);
++
++	regmap_write(data->regmap, data->regs->poweroff_reg,
++		     SC27XX_PWR_OFF_EN);
++
++	mdelay(1000);
++
++	pr_emerg("Unable to poweroff system\n");
++
++	return NOTIFY_DONE;
++}
++
++static int sc27xx_restart(struct sys_off_data *off_data)
++{
++	struct sc27xx_poweroff_data *data = off_data->cb_data;
++	u32 reboot_mode = 0;
++
++	if (!off_data->cmd)
++		reboot_mode = HWRST_STATUS_NORMAL;
++	else if (!strcmp(off_data->cmd, "recovery"))
++		reboot_mode = HWRST_STATUS_RECOVERY;
++	else if (!strcmp(off_data->cmd, "alarm"))
++		reboot_mode = HWRST_STATUS_ALARM;
++	else if (!strcmp(off_data->cmd, "fastsleep"))
++		reboot_mode = HWRST_STATUS_SLEEP;
++	else if (!strcmp(off_data->cmd, "bootloader"))
++		reboot_mode = HWRST_STATUS_FASTBOOT;
++	else if (!strcmp(off_data->cmd, "panic"))
++		reboot_mode = HWRST_STATUS_PANIC;
++	else if (!strcmp(off_data->cmd, "special"))
++		reboot_mode = HWRST_STATUS_SPECIAL;
++	else if (!strcmp(off_data->cmd, "cftreboot"))
++		reboot_mode = HWRST_STATUS_CFTREBOOT;
++	else if (!strcmp(off_data->cmd, "autodloader"))
++		reboot_mode = HWRST_STATUS_AUTODLOADER;
++	else if (!strcmp(off_data->cmd, "iqmode"))
++		reboot_mode = HWRST_STATUS_IQMODE;
++	else if (!strcmp(off_data->cmd, "sprdisk"))
++		reboot_mode = HWRST_STATUS_SPRDISK;
++	else if (!strcmp(off_data->cmd, "tospanic"))
++		reboot_mode = HWRST_STATUS_SECURITY;
++	else if (!strcmp(off_data->cmd, "factorytest"))
++		reboot_mode = HWRST_STATUS_FACTORYTEST;
++	else
++		reboot_mode = HWRST_STATUS_NORMAL;
+ 
+-	regmap_write(regmap, SC27XX_PWR_PD_HW, SC27XX_PWR_OFF_EN);
++	regmap_update_bits(data->regmap, data->regs->rst_sts_reg,
++			   HWRST_STATUS_MASK, reboot_mode);
++
++	regmap_set_bits(data->regmap, data->regs->swrst_ctrl_reg,
++			SC27XX_SOFT_RST_EN);
++
++	regmap_write(data->regmap, data->regs->reset_reg, SC27XX_RESET);
++
++	mdelay(1000);
++
++	pr_emerg("Unable to restart system\n");
++
++	return NOTIFY_DONE;
+ }
+ 
+ static int sc27xx_poweroff_probe(struct platform_device *pdev)
+ {
+-	if (regmap)
+-		return -EINVAL;
++	const struct platform_device_id *id = platform_get_device_id(pdev);
++	struct sc27xx_poweroff_data *data;
++	int ret;
+ 
+-	regmap = dev_get_regmap(pdev->dev.parent, NULL);
+-	if (!regmap)
++	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
++
++	data->regs = (const struct sc27xx_poweroff_reg_info *)id->driver_data;
++
++	data->regmap = dev_get_regmap(pdev->dev.parent, NULL);
++	if (!data->regmap)
+ 		return -ENODEV;
+ 
+-	pm_power_off = sc27xx_poweroff_do_poweroff;
+ 	register_syscore(&poweroff_syscore);
+-	return 0;
++
++	if (data->regs->reset_reg) {
++		ret = devm_register_sys_off_handler(&pdev->dev,
++						    SYS_OFF_MODE_RESTART,
++						    192, sc27xx_restart,
++						    data);
++		if (ret)
++			return ret;
++	}
++
++	return devm_register_sys_off_handler(&pdev->dev,
++					     SYS_OFF_MODE_POWER_OFF,
++					     SYS_OFF_PRIO_DEFAULT,
++					     sc27xx_poweroff_do_poweroff,
++					     data);
+ }
+ 
++static const struct sc27xx_poweroff_reg_info sc2730_pwr_regs = {
++	.poweroff_reg = SC2730_PWR_PD_HW,
++	.slp_ctrl_reg = SC2730_SLP_CTRL,
++	.ldo_xtl_en = SC2730_LDO_XTL_EN,
++
++	.reset_reg = SC2730_SOFT_RST_HW,
++	.rst_sts_reg = SC2730_RST_STATUS,
++	.swrst_ctrl_reg = SC2730_SWRST_CTRL0,
++};
++
++static const struct sc27xx_poweroff_reg_info sc2731_pwr_regs = {
++	.poweroff_reg = SC2731_PWR_PD_HW,
++	.slp_ctrl_reg = SC2731_SLP_CTRL,
++	.ldo_xtl_en = SC2731_LDO_XTL_EN,
++};
++
++static const struct platform_device_id sc27xx_poweroff_id_table[] = {
++	{ "sc2730-poweroff", (kernel_ulong_t)&sc2730_pwr_regs },
++	{ "sc2731-poweroff", (kernel_ulong_t)&sc2731_pwr_regs },
++	{ }
++};
++MODULE_DEVICE_TABLE(platform, sc27xx_poweroff_id_table);
++
+ static struct platform_driver sc27xx_poweroff_driver = {
+ 	.probe = sc27xx_poweroff_probe,
+ 	.driver = {
+ 		.name = "sc27xx-poweroff",
+ 	},
++	.id_table = sc27xx_poweroff_id_table,
+ };
+ module_platform_driver(sc27xx_poweroff_driver);
+ 
+diff --git a/drivers/power/supply/bq2415x_charger.c b/drivers/power/supply/bq2415x_charger.c
+index b50a28b9dd38671c3d460d92ffa3bf90bc88e1f4..d914a22c8445daf5ccafd3f446c561c6fb72cffa 100644
+--- a/drivers/power/supply/bq2415x_charger.c
++++ b/drivers/power/supply/bq2415x_charger.c
+@@ -27,6 +27,9 @@
+ #include <linux/i2c.h>
+ #include <linux/slab.h>
+ #include <linux/acpi.h>
++#include <linux/regulator/driver.h>
++#include <linux/regulator/machine.h>
++#include <linux/regulator/of_regulator.h>
+ 
+ #include <linux/power/bq2415x_charger.h>
+ 
+@@ -87,6 +90,22 @@
+ #define BQ2415X_MASK_VI_TERM		(BIT(0)|BIT(1)|BIT(2))
+ #define BQ2415X_SHIFT_VI_TERM		0
+ 
++/* AW32257 current register differences. */
++#define AW32257_MASK_VI_CHRG		(BIT(3)|BIT(4)|BIT(5)|BIT(6))
++#define AW32257_SHIFT_VI_CHRG		3
++
++static const int aw32257_ichg_uv[16] = {
++	16368, 20460, 28644, 32736, 36828, 40920, 45012, 49104,
++	53196, 57288, 61380, 65472, 69564, 73656, 77748, 81840,
++};
++
++/* Termination current, REG04[2:0]: 2046 uV base, then 2046/4092/8184 by bit. */
++static int aw32257_iterm_uv(int code)
++{
++	return 2046 + 2046 * (code & 1) + 4092 * ((code >> 1) & 1) +
++	       8184 * ((code >> 2) & 1);
++}
++
+ 
+ enum bq2415x_command {
+ 	BQ2415X_TIMER_RESET,
+@@ -137,6 +156,7 @@ enum bq2415x_chip {
+ 	BQ24156A,
+ 	BQ24157S,
+ 	BQ24158,
++	AW32257,
+ };
+ 
+ static char *bq2415x_chip_name[] = {
+@@ -153,6 +173,7 @@ static char *bq2415x_chip_name[] = {
+ 	"bq24156a",
+ 	"bq24157s",
+ 	"bq24158",
++	"aw32257",
+ };
+ 
+ struct bq2415x_device {
+@@ -169,10 +190,17 @@ struct bq2415x_device {
+ 	const char *timer_error;
+ 	char *model;
+ 	char *name;
++	/* Charge temperature guard; see bq2415x_temp_work(). */
++	struct delayed_work temp_work;
++	struct power_supply *fuel_gauge;
++	int temp_min;		/* deci-celsius, INT_MIN if unconstrained */
++	int temp_max;		/* deci-celsius, INT_MAX if unconstrained */
++	bool temp_blocked;	/* charging currently inhibited on temperature */
+ 	int autotimer;	/* 1 - if driver automatically reset timer, 0 - not */
+ 	int automode;	/* 1 - enabled, 0 - disabled; -1 - not supported */
+ 	int charge_status;
+ 	int id;
++	struct regulator_dev *usb_vbus_reg;
+ };
+ 
+ /* each registered chip must have unique id */
+@@ -440,7 +468,7 @@ static enum bq2415x_chip bq2415x_detect_chip(struct bq2415x_device *bq)
+ 				return bq->chip;
+ 			return BQ24156;
+ 		case 2:
+-			if (bq->chip == BQ24157S)
++			if (bq->chip == BQ24157S || bq->chip == AW32257)
+ 				return bq->chip;
+ 			return BQ24158;
+ 		default:
+@@ -524,6 +552,10 @@ static int bq2415x_set_current_limit(struct bq2415x_device *bq, int mA)
+ {
+ 	int val;
+ 
++	/* REG01[7:6] does not exist on the AW32257 */
++	if (bq->chip == AW32257)
++		return 0;
++
+ 	if (mA <= 100)
+ 		val = 0;
+ 	else if (mA <= 500)
+@@ -562,6 +594,10 @@ static int bq2415x_set_weak_battery_voltage(struct bq2415x_device *bq, int mV)
+ {
+ 	int val;
+ 
++	/* REG01[5:4] does not exist on the AW32257; VSHORT is fixed at 2.1V. */
++	if (bq->chip == AW32257)
++		return 0;
++
+ 	/* round to 100mV */
+ 	if (mV <= 3400 + 50)
+ 		val = 0;
+@@ -626,6 +662,19 @@ static int bq2415x_set_charge_current(struct bq2415x_device *bq, int mA)
+ 	if (bq->init_data.resistor_sense <= 0)
+ 		return -EINVAL;
+ 
++	if (bq->chip == AW32257) {
++		int uv = mA * bq->init_data.resistor_sense;
++
++		/* Highest code that does not exceed the requested current. */
++		for (val = ARRAY_SIZE(aw32257_ichg_uv) - 1; val > 0; val--)
++			if (aw32257_ichg_uv[val] <= uv)
++				break;
++
++		return bq2415x_i2c_write_mask(bq, BQ2415X_REG_CURRENT, val,
++				AW32257_MASK_VI_CHRG | BQ2415X_MASK_RESET,
++				AW32257_SHIFT_VI_CHRG);
++	}
++
+ 	val = (mA * bq->init_data.resistor_sense - 37400) / 6800;
+ 	if (val < 0)
+ 		val = 0;
+@@ -645,6 +694,14 @@ static int bq2415x_get_charge_current(struct bq2415x_device *bq)
+ 	if (bq->init_data.resistor_sense <= 0)
+ 		return -EINVAL;
+ 
++	if (bq->chip == AW32257) {
++		ret = bq2415x_i2c_read_mask(bq, BQ2415X_REG_CURRENT,
++				AW32257_MASK_VI_CHRG, AW32257_SHIFT_VI_CHRG);
++		if (ret < 0)
++			return ret;
++		return aw32257_ichg_uv[ret] / bq->init_data.resistor_sense;
++	}
++
+ 	ret = bq2415x_i2c_read_mask(bq, BQ2415X_REG_CURRENT,
+ 			BQ2415X_MASK_VI_CHRG, BQ2415X_SHIFT_VI_CHRG);
+ 	if (ret < 0)
+@@ -660,6 +717,18 @@ static int bq2415x_set_termination_current(struct bq2415x_device *bq, int mA)
+ 	if (bq->init_data.resistor_sense <= 0)
+ 		return -EINVAL;
+ 
++	if (bq->chip == AW32257) {
++		int uv = mA * bq->init_data.resistor_sense;
++
++		for (val = 7; val > 0; val--)
++			if (aw32257_iterm_uv(val) <= uv)
++				break;
++
++		return bq2415x_i2c_write_mask(bq, BQ2415X_REG_CURRENT, val,
++				BQ2415X_MASK_VI_TERM | BQ2415X_MASK_RESET,
++				BQ2415X_SHIFT_VI_TERM);
++	}
++
+ 	val = (mA * bq->init_data.resistor_sense - 3400) / 3400;
+ 	if (val < 0)
+ 		val = 0;
+@@ -683,6 +752,8 @@ static int bq2415x_get_termination_current(struct bq2415x_device *bq)
+ 			BQ2415X_MASK_VI_TERM, BQ2415X_SHIFT_VI_TERM);
+ 	if (ret < 0)
+ 		return ret;
++	if (bq->chip == AW32257)
++		return aw32257_iterm_uv(ret) / bq->init_data.resistor_sense;
+ 	return (3400 + 3400*ret) / bq->init_data.resistor_sense;
+ }
+ 
+@@ -784,6 +855,70 @@ static int bq2415x_set_mode(struct bq2415x_device *bq, enum bq2415x_mode mode)
+ 
+ }
+ 
++/**** USB OTG VBUS regulator (charger boost mode) ****/
++
++#ifdef CONFIG_REGULATOR
++static int bq2415x_vbus_enable(struct regulator_dev *rdev)
++{
++	struct bq2415x_device *bq = rdev_get_drvdata(rdev);
++
++	return bq2415x_set_mode(bq, BQ2415X_MODE_BOOST);
++}
++
++static int bq2415x_vbus_disable(struct regulator_dev *rdev)
++{
++	struct bq2415x_device *bq = rdev_get_drvdata(rdev);
++
++	return bq2415x_set_mode(bq, BQ2415X_MODE_OFF);
++}
++
++static int bq2415x_vbus_is_enabled(struct regulator_dev *rdev)
++{
++	struct bq2415x_device *bq = rdev_get_drvdata(rdev);
++	int ret;
++
++	ret = bq2415x_exec_command(bq, BQ2415X_BOOST_MODE_STATUS);
++	if (ret < 0)
++		return ret;
++
++	return !!ret;
++}
++
++static const struct regulator_ops bq2415x_vbus_ops = {
++	.enable		= bq2415x_vbus_enable,
++	.disable	= bq2415x_vbus_disable,
++	.is_enabled	= bq2415x_vbus_is_enabled,
++};
++
++static const struct regulator_desc bq2415x_vbus_desc = {
++	.name		= "usb_otg_vbus",
++	.of_match	= of_match_ptr("usb-otg-vbus"),
++	.type		= REGULATOR_VOLTAGE,
++	.owner		= THIS_MODULE,
++	.ops		= &bq2415x_vbus_ops,
++	.fixed_uV	= 5000000,
++	.n_voltages	= 1,
++};
++
++static int bq2415x_register_vbus_regulator(struct bq2415x_device *bq)
++{
++	struct regulator_config cfg = { };
++
++	cfg.dev = bq->dev;
++	cfg.driver_data = bq;
++	cfg.of_node = bq->dev->of_node;
++
++	bq->usb_vbus_reg = devm_regulator_register(bq->dev, &bq2415x_vbus_desc,
++						   &cfg);
++	return PTR_ERR_OR_ZERO(bq->usb_vbus_reg);
++}
++#else
++static inline int bq2415x_register_vbus_regulator(struct bq2415x_device *bq)
++{
++	return 0;
++}
++#endif
++
+ static bool bq2415x_update_reported_mode(struct bq2415x_device *bq, int mA)
+ {
+ 	enum bq2415x_mode mode;
+@@ -1539,6 +1674,95 @@ static int bq2415x_power_supply_init(struct bq2415x_device *bq)
+ 	return 0;
+ }
+ 
++/**** charge temperature guard ****/
++
++#define BQ2415X_TEMP_POLL_MS		15000
++#define BQ2415X_TEMP_HYSTERESIS		30	/* deci-celsius */
++
++static void bq2415x_temp_work(struct work_struct *work)
++{
++	struct bq2415x_device *bq =
++		container_of(work, struct bq2415x_device, temp_work.work);
++	union power_supply_propval val;
++	int temp, min, max, ret;
++	bool block;
++
++	if (!bq->fuel_gauge) {
++		bq->fuel_gauge =
++			power_supply_get_by_reference(dev_fwnode(bq->dev),
++						      "fuel-gauge");
++		if (IS_ERR_OR_NULL(bq->fuel_gauge)) {
++			bq->fuel_gauge = NULL;
++			goto reschedule;
++		}
++	}
++
++	ret = power_supply_get_property(bq->fuel_gauge,
++					POWER_SUPPLY_PROP_TEMP, &val);
++	if (ret) {
++		dev_warn_ratelimited(bq->dev,
++				     "battery temperature unreadable (%d), charge guard inactive\n",
++				     ret);
++		goto reschedule;
++	}
++
++	temp = val.intval;
++	min = bq->temp_min;
++	max = bq->temp_max;
++
++	/* Widen the window once blocked, so recovery needs a real margin. */
++	if (bq->temp_blocked) {
++		if (min > INT_MIN)
++			min += BQ2415X_TEMP_HYSTERESIS;
++		if (max < INT_MAX)
++			max -= BQ2415X_TEMP_HYSTERESIS;
++	}
++
++	block = temp < min || temp > max;
++
++	if (block != bq->temp_blocked) {
++		ret = bq2415x_exec_command(bq, block ? BQ2415X_CHARGER_DISABLE :
++						       BQ2415X_CHARGER_ENABLE);
++		if (ret < 0) {
++			dev_err(bq->dev, "failed to %s charging: %d\n",
++				block ? "inhibit" : "resume", ret);
++			goto reschedule;
++		}
++
++		bq->temp_blocked = block;
++		dev_info(bq->dev, "battery %d.%dC: charging %s\n",
++			 temp / 10, abs(temp % 10),
++			 block ? "inhibited" : "resumed");
++	}
++
++reschedule:
++	schedule_delayed_work(&bq->temp_work,
++			      msecs_to_jiffies(BQ2415X_TEMP_POLL_MS));
++}
++
++static bool bq2415x_temp_guard_init(struct bq2415x_device *bq)
++{
++	struct power_supply_battery_info *info;
++	int ret;
++
++	bq->temp_min = INT_MIN;
++	bq->temp_max = INT_MAX;
++
++	ret = power_supply_get_battery_info(bq->charger, &info);
++	if (ret)
++		return false;
++
++	/* operating-range-celsius is whole degrees; we work in deci. */
++	if (info->temp_min > INT_MIN)
++		bq->temp_min = info->temp_min * 10;
++	if (info->temp_max < INT_MAX)
++		bq->temp_max = info->temp_max * 10;
++
++	power_supply_put_battery_info(bq->charger, info);
++
++	return bq->temp_min > INT_MIN || bq->temp_max < INT_MAX;
++}
++
+ /* main bq2415x probe function */
+ static int bq2415x_probe(struct i2c_client *client)
+ {
+@@ -1656,6 +1880,16 @@ static int bq2415x_probe(struct i2c_client *client)
+ 		goto error_3;
+ 	}
+ 
++	/*
++	 * Expose the chip's boost mode as a USB OTG VBUS regulator so a USB
++	 * role switch (or TCPM) can source 5V on VBUS in host mode. Optional:
++	 * absent DT subnode just means no consumer, so don't fail probe.
++	 */
++	ret = bq2415x_register_vbus_regulator(bq);
++	if (ret)
++		dev_warn(bq->dev,
++			 "failed to register usb-otg-vbus regulator: %d\n", ret);
++
+ 	if (bq->notify_node || bq->init_data.notify_device) {
+ 		bq->nb.notifier_call = bq2415x_notifier_call;
+ 		ret = power_supply_reg_notifier(&bq->nb);
+@@ -1697,6 +1931,17 @@ static int bq2415x_probe(struct i2c_client *client)
+ 	INIT_DELAYED_WORK(&bq->work, bq2415x_timer_work);
+ 	bq2415x_set_autotimer(bq, 1);
+ 
++	if (bq2415x_temp_guard_init(bq)) {
++		INIT_DELAYED_WORK(&bq->temp_work, bq2415x_temp_work);
++		schedule_delayed_work(&bq->temp_work, 0);
++		dev_info(bq->dev, "charge temperature guard: %d.%dC to %d.%dC\n",
++			 bq->temp_min / 10, abs(bq->temp_min % 10),
++			 bq->temp_max / 10, abs(bq->temp_max % 10));
++	} else {
++		dev_warn(bq->dev,
++			 "no operating-range-celsius on the battery, charging is not temperature limited\n");
++	}
++
+ 	dev_info(bq->dev, "driver registered\n");
+ 	return 0;
+ 
+@@ -1723,6 +1968,10 @@ static void bq2415x_remove(struct i2c_client *client)
+ 	if (bq->nb.notifier_call)
+ 		power_supply_unreg_notifier(&bq->nb);
+ 
++	cancel_delayed_work_sync(&bq->temp_work);
++	if (bq->fuel_gauge)
++		power_supply_put(bq->fuel_gauge);
++
+ 	of_node_put(bq->notify_node);
+ 	bq2415x_power_supply_exit(bq);
+ 
+@@ -1751,6 +2000,7 @@ static const struct i2c_device_id bq2415x_i2c_id_table[] = {
+ 	{ "bq24156a", BQ24156A },
+ 	{ "bq24157s", BQ24157S },
+ 	{ "bq24158", BQ24158 },
++	{ "aw32257", AW32257 },
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(i2c, bq2415x_i2c_id_table);
+@@ -1789,6 +2039,7 @@ static const struct of_device_id bq2415x_of_match_table[] = {
+ 	{ .compatible = "ti,bq24156a" },
+ 	{ .compatible = "ti,bq24157s" },
+ 	{ .compatible = "ti,bq24158" },
++	{ .compatible = "awinic,aw32257" },
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(of, bq2415x_of_match_table);
+diff --git a/drivers/power/supply/bq256xx_charger.c b/drivers/power/supply/bq256xx_charger.c
+index 563f512709b389d5e77b4623f79f89134736ffef..de780a846d0e47832f7640a51599b465244b693a 100644
+--- a/drivers/power/supply/bq256xx_charger.c
++++ b/drivers/power/supply/bq256xx_charger.c
+@@ -10,6 +10,7 @@
+ #include <linux/module.h>
+ #include <linux/power_supply.h>
+ #include <linux/regmap.h>
++#include <linux/regulator/driver.h>
+ #include <linux/types.h>
+ #include <linux/usb/phy.h>
+ #include <linux/device.h>
+@@ -72,6 +73,7 @@
+ #define BQ25611D_VBATREG_THRESH_uV	4290000
+ #define BQ25618_VBATREG_THRESH_uV	4300000
+ 
++#define BQ256XX_OTG_CONFIG_MASK		BIT(5)
+ #define BQ256XX_CHG_CONFIG_MASK		BIT(4)
+ #define BQ256XX_CHG_CONFIG_BIT_SHIFT	4
+ 
+@@ -1269,6 +1271,7 @@ static bool bq256xx_is_volatile_reg(struct device *dev, unsigned int reg)
+ {
+ 	switch (reg) {
+ 	case BQ256XX_INPUT_CURRENT_LIMIT:
++	case BQ256XX_CHARGER_CONTROL_0:
+ 	case BQ256XX_CHARGER_STATUS_0...BQ256XX_CHARGER_STATUS_2:
+ 		return true;
+ 	default:
+@@ -1556,6 +1559,49 @@ static int bq256xx_power_supply_init(struct bq256xx_device *bq,
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_REGULATOR
++static const struct regulator_ops bq256xx_vbus_ops = {
++	.enable = regulator_enable_regmap,
++	.disable = regulator_disable_regmap,
++	.is_enabled = regulator_is_enabled_regmap,
++};
++
++static const struct regulator_desc bq256xx_vbus_desc = {
++	.name = "bq256xx-usb-otg-vbus",
++	.of_match = "usb-otg-vbus",
++	.type = REGULATOR_VOLTAGE,
++	.owner = THIS_MODULE,
++	.ops = &bq256xx_vbus_ops,
++	.fixed_uV = 5000000,
++	.n_voltages = 1,
++	.enable_reg = BQ256XX_CHARGER_CONTROL_0,
++	.enable_mask = BQ256XX_OTG_CONFIG_MASK,
++};
++
++static int bq256xx_register_vbus_regulator(struct bq256xx_device *bq)
++{
++	struct regulator_config cfg = {
++		.dev = bq->dev,
++		.regmap = bq->regmap,
++	};
++	struct regulator_dev *reg;
++	int ret = 0;
++
++	reg = devm_regulator_register(bq->dev, &bq256xx_vbus_desc, &cfg);
++	if (IS_ERR(reg)) {
++		ret = PTR_ERR(reg);
++		dev_err(bq->dev, "Can't register regulator: %d\n", ret);
++	}
++
++	return ret;
++}
++#else
++static int bq256xx_register_vbus_regulator(struct bq256xx_device *bq)
++{
++	return 0;
++}
++#endif
++
+ static int bq256xx_hw_init(struct bq256xx_device *bq)
+ {
+ 	struct power_supply_battery_info *bat_info;
+@@ -1764,6 +1810,10 @@ static int bq256xx_probe(struct i2c_client *client)
+ 		return ret;
+ 	}
+ 
++	ret = bq256xx_register_vbus_regulator(bq);
++	if (ret)
++		return 0;
++
+ 	return ret;
+ }
+ 
+diff --git a/drivers/power/supply/power_supply_core.c b/drivers/power/supply/power_supply_core.c
+index a446d3d086fcd235a1b20e5e6e235388f0eaa3c0..61846775c4e94d384ff1e1bd6e35afb094461bad 100644
+--- a/drivers/power/supply/power_supply_core.c
++++ b/drivers/power/supply/power_supply_core.c
+@@ -206,8 +206,7 @@ static int __power_supply_populate_supplied_from(struct power_supply *epsy,
+ 		if (np == epsy->dev.fwnode) {
+ 			dev_dbg(&psy->dev, "%s: Found supply : %s\n",
+ 				psy->desc->name, epsy->desc->name);
+-			psy->supplied_from[i-1] = (char *)epsy->desc->name;
+-			psy->num_supplies++;
++			psy->supplied_from[psy->num_supplies++] = (char *)epsy->desc->name;
+ 			fwnode_handle_put(np);
+ 			break;
+ 		}
+@@ -228,41 +227,39 @@ static int power_supply_populate_supplied_from(struct power_supply *psy)
+ 	return error;
+ }
+ 
++struct psy_find_supplies_from_node_data {
++	struct fwnode_handle *np;
++	int num_supplies;
++};
++
+ static int  __power_supply_find_supply_from_node(struct power_supply *epsy,
+-						 void *data)
++						 void *_data)
+ {
+-	struct fwnode_handle *fwnode = data;
++	struct psy_find_supplies_from_node_data *data = _data;
+ 
+-	/* returning non-zero breaks out of power_supply_for_each_psy loop */
+-	if (epsy->dev.fwnode == fwnode)
+-		return 1;
++	if (epsy->dev.fwnode == data->np)
++		data->num_supplies += 1;
+ 
+ 	return 0;
+ }
+ 
+-static int power_supply_find_supply_from_fwnode(struct fwnode_handle *supply_node)
++static int power_supply_find_supplies_from_fwnode(struct fwnode_handle *supply_node)
+ {
++	struct psy_find_supplies_from_node_data data = {
++		.np = supply_node,
++		.num_supplies = 0,
++	};
+ 	int error;
+ 
+-	/*
+-	 * power_supply_for_each_psy() either returns its own errors or values
+-	 * returned by __power_supply_find_supply_from_node().
+-	 *
+-	 * __power_supply_find_supply_from_fwnode() will return 0 (no match)
+-	 * or 1 (match).
+-	 *
+-	 * We return 0 if power_supply_for_each_psy() returned 1, -EPROBE_DEFER if
+-	 * it returned 0, or error as returned by it.
+-	 */
+-	error = power_supply_for_each_psy(supply_node, __power_supply_find_supply_from_node);
++	error = power_supply_for_each_psy(&data, __power_supply_find_supply_from_node);
+ 
+-	return error ? (error == 1 ? 0 : error) : -EPROBE_DEFER;
++	return error ? error : data.num_supplies;
+ }
+ 
+ static int power_supply_check_supplies(struct power_supply *psy)
+ {
+ 	struct fwnode_handle *np;
+-	int cnt = 0;
++	int i = 0, cnt = 0;
+ 
+ 	/* If there is already a list honor it */
+ 	if (psy->supplied_from && psy->num_supplies > 0)
+@@ -275,21 +272,23 @@ static int power_supply_check_supplies(struct power_supply *psy)
+ 	do {
+ 		int ret;
+ 
+-		np = fwnode_find_reference(psy->dev.fwnode, "power-supplies", cnt++);
++		np = fwnode_find_reference(psy->dev.fwnode, "power-supplies", i++);
+ 		if (IS_ERR(np))
+ 			break;
+ 
+-		ret = power_supply_find_supply_from_fwnode(np);
++		ret = power_supply_find_supplies_from_fwnode(np);
+ 		fwnode_handle_put(np);
+ 
+-		if (ret) {
++		if (ret <= 0) {
+ 			dev_dbg(&psy->dev, "Failed to find supply!\n");
+-			return ret;
++			return ret ? ret : -EPROBE_DEFER;
+ 		}
++
++		cnt += ret;
+ 	} while (!IS_ERR(np));
+ 
+ 	/* Missing valid "power-supplies" entries */
+-	if (cnt == 1)
++	if (cnt == 0)
+ 		return 0;
+ 
+ 	/* All supplies found, allocate char ** array for filling */
+@@ -299,7 +298,7 @@ static int power_supply_check_supplies(struct power_supply *psy)
+ 		return -ENOMEM;
+ 
+ 	*psy->supplied_from = devm_kcalloc(&psy->dev,
+-					   cnt - 1, sizeof(**psy->supplied_from),
++					   cnt, sizeof(**psy->supplied_from),
+ 					   GFP_KERNEL);
+ 	if (!*psy->supplied_from)
+ 		return -ENOMEM;
+diff --git a/drivers/power/supply/sc27xx_fuel_gauge.c b/drivers/power/supply/sc27xx_fuel_gauge.c
+index a7ed9de8a289662c4b6bf469eb9599b55b3de91d..60610117b56a3065a8ada7464bf0d0c4aef47818 100644
+--- a/drivers/power/supply/sc27xx_fuel_gauge.c
++++ b/drivers/power/supply/sc27xx_fuel_gauge.c
+@@ -15,8 +15,10 @@
+ #include <linux/slab.h>
+ 
+ /* PMIC global control registers definition */
+-#define SC27XX_MODULE_EN0		0xc08
+-#define SC27XX_CLK_EN0			0xc18
++#define SC2730_MODULE_EN0		0xc08
++#define SC2730_CLK_EN0			0xc18
++#define SC2731_MODULE_EN0		0x1808
++#define SC2731_CLK_EN0			0x1810
+ #define SC27XX_FGU_EN			BIT(7)
+ #define SC27XX_FGU_RTC_EN		BIT(6)
+ 
+@@ -58,6 +60,7 @@
+ #define SC27XX_FGU_MODE_AREA_MASK	GENMASK(15, 12)
+ #define SC27XX_FGU_CAP_AREA_MASK	GENMASK(11, 0)
+ #define SC27XX_FGU_MODE_AREA_SHIFT	12
++#define SC27XX_FGU_CAP_INTEGER_MASK	GENMASK(7, 0)
+ 
+ #define SC27XX_FGU_FIRST_POWERTON	GENMASK(3, 0)
+ #define SC27XX_FGU_DEFAULT_CAP		GENMASK(11, 0)
+@@ -68,6 +71,11 @@
+ /* micro Ohms */
+ #define SC27XX_FGU_IDEAL_RESISTANCE	20000
+ 
++struct sc27xx_fgu_variant_data {
++	u32 module_en;
++	u32 clk_en;
++};
++
+ /*
+  * struct sc27xx_fgu_data: describe the FGU device
+  * @regmap: regmap for register access
+@@ -93,7 +101,14 @@
+  * @calib_resist: the real resistance of coulomb counter chip in uOhm
+  * @cap_table: capacity table with corresponding ocv
+  * @resist_table: resistance percent table with corresponding temperature
++ * @pdata: PMIC variant register information
+  */
++/* One entry of the battery node's voltage-temp-table. */
++struct sc27xx_fgu_temp_point {
++	int uv;		/* NTC divider voltage, microvolts */
++	int temp;	/* deci-celsius */
++};
++
+ struct sc27xx_fgu_data {
+ 	struct regmap *regmap;
+ 	struct device *dev;
+@@ -114,11 +129,14 @@ struct sc27xx_fgu_data {
+ 	int boot_volt;
+ 	int table_len;
+ 	int resist_table_len;
++	int temp_table_len;
++	struct sc27xx_fgu_temp_point *temp_table;
+ 	int cur_1000ma_adc;
+ 	int vol_1000mv_adc;
+ 	int calib_resist;
+ 	struct power_supply_battery_ocv_table *cap_table;
+ 	struct power_supply_resistance_temp_table *resist_table;
++	const struct sc27xx_fgu_variant_data *pdata;
+ };
+ 
+ static int sc27xx_fgu_cap_to_clbcnt(struct sc27xx_fgu_data *data, int capacity);
+@@ -273,7 +291,7 @@ static int sc27xx_fgu_read_last_cap(struct sc27xx_fgu_data *data, int *cap)
+ 	if (ret)
+ 		return ret;
+ 
+-	*cap = value & SC27XX_FGU_CAP_AREA_MASK;
++	*cap = value & SC27XX_FGU_CAP_INTEGER_MASK;
+ 	return 0;
+ }
+ 
+@@ -285,22 +303,9 @@ static int sc27xx_fgu_read_last_cap(struct sc27xx_fgu_data *data, int *cap)
+  */
+ static int sc27xx_fgu_get_boot_capacity(struct sc27xx_fgu_data *data, int *cap)
+ {
+-	int volt, cur, oci, ocv, ret;
++	int volt, cur, oci, ocv, ocv_cap, ret;
+ 	bool is_first_poweron = sc27xx_fgu_is_first_poweron(data);
+ 
+-	/*
+-	 * If system is not the first power on, we should use the last saved
+-	 * battery capacity as the initial battery capacity. Otherwise we should
+-	 * re-calculate the initial battery capacity.
+-	 */
+-	if (!is_first_poweron) {
+-		ret = sc27xx_fgu_read_last_cap(data, cap);
+-		if (ret)
+-			return ret;
+-
+-		return sc27xx_fgu_save_boot_mode(data, SC27XX_FGU_NORMAIL_POWERTON);
+-	}
+-
+ 	/*
+ 	 * After system booting on, the SC27XX_FGU_CLBCNT_QMAXL register saved
+ 	 * the first sampled open circuit current.
+@@ -330,8 +335,31 @@ static int sc27xx_fgu_get_boot_capacity(struct sc27xx_fgu_data *data, int *cap)
+ 	 * Parse the capacity table to look up the correct capacity percent
+ 	 * according to current battery's corresponding OCV values.
+ 	 */
+-	*cap = power_supply_ocv2cap_simple(data->cap_table, data->table_len,
+-					   ocv);
++	ocv_cap = power_supply_ocv2cap_simple(data->cap_table, data->table_len,
++					      ocv);
++
++	/*
++	 * If system is not the first power on, we should use the last saved
++	 * battery capacity as the initial battery capacity. Otherwise we should
++	 * use the capacity value calculated above.
++	 */
++	if (!is_first_poweron) {
++		ret = sc27xx_fgu_read_last_cap(data, cap);
++		if (ret)
++			return ret;
++
++		/*
++		 * Limit the saved capacity to a reasonable range based on
++		 * the calculated estimate. This is needed because the saved
++		 * value may be outdated.
++		 */
++		if (*cap < ocv_cap - 5)
++			*cap = ocv_cap - 5;
++		else if (*cap > ocv_cap + 5)
++			*cap = ocv_cap + 5;
++	} else {
++		*cap = ocv_cap;
++	}
+ 
+ 	ret = sc27xx_fgu_save_last_cap(data, *cap);
+ 	if (ret)
+@@ -403,8 +431,7 @@ static int sc27xx_fgu_get_vol_now(struct sc27xx_fgu_data *data, int *val)
+ 
+ static int sc27xx_fgu_get_cur_now(struct sc27xx_fgu_data *data, int *val)
+ {
+-	int ret;
+-	u32 cur;
++	int ret, cur;
+ 
+ 	ret = regmap_read(data->regmap, data->base + SC27XX_FGU_CURRENT_BUF,
+ 			  &cur);
+@@ -526,9 +553,100 @@ static int sc27xx_fgu_get_charge_vol(struct sc27xx_fgu_data *data, int *val)
+ 	return 0;
+ }
+ 
++static int sc27xx_fgu_parse_temp_table(struct sc27xx_fgu_data *data)
++{
++	struct device_node *bat_np;
++	int len, i, ret = 0;
++	u32 *vals;
++
++	bat_np = of_parse_phandle(data->dev->of_node, "monitored-battery", 0);
++	if (!bat_np)
++		return 0;
++
++	len = of_property_count_elems_of_size(bat_np, "voltage-temp-table",
++					      sizeof(u32));
++	if (len <= 0)
++		goto out;
++
++	if (len % 2) {
++		dev_err(data->dev, "voltage-temp-table needs value pairs\n");
++		ret = -EINVAL;
++		goto out;
++	}
++
++	vals = kcalloc(len, sizeof(*vals), GFP_KERNEL);
++	if (!vals) {
++		ret = -ENOMEM;
++		goto out;
++	}
++
++	ret = of_property_read_u32_array(bat_np, "voltage-temp-table", vals, len);
++	if (ret) {
++		kfree(vals);
++		goto out;
++	}
++
++	data->temp_table_len = len / 2;
++	data->temp_table = devm_kcalloc(data->dev, data->temp_table_len,
++					sizeof(*data->temp_table), GFP_KERNEL);
++	if (!data->temp_table) {
++		data->temp_table_len = 0;
++		kfree(vals);
++		ret = -ENOMEM;
++		goto out;
++	}
++
++	for (i = 0; i < data->temp_table_len; i++) {
++		data->temp_table[i].uv = (int)vals[2 * i];
++		data->temp_table[i].temp = (int)vals[2 * i + 1];
++	}
++
++	kfree(vals);
++
++out:
++	of_node_put(bat_np);
++	return ret;
++}
++
++static int sc27xx_fgu_volt_to_temp(struct sc27xx_fgu_data *data, int uv)
++{
++	int i;
++
++	if (uv >= data->temp_table[0].uv)
++		return data->temp_table[0].temp;
++
++	for (i = 1; i < data->temp_table_len; i++) {
++		int hi_uv = data->temp_table[i - 1].uv;
++		int lo_uv = data->temp_table[i].uv;
++
++		if (uv < lo_uv)
++			continue;
++
++		return data->temp_table[i].temp +
++		       mult_frac(data->temp_table[i - 1].temp -
++				 data->temp_table[i].temp,
++				 uv - lo_uv, hi_uv - lo_uv);
++	}
++
++	return data->temp_table[data->temp_table_len - 1].temp;
++}
++
+ static int sc27xx_fgu_get_temp(struct sc27xx_fgu_data *data, int *temp)
+ {
+-	return iio_read_channel_processed(data->channel, temp);
++	int ret, val;
++
++	ret = iio_read_channel_processed(data->channel, &val);
++	if (ret < 0)
++		return ret;
++
++	if (!data->temp_table_len) {
++		*temp = val;
++		return 0;
++	}
++
++	*temp = sc27xx_fgu_volt_to_temp(data, val * 1000);
++
++	return 0;
+ }
+ 
+ static int sc27xx_fgu_get_health(struct sc27xx_fgu_data *data, int *health)
+@@ -551,7 +669,15 @@ static int sc27xx_fgu_get_status(struct sc27xx_fgu_data *data, int *status)
+ {
+ 	union power_supply_propval val;
+ 	struct power_supply *psy;
+-	int i, ret = -EINVAL;
++	int i, ret;
++
++	ret = power_supply_get_property_from_supplier(data->battery,
++						      POWER_SUPPLY_PROP_STATUS,
++						      &val);
++	if (!ret) {
++		*status = val.intval;
++		return 0;
++	}
+ 
+ 	for (i = 0; i < ARRAY_SIZE(sc27xx_charger_supply_name); i++) {
+ 		psy = power_supply_get_by_name(sc27xx_charger_supply_name[i]);
+@@ -688,6 +814,10 @@ static int sc27xx_fgu_get_property(struct power_supply *psy,
+ 		val->intval = data->boot_volt;
+ 		break;
+ 
++	case POWER_SUPPLY_PROP_CALIBRATE:
++		val->intval = data->init_cap;
++		break;
++
+ 	default:
+ 		ret = -EINVAL;
+ 		break;
+@@ -777,9 +907,10 @@ static void sc27xx_fgu_adjust_cap(struct sc27xx_fgu_data *data, int cap)
+ 	int ret;
+ 
+ 	data->init_cap = cap;
+-	ret = sc27xx_fgu_get_clbcnt(data, &data->init_clbcnt);
++	data->init_clbcnt = sc27xx_fgu_cap_to_clbcnt(data, cap);
++	ret = sc27xx_fgu_set_clbcnt(data, data->init_clbcnt);
+ 	if (ret)
+-		dev_err(data->dev, "failed to get init coulomb counter\n");
++		dev_err(data->dev, "failed to adjust coulomb counter\n");
+ }
+ 
+ static void sc27xx_fgu_capacity_calibration(struct sc27xx_fgu_data *data,
+@@ -801,10 +932,15 @@ static void sc27xx_fgu_capacity_calibration(struct sc27xx_fgu_data *data,
+ 
+ 	/*
+ 	 * If we are in charging mode, then we do not need to calibrate the
+-	 * lower capacity.
++	 * lower capacity. Only adjust it if it is outside the valid range.
+ 	 */
+-	if (chg_sts == POWER_SUPPLY_STATUS_CHARGING)
++	if (chg_sts == POWER_SUPPLY_STATUS_CHARGING) {
++		if (cap > 100)
++			sc27xx_fgu_adjust_cap(data, 100);
++		else if (cap < 0)
++			sc27xx_fgu_adjust_cap(data, 0);
+ 		return;
++	}
+ 
+ 	if ((ocv > data->cap_table[0].ocv && cap < 100) || cap > 100) {
+ 		/*
+@@ -936,8 +1072,8 @@ static void sc27xx_fgu_disable(void *_data)
+ {
+ 	struct sc27xx_fgu_data *data = _data;
+ 
+-	regmap_update_bits(data->regmap, SC27XX_CLK_EN0, SC27XX_FGU_RTC_EN, 0);
+-	regmap_update_bits(data->regmap, SC27XX_MODULE_EN0, SC27XX_FGU_EN, 0);
++	regmap_update_bits(data->regmap, data->pdata->clk_en, SC27XX_FGU_RTC_EN, 0);
++	regmap_update_bits(data->regmap, data->pdata->module_en, SC27XX_FGU_EN, 0);
+ }
+ 
+ static int sc27xx_fgu_cap_to_clbcnt(struct sc27xx_fgu_data *data, int capacity)
+@@ -1027,6 +1163,12 @@ static int sc27xx_fgu_hw_init(struct sc27xx_fgu_data *data)
+ 	if (!data->alarm_cap)
+ 		data->alarm_cap += 1;
+ 
++	ret = sc27xx_fgu_parse_temp_table(data);
++	if (ret) {
++		power_supply_put_battery_info(data->battery, info);
++		return ret;
++	}
++
+ 	data->resist_table_len = info->resist_table_size;
+ 	if (data->resist_table_len > 0) {
+ 		data->resist_table = devm_kmemdup(data->dev, info->resist_table,
+@@ -1046,7 +1188,7 @@ static int sc27xx_fgu_hw_init(struct sc27xx_fgu_data *data)
+ 		return ret;
+ 
+ 	/* Enable the FGU module */
+-	ret = regmap_update_bits(data->regmap, SC27XX_MODULE_EN0,
++	ret = regmap_update_bits(data->regmap, data->pdata->module_en,
+ 				 SC27XX_FGU_EN, SC27XX_FGU_EN);
+ 	if (ret) {
+ 		dev_err(data->dev, "failed to enable fgu\n");
+@@ -1054,7 +1196,7 @@ static int sc27xx_fgu_hw_init(struct sc27xx_fgu_data *data)
+ 	}
+ 
+ 	/* Enable the FGU RTC clock to make it work */
+-	ret = regmap_update_bits(data->regmap, SC27XX_CLK_EN0,
++	ret = regmap_update_bits(data->regmap, data->pdata->clk_en,
+ 				 SC27XX_FGU_RTC_EN, SC27XX_FGU_RTC_EN);
+ 	if (ret) {
+ 		dev_err(data->dev, "failed to enable fgu RTC clock\n");
+@@ -1130,9 +1272,9 @@ static int sc27xx_fgu_hw_init(struct sc27xx_fgu_data *data)
+ 	return 0;
+ 
+ disable_clk:
+-	regmap_update_bits(data->regmap, SC27XX_CLK_EN0, SC27XX_FGU_RTC_EN, 0);
++	regmap_update_bits(data->regmap, data->pdata->clk_en, SC27XX_FGU_RTC_EN, 0);
+ disable_fgu:
+-	regmap_update_bits(data->regmap, SC27XX_MODULE_EN0, SC27XX_FGU_EN, 0);
++	regmap_update_bits(data->regmap, data->pdata->module_en, SC27XX_FGU_EN, 0);
+ 
+ 	return ret;
+ }
+@@ -1148,6 +1290,10 @@ static int sc27xx_fgu_probe(struct platform_device *pdev)
+ 	if (!data)
+ 		return -ENOMEM;
+ 
++	data->pdata = of_device_get_match_data(dev);
++	if (!data->pdata)
++		return -EINVAL;
++
+ 	data->regmap = dev_get_regmap(dev->parent, NULL);
+ 	if (!data->regmap) {
+ 		dev_err(dev, "failed to get regmap\n");
+@@ -1331,8 +1477,19 @@ static const struct dev_pm_ops sc27xx_fgu_pm_ops = {
+ 	SET_SYSTEM_SLEEP_PM_OPS(sc27xx_fgu_suspend, sc27xx_fgu_resume)
+ };
+ 
++static const struct sc27xx_fgu_variant_data sc2730_variant_data = {
++	.module_en = SC2730_MODULE_EN0,
++	.clk_en = SC2730_CLK_EN0,
++};
++
++static const struct sc27xx_fgu_variant_data sc2731_variant_data = {
++	.module_en = SC2731_MODULE_EN0,
++	.clk_en = SC2731_CLK_EN0,
++};
++
+ static const struct of_device_id sc27xx_fgu_of_match[] = {
+-	{ .compatible = "sprd,sc2731-fgu", },
++	{ .compatible = "sprd,sc2730-fgu", .data = &sc2730_variant_data },
++	{ .compatible = "sprd,sc2731-fgu", .data = &sc2731_variant_data },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, sc27xx_fgu_of_match);
+diff --git a/drivers/regulator/Kconfig b/drivers/regulator/Kconfig
+index 87554ab92801df1eb49ced0c007e6a47d241a1ea..5a8f584e55c38195974e5c08f7e973ac001125e8 100644
+--- a/drivers/regulator/Kconfig
++++ b/drivers/regulator/Kconfig
+@@ -1484,6 +1484,13 @@ config REGULATOR_S5M8767
+ 	 via I2C bus. S5M8767A have 9 Bucks and 28 LDOs output and
+ 	 supports DVS mode with 8bits of output voltage control.
+ 
++config REGULATOR_SC2730
++	tristate "Spreadtrum SC2730 power regulator driver"
++	depends on MFD_SC27XX_PMIC || COMPILE_TEST
++	help
++	  This driver provides support for the voltage regulators on the
++	  SC2730 PMIC.
++
+ config REGULATOR_SC2731
+ 	tristate "Spreadtrum SC2731 power regulator driver"
+ 	depends on MFD_SC27XX_PMIC || COMPILE_TEST
+diff --git a/drivers/regulator/Makefile b/drivers/regulator/Makefile
+index 35639f3115fd03c099bde4eb352cb084f61bc76f..9de6f1347d14921038f41492e1c539a03a7c989f 100644
+--- a/drivers/regulator/Makefile
++++ b/drivers/regulator/Makefile
+@@ -171,6 +171,7 @@ obj-$(CONFIG_REGULATOR_S2DOS05) += s2dos05-regulator.o
+ obj-$(CONFIG_REGULATOR_S2MPA01) += s2mpa01.o
+ obj-$(CONFIG_REGULATOR_S2MPS11) += s2mps11.o
+ obj-$(CONFIG_REGULATOR_S5M8767) += s5m8767.o
++obj-$(CONFIG_REGULATOR_SC2730) += sc2730-regulator.o
+ obj-$(CONFIG_REGULATOR_SC2731) += sc2731-regulator.o
+ obj-$(CONFIG_REGULATOR_SKY81452) += sky81452-regulator.o
+ obj-$(CONFIG_REGULATOR_SLG51000) += slg51000-regulator.o
+diff --git a/drivers/regulator/sc2730-regulator.c b/drivers/regulator/sc2730-regulator.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..c8816eb4d5f6418a98f43e6dd300108323889b43
+--- /dev/null
++++ b/drivers/regulator/sc2730-regulator.c
+@@ -0,0 +1,413 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (C) 2018 Spreadtrum Communications Inc.
++ */
++
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++#include <linux/regulator/driver.h>
++#include <linux/regulator/of_regulator.h>
++
++/*
++ * SC2730 regulator base address
++ */
++#define SC2730_REGULATOR_BASE		0x1800
++
++/*
++ * SC2730 regulator lock register
++ */
++#define SC2730_WR_UNLOCK_VALUE		0x6e7f
++#define SC2730_PWR_WR_PROT		(SC2730_REGULATOR_BASE + 0x3d0)
++
++/*
++ * SC2730 enable register
++ */
++#define SC2730_POWER_PD_SW		(SC2730_REGULATOR_BASE + 0x01c)
++#define SC2730_LDO_VDDRF18_PD		(SC2730_REGULATOR_BASE + 0x10c)
++#define SC2730_LDO_VDDCAMIO_PD		(SC2730_REGULATOR_BASE + 0x118)
++#define SC2730_LDO_VDDWCN_PD		(SC2730_REGULATOR_BASE + 0x11c)
++#define SC2730_LDO_VDDCAMD1_PD		(SC2730_REGULATOR_BASE + 0x128)
++#define SC2730_LDO_VDDCAMD0_PD		(SC2730_REGULATOR_BASE + 0x134)
++#define SC2730_LDO_VDDRF1V25_PD		(SC2730_REGULATOR_BASE + 0x140)
++#define SC2730_LDO_AVDD12_PD		(SC2730_REGULATOR_BASE + 0x14c)
++#define SC2730_LDO_VDDCAMA0_PD		(SC2730_REGULATOR_BASE + 0x158)
++#define SC2730_LDO_VDDCAMA1_PD		(SC2730_REGULATOR_BASE + 0x164)
++#define SC2730_LDO_VDDCAMMOT_PD		(SC2730_REGULATOR_BASE + 0x170)
++#define SC2730_LDO_VDDSIM2_PD		(SC2730_REGULATOR_BASE + 0x194)
++#define SC2730_LDO_VDDEMMCCORE_PD	(SC2730_REGULATOR_BASE + 0x1a0)
++#define SC2730_LDO_VDDSDCORE_PD		(SC2730_REGULATOR_BASE + 0x1ac)
++#define SC2730_LDO_VDDSDIO_PD		(SC2730_REGULATOR_BASE + 0x1b8)
++#define SC2730_LDO_VDDWIFIPA_PD		(SC2730_REGULATOR_BASE + 0x1d0)
++#define SC2730_LDO_VDDUSB33_PD		(SC2730_REGULATOR_BASE + 0x1e8)
++#define SC2730_LDO_VDDLDO0_PD		(SC2730_REGULATOR_BASE + 0x1f4)
++#define SC2730_LDO_VDDLDO1_PD		(SC2730_REGULATOR_BASE + 0x200)
++#define SC2730_LDO_VDDLDO2_PD		(SC2730_REGULATOR_BASE + 0x20c)
++#define SC2730_LDO_VDDKPLED_PD		(SC2730_REGULATOR_BASE + 0x38c)
++
++/*
++ * SC2730 enable mask
++ */
++#define SC2730_DCDC_CPU_PD_MASK		BIT(4)
++#define SC2730_DCDC_GPU_PD_MASK		BIT(3)
++#define SC2730_DCDC_CORE_PD_MASK	BIT(5)
++#define SC2730_DCDC_MODEM_PD_MASK	BIT(11)
++#define SC2730_DCDC_MEM_PD_MASK		BIT(6)
++#define SC2730_DCDC_MEMQ_PD_MASK	BIT(12)
++#define SC2730_DCDC_GEN0_PD_MASK	BIT(8)
++#define SC2730_DCDC_GEN1_PD_MASK	BIT(7)
++#define SC2730_DCDC_SRAM_PD_MASK	BIT(13)
++#define SC2730_LDO_AVDD18_PD_MASK	BIT(2)
++#define SC2730_LDO_VDDRF18_PD_MASK	BIT(0)
++#define SC2730_LDO_VDDCAMIO_PD_MASK	BIT(0)
++#define SC2730_LDO_VDDWCN_PD_MASK	BIT(0)
++#define SC2730_LDO_VDDCAMD1_PD_MASK	BIT(0)
++#define SC2730_LDO_VDDCAMD0_PD_MASK	BIT(0)
++#define SC2730_LDO_VDDRF1V25_PD_MASK	BIT(0)
++#define SC2730_LDO_AVDD12_PD_MASK	BIT(0)
++#define SC2730_LDO_VDDCAMA0_PD_MASK	BIT(0)
++#define SC2730_LDO_VDDCAMA1_PD_MASK	BIT(0)
++#define SC2730_LDO_VDDCAMMOT_PD_MASK	BIT(0)
++#define SC2730_LDO_VDDSIM2_PD_MASK	BIT(0)
++#define SC2730_LDO_VDDEMMCCORE_PD_MASK	BIT(0)
++#define SC2730_LDO_VDDSDCORE_PD_MASK	BIT(0)
++#define SC2730_LDO_VDDSDIO_PD_MASK	BIT(0)
++#define SC2730_LDO_VDD28_PD_MASK	BIT(1)
++#define SC2730_LDO_VDDWIFIPA_PD_MASK	BIT(0)
++#define SC2730_LDO_VDD18_DCXO_PD_MASK	BIT(10)
++#define SC2730_LDO_VDDUSB33_PD_MASK	BIT(0)
++#define SC2730_LDO_VDDLDO0_PD_MASK	BIT(0)
++#define SC2730_LDO_VDDLDO1_PD_MASK	BIT(0)
++#define SC2730_LDO_VDDLDO2_PD_MASK	BIT(0)
++#define SC2730_LDO_VDDKPLED_PD_MASK	BIT(15)
++
++/*
++ * SC2730 vsel register
++ */
++#define SC2730_DCDC_CPU_VOL		(SC2730_REGULATOR_BASE + 0x44)
++#define SC2730_DCDC_GPU_VOL		(SC2730_REGULATOR_BASE + 0x54)
++#define SC2730_DCDC_CORE_VOL		(SC2730_REGULATOR_BASE + 0x64)
++#define SC2730_DCDC_MODEM_VOL		(SC2730_REGULATOR_BASE + 0x74)
++#define SC2730_DCDC_MEM_VOL		(SC2730_REGULATOR_BASE + 0x84)
++#define SC2730_DCDC_MEMQ_VOL		(SC2730_REGULATOR_BASE + 0x94)
++#define SC2730_DCDC_GEN0_VOL		(SC2730_REGULATOR_BASE + 0xa4)
++#define SC2730_DCDC_GEN1_VOL		(SC2730_REGULATOR_BASE + 0xb4)
++#define SC2730_DCDC_SRAM_VOL		(SC2730_REGULATOR_BASE + 0xdc)
++#define SC2730_LDO_AVDD18_VOL		(SC2730_REGULATOR_BASE + 0x104)
++#define SC2730_LDO_VDDRF18_VOL		(SC2730_REGULATOR_BASE + 0x110)
++#define SC2730_LDO_VDDCAMIO_VOL		(SC2730_REGULATOR_BASE + 0x28)
++#define SC2730_LDO_VDDWCN_VOL		(SC2730_REGULATOR_BASE + 0x120)
++#define SC2730_LDO_VDDCAMD1_VOL		(SC2730_REGULATOR_BASE + 0x12c)
++#define SC2730_LDO_VDDCAMD0_VOL		(SC2730_REGULATOR_BASE + 0x138)
++#define SC2730_LDO_VDDRF1V25_VOL	(SC2730_REGULATOR_BASE + 0x144)
++#define SC2730_LDO_AVDD12_VOL		(SC2730_REGULATOR_BASE + 0x150)
++#define SC2730_LDO_VDDCAMA0_VOL		(SC2730_REGULATOR_BASE + 0x15c)
++#define SC2730_LDO_VDDCAMA1_VOL		(SC2730_REGULATOR_BASE + 0x168)
++#define SC2730_LDO_VDDCAMMOT_VOL	(SC2730_REGULATOR_BASE + 0x174)
++#define SC2730_LDO_VDDSIM2_VOL		(SC2730_REGULATOR_BASE + 0x198)
++#define SC2730_LDO_VDDEMMCCORE_VOL	(SC2730_REGULATOR_BASE + 0x1a4)
++#define SC2730_LDO_VDDSDCORE_VOL	(SC2730_REGULATOR_BASE + 0x1b0)
++#define SC2730_LDO_VDDSDIO_VOL		(SC2730_REGULATOR_BASE + 0x1bc)
++#define SC2730_LDO_VDD28_VOL		(SC2730_REGULATOR_BASE + 0x1c8)
++#define SC2730_LDO_VDDWIFIPA_VOL	(SC2730_REGULATOR_BASE + 0x1d4)
++#define SC2730_LDO_VDD18_DCXO_VOL	(SC2730_REGULATOR_BASE + 0x1e0)
++#define SC2730_LDO_VDDUSB33_VOL		(SC2730_REGULATOR_BASE + 0x1ec)
++#define SC2730_LDO_VDDLDO0_VOL		(SC2730_REGULATOR_BASE + 0x1f8)
++#define SC2730_LDO_VDDLDO1_VOL		(SC2730_REGULATOR_BASE + 0x204)
++#define SC2730_LDO_VDDLDO2_VOL		(SC2730_REGULATOR_BASE + 0x210)
++#define SC2730_LDO_VDDKPLED_VOL		(SC2730_REGULATOR_BASE + 0x38c)
++
++/*
++ * SC2730 vsel register mask
++ */
++#define SC2730_DCDC_CPU_VOL_MASK	GENMASK(8, 0)
++#define SC2730_DCDC_GPU_VOL_MASK	GENMASK(8, 0)
++#define SC2730_DCDC_CORE_VOL_MASK	GENMASK(8, 0)
++#define SC2730_DCDC_MODEM_VOL_MASK	GENMASK(8, 0)
++#define SC2730_DCDC_MEM_VOL_MASK	GENMASK(7, 0)
++#define SC2730_DCDC_MEMQ_VOL_MASK	GENMASK(8, 0)
++#define SC2730_DCDC_GEN0_VOL_MASK	GENMASK(7, 0)
++#define SC2730_DCDC_GEN1_VOL_MASK	GENMASK(7, 0)
++#define SC2730_DCDC_SRAM_VOL_MASK	GENMASK(8, 0)
++#define SC2730_LDO_AVDD18_VOL_MASK	GENMASK(5, 0)
++#define SC2730_LDO_VDDRF18_VOL_MASK	GENMASK(5, 0)
++#define SC2730_LDO_VDDCAMIO_VOL_MASK	GENMASK(5, 0)
++#define SC2730_LDO_VDDWCN_VOL_MASK	GENMASK(5, 0)
++#define SC2730_LDO_VDDCAMD1_VOL_MASK	GENMASK(4, 0)
++#define SC2730_LDO_VDDCAMD0_VOL_MASK	GENMASK(4, 0)
++#define SC2730_LDO_VDDRF1V25_VOL_MASK	GENMASK(4, 0)
++#define SC2730_LDO_AVDD12_VOL_MASK	GENMASK(4, 0)
++#define SC2730_LDO_VDDCAMA0_VOL_MASK	GENMASK(7, 0)
++#define SC2730_LDO_VDDCAMA1_VOL_MASK	GENMASK(7, 0)
++#define SC2730_LDO_VDDCAMMOT_VOL_MASK	GENMASK(7, 0)
++#define SC2730_LDO_VDDSIM2_VOL_MASK	GENMASK(7, 0)
++#define SC2730_LDO_VDDEMMCCORE_VOL_MASK	GENMASK(7, 0)
++#define SC2730_LDO_VDDSDCORE_VOL_MASK	GENMASK(7, 0)
++#define SC2730_LDO_VDDSDIO_VOL_MASK	GENMASK(7, 0)
++#define SC2730_LDO_VDD28_VOL_MASK	GENMASK(7, 0)
++#define SC2730_LDO_VDDWIFIPA_VOL_MASK	GENMASK(7, 0)
++#define SC2730_LDO_VDD18_DCXO_VOL_MASK	GENMASK(7, 0)
++#define SC2730_LDO_VDDUSB33_VOL_MASK	GENMASK(7, 0)
++#define SC2730_LDO_VDDLDO0_VOL_MASK	GENMASK(7, 0)
++#define SC2730_LDO_VDDLDO1_VOL_MASK	GENMASK(7, 0)
++#define SC2730_LDO_VDDLDO2_VOL_MASK	GENMASK(7, 0)
++#define SC2730_LDO_VDDKPLED_VOL_MASK	GENMASK(14, 7)
++
++enum sc2730_regulator_id {
++	SC2730_DCDC_CPU,
++	SC2730_DCDC_GPU,
++	SC2730_DCDC_CORE,
++	SC2730_DCDC_MODEM,
++	SC2730_DCDC_MEM,
++	SC2730_DCDC_MEMQ,
++	SC2730_DCDC_GEN0,
++	SC2730_DCDC_GEN1,
++	SC2730_DCDC_SRAM,
++	SC2730_LDO_AVDD18,
++	SC2730_LDO_VDDRF18,
++	SC2730_LDO_VDDCAMIO,
++	SC2730_LDO_VDDWCN,
++	SC2730_LDO_VDDCAMD1,
++	SC2730_LDO_VDDCAMD0,
++	SC2730_LDO_VDDRF1V25,
++	SC2730_LDO_AVDD12,
++	SC2730_LDO_VDDCAMA0,
++	SC2730_LDO_VDDCAMA1,
++	SC2730_LDO_VDDCAMMOT,
++	SC2730_LDO_VDDSIM0,
++	SC2730_LDO_VDDSIM1,
++	SC2730_LDO_VDDSIM2,
++	SC2730_LDO_VDDEMMCCORE,
++	SC2730_LDO_VDDSDCORE,
++	SC2730_LDO_VDDSDIO,
++	SC2730_LDO_VDD28,
++	SC2730_LDO_VDDWIFIPA,
++	SC2730_LDO_VDD18_DCXO,
++	SC2730_LDO_VDDUSB33,
++	SC2730_LDO_VDDLDO0,
++	SC2730_LDO_VDDLDO1,
++	SC2730_LDO_VDDLDO2,
++	SC2730_LDO_VDDKPLED,
++};
++
++static const struct regulator_ops sc2730_regu_linear_ops = {
++	.enable = regulator_enable_regmap,
++	.disable = regulator_disable_regmap,
++	.is_enabled = regulator_is_enabled_regmap,
++	.list_voltage = regulator_list_voltage_linear,
++	.get_voltage_sel = regulator_get_voltage_sel_regmap,
++	.set_voltage_sel = regulator_set_voltage_sel_regmap,
++};
++
++#define SC2730_REGU_LINEAR(_id, of_name, en_reg, en_mask, vreg, vmask,	\
++			   vstep, vmin, vmax, min_sel) {		\
++	.name			= #_id,					\
++	.of_match		= of_name,				\
++	.regulators_node	= "regulators",				\
++	.ops			= &sc2730_regu_linear_ops,		\
++	.type			= REGULATOR_VOLTAGE,			\
++	.id			= SC2730_##_id,				\
++	.owner			= THIS_MODULE,				\
++	.min_uV			= vmin,					\
++	.n_voltages		= ((vmax) - (vmin)) / (vstep) + 1,	\
++	.uV_step		= vstep,				\
++	.enable_is_inverted	= true,					\
++	.enable_val		= 0,					\
++	.enable_reg		= en_reg,				\
++	.enable_mask		= en_mask,				\
++	.vsel_reg		= vreg,					\
++	.vsel_mask		= vmask,				\
++	.linear_min_sel		= min_sel,				\
++}
++
++static const struct regulator_desc regulators[] = {
++	SC2730_REGU_LINEAR(DCDC_CPU, "dcdc-cpu", SC2730_POWER_PD_SW,
++			   SC2730_DCDC_CPU_PD_MASK, SC2730_DCDC_CPU_VOL,
++			   SC2730_DCDC_CPU_VOL_MASK, 3125, 0, 1596875,
++			   0),
++	SC2730_REGU_LINEAR(DCDC_GPU, "dcdc-gpu", SC2730_POWER_PD_SW,
++			   SC2730_DCDC_GPU_PD_MASK, SC2730_DCDC_GPU_VOL,
++			   SC2730_DCDC_GPU_VOL_MASK, 3125, 0, 1596875,
++			   0),
++	SC2730_REGU_LINEAR(DCDC_CORE, "dcdc-core", SC2730_POWER_PD_SW,
++			   SC2730_DCDC_CORE_PD_MASK, SC2730_DCDC_CORE_VOL,
++			   SC2730_DCDC_CORE_VOL_MASK, 3125, 0, 1596875,
++			   0),
++	SC2730_REGU_LINEAR(DCDC_MODEM, "dcdc-modem", SC2730_POWER_PD_SW,
++			   SC2730_DCDC_MODEM_PD_MASK, SC2730_DCDC_MODEM_VOL,
++			   SC2730_DCDC_MODEM_VOL_MASK, 3125, 0, 1596875,
++			   0),
++	SC2730_REGU_LINEAR(DCDC_MEM, "dcdc-mem", SC2730_POWER_PD_SW,
++			   SC2730_DCDC_MEM_PD_MASK, SC2730_DCDC_MEM_VOL,
++			   SC2730_DCDC_MEM_VOL_MASK, 6250, 0, 1593750,
++			   0),
++	SC2730_REGU_LINEAR(DCDC_MEMQ, "dcdc-memq", SC2730_POWER_PD_SW,
++			   SC2730_DCDC_MEMQ_PD_MASK, SC2730_DCDC_MEMQ_VOL,
++			   SC2730_DCDC_MEMQ_VOL_MASK, 3125, 0, 1596875,
++			   0),
++	SC2730_REGU_LINEAR(DCDC_GEN0, "dcdc-gen0", SC2730_POWER_PD_SW,
++			   SC2730_DCDC_GEN0_PD_MASK, SC2730_DCDC_GEN0_VOL,
++			   SC2730_DCDC_GEN0_VOL_MASK, 9375, 20000, 2410625,
++			   0),
++	SC2730_REGU_LINEAR(DCDC_GEN1, "dcdc-gen1", SC2730_POWER_PD_SW,
++			   SC2730_DCDC_GEN1_PD_MASK, SC2730_DCDC_GEN1_VOL,
++			   SC2730_DCDC_GEN1_VOL_MASK, 6250, 50000, 1643750,
++			   0),
++	SC2730_REGU_LINEAR(DCDC_SRAM, "dcdc-sram", SC2730_POWER_PD_SW,
++			   SC2730_DCDC_SRAM_PD_MASK, SC2730_DCDC_SRAM_VOL,
++			   SC2730_DCDC_SRAM_VOL_MASK, 3125, 0, 1596875,
++			   0),
++	SC2730_REGU_LINEAR(LDO_AVDD18, "ldo-avdd18", SC2730_POWER_PD_SW,
++			   SC2730_LDO_AVDD18_PD_MASK, SC2730_LDO_AVDD18_VOL,
++			   SC2730_LDO_AVDD18_VOL_MASK, 10000, 1175000, 1805000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDDRF18, "ldo-vddrf18", SC2730_LDO_VDDRF18_PD,
++			   SC2730_LDO_VDDRF18_PD_MASK, SC2730_LDO_VDDRF18_VOL,
++			   SC2730_LDO_VDDRF18_VOL_MASK, 10000, 1175000, 1805000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDDCAMIO, "ldo-vddcamio", SC2730_LDO_VDDCAMIO_PD,
++			   SC2730_LDO_VDDCAMIO_PD_MASK, SC2730_LDO_VDDCAMIO_VOL,
++			   SC2730_LDO_VDDCAMIO_VOL_MASK, 10000, 1200000, 1830000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDDWCN, "ldo-vddwcn", SC2730_LDO_VDDWCN_PD,
++			   SC2730_LDO_VDDWCN_PD_MASK, SC2730_LDO_VDDWCN_VOL,
++			   SC2730_LDO_VDDWCN_VOL_MASK, 15000, 900000, 1845000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDDCAMD1, "ldo-vddcamd1", SC2730_LDO_VDDCAMD1_PD,
++			   SC2730_LDO_VDDCAMD1_PD_MASK, SC2730_LDO_VDDCAMD1_VOL,
++			   SC2730_LDO_VDDCAMD1_VOL_MASK, 15000, 900000, 1365000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDDCAMD0, "ldo-vddcamd0", SC2730_LDO_VDDCAMD0_PD,
++			   SC2730_LDO_VDDCAMD0_PD_MASK, SC2730_LDO_VDDCAMD0_VOL,
++			   SC2730_LDO_VDDCAMD0_VOL_MASK, 15000, 900000, 1365000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDDRF1V25, "ldo-vddrf1v25", SC2730_LDO_VDDRF1V25_PD,
++			   SC2730_LDO_VDDRF1V25_PD_MASK, SC2730_LDO_VDDRF1V25_VOL,
++			   SC2730_LDO_VDDRF1V25_VOL_MASK, 15000, 900000, 1365000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_AVDD12, "ldo-avdd12", SC2730_LDO_AVDD12_PD,
++			   SC2730_LDO_AVDD12_PD_MASK, SC2730_LDO_AVDD12_VOL,
++			   SC2730_LDO_AVDD12_VOL_MASK, 15000, 900000, 1365000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDDCAMA0, "ldo-vddcama0", SC2730_LDO_VDDCAMA0_PD,
++			   SC2730_LDO_VDDCAMA0_PD_MASK, SC2730_LDO_VDDCAMA0_VOL,
++			   SC2730_LDO_VDDCAMA0_VOL_MASK, 10000, 1200000, 3750000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDDCAMA1, "ldo-vddcama1", SC2730_LDO_VDDCAMA1_PD,
++			   SC2730_LDO_VDDCAMA1_PD_MASK, SC2730_LDO_VDDCAMA1_VOL,
++			   SC2730_LDO_VDDCAMA1_VOL_MASK, 10000, 1200000, 3750000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDDCAMMOT, "ldo-vddcammot", SC2730_LDO_VDDCAMMOT_PD,
++			   SC2730_LDO_VDDCAMMOT_PD_MASK, SC2730_LDO_VDDCAMMOT_VOL,
++			   SC2730_LDO_VDDCAMMOT_VOL_MASK, 10000, 1200000, 3750000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDDSIM2, "ldo-vddsim2", SC2730_LDO_VDDSIM2_PD,
++			   SC2730_LDO_VDDSIM2_PD_MASK, SC2730_LDO_VDDSIM2_VOL,
++			   SC2730_LDO_VDDSIM2_VOL_MASK, 10000, 1200000, 3750000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDDEMMCCORE, "ldo-vddemmccore", SC2730_LDO_VDDEMMCCORE_PD,
++			   SC2730_LDO_VDDEMMCCORE_PD_MASK, SC2730_LDO_VDDEMMCCORE_VOL,
++			   SC2730_LDO_VDDEMMCCORE_VOL_MASK, 10000, 1200000, 3750000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDDSDCORE, "ldo-vddsdcore", SC2730_LDO_VDDSDCORE_PD,
++			   SC2730_LDO_VDDSDCORE_PD_MASK, SC2730_LDO_VDDSDCORE_VOL,
++			   SC2730_LDO_VDDSDCORE_VOL_MASK, 10000, 1200000, 3750000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDDSDIO, "ldo-vddsdio", SC2730_LDO_VDDSDIO_PD,
++			   SC2730_LDO_VDDSDIO_PD_MASK, SC2730_LDO_VDDSDIO_VOL,
++			   SC2730_LDO_VDDSDIO_VOL_MASK, 10000, 1200000, 3750000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDD28, "ldo-vdd28", SC2730_POWER_PD_SW,
++			   SC2730_LDO_VDD28_PD_MASK, SC2730_LDO_VDD28_VOL,
++			   SC2730_LDO_VDD28_VOL_MASK, 10000, 1200000, 3750000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDDWIFIPA, "ldo-vddwifipa", SC2730_LDO_VDDWIFIPA_PD,
++			   SC2730_LDO_VDDWIFIPA_PD_MASK, SC2730_LDO_VDDWIFIPA_VOL,
++			   SC2730_LDO_VDDWIFIPA_VOL_MASK, 10000, 1200000, 3750000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDD18_DCXO, "ldo-vdd18-dcxo", SC2730_POWER_PD_SW,
++			   SC2730_LDO_VDD18_DCXO_PD_MASK, SC2730_LDO_VDD18_DCXO_VOL,
++			   SC2730_LDO_VDD18_DCXO_VOL_MASK, 10000, 1200000, 3750000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDDUSB33, "ldo-vddusb33", SC2730_LDO_VDDUSB33_PD,
++			   SC2730_LDO_VDDUSB33_PD_MASK, SC2730_LDO_VDDUSB33_VOL,
++			   SC2730_LDO_VDDUSB33_VOL_MASK, 10000, 1200000, 3750000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDDLDO0, "ldo-vddldo0", SC2730_LDO_VDDLDO0_PD,
++			   SC2730_LDO_VDDLDO0_PD_MASK, SC2730_LDO_VDDLDO0_VOL,
++			   SC2730_LDO_VDDLDO0_VOL_MASK, 10000, 1200000, 3750000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDDLDO1, "ldo-vddldo1", SC2730_LDO_VDDLDO1_PD,
++			   SC2730_LDO_VDDLDO1_PD_MASK, SC2730_LDO_VDDLDO1_VOL,
++			   SC2730_LDO_VDDLDO1_VOL_MASK, 10000, 1200000, 3750000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDDLDO2, "ldo-vddldo2", SC2730_LDO_VDDLDO2_PD,
++			   SC2730_LDO_VDDLDO2_PD_MASK, SC2730_LDO_VDDLDO2_VOL,
++			   SC2730_LDO_VDDLDO2_VOL_MASK, 10000, 1200000, 3750000,
++			   0),
++	SC2730_REGU_LINEAR(LDO_VDDKPLED, "ldo-vddkpled", SC2730_LDO_VDDKPLED_PD,
++			   SC2730_LDO_VDDKPLED_PD_MASK, SC2730_LDO_VDDKPLED_VOL,
++			   SC2730_LDO_VDDKPLED_VOL_MASK, 10000, 1200000, 3750000,
++			   0),
++};
++
++static int sc2730_regulator_unlock(struct regmap *regmap)
++{
++	return regmap_write(regmap, SC2730_PWR_WR_PROT, SC2730_WR_UNLOCK_VALUE);
++}
++
++static int sc2730_regulator_probe(struct platform_device *pdev)
++{
++	int i, ret;
++	struct regmap *regmap;
++	struct regulator_config config = { };
++	struct regulator_dev *rdev;
++
++	regmap = dev_get_regmap(pdev->dev.parent, NULL);
++	if (!regmap) {
++		dev_err(&pdev->dev, "failed to get regmap.\n");
++		return -ENODEV;
++	}
++
++	ret = sc2730_regulator_unlock(regmap);
++	if (ret) {
++		dev_err(&pdev->dev, "failed to release regulator lock\n");
++		return ret;
++	}
++
++	config.dev = pdev->dev.parent;
++	config.regmap = regmap;
++
++	for (i = 0; i < ARRAY_SIZE(regulators); i++) {
++		rdev = devm_regulator_register(&pdev->dev, &regulators[i], &config);
++		if (IS_ERR(rdev)) {
++			dev_err(&pdev->dev, "failed to register regulator %s\n",
++				regulators[i].name);
++			return PTR_ERR(rdev);
++		}
++	}
++
++	return 0;
++}
++
++static const struct platform_device_id sc2730_regulator_id_table[] = {
++	{ "sc2730-regulator" },
++	{ }
++};
++MODULE_DEVICE_TABLE(platform, sc2730_regulator_id_table);
++
++static struct platform_driver sc2730_regulator_driver = {
++	.driver = {
++		.name = "sc2730-regulator",
++		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
++	},
++	.probe = sc2730_regulator_probe,
++	.id_table = sc2730_regulator_id_table,
++};
++
++module_platform_driver(sc2730_regulator_driver);
++
++MODULE_AUTHOR("Chen Junhui <erick.chen@spreadtrum.com>");
++MODULE_DESCRIPTION("Spreadtrum SC2730 regulator driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/regulator/sc2731-regulator.c b/drivers/regulator/sc2731-regulator.c
+index 5447e1a47d154f6656952831b4e7463eb94555c2..0d0090d73de9a90e28cf2199f17c5409e3ad5dca 100644
+--- a/drivers/regulator/sc2731-regulator.c
++++ b/drivers/regulator/sc2731-regulator.c
+@@ -131,6 +131,7 @@ static const struct regulator_ops sc2731_regu_linear_ops = {
+ 			  vstep, vmin, vmax) {			\
+ 	.name			= #_id,				\
+ 	.of_match		= of_match_ptr(#_id),		\
++	.regulators_node	= of_match_ptr("regulators"),	\
+ 	.ops			= &sc2731_regu_linear_ops,	\
+ 	.type			= REGULATOR_VOLTAGE,		\
+ 	.id			= SC2731_##_id,			\
+@@ -242,6 +243,12 @@ static int sc2731_regulator_probe(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
++static const struct platform_device_id sc2731_regulator_id_table[] = {
++	{ "sc2731-regulator" },
++	{ }
++};
++MODULE_DEVICE_TABLE(platform, sc2731_regulator_id_table);
++
+ static struct platform_driver sc2731_regulator_driver = {
+ 	.driver = {
+ 		.name = "sc27xx-regulator",

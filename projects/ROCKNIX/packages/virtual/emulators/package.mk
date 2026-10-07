@@ -54,6 +54,12 @@ case "${DEVICE}" in
     PKG_EMUS+=" advancedrastic-sa aethersx2-sa azahar-sa dolphin-sa drastic-sa mednafen melonds-sa vita3k-sa"
     LIBRETRO_CORES+=" dolphin-lr uae4arm-lr"
     ;;
+  T618)
+    [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 desmume-lr gpsp-lr pcsx_rearmed-lr"
+    PKG_DEPENDS_TARGET+=" common-shaders glsl-shaders"
+    PKG_EMUS+=" aethersx2-sa armsx2-sa azahar-sa dolphin-sa drastic-sa melonds-sa"
+    LIBRETRO_CORES+=" dolphin-lr"
+    ;;
   RK3576)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 desmume-lr gpsp-lr pcsx_rearmed-lr"
     PKG_DEPENDS_TARGET+=" common-shaders glsl-shaders"
@@ -191,7 +197,7 @@ makeinstall_target() {
 
   ### Nintendo 3DS
   case ${DEVICE} in
-    SDM845|RK3576|RK3566|SM8250|SM8550|SM8650|SM8750|S922X|RK3588|SM4450|SM6115|AMD64)
+    RK3576|RK3566|T618|SDM845|SM8250|SM8550|SM8650|SM8750|S922X|RK3588|SM4450|SM6115|AMD64)
       add_emu_core 3ds azahar azahar-sa true
       add_es_system 3ds
       install_script "Start Azahar.sh"
@@ -662,7 +668,7 @@ makeinstall_target() {
 
   ### Nintendo GameCube
   case ${DEVICE} in
-    SDM845|RK3399|RK3576|RK3566|RK3588|SM4450|SM6115|SM8250|SM8550|SM8650|SM8750|S922X|AMD64)
+    RK3399|RK3576|RK3566|T618|SDM845|RK3588|SM4450|SM6115|SM8250|SM8550|SM8650|SM8750|S922X|AMD64)
       add_emu_core gamecube dolphin dolphin-sa-gc true
       add_emu_core gamecube dolphin dolphin-qt-gc false
       add_emu_core gamecube retroarch dolphin false
@@ -683,7 +689,7 @@ makeinstall_target() {
 
   ### Nintendo Wii/ware
   case ${DEVICE} in
-    SDM845|RK3399|RK3576|RK3566|RK3588|SM4450|SM6115|SM8250|SM8550|SM8650|SM8750|S922X|AMD64)
+    RK3399|RK3576|RK3566|T618|SDM845|RK3588|SM4450|SM6115|SM8250|SM8550|SM8650|SM8750|S922X|AMD64)
       add_emu_core wii dolphin dolphin-sa-wii true
       add_emu_core wiiware dolphin dolphin-sa-wii true
       add_emu_core wii dolphin dolphin-qt-wii false
@@ -1007,7 +1013,7 @@ makeinstall_target() {
       add_emu_core nds dsperate dsperate-sa false
       install_script "Start MelonDS.sh"
       ;;
-    RK3399|RK3576|RK3588|SM6115)
+    RK3399|RK3576|RK3588|SM6115|T618)
       add_emu_core nds drastic drastic-sa true
       add_emu_core nds retroarch melonds false
       add_emu_core nds retroarch melondsds false
@@ -1182,7 +1188,7 @@ makeinstall_target() {
       add_emu_core psx mednafen psx false
       add_emu_core psx retroarch duckstation false
       ;;
-    RK3576|RK3566)
+    RK3576|RK3566|T618)
       add_emu_core psx retroarch pcsx_rearmed32 true
       add_emu_core psx retroarch pcsx_rearmed false
       add_emu_core psx retroarch duckstation false
@@ -1236,6 +1242,13 @@ makeinstall_target() {
     add_es_system ps2
     install_script "Start ARMSX2.sh"
     install_script "Start AetherSX2.sh"
+    ;;
+  T618)
+    add_emu_core ps2 aethersx2 aethersx2-sa true
+    add_emu_core ps2 armsx2 armsx2-sa false
+    add_es_system ps2
+    install_script "Start AetherSX2.sh"
+    install_script "Start ARMSX2.sh"
     ;;
   esac
 
