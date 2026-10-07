@@ -23,23 +23,6 @@ makeinstall_target() {
 }
 
 post_makeinstall_target() {
-  if [[ "${DEVICE}" == "SDM845" ]]; then
-    "${TOOLCHAIN}/bin/python3" - "${INSTALL}/usr/config/modules/gamelist.xml" <<'PY'
-import sys
-import xml.etree.ElementTree as ET
-path = sys.argv[1]
-tree = ET.parse(path)
-root = tree.getroot()
-if not any(game.findtext('path') == './Start Eden.sh' for game in root.findall('game')):
-    game = ET.SubElement(root, 'game')
-    for tag, value in (('path', './Start Eden.sh'), ('name', 'Eden'),
-                       ('desc', 'Nintendo Switch emulator settings and game library.'),
-                       ('genre', 'Tool'), ('players', '1')):
-        ET.SubElement(game, tag).text = value
-tree.write(path, encoding='utf-8', xml_declaration=True)
-PY
-  fi
-
   case ${DEVICE} in
     SM8650|SM8750) rm -f ${INSTALL}/usr/config/modules/*32bit* ;;
   esac
