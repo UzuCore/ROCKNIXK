@@ -1,0 +1,1039 @@
+Subject: [PATCH] sprd: bindings support for UMS512
+
+Consolidated from beebono/linux-mainline-sprd rg-rotate 464b3e7bf45bb300e190339977abba36c8078e1f, rebased onto Linux 7.1.2.
+Original authors and patch hashes are recorded in series-origin.json.
+
+diff --git a/Documentation/devicetree/bindings/arm/sprd/sprd.yaml b/Documentation/devicetree/bindings/arm/sprd/sprd.yaml
+index 40fc3c8b9dceece09bd01e05d5d4e7cf3e048f3f..6674ee3ae70d2ef6e62ed7eb87aea519e2b92a70 100644
+--- a/Documentation/devicetree/bindings/arm/sprd/sprd.yaml
++++ b/Documentation/devicetree/bindings/arm/sprd/sprd.yaml
+@@ -35,6 +35,11 @@ properties:
+               - sprd,ums512-1h10
+           - const: sprd,ums512
+ 
++      - items:
++          - enum:
++              - reeder,s19mps
++          - const: sprd,ums9230
++
+       - items:
+           - enum:
+               - sprd,ums9620-2h10
+diff --git a/Documentation/devicetree/bindings/clock/sprd,ums9230-clk.yaml b/Documentation/devicetree/bindings/clock/sprd,ums9230-clk.yaml
+new file mode 100644
+index 0000000000000000000000000000000000000000..410041f2933b50e8fa4db32d8e0e58546811a621
+--- /dev/null
++++ b/Documentation/devicetree/bindings/clock/sprd,ums9230-clk.yaml
+@@ -0,0 +1,142 @@
++# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/clock/sprd,ums9230-clk.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: UMS9230 SoC clock controller
++
++maintainers:
++  - Otto Pflüger <otto.pflueger@abscue.de>
++
++properties:
++  compatible:
++    enum:
++      - sprd,ums9230-aon-gate
++      - sprd,ums9230-aonapb-clk
++      - sprd,ums9230-ap-clk
++      - sprd,ums9230-apahb-gate
++      - sprd,ums9230-apapb-gate
++      - sprd,ums9230-audcpahb-gate
++      - sprd,ums9230-audcpapb-gate
++      - sprd,ums9230-g0-pll
++      - sprd,ums9230-g1-pll
++      - sprd,ums9230-g3-pll
++      - sprd,ums9230-gc-pll
++      - sprd,ums9230-gpu-clk
++      - sprd,ums9230-mm-clk
++      - sprd,ums9230-mm-gate-clk
++      - sprd,ums9230-pmu-gate
++
++  "#clock-cells":
++    const: 1
++
++  power-domains:
++    maxItems: 1
++
++  reg:
++    maxItems: 1
++
++  "#reset-cells":
++    const: 1
++
++allOf:
++  - if:
++      properties:
++        compatible:
++          contains:
++            const: sprd,ums9230-aonapb-clk
++    then:
++      properties:
++        clocks:
++          minItems: 3
++          maxItems: 3
++        clock-names:
++          items:
++            - const: ext-26m
++            - const: ext-32k
++            - const: rco-100m
++      required:
++        - clocks
++        - clock-names
++
++  - if:
++      properties:
++        compatible:
++          contains:
++            const: sprd,ums9230-ap-clk
++    then:
++      properties:
++        clocks:
++          minItems: 3
++          maxItems: 3
++        clock-names:
++          items:
++            - const: ext-26m
++            - const: dphy-250m
++            - const: dphy-333m3
++      required:
++        - clocks
++        - clock-names
++
++  - if:
++      properties:
++        compatible:
++          contains:
++            const: sprd,ums9230-mm-clk
++    then:
++      properties:
++        clocks:
++          minItems: 2
++          maxItems: 2
++        clock-names:
++          items:
++            - const: ext-26m
++            - const: enable
++      required:
++        - clocks
++        - clock-names
++
++  - if:
++      properties:
++        compatible:
++          contains:
++            enum:
++              - sprd,ums9230-aon-gate
++              - sprd,ums9230-apahb-gate
++              - sprd,ums9230-apapb-gate
++              - sprd,ums9230-audcpahb-gate
++              - sprd,ums9230-g1-pll
++              - sprd,ums9230-g3-pll
++              - sprd,ums9230-gc-pll
++              - sprd,ums9230-gpu-clk
++              - sprd,ums9230-pmu-gate
++    then:
++      properties:
++        clocks:
++          minItems: 1
++          maxItems: 1
++        clock-names:
++          items:
++            - const: ext-26m
++      required:
++        - clocks
++        - clock-names
++
++required:
++  - compatible
++  - '#clock-cells'
++  - reg
++
++unevaluatedProperties: false
++
++examples:
++  - |
++    ap_clk: clock-controller@20010000 {
++      compatible = "sprd,ums9230-ap-clk";
++      reg = <0x20010000 0x1000>;
++      clocks = <&ext_26m>, <&dphy_250m>, <&dphy_333m3>;
++      clock-names = "ext-26m", "dphy-250m", "dphy-333m3";
++      #clock-cells = <1>;
++    };
++...
+diff --git a/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dpu.yaml b/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dpu.yaml
+index 8c52fa0ea5f8ee2149ebf1d4b0d5b052832e3d97..fa9ad2600f150e1023606898322a1a7b4675bab3 100644
+--- a/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dpu.yaml
++++ b/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dpu.yaml
+@@ -16,7 +16,12 @@ description: |
+ 
+ properties:
+   compatible:
+-    const: sprd,sharkl3-dpu
++    oneOf:
++      - items:
++          - enum:
++              - sprd,ums9230-dpu
++          - const: sprd,sharkl3-dpu
++      - const: sprd,sharkl3-dpu
+ 
+   reg:
+     maxItems: 1
+@@ -28,9 +33,14 @@ properties:
+     maxItems: 2
+ 
+   clock-names:
+-    items:
+-      - const: clk_src_128m
+-      - const: clk_src_384m
++    oneOf:
++      - deprecated: true
++        items:
++          - const: clk_src_128m
++          - const: clk_src_384m
++      - items:
++          - const: core
++          - const: dpi
+ 
+   power-domains:
+     maxItems: 1
+@@ -38,6 +48,14 @@ properties:
+   iommus:
+     maxItems: 1
+ 
++  memory-region:
++    maxItems: 1
++    description:
++      A phandle to the framebuffer region configured by the bootloader. This
++      can be used together with an iommu-addresses property on the reserved
++      memory region to create an initial passthrough mapping for the boot
++      splash framebuffer.
++
+   port:
+     type: object
+     description:
+@@ -64,10 +82,10 @@ examples:
+         compatible = "sprd,sharkl3-dpu";
+         reg = <0x63000000 0x1000>;
+         interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
+-        clock-names = "clk_src_128m", "clk_src_384m";
+ 
+-        clocks = <&pll CLK_TWPLL_128M>,
+-          <&pll CLK_TWPLL_384M>;
++        clocks = <&pll CLK_TWPLL_384M>,
++                 <&pll CLK_TWPLL_128M>;
++        clock-names = "core", "dpi";
+ 
+         dpu_port: port {
+             dpu_out: endpoint {
+diff --git a/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dsi-host.yaml b/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dsi-host.yaml
+index 300bf2252c3e8e589dc74927520e24aa4a59f81b..7da68eb026b97932515b470764fa3948104db4e8 100644
+--- a/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dsi-host.yaml
++++ b/Documentation/devicetree/bindings/display/sprd/sprd,sharkl3-dsi-host.yaml
+@@ -11,7 +11,9 @@ maintainers:
+ 
+ properties:
+   compatible:
+-    const: sprd,sharkl3-dsi-host
++    enum:
++      - sprd,sharkl3-dsi-host
++      - sprd,ums9230-dsi-host
+ 
+   reg:
+     maxItems: 1
+@@ -23,8 +25,12 @@ properties:
+     maxItems: 1
+ 
+   clock-names:
+-    items:
+-      - const: clk_src_96m
++    oneOf:
++      - deprecated: true
++        items:
++          - const: clk_src_96m
++      - items:
++          - const: pclk
+ 
+   power-domains:
+     maxItems: 1
+@@ -40,12 +46,22 @@ properties:
+         const: 0
+ 
+       port@0:
+-        type: object
+-        description:
+-          A port node with endpoint definitions as defined in
+-          Documentation/devicetree/bindings/media/video-interfaces.txt.
+-          That port should be the input endpoint, usually coming from
+-          the associated DPU.
++        $ref: /schemas/graph.yaml#/$defs/port-base
++        unevaluatedProperties: false
++        properties:
++          endpoint:
++            $ref: /schemas/media/video-interfaces.yaml#
++            unevaluatedProperties: false
++            description: The input endpoint, usually connected to the DPU
++
++      port@1:
++        $ref: /schemas/graph.yaml#/$defs/port-base
++        unevaluatedProperties: false
++        properties:
++          endpoint:
++            $ref: /schemas/media/video-interfaces.yaml#
++            unevaluatedProperties: false
++            description: The output endpoint, usually connected to the panel
+ 
+     required:
+       - "#address-cells"
+@@ -54,6 +70,9 @@ properties:
+ 
+     additionalProperties: false
+ 
++allOf:
++  - $ref: /schemas/display/dsi-controller.yaml#
++
+ required:
+   - compatible
+   - reg
+@@ -62,7 +81,7 @@ required:
+   - clock-names
+   - ports
+ 
+-additionalProperties: false
++unevaluatedProperties: false
+ 
+ examples:
+   - |
+@@ -73,8 +92,9 @@ examples:
+         reg = <0x63100000 0x1000>;
+         interrupts = <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>,
+           <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>;
+-        clock-names = "clk_src_96m";
+         clocks = <&pll CLK_TWPLL_96M>;
++        clock-names = "pclk";
++
+         ports {
+             #address-cells = <1>;
+             #size-cells = <0>;
+diff --git a/Documentation/devicetree/bindings/gpio/sprd,gpio-eic.yaml b/Documentation/devicetree/bindings/gpio/sprd,gpio-eic.yaml
+index 99fcf970773a3929d9f0a066edf0eb1fec1c92eb..f18dae6ba579e9c80899ffed4a6987e0d23135c6 100644
+--- a/Documentation/devicetree/bindings/gpio/sprd,gpio-eic.yaml
++++ b/Documentation/devicetree/bindings/gpio/sprd,gpio-eic.yaml
+@@ -52,18 +52,22 @@ properties:
+       - items:
+           - enum:
+               - sprd,ums512-eic-debounce
++              - sprd,ums9230-eic-debounce
+           - const: sprd,sc9860-eic-debounce
+       - items:
+           - enum:
+               - sprd,ums512-eic-latch
++              - sprd,ums9230-eic-latch
+           - const: sprd,sc9860-eic-latch
+       - items:
+           - enum:
+               - sprd,ums512-eic-async
++              - sprd,ums9230-eic-async
+           - const: sprd,sc9860-eic-async
+       - items:
+           - enum:
+               - sprd,ums512-eic-sync
++              - sprd,ums9230-eic-sync
+           - const: sprd,sc9860-eic-sync
+       - items:
+           - enum:
+@@ -72,9 +76,9 @@ properties:
+ 
+   reg:
+     minItems: 1
+-    maxItems: 3
++    maxItems: 6
+     description:
+-      EIC controller can support maximum 3 banks which has its own
++      EIC controller can support maximum 6 banks which has its own
+       address base.
+ 
+   gpio-controller: true
+diff --git a/Documentation/devicetree/bindings/gpio/sprd,gpio.yaml b/Documentation/devicetree/bindings/gpio/sprd,gpio.yaml
+index 483168838128715edfd86ca474907092c1d22aac..d3e65eeb2a5de812db2647f5a97f01e387a8564d 100644
+--- a/Documentation/devicetree/bindings/gpio/sprd,gpio.yaml
++++ b/Documentation/devicetree/bindings/gpio/sprd,gpio.yaml
+@@ -24,6 +24,7 @@ properties:
+       - items:
+           - enum:
+               - sprd,ums512-gpio
++              - sprd,ums9230-gpio
+           - const: sprd,sc9860-gpio
+ 
+   reg:
+diff --git a/Documentation/devicetree/bindings/gpu/arm,mali-bifrost.yaml b/Documentation/devicetree/bindings/gpu/arm,mali-bifrost.yaml
+index db49b8ff8c74864afb25fdde40174d521c72c6e7..c73bd199ba6f96981575f7ec2ae711cf165ff2e3 100644
+--- a/Documentation/devicetree/bindings/gpu/arm,mali-bifrost.yaml
++++ b/Documentation/devicetree/bindings/gpu/arm,mali-bifrost.yaml
+@@ -45,6 +45,7 @@ properties:
+               - mediatek,mt8188-mali
+               - mediatek,mt8192-mali
+               - mediatek,mt8370-mali
++              - sprd,ums9230-mali
+           - const: arm,mali-valhall-jm # Mali Valhall GPU model/revision is fully discoverable
+ 
+   reg:
+diff --git a/Documentation/devicetree/bindings/i2c/sprd,sc9860-i2c.yaml b/Documentation/devicetree/bindings/i2c/sprd,sc9860-i2c.yaml
+index ec0d39e73d267d5bc0d577fab8fcad909270a588..4ecedd9d0432d74ae21e015437905cacc5f21153 100644
+--- a/Documentation/devicetree/bindings/i2c/sprd,sc9860-i2c.yaml
++++ b/Documentation/devicetree/bindings/i2c/sprd,sc9860-i2c.yaml
+@@ -16,7 +16,12 @@ allOf:
+ 
+ properties:
+   compatible:
+-    const: sprd,sc9860-i2c
++    oneOf:
++      - items:
++          - enum:
++              - sprd,ums9230-i2c
++          - const: sprd,sc9860-i2c
++      - const: sprd,sc9860-i2c
+ 
+   reg:
+     maxItems: 1
+diff --git a/Documentation/devicetree/bindings/iommu/sprd,iommu.yaml b/Documentation/devicetree/bindings/iommu/sprd,iommu.yaml
+index 7003e12f55f992b9258bfe6900fe00ba2364327a..5414689bd80448894b6ac19cb8d940dc688c1e6b 100644
+--- a/Documentation/devicetree/bindings/iommu/sprd,iommu.yaml
++++ b/Documentation/devicetree/bindings/iommu/sprd,iommu.yaml
+@@ -31,6 +31,13 @@ properties:
+       Reference to a gate clock phandle, since access to some of IOMMUs are
+       controlled by gate clock, but this is not required.
+ 
++  sprd,iova-range:
++    minItems: 2
++    maxItems: 2
++    description:
++      Start address and size of the virtual address region used by the master
++      device. Only needed if there are specific requirements.
++
+ required:
+   - compatible
+   - reg
+@@ -44,6 +51,7 @@ examples:
+       compatible = "sprd,iommu-v1";
+       reg = <0x63000800 0x80>;
+       #iommu-cells = <0>;
++      sprd,iova-range = <0x90000000 0x10000000>;
+     };
+ 
+   - |
+diff --git a/Documentation/devicetree/bindings/media/i2c/ovti,ov8856.yaml b/Documentation/devicetree/bindings/media/i2c/ovti,ov8856.yaml
+index d0f577363f93173b48a23abe1857ed4809487ec6..5377ae72c82d1f73e86efefb86d9796971e756a8 100644
+--- a/Documentation/devicetree/bindings/media/i2c/ovti,ov8856.yaml
++++ b/Documentation/devicetree/bindings/media/i2c/ovti,ov8856.yaml
+@@ -100,7 +100,7 @@ required:
+   - reset-gpios
+   - port
+ 
+-additionalProperties: false
++unevaluatedProperties: false
+ 
+ examples:
+   - |
+diff --git a/Documentation/devicetree/bindings/media/sprd,camsys.yaml b/Documentation/devicetree/bindings/media/sprd,camsys.yaml
+new file mode 100644
+index 0000000000000000000000000000000000000000..40c4ec252b123cccf02d0af18bac1360a4b29538
+--- /dev/null
++++ b/Documentation/devicetree/bindings/media/sprd,camsys.yaml
+@@ -0,0 +1,366 @@
++# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
++%YAML 1.2
++---
++$id: http://devicetree.org/schemas/media/sprd,camsys.yaml#
++$schema: http://devicetree.org/meta-schemas/core.yaml#
++
++title: Unisoc camera subsystem
++
++maintainers:
++  - Otto Pflüger <otto.pflueger@abscue.de>
++
++description:
++  The camera subsystem found in Unisoc SoCs consists of multiple CSI PHYs, CSI
++  controllers and DCAM blocks. The separate ISP and encoder blocks are not part
++  of this binding.
++
++properties:
++  compatible:
++    const: sprd,ums9230-camsys
++
++  clocks:
++    minItems: 9
++    maxItems: 9
++
++  clock-names:
++    items:
++      - const: cphy_cfg_en
++      - const: csi0
++      - const: csi1
++      - const: csi2
++      - const: mipi_csi0
++      - const: mipi_csi1
++      - const: mipi_csi2
++      - const: mipi_gate
++      - const: dcam
++
++  interrupts:
++    minItems: 3
++    maxItems: 3
++
++  interrupt-names:
++    items:
++      - const: dcam0
++      - const: dcam1
++      - const: dcam2
++
++  iommus:
++    maxItems: 1
++
++  ports:
++    $ref: /schemas/graph.yaml#/properties/ports
++
++    properties:
++      port@0: # CAMSYS_CSI_4LANE
++        $ref: /schemas/graph.yaml#/$defs/port-base
++        unevaluatedProperties: false
++        description: CSI 4-lane input port
++
++        properties:
++          endpoint:
++            $ref: video-interfaces.yaml#
++            unevaluatedProperties: false
++
++            properties:
++              data-lanes:
++                items:
++                  - const: 0
++                  - const: 1
++                  - const: 2
++                  - const: 3
++
++            required:
++              - data-lanes
++
++      port@1: # CAMSYS_CSI_M_S
++        $ref: /schemas/graph.yaml#/$defs/port-base
++        unevaluatedProperties: false
++        description: CSI M and S ports combined as 4-lane input port
++
++        properties:
++          endpoint:
++            $ref: video-interfaces.yaml#
++            unevaluatedProperties: false
++
++            properties:
++              data-lanes:
++                items:
++                  - const: 0
++                  - const: 1
++                  - const: 2
++                  - const: 3
++
++            required:
++              - data-lanes
++
++      port@2: # CAMSYS_CSI_M
++        $ref: /schemas/graph.yaml#/$defs/port-base
++        unevaluatedProperties: false
++        description: CSI 2-lane M input port
++
++        properties:
++          endpoint:
++            $ref: video-interfaces.yaml#
++            unevaluatedProperties: false
++
++            properties:
++              data-lanes:
++                items:
++                  - const: 0
++                  - const: 1
++
++            required:
++              - data-lanes
++
++      port@3: # CAMSYS_CSI_S
++        $ref: /schemas/graph.yaml#/$defs/port-base
++        unevaluatedProperties: false
++        description: CSI 2-lane S input port
++
++        properties:
++          endpoint:
++            $ref: video-interfaces.yaml#
++            unevaluatedProperties: false
++
++            properties:
++              data-lanes:
++                items:
++                  - const: 0
++                  - const: 1
++
++            required:
++              - data-lanes
++
++      port@4: # CAMSYS_CSI_RO_M_S
++        $ref: /schemas/graph.yaml#/$defs/port-base
++        unevaluatedProperties: false
++        description: CSI RO M and S ports combined as 4-lane input port
++
++        properties:
++          endpoint:
++            $ref: video-interfaces.yaml#
++            unevaluatedProperties: false
++
++            properties:
++              data-lanes:
++                items:
++                  - const: 0
++                  - const: 1
++                  - const: 2
++                  - const: 3
++
++            required:
++              - data-lanes
++
++      port@5: # CAMSYS_CSI_RO_M
++        $ref: /schemas/graph.yaml#/$defs/port-base
++        unevaluatedProperties: false
++        description: CSI 2-lane RO M input port
++
++        properties:
++          endpoint:
++            $ref: video-interfaces.yaml#
++            unevaluatedProperties: false
++
++            properties:
++              data-lanes:
++                items:
++                  - const: 0
++                  - const: 1
++
++            required:
++              - data-lanes
++
++      port@6: # CAMSYS_CSI_RO_S
++        $ref: /schemas/graph.yaml#/$defs/port-base
++        unevaluatedProperties: false
++        description: CSI 2-lane RO S input port
++
++        properties:
++          endpoint:
++            $ref: video-interfaces.yaml#
++            unevaluatedProperties: false
++
++            properties:
++              data-lanes:
++                items:
++                  - const: 0
++                  - const: 1
++
++            required:
++              - data-lanes
++
++    allOf:
++      - anyOf:
++          - required: [port@0]
++          - required: [port@1]
++          - required: [port@2]
++          - required: [port@3]
++          - required: [port@4]
++          - required: [port@5]
++          - required: [port@6]
++
++      - if:
++          required: [port@1] # CAMSYS_CSI_M_S
++        then:
++          properties:
++            port@2: false # CAMSYS_CSI_M
++            port@3: false # CAMSYS_CSI_S
++
++      - if:
++          anyOf:
++            - required: [port@2]
++            - required: [port@3]
++        then:
++          properties:
++            port@1: false
++
++      - if:
++          required: [port@4] # CAMSYS_CSI_RO_M_S
++        then:
++          properties:
++            port@5: false # CAMSYS_CSI_RO_M
++            port@6: false # CAMSYS_CSI_RO_S
++
++      - if:
++          anyOf:
++            - required: [port@5]
++            - required: [port@6]
++        then:
++          properties:
++            port@4: false
++
++  reg:
++    minItems: 7
++    maxItems: 7
++
++  reg-names:
++    items:
++      - const: csi0
++      - const: csi1
++      - const: csi2
++      - const: dcam0
++      - const: dcam1
++      - const: dcam2
++      - const: dcam_axi
++
++  resets:
++    minItems: 7
++    maxItems: 7
++
++  reset-names:
++    items:
++      - const: csi0
++      - const: csi1
++      - const: csi2
++      - const: dcam0
++      - const: dcam1
++      - const: dcam2
++      - const: dcam_axi
++
++  sprd,syscon-anlg-phy:
++    $ref: /schemas/types.yaml#/definitions/phandle
++    description: phandle of global analog syscon used for CSI PHY
++
++  sprd,syscon-mm-ahb:
++    $ref: /schemas/types.yaml#/definitions/phandle
++    description: phandle of multimedia AHB syscon
++
++required:
++  - clock-names
++  - clocks
++  - compatible
++  - interrupt-names
++  - interrupts
++  - iommus
++  - reg
++  - reg-names
++  - resets
++  - reset-names
++  - sprd,syscon-mm-ahb
++  - sprd,syscon-anlg-phy
++
++additionalProperties: false
++
++examples:
++  - |
++    #include <dt-bindings/clock/sprd,ums9230-clk.h>
++    #include <dt-bindings/interrupt-controller/arm-gic.h>
++    #include <dt-bindings/media/sprd-camsys.h>
++    #include <dt-bindings/reset/sprd,ums9230-reset.h>
++
++    camsys: camera-subsystem@3e000000 {
++      compatible = "sprd,ums9230-camsys";
++
++      reg = <0x3e200000 0x1000>,
++            <0x3e300000 0x1000>,
++            <0x3e400000 0x1000>,
++            <0x3e000000 0x1000>,
++            <0x3e001000 0x1000>,
++            <0x3e002000 0x1000>,
++            <0x3e003000 0x1000>;
++      reg-names = "csi0",
++                  "csi1",
++                  "csi2",
++                  "dcam0",
++                  "dcam1",
++                  "dcam2",
++                  "dcam_axi";
++
++      interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>,
++                   <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>,
++                   <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>;
++      interrupt-names = "dcam0", "dcam1", "dcam2";
++
++      clocks = <&aon_gate CLK_CPHY_CFG_EN>,
++               <&mm_gate CLK_MM_CSI0_EB>,
++               <&mm_gate CLK_MM_CSI1_EB>,
++               <&mm_gate CLK_MM_CSI2_EB>,
++               <&mm_clk CLK_MIPI_CSI0>,
++               <&mm_clk CLK_MIPI_CSI1>,
++               <&mm_clk CLK_MIPI_CSI2>,
++               <&mm_gate CLK_MM_MIPI_CSI0_EB>,
++               <&mm_gate CLK_MM_DCAM_EB>;
++      clock-names = "cphy_cfg_en",
++                    "csi0",
++                    "csi1",
++                    "csi2",
++                    "mipi_csi0",
++                    "mipi_csi1",
++                    "mipi_csi2",
++                    "mipi_gate",
++                    "dcam";
++
++      resets = <&mm_gate RESET_MM_AHB_MIPI_CSI0_SOFT_RST>,
++               <&mm_gate RESET_MM_AHB_MIPI_CSI1_SOFT_RST>,
++               <&mm_gate RESET_MM_AHB_MIPI_CSI2_SOFT_RST>,
++               <&mm_gate RESET_MM_AHB_DCAM0_SOFT_RST>,
++               <&mm_gate RESET_MM_AHB_DCAM1_SOFT_RST>,
++               <&mm_gate RESET_MM_AHB_DCAM2_SOFT_RST>,
++               <&mm_gate RESET_MM_AHB_DCAM_AXI_SOFT_RST>;
++      reset-names = "csi0",
++                    "csi1",
++                    "csi2",
++                    "dcam0",
++                    "dcam1",
++                    "dcam2",
++                    "dcam_axi";
++
++      sprd,syscon-mm-ahb = <&mm_ahb_regs>;
++      sprd,syscon-anlg-phy = <&anlg_phy_g10_regs>;
++      iommus = <&iommu_dcam>;
++
++      ports {
++        #address-cells = <1>;
++        #size-cells = <0>;
++
++        port@CAMSYS_CSI_4LANE {
++          reg = <CAMSYS_CSI_4LANE>;
++
++          csi_4lane_ep: endpoint {
++            data-lanes = <0 1 2 3>;
++            remote-endpoint = <&main_camera_ep>;
++          };
++        };
++      };
++    };
+diff --git a/Documentation/devicetree/bindings/mfd/sprd,ums512-glbreg.yaml b/Documentation/devicetree/bindings/mfd/sprd,ums512-glbreg.yaml
+index a750fa23d7e7c27f00c271dec8d8e9f1ad3010c5..bc08f7f7bcf7594522093c2f2af284972105cf3c 100644
+--- a/Documentation/devicetree/bindings/mfd/sprd,ums512-glbreg.yaml
++++ b/Documentation/devicetree/bindings/mfd/sprd,ums512-glbreg.yaml
+@@ -21,6 +21,7 @@ properties:
+     items:
+       - enum:
+           - sprd,ums512-glbregs
++          - sprd,ums9230-glbregs
+           - sprd,ums9620-glbregs
+       - const: syscon
+       - const: simple-mfd
+@@ -40,10 +41,30 @@ properties:
+ patternProperties:
+   "^clock-controller@[0-9a-f]+$":
+     type: object
+-    $ref: /schemas/clock/sprd,ums512-clk.yaml#
+     description:
+       Clock controller for the SoC clocks.
+ 
++allOf:
++  - if:
++      properties:
++        compatible:
++          contains:
++            const: sprd,ums512-glbregs
++    then:
++      patternProperties:
++        "^clock-controller@[0-9a-f]+$":
++          $ref: /schemas/clock/sprd,ums512-clk.yaml#
++
++  - if:
++      properties:
++        compatible:
++          contains:
++            const: sprd,ums9230-glbregs
++    then:
++      patternProperties:
++        "^clock-controller@[0-9a-f]+$":
++          $ref: /schemas/clock/sprd,ums9230-clk.yaml#
++
+ required:
+   - compatible
+   - reg
+diff --git a/Documentation/devicetree/bindings/nvmem/rmem.yaml b/Documentation/devicetree/bindings/nvmem/rmem.yaml
+index 85f9f5de3906d2f1afce74ce001cf5db06e50806..d83c3a6aa682f763f67ad1163e3e9489fc95ba42 100644
+--- a/Documentation/devicetree/bindings/nvmem/rmem.yaml
++++ b/Documentation/devicetree/bindings/nvmem/rmem.yaml
+@@ -19,6 +19,7 @@ properties:
+           - mobileye,eyeq5-bootloader-config
+           - raspberrypi,bootloader-config
+           - raspberrypi,bootloader-public-key
++          - sprd,ums9230-cache-efuse
+       - const: nvmem-rmem
+ 
+   reg:
+diff --git a/Documentation/devicetree/bindings/pwm/sprd,ums512-pwm.yaml b/Documentation/devicetree/bindings/pwm/sprd,ums512-pwm.yaml
+index c806b67680877dcf4c4968d186110f495a633893..3ae520f7c88412a44d179983f03041302b4698ef 100644
+--- a/Documentation/devicetree/bindings/pwm/sprd,ums512-pwm.yaml
++++ b/Documentation/devicetree/bindings/pwm/sprd,ums512-pwm.yaml
+@@ -13,7 +13,12 @@ maintainers:
+ 
+ properties:
+   compatible:
+-    const: sprd,ums512-pwm
++    oneOf:
++      - items:
++          - enum:
++            - sprd,ums9230-pwm
++          - const: sprd,ums512-pwm
++      - const: sprd,ums512-pwm
+ 
+   reg:
+     maxItems: 1
+diff --git a/Documentation/devicetree/bindings/regulator/sprd,sc2731-regulator.yaml b/Documentation/devicetree/bindings/regulator/sprd,sc2731-regulator.yaml
+index 9bd752bab68e789e86f92b2d399e9146731ae5d8..7af20a4781b7fad79c883f47bf559f3c3241e06b 100644
+--- a/Documentation/devicetree/bindings/regulator/sprd,sc2731-regulator.yaml
++++ b/Documentation/devicetree/bindings/regulator/sprd,sc2731-regulator.yaml
+@@ -26,6 +26,7 @@ description: |
+ 
+ properties:
+   compatible:
++    deprecated: true
+     const: sprd,sc2731-regulator
+ 
+ patternProperties:
+@@ -39,8 +40,5 @@ patternProperties:
+     $ref: regulator.yaml#
+     unevaluatedProperties: false
+ 
+-required:
+-  - compatible
+-
+ additionalProperties: false
+ ...
+diff --git a/Documentation/devicetree/bindings/serial/sprd-uart.yaml b/Documentation/devicetree/bindings/serial/sprd-uart.yaml
+index 5bf2656afcfd8b2db1d207e6098e33478757b2e5..4f3555b6f437b84b4561ddf7b58fbaa69ff9ba6c 100644
+--- a/Documentation/devicetree/bindings/serial/sprd-uart.yaml
++++ b/Documentation/devicetree/bindings/serial/sprd-uart.yaml
+@@ -24,6 +24,7 @@ properties:
+               - sprd,sc9860-uart
+               - sprd,sc9863a-uart
+               - sprd,ums512-uart
++              - sprd,ums9230-uart
+               - sprd,ums9620-uart
+           - const: sprd,sc9836-uart
+       - enum:
+diff --git a/Documentation/devicetree/bindings/spi/sprd,sc9860-spi.yaml b/Documentation/devicetree/bindings/spi/sprd,sc9860-spi.yaml
+index d55c01e9a038184b9385b5985257f9d877260974..2f3e308aeb5d8092c7b4867df4a4850d31ebbff9 100644
+--- a/Documentation/devicetree/bindings/spi/sprd,sc9860-spi.yaml
++++ b/Documentation/devicetree/bindings/spi/sprd,sc9860-spi.yaml
+@@ -13,7 +13,12 @@ maintainers:
+ 
+ properties:
+   compatible:
+-    const: sprd,sc9860-spi
++    oneOf:
++      - items:
++          - enum:
++              - sprd,ums9230-spi
++          - const: sprd,sc9860-spi
++      - const: sprd,sc9860-spi
+ 
+   reg:
+     maxItems: 1
+diff --git a/Documentation/devicetree/bindings/spi/sprd,spi-adi.yaml b/Documentation/devicetree/bindings/spi/sprd,spi-adi.yaml
+index 903b06f88b1b10e5d77325c173d2fbdb05cc9776..333bf674cfad7c8d75940098028dbae45f2cb56c 100644
+--- a/Documentation/devicetree/bindings/spi/sprd,spi-adi.yaml
++++ b/Documentation/devicetree/bindings/spi/sprd,spi-adi.yaml
+@@ -47,10 +47,15 @@ allOf:
+ 
+ properties:
+   compatible:
+-    enum:
+-      - sprd,sc9860-adi
+-      - sprd,sc9863-adi
+-      - sprd,ums512-adi
++    oneOf:
++      - items:
++        - enum:
++            - sprd,ums9230-adi
++        - const: sprd,ums512-adi
++      - enum:
++        - sprd,sc9860-adi
++        - sprd,sc9863-adi
++        - sprd,ums512-adi
+ 
+   reg:
+     maxItems: 1
+diff --git a/Documentation/devicetree/bindings/thermal/sprd-thermal.yaml b/Documentation/devicetree/bindings/thermal/sprd-thermal.yaml
+index afa551f6185ff6d3552f1c2d059f68c8fdea74cb..00821d1886c9b73da79b92a577c045e56389332d 100644
+--- a/Documentation/devicetree/bindings/thermal/sprd-thermal.yaml
++++ b/Documentation/devicetree/bindings/thermal/sprd-thermal.yaml
+@@ -15,7 +15,12 @@ $ref: thermal-sensor.yaml#
+ 
+ properties:
+   compatible:
+-    const: sprd,ums512-thermal
++    oneOf:
++      - items:
++          - enum:
++              - sprd,ums9230-thermal
++          - const: sprd,ums512-thermal
++      - const: sprd,ums512-thermal
+ 
+   reg:
+     maxItems: 1
+diff --git a/Documentation/devicetree/bindings/timer/sprd,sc9860-timer.yaml b/Documentation/devicetree/bindings/timer/sprd,sc9860-timer.yaml
+index 62c6da8bab5a9b865b06bccdcbfc251c3f7e2a1a..528d55df1883e82f60e4d5f8f265c2d2a8c1c064 100644
+--- a/Documentation/devicetree/bindings/timer/sprd,sc9860-timer.yaml
++++ b/Documentation/devicetree/bindings/timer/sprd,sc9860-timer.yaml
+@@ -19,9 +19,18 @@ description:
+ 
+ properties:
+   compatible:
+-    enum:
+-      - sprd,sc9860-timer
+-      - sprd,sc9860-suspend-timer
++    oneOf:
++      - items:
++          - enum:
++              - sprd,ums9230-suspend-timer
++          - const: sprd,sc9860-suspend-timer
++      - items:
++          - enum:
++              - sprd,ums9230-timer
++          - const: sprd,sc9860-timer
++      - enum:
++          - sprd,sc9860-timer
++          - sprd,sc9860-suspend-timer
+ 
+   reg:
+     maxItems: 1
+diff --git a/Documentation/devicetree/bindings/vendor-prefixes.yaml b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+index 28784d66ae7ba57852f30bae28fbd715b1fc9aa8..a10f8a7daf99f3993e53b68a99ef6593cb61007a 100644
+--- a/Documentation/devicetree/bindings/vendor-prefixes.yaml
++++ b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+@@ -1377,6 +1377,8 @@ patternProperties:
+     description: Unisoc Communications, Inc.
+   "^realtek,.*":
+     description: Realtek Semiconductor Corp.
++  "^reeder,.*":
++    description: Reeder Teknoloji Sanayi Ve Ticaret A.Ş.
+   "^relfor,.*":
+     description: Relfor Labs Pvt. Ltd.
+   "^remarkable,.*":
+diff --git a/Documentation/devicetree/bindings/watchdog/sprd,sp9860-wdt.yaml b/Documentation/devicetree/bindings/watchdog/sprd,sp9860-wdt.yaml
+index 730d9a3a3cc55b7e28fcc182338243939ee0e69e..5a52ad06f5bf0f175a3859db298c20925735c5f2 100644
+--- a/Documentation/devicetree/bindings/watchdog/sprd,sp9860-wdt.yaml
++++ b/Documentation/devicetree/bindings/watchdog/sprd,sp9860-wdt.yaml
+@@ -16,7 +16,12 @@ allOf:
+ 
+ properties:
+   compatible:
+-    const: sprd,sp9860-wdt
++    oneOf:
++      - items:
++          - enum:
++              - sprd,ums9230-wdt
++          - const: sprd,sp9860-wdt
++      - const: sprd,sp9860-wdt
+ 
+   reg:
+     maxItems: 1

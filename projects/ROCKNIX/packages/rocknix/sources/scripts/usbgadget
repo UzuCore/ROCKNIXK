@@ -20,6 +20,8 @@ SERIAL=$(cat ${MACHINEIDFILE})
 PRODUCT="${QUIRK_DEVICE:-$(tr -d '\0' < /sys/firmware/devicetree/base/model 2>/dev/null)}"
 PRODUCT="${PRODUCT:-${OS_NAME}}"
 
+[ -r /storage/.config/profile.d/001-device_config ] && . /storage/.config/profile.d/001-device_config
+
 CACHEDIR=/storage/.cache/usbgadget
 GADGETCONF=${CACHEDIR}/usbgadget.conf
 GADGETNETCONF=${CACHEDIR}/network.conf
@@ -36,17 +38,74 @@ if [ -r ${GADGETCONF} ] ; then
 	. ${GADGETCONF}
 fi
 
-UDC_NAME=$(ls -1 /sys/class/udc 2>/dev/null | head -n1)
-if [ -n "${UDC_NAME}" ]; then
+find_current_mode() {
+	CURRENT_MODE=disabled
+	UDC_NAME=$(ls -1 /sys/class/udc 2>/dev/null | head -n1)
+	[ -n "${UDC_NAME}" ] || return
+	for gadget_udc in /sys/kernel/config/usb_gadget/*/UDC; do
+		[ -r "${gadget_udc}" ] || continue
+		if [ "$(cat "${gadget_udc}" 2>/dev/null)" = "${UDC_NAME}" ]; then
+			CURRENT_MODE=${gadget_udc%/UDC}
+			CURRENT_MODE=${CURRENT_MODE##*/}
+			return
+		fi
+	done
 	CURRENT_MODE=$(cat /sys/class/udc/${UDC_NAME}/function 2>/dev/null)
-fi
-[ -z "${CURRENT_MODE}" ] && CURRENT_MODE=disabled
+	[ -n "${CURRENT_MODE}" ] || CURRENT_MODE=disabled
+}
 
+find_current_mode
+
+debug_service_start() {
+	[ -n "${DEVICE_USB_CONFIGFS_DEBUG_SERVICE:-}" ] || return 0
+	debug_port=$(cat "${g_debug}/functions/acm.usb0/port_num" 2>/dev/null)
+	case "${debug_port}" in
+		''|*[!0-9]*) echo "ERROR: USB debug serial port is unavailable" >&2; return 1 ;;
+	esac
+	debug_tty="/dev/ttyGS${debug_port}"
+	for _ in $(seq 1 30); do
+		[ -c "${debug_tty}" ] && break
+		sleep 0.1
+	done
+	[ -c "${debug_tty}" ] || return 1
+	debug_dropin="/run/systemd/system/${DEVICE_USB_CONFIGFS_DEBUG_SERVICE}.d"
+	mkdir -p "${debug_dropin}" || return 1
+	printf '[Service]\nTTYPath=%s\nExecStartPre=\n' "${debug_tty}" > "${debug_dropin}/20-usb-gadget-tty.conf" || return 1
+	systemctl daemon-reload || return 1
+	if ! systemctl start "${DEVICE_USB_CONFIGFS_DEBUG_SERVICE}" ||
+	   ! systemctl is-active --quiet "${DEVICE_USB_CONFIGFS_DEBUG_SERVICE}"; then
+		echo "ERROR: USB debug shell service ${DEVICE_USB_CONFIGFS_DEBUG_SERVICE} is not active" >&2
+		systemctl status --no-pager "${DEVICE_USB_CONFIGFS_DEBUG_SERVICE}" >&2 || :
+		return 1
+	fi
+}
+
+debug_service_stop() {
+	[ -n "${DEVICE_USB_CONFIGFS_DEBUG_SERVICE:-}" ] || return 0
+	systemctl stop "${DEVICE_USB_CONFIGFS_DEBUG_SERVICE}" >/dev/null 2>&1 || :
+}
+
+release_legacy_debug() {
+	[ "${DEVICE_USB_CONFIGFS_DEBUG:-false}" = "true" ] || return 0
+	for legacy_device in /sys/bus/gadget/drivers/g_serial/gadget.*; do
+		[ -L "${legacy_device}" ] || continue
+		debug_service_stop
+		if ! echo "${legacy_device##*/}" > /sys/bus/gadget/drivers/g_serial/unbind; then
+			echo "ERROR: cannot release legacy USB serial gadget" >&2
+			return 1
+		fi
+	done
+	find_current_mode
+}
 
 usb_disable() {
 	echo "USB_MODE=disabled" > ${GADGETCONF}
+	debug_service_stop
 	if [[ "${CURRENT_MODE}" == "disabled" ]]; then return; fi
-	echo "" > /sys/kernel/config/usb_gadget/${CURRENT_MODE}/UDC
+	local udc_file="/sys/kernel/config/usb_gadget/${CURRENT_MODE}/UDC"
+	if [ -s "${udc_file}" ] && [ -n "$(cat "${udc_file}")" ]; then
+		echo "" > "${udc_file}" || return 1
+	fi
 	CURRENT_MODE=disabled
 }
 
@@ -114,7 +173,7 @@ g_cdc="/sys/kernel/config/usb_gadget/cdc"
 verbose=${verbose:-0}
 devversion=0x$(echo $OS_VERSION | cut -b 3-6)   # 0xYYMM; 20241025 -> 0x2410
 
-prepare_usb_network() {
+prepare_usb_network() (
     set -e
     usb_ver="0x0200" # USB 2.0
     dev_class="2" # Communications
@@ -183,7 +242,7 @@ prepare_usb_network() {
     ln -s ${g_cdc}/functions/ncm.usb0 ${g_cdc}/configs/c.1
 
     if [ -n "$verbose" ]; then echo "Done."; fi
-}
+)
 
 configure_iface() {
 	# Hope udev rule works well, and device gets the name 'gadget'
@@ -265,8 +324,104 @@ cleanup_usb_network() {
 
 
 g_mtp="/sys/kernel/config/usb_gadget/mtp"
+g_debug="/sys/kernel/config/usb_gadget/debug"
 
-prepare_usb_mtp() {
+cleanup_usb_debug() {
+	[ -d "${g_debug}" ] || return 0
+	if [ -n "$(cat "${g_debug}/UDC" 2>/dev/null)" ]; then
+		echo "" > "${g_debug}/UDC" || return 1
+	fi
+	rm -f "${g_debug}/configs/c.2/acm.usb0"
+	for debug_dir in \
+		"${g_debug}/functions/acm.usb0" \
+		"${g_debug}/configs/c.2/strings/0x409" \
+		"${g_debug}/configs/c.2" \
+		"${g_debug}/strings/0x409" \
+		"${g_debug}"; do
+		[ -d "${debug_dir}" ] || continue
+		rmdir "${debug_dir}" 2>/dev/null || return 1
+	done
+}
+
+prepare_usb_debug() {
+	[ "${DEVICE_USB_CONFIGFS_DEBUG:-false}" = "true" ] || return 0
+	if [ -d "${g_debug}" ]; then
+		if [ -d "${g_debug}/functions/acm.usb0" ] && [ -L "${g_debug}/configs/c.2/acm.usb0" ]; then
+			return 0
+		fi
+		cleanup_usb_debug || {
+			echo "ERROR: cannot clean incomplete USB debug gadget at ${g_debug}" >&2
+			return 1
+		}
+	fi
+
+	if ! (
+		set -e
+		mkdir "${g_debug}"
+		echo "0x0200" > "${g_debug}/bcdUSB"
+		echo "0x02" > "${g_debug}/bDeviceClass"
+		# Keep the legacy CDC-ACM VID/PID so serial-shell hosts recognize it.
+		echo "0x0525" > "${g_debug}/idVendor"
+		echo "0xa4a7" > "${g_debug}/idProduct"
+		echo "${devversion}" > "${g_debug}/bcdDevice"
+		mkdir "${g_debug}/strings/0x409"
+		echo "${OS_NAME}" > "${g_debug}/strings/0x409/manufacturer"
+		echo "${PRODUCT}" > "${g_debug}/strings/0x409/product"
+		echo "${SERIAL}" > "${g_debug}/strings/0x409/serialnumber"
+		mkdir "${g_debug}/configs/c.2"
+		echo "0xC0" > "${g_debug}/configs/c.2/bmAttributes"
+		echo "0xfe" > "${g_debug}/configs/c.2/MaxPower"
+		mkdir "${g_debug}/configs/c.2/strings/0x409"
+		echo "CDC ACM config" > "${g_debug}/configs/c.2/strings/0x409/configuration"
+		mkdir "${g_debug}/functions/acm.usb0"
+		ln -s "${g_debug}/functions/acm.usb0" "${g_debug}/configs/c.2/acm.usb0"
+	); then
+		cleanup_usb_debug || echo "ERROR: incomplete USB debug gadget needs cleanup: ${g_debug}" >&2
+		return 1
+	fi
+}
+
+start_usb_debug() {
+	release_legacy_debug || return 1
+	[ "${DEVICE_USB_CONFIGFS_DEBUG:-false}" = "true" ] || return 1
+	prepare_usb_debug || return 1
+	set_role device
+	for _ in 1 2 3 4 5 6 7 8 9 10; do
+		UDC_NAME=$(ls -1 /sys/class/udc 2>/dev/null | head -n1)
+		[ -n "${UDC_NAME}" ] && break
+		sleep 0.1
+	done
+	if [ -z "${UDC_NAME}" ]; then
+		echo "ERROR: no UDC available for USB debug serial" >&2
+		return 1
+	fi
+	if ! echo "${UDC_NAME}" > "${g_debug}/UDC"; then
+		echo "ERROR: failed to bind USB debug serial to UDC ${UDC_NAME}" >&2
+		return 1
+	fi
+	if [ "$(cat "${g_debug}/UDC" 2>/dev/null)" != "${UDC_NAME}" ]; then
+		echo "ERROR: failed to bind USB debug serial to UDC ${UDC_NAME}" >&2
+		return 1
+	fi
+	CURRENT_MODE=debug
+	echo "USB_MODE=disabled" > "${GADGETCONF}"
+	if ! debug_service_start; then
+		echo "ERROR: USB debug serial shell did not become active; removing the unusable gadget" >&2
+		debug_service_stop
+		cleanup_usb_debug || echo "ERROR: failed to remove unusable USB debug gadget" >&2
+		CURRENT_MODE=disabled
+		return 1
+	fi
+}
+
+prepare_usb_mtp() (
+    set -e
+    if [ -d "${g_mtp}" ]; then
+        if [ -d "${g_mtp}/functions/ffs.mtp" ] && [ -L "${g_mtp}/configs/c.1/ffs.mtp" ]; then
+            return 0
+        fi
+        cleanup_usb_mtp || return 1
+    fi
     usb_ver="0x0200" # USB 2.0
     dev_class="0" # Per interface, umtprd declares Still Imaging
     attr="0xC0" # Self powered
@@ -297,7 +452,7 @@ prepare_usb_mtp() {
 
     mkdir ${g_mtp}/functions/ffs.mtp
     ln -s ${g_mtp}/functions/ffs.mtp ${g_mtp}/configs/c.1
-}
+)
 
 cleanup_usb_mtp() {
     rm -f \
@@ -362,30 +517,53 @@ external_vbus_present() {
 # CURRENT_MODE is USB gadget subsystem state -- which gadget has UDC
 # $1 is desired mode, passed by caller
 usb_start() {
+	release_legacy_debug || return 1
 	if [ "$verbose" -gt "0" ];then echo "STORED=${USB_MODE}, CURRENT=${CURRENT_MODE}, DESIRED=$1"; fi
+	[[ -n "$1" ]] && USB_MODE=$1
+	USB_MODE=${USB_MODE:-disabled}
+
+	# The API calls this mode "disabled"; on T618 we keep the legacy USB
+	# debug serial identity alive as a configfs ACM gadget instead.
+	if [ "${USB_MODE}" = "disabled" ] && [ "${CURRENT_MODE}" = "debug" ] && [ "${DEVICE_USB_CONFIGFS_DEBUG:-false}" = "true" ]; then
+		echo "USB_MODE=disabled" > "${GADGETCONF}"
+		debug_service_start
+		return $?
+	fi
 
 	# Exit with error if this UDC has a downstream device. Applies to RK3326 where we use a single port
 	# Switching to device mode in this case would break USB Wifi and USB gamepad
 	grep -q configured /sys/class/udc/${UDC_NAME}/device/usb1/1-0\:1.0/usb1-port1/state 2>/dev/null && exit 3
 
-	# with no argument setup previous mode
-	[[ -n "$1" ]] && USB_MODE=$1
+	# FunctionFS may release the UDC before the responder exits. Reclaim
+	# that stale process and mount before starting any replacement mode.
+	if [ "${CURRENT_MODE}" = "disabled" ] && [ -d /dev/ffs-umtp ]; then
+		umtp_teardown || return 1
+	fi
 
-	# Avoid double start
-	if [ "${CURRENT_MODE}" == "${USB_MODE}" ]; then
+	# A clean boot has no bound gadget yet, even though both logical modes are "disabled".
+	# On T618, bind the debug serial gadget in that state.
+	if [ "${CURRENT_MODE}" = "${USB_MODE}" ]; then
+		if [ "${USB_MODE}" = "disabled" ] && [ "${DEVICE_USB_CONFIGFS_DEBUG:-false}" = "true" ]; then
+			start_usb_debug
+			return $?
+		fi
 		if [ "$verbose" -gt "0" ]; then echo "Already in target mode: ${CURRENT_MODE}; skip"; fi
-		return
+		return 0
 	fi
 
 	# This will reset both UDC and userspace when needed
 	if [ "${CURRENT_MODE}" != "disabled" ]; then
 		if [ "$verbose" -gt "0" ]; then echo "Stopping previous mode: ${CURRENT_MODE}"; fi
-		usb_stop
+		usb_stop || return 1
 	fi
 
 	if [ "${USB_MODE}" == "disabled" ]; then
 		usb_disable
-		set_role host
+		if [ "${DEVICE_USB_CONFIGFS_DEBUG:-false}" = "true" ]; then
+			start_usb_debug
+		else
+			set_role host
+		fi
 		return
 	else
 		set_role device
@@ -396,6 +574,7 @@ usb_start() {
 		done
 		if [ -z "${UDC_NAME}" ]; then
 			echo "ERROR: no UDC available after role switch to device" >&2
+			restore_usb_debug
 			exit 5
 		fi
 	fi
@@ -403,27 +582,52 @@ usb_start() {
 	if [ "${USB_MODE}" = mtp ] ; then
 		if [ ! -d "${g_mtp}" ]; then
 			echo "MTP gadget not configured. Run '$0 prepare' first!" >&2
+			restore_usb_debug
 			exit 3
 		fi
 
 		mkdir -p /dev/ffs-umtp
-		mountpoint -q /dev/ffs-umtp || mount mtp -t functionfs /dev/ffs-umtp
-		/usr/sbin/umtprd &
-		sleep 1
+		if ! mountpoint -q /dev/ffs-umtp; then
+			mount mtp -t functionfs /dev/ffs-umtp || {
+				echo "ERROR: failed to mount MTP FunctionFS" >&2
+				restore_usb_debug
+				exit 6
+			}
+		fi
+		/usr/sbin/umtprd > "${CACHEDIR}/umtprd.log" 2>&1 &
+		mtp_pid=$!
+		for _ in $(seq 1 30); do
+			kill -0 "${mtp_pid}" 2>/dev/null || break
+			[ "$(cat "${g_mtp}/functions/ffs.mtp/ready" 2>/dev/null)" = "1" ] && break
+			sleep 0.1
+		done
+		if ! kill -0 "${mtp_pid}" 2>/dev/null || [ "$(cat "${g_mtp}/functions/ffs.mtp/ready" 2>/dev/null)" != "1" ]; then
+			echo "ERROR: USB file-transfer responder did not become ready" >&2
+			restore_usb_debug
+			return 6
+		fi
 
 	elif [ "${USB_MODE}" = cdc ] ; then
 		if [ ! -d "${g_cdc}" ]; then
 			echo "CDC gadget not configured. Run '$0 prepare' first!" >&2
+			restore_usb_debug
 			exit 3
 		fi
 	else
-		exit 0
+		echo "ERROR: unsupported USB mode ${USB_MODE}" >&2
+		restore_usb_debug
+		exit 2
 	fi
 
 	# Enable selected mode
-	echo "${UDC_NAME}" > /sys/kernel/config/usb_gadget/${USB_MODE}/UDC
+	if ! echo "${UDC_NAME}" > "/sys/kernel/config/usb_gadget/${USB_MODE}/UDC"; then
+		echo "ERROR: failed to bind ${USB_MODE} to UDC ${UDC_NAME}" >&2
+		restore_usb_debug
+		exit 4
+	fi
 	if [ "$(cat /sys/kernel/config/usb_gadget/${USB_MODE}/UDC 2>/dev/null)" != "${UDC_NAME}" ]; then
 		echo "ERROR: failed to bind ${USB_MODE} to UDC ${UDC_NAME}" >&2
+		restore_usb_debug
 		exit 4
 	fi
 	echo "USB_MODE=${USB_MODE}" > ${GADGETCONF}
@@ -437,13 +641,28 @@ usb_start() {
 
 # umtprd keeps ep0 open, so it has to go before the umount can succeed
 umtp_teardown() {
-	killall umtprd 2>/dev/null
-	for _ in 1 2 3 4 5 6 7 8 9 10; do
+	killall umtprd 2>/dev/null || :
+	for _ in $(seq 1 20); do
+		pidof umtprd >/dev/null || break
+		sleep 0.1
+	done
+	if pidof umtprd >/dev/null; then
+		killall -KILL umtprd 2>/dev/null || :
+		for _ in $(seq 1 20); do
+			pidof umtprd >/dev/null || break
+			sleep 0.1
+		done
+	fi
+	for _ in $(seq 1 20); do
 		mountpoint -q /dev/ffs-umtp 2>/dev/null || break
 		umount /dev/ffs-umtp 2>/dev/null && break
 		sleep 0.1
 	done
-	rmdir /dev/ffs-umtp 2>/dev/null
+	if pidof umtprd >/dev/null || mountpoint -q /dev/ffs-umtp 2>/dev/null; then
+		echo "ERROR: USB file-transfer responder did not stop" >&2
+		return 1
+	fi
+	rmdir /dev/ffs-umtp 2>/dev/null || :
 }
 
 usb_stop() {
@@ -459,6 +678,15 @@ usb_stop() {
 			umtp_teardown
 		fi
 	) >/dev/null 2>&1
+}
+
+
+restore_usb_debug() {
+	[ "${DEVICE_USB_CONFIGFS_DEBUG:-false}" = "true" ] || return 0
+	find_current_mode
+	[ "${CURRENT_MODE}" = "debug" ] && return 0
+	usb_stop
+	start_usb_debug
 }
 
 id_role() {
@@ -484,19 +712,27 @@ set_usb_mode() {
 			usb_start "${1}"
 			;;
 		*)
-			usb_stop
-			follow_id_role || set_role host
+			if [ "${DEVICE_USB_CONFIGFS_DEBUG:-false}" = "true" ]; then
+				usb_start disabled
+			else
+				usb_stop
+				follow_id_role || set_role host
+			fi
 			;;
 	esac
 }
 
 usb_init_clean_state() {
+	release_legacy_debug || return 1
+	debug_service_stop
 	for udc_link in /sys/kernel/config/usb_gadget/*/UDC; do
 		[ -f "$udc_link" ] || continue
 		[ -n "$(cat "$udc_link" 2>/dev/null)" ] && echo "" > "$udc_link" 2>/dev/null
 	done
 
-	[ -d /dev/ffs-umtp ] && umtp_teardown
+	if [ -d /dev/ffs-umtp ]; then
+		umtp_teardown || return 1
+	fi
 	if [ -f "${UDHCPPIDFILE}" ]; then
 		cat "${UDHCPPIDFILE}" 2>/dev/null | xargs -r -n 1 kill 2>/dev/null
 		rm -f "${UDHCPPIDFILE}"
@@ -517,17 +753,13 @@ usb_init_clean_state() {
 		done
 	fi
 
-	UDC_NAME=$(ls -1 /sys/class/udc 2>/dev/null | head -n1)
-	if [ -n "${UDC_NAME}" ]; then
-		CURRENT_MODE=$(cat /sys/class/udc/${UDC_NAME}/function 2>/dev/null)
-	fi
-	[ -z "${CURRENT_MODE}" ] && CURRENT_MODE=disabled
+	find_current_mode
 }
 
 case "$1" in
 	prepare)
-		prepare_usb_network
-		prepare_usb_mtp
+		prepare_usb_network || exit 1
+		prepare_usb_mtp || exit 1
 		;;
 	cleanup)
 		cleanup_usb_network
@@ -558,19 +790,31 @@ case "$1" in
 		echo "disabled network file_transfer"
 		;;
 	"--start")
-		usb_init_clean_state
-		prepare_usb_network
-		prepare_usb_mtp
+		usb_init_clean_state || exit 1
+		if ! prepare_usb_network; then
+			echo "ERROR: failed to prepare USB network gadget" >&2
+			start_usb_debug
+			exit 1
+		fi
+		if ! prepare_usb_mtp; then
+			echo "ERROR: failed to prepare USB file-transfer gadget" >&2
+			start_usb_debug
+			exit 1
+		fi
 		set_usb_mode "${USB_MODE}"
 		;;
 	"")
 		case ${CURRENT_MODE} in
 			"cdc")  echo "network"; ;;
 			"mtp")  echo "file_transfer"; ;;
+			"debug") echo "disabled"; ;;
 			*)      echo "disabled"; ;;
 		esac
 		;;
 	"disabled")
+		set_usb_mode disabled
+		;;
+	"none")
 		set_usb_mode disabled
 		;;
 	"network")
@@ -588,7 +832,8 @@ case "$1" in
 		echo "$0 --options                  List available modes"
 		echo "$0 --start                    Restore previously chosen mode"
 		echo "$0                            Show current mode"
-		echo "$0 disabled                   Disable USB gadget"
+		echo "$0 disabled                   Disable USB data modes"
+		echo "$0 none                       Alias for disabled"
 		echo "$0 <network|file_transfer>    Activate specified mode"
 		echo "$0 address                    Show network gadget IP address"
 

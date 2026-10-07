@@ -1,0 +1,111 @@
+From: RG405M port <rg405m@localhost>
+Subject: [PATCH] DolphinNoGUI: wayland: honour Fullscreen = True
+
+The nogui Wayland platform never asked the compositor for fullscreen. Under sway (ROCKNIX kiosk config)
+the window was tiled next to EmulationStation (320x480 of a 640x480 panel on RG405M) and the game ended
+up in one half/quarter of the screen.
+
+- Request fullscreen before the first commit, and again once rendering has started: sway ignores the
+  request for a window that is not mapped yet.
+- Track the fullscreen state from xdg_toplevel.configure, stop asking once it is granted.
+- Re-send the configured size to the presenter shortly after each configure / after the presenter
+  appears. A configure that arrives while the backend is starting was otherwise lost (window
+  fullscreen, picture still in the old rectangle).
+
+--- a/Source/Core/DolphinNoGUI/PlatformWayland.cpp	2026-09-30 15:38:11.952422176 +0900
++++ b/Source/Core/DolphinNoGUI/PlatformWayland.cpp	2026-09-30 15:38:11.981222173 +0900
+@@ -51,0 +52,8 @@
++  void UpdateSurfaceState();
++
++  // Fullscreen / size bookkeeping (see UpdateSurfaceState).
++  bool m_is_fullscreen = false;
++  bool m_presenter_seen = false;
++  bool m_surface_check_pending = false;
++  int m_fullscreen_requests = 0;
++  std::chrono::steady_clock::time_point m_next_surface_check{};
+@@ -140,12 +148,27 @@
+ void PlatformWayland::TopLevelConfigure(void* data, struct xdg_toplevel* xdg_toplevel,
+                                         int32_t width, int32_t height, struct wl_array* states)
+ {
++  PlatformWayland* platform = static_cast<PlatformWayland*>(data);
++
++  bool fullscreen = false;
++  if (states)
++  {
++    const uint32_t* state = static_cast<const uint32_t*>(states->data);
++    for (size_t i = 0; i < states->size / sizeof(uint32_t); i++)
++      fullscreen |= state[i] == XDG_TOPLEVEL_STATE_FULLSCREEN;
++  }
++  platform->m_is_fullscreen = fullscreen;
++
+   // If this is zero, it's asking us to set the size.
+   if (width == 0 || height == 0)
+     return;
+ 
+-  PlatformWayland* platform = static_cast<PlatformWayland*>(data);
+   platform->m_surface_width = width;
+   platform->m_surface_height = height;
+   platform->UpdateBufferSize();
++
++  // Retry the configured buffer size after the presenter and surface have settled.
++  platform->m_surface_check_pending = true;
++  platform->m_next_surface_check =
++      std::chrono::steady_clock::now() + std::chrono::milliseconds(1500);
+ }
+@@ -196,6 +219,10 @@
+   m_region = wl_compositor_create_region(m_compositor);
+   wl_region_add(m_region, 0, 0, m_surface_width, m_surface_height);
+   wl_surface_set_opaque_region(m_surface, m_region);
++  // Ask for fullscreen before the first commit. Some compositors (sway in the ROCKNIX kiosk
++  // setup) ignore this for an unmapped window, so UpdateSurfaceState() asks again later.
++  if (Config::Get(Config::MAIN_FULLSCREEN))
++    xdg_toplevel_set_fullscreen(m_xdg_toplevel, nullptr);
+   wl_surface_commit(m_surface);
+ 
+   // This doesn't seem to have any effect on kwin...
+@@ -221,6 +248,37 @@
+   xdg_toplevel_set_title(m_xdg_toplevel, string.c_str());
+ }
+ 
++void PlatformWayland::UpdateSurfaceState()
++{
++  if (!g_presenter)
++    return;
++
++  const auto now = std::chrono::steady_clock::now();
++  if (!m_presenter_seen)
++  {
++    m_presenter_seen = true;
++    m_surface_check_pending = true;
++    m_next_surface_check = now + std::chrono::seconds(2);
++  }
++  if (!m_surface_check_pending || now < m_next_surface_check)
++    return;
++  m_surface_check_pending = false;
++
++  if (m_surface_width > 0 && m_surface_height > 0)
++    g_presenter->ResizeSurface(m_buffer_width, m_buffer_height);
++
++  // The window is mapped by now (we are rendering), so the compositor honours the request.
++  // Without this the window stays tiled next to EmulationStation (half/quarter of the screen).
++  if (Config::Get(Config::MAIN_FULLSCREEN) && !m_is_fullscreen && m_fullscreen_requests < 5)
++  {
++    ++m_fullscreen_requests;
++    xdg_toplevel_set_fullscreen(m_xdg_toplevel, nullptr);
++    wl_display_flush(m_display);
++    m_surface_check_pending = true;
++    m_next_surface_check = now + std::chrono::seconds(2);
++  }
++}
++
+ void PlatformWayland::MainLoop()
+ {
+   while (IsRunning())
+@@ -235,6 +293,7 @@
+     UpdateRunningFlag();
+     Core::HostDispatchJobs(Core::System::GetInstance());
+     ProcessEvents();
++    UpdateSurfaceState();
+ 
+     if(Pad::IsInitialized()) {
+       GCPadStatus x = Pad::GetStatus(0);

@@ -51,7 +51,10 @@ jobs:
       OWNER_LC: ${{ inputs.OWNER_LC }}
 
   build-aarch64:
-    needs: build-aarch64-toolchain
+    needs:
+      - build-aarch64-toolchain
+      - build-arm
+    if: ${{ always() && !cancelled() && needs.build-aarch64-toolchain.result == 'success' && (inputs.DEVICE == 'SM8650' || inputs.DEVICE == 'SM8750' || needs.build-arm.result == 'success') }}
     uses: ./.github/workflows/build-aarch64.yml
     secrets: inherit
     with:
@@ -69,7 +72,7 @@ jobs:
       OWNER_LC: ${{ inputs.OWNER_LC }}
 
   build-aarch64-eden-sa:
-    # ← SM8250, SM8550, SM8650에서만 실행
+    # Supported Snapdragon devices package Eden.
     if: ${{ inputs.DEVICE == 'SM8250' || inputs.DEVICE == 'SM8550' || inputs.DEVICE == 'SM8650' || inputs.DEVICE == 'SM8750' }}
     needs:
       - build-aarch64

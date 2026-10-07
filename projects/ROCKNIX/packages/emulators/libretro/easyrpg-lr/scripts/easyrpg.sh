@@ -20,12 +20,19 @@ install_bios() {
   fi
   mkdir -p "${INSTALLPATH}/${BIOSPATH}"
   cd "${INSTALLPATH}/${BIOSPATH}"
-  curl -Lo "${BIOS}" "${PKG_URL}/${BIOS}"
-  BINSUM=$(sha256sum "${BIOS}" | awk '{print $1}')
+  # Verify either download against the pinned SHA256 below.
+  curl -fLo "${BIOS}" "${PKG_URL}/${BIOS}" || \
+    curl -fLo "${BIOS}" "$(echo "${PKG_URL}" | sed 's#^https://#http://#')/${BIOS}"
+  BINSUM=$(sha256sum "${BIOS}" 2>/dev/null | awk '{print $1}')
   SHASUM=$(echo $SHASUMS | tr '#' '\n' | awk '/'${BIOS}'/ {print $1}')
-  if [ ! "${SHASUM}" == "${BINSUM}" ]
+  if [ -z "${BINSUM}" ] || [ ! "${SHASUM}" == "${BINSUM}" ]
   then
     echo "Checksum mismatch, please update the package."
+    # Remove the partial install, otherwise the non-empty rtp folder stops every later retry.
+    cd "${SOURCEPATH}"
+    rm -rf "${INSTALLPATH:?}/${BIOSPATH}"
+    rmdir "${DEST}" 2>/dev/null
+    text_viewer -e -w -t "Download failed!" -m "Could not download the easyrpg runtime files (${BIOS}). Please try again."
     exit 1
   fi
   if [[ "${BIOS}" =~ .zip$ ]]

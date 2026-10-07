@@ -1,0 +1,2 @@
+# Preserve vendor firmware bytes; the manifest verifies exact hashes.
+/projects/ROCKNIX/devices/T618/firmware/** -text whitespace=cr-at-eol,-blank-at-eof

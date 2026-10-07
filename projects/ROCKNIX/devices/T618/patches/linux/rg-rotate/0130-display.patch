@@ -1,0 +1,3287 @@
+Subject: [PATCH] sprd: display support for UMS512
+
+Consolidated from beebono/linux-mainline-sprd rg-rotate 464b3e7bf45bb300e190339977abba36c8078e1f, rebased onto Linux 7.1.2.
+Original authors and patch hashes are recorded in series-origin.json.
+
+diff --git a/drivers/gpu/drm/drm_of.c b/drivers/gpu/drm/drm_of.c
+index 4f65ce729a473ec372bd76a60ac11a40ffb5df97..5f7d94eb2df87e36e60366b9247fc2529f9a1f87 100644
+--- a/drivers/gpu/drm/drm_of.c
++++ b/drivers/gpu/drm/drm_of.c
+@@ -135,7 +135,7 @@ int drm_of_component_probe(struct device *dev,
+ 
+ 		if (of_device_is_available(port->parent))
+ 			drm_of_component_match_add(dev, &match, compare_of,
+-						   port);
++						   port->parent);
+ 
+ 		of_node_put(port);
+ 	}
+diff --git a/drivers/gpu/drm/panel/Kconfig b/drivers/gpu/drm/panel/Kconfig
+index d592f4f4b939a9d2d2722fa61f0f60492a3bf371..1d6b678f7a2110815f58bb8b4bec532d2b0b9887 100644
+--- a/drivers/gpu/drm/panel/Kconfig
++++ b/drivers/gpu/drm/panel/Kconfig
+@@ -8,6 +8,15 @@ config DRM_PANEL
+ menu "Display Panels"
+ 	depends on DRM && DRM_PANEL
+ 
++config DRM_PANEL_GENERIC_DSI
++	tristate "ROCKNIX generic MIPI-DSI panel"
++	depends on OF
++	depends on DRM_MIPI_DSI
++	depends on BACKLIGHT_CLASS_DEVICE
++	help
++	  Generic MIPI-DSI panel driver (ROCKNIX) that reads panel timings and
++	  init sequences from a DT panel_description property or a firmware file.
++
+ config DRM_PANEL_ABT_Y030XX067A
+ 	tristate "ABT Y030XX067A 320x480 LCD panel"
+ 	depends on OF && SPI
+@@ -105,6 +114,16 @@ config DRM_PANEL_BOE_TV101WUM_LL2
+ 	  Say Y here if you want to support for BOE TV101WUM-LL2
+ 	  WUXGA PANEL DSI Video Mode panel
+ 
++config DRM_PANEL_CHIPONE_ICNL9916_720_1600
++	tristate "Chipone ICNL9916 720x1600 panel"
++	depends on OF
++	depends on DRM_MIPI_DSI
++	depends on BACKLIGHT_CLASS_DEVICE
++	help
++	  Say Y here if you want to enable support for the Chipone ICNL9916
++	  MIPI-DSI video mode panel with a resolution of 720x1600.
++	  This type of panel is mainly found on mobile phones.
++
+ config DRM_PANEL_EBBG_FT8719
+ 	tristate "EBBG FT8719 panel driver"
+ 	depends on OF
+diff --git a/drivers/gpu/drm/panel/Makefile b/drivers/gpu/drm/panel/Makefile
+index a4291dc3905bedca2b4301fd96bf11c410f3951e..73c664e27b7f9619a17567bfaa69d520ebabcfdc 100644
+--- a/drivers/gpu/drm/panel/Makefile
++++ b/drivers/gpu/drm/panel/Makefile
+@@ -9,6 +9,7 @@ obj-$(CONFIG_DRM_PANEL_BOE_TD4320) += panel-boe-td4320.o
+ obj-$(CONFIG_DRM_PANEL_BOE_TH101MB31UIG002_28A) += panel-boe-th101mb31ig002-28a.o
+ obj-$(CONFIG_DRM_PANEL_BOE_TV101WUM_LL2) += panel-boe-tv101wum-ll2.o
+ obj-$(CONFIG_DRM_PANEL_BOE_TV101WUM_NL6) += panel-boe-tv101wum-nl6.o
++obj-$(CONFIG_DRM_PANEL_CHIPONE_ICNL9916_720_1600) += panel-chipone-icnl9916-720x1600.o
+ obj-$(CONFIG_DRM_PANEL_DSI_CM) += panel-dsi-cm.o
+ obj-$(CONFIG_DRM_PANEL_LVDS) += panel-lvds.o
+ obj-$(CONFIG_DRM_PANEL_SIMPLE) += panel-simple.o
+@@ -128,3 +129,4 @@ obj-$(CONFIG_DRM_PANEL_VISIONOX_VTDR6130) += panel-visionox-vtdr6130.o
+ obj-$(CONFIG_DRM_PANEL_VISIONOX_R66451) += panel-visionox-r66451.o
+ obj-$(CONFIG_DRM_PANEL_WIDECHIPS_WS2401) += panel-widechips-ws2401.o
+ obj-$(CONFIG_DRM_PANEL_XINPENG_XPP055C272) += panel-xinpeng-xpp055c272.o
++obj-$(CONFIG_DRM_PANEL_GENERIC_DSI) += panel-generic-dsi.o
+diff --git a/drivers/gpu/drm/panel/panel-chipone-icnl9916-720x1600.c b/drivers/gpu/drm/panel/panel-chipone-icnl9916-720x1600.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..040a984147aba4c95c3f0242206e134a503a14f1
+--- /dev/null
++++ b/drivers/gpu/drm/panel/panel-chipone-icnl9916-720x1600.c
+@@ -0,0 +1,304 @@
++// SPDX-License-Identifier: GPL-2.0-only
++// Copyright (c) 2024 Otto Pflüger
++// Based on command information from the vendor device tree
++
++#include <linux/delay.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/reset.h>
++
++#include <drm/drm_mipi_dsi.h>
++#include <drm/drm_modes.h>
++#include <drm/drm_panel.h>
++#include <drm/drm_probe_helper.h>
++
++struct icnl9916_panel {
++	struct drm_panel panel;
++	struct mipi_dsi_device *dsi;
++	struct reset_control *reset;
++};
++
++static inline
++struct icnl9916_panel *to_icnl9916_panel(struct drm_panel *panel)
++{
++	return container_of(panel, struct icnl9916_panel, panel);
++}
++
++static void icnl9916_panel_reset(struct icnl9916_panel *ctx)
++{
++	reset_control_deassert(ctx->reset);
++	usleep_range(10000, 11000);
++	reset_control_assert(ctx->reset);
++	usleep_range(10000, 11000);
++	reset_control_deassert(ctx->reset);
++	msleep(120);
++}
++
++static int icnl9916_panel_on(struct icnl9916_panel *ctx)
++{
++	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
++
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xf0, 0x99, 0x16, 0x0c);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xc1,
++				     0x00, 0x20, 0x20, 0xb4, 0x04, 0x30, 0x30,
++				     0x04, 0x40, 0x06, 0x22, 0x70, 0x33, 0x31,
++				     0x07, 0x11, 0x84, 0x4c, 0x00, 0x93, 0x13,
++				     0x63, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++				     0x00, 0x00, 0x00, 0x00);
++	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0xc2, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xc3,
++				     0x06, 0x00, 0xff, 0x00, 0xff, 0x4d, 0x10,
++				     0x01);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xc4,
++				     0x04, 0x33, 0xb8, 0x40, 0x00, 0xbc, 0x00,
++				     0x00, 0x00, 0x00, 0x00, 0xf0);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xc5,
++				     0x03, 0x21, 0x96, 0xc8, 0x3e, 0x00, 0x04,
++				     0x01, 0x14, 0x04, 0x0e, 0x18, 0xc6, 0x03,
++				     0x64, 0xff, 0x01, 0x04, 0x18, 0x22, 0x45,
++				     0x14, 0x38);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xc6,
++				     0x72, 0x24, 0x13, 0x2b, 0x2b, 0x28, 0x3f,
++				     0x02, 0x16, 0x16, 0x00, 0x01);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xca,
++				     0x34, 0x50, 0x04, 0x19, 0x46, 0x94, 0x41,
++				     0x8f, 0x44, 0x44, 0x36, 0x50, 0x54, 0x54,
++				     0x39, 0x5a, 0x5a, 0x5a, 0x33, 0x00, 0x01,
++				     0x01, 0x0e, 0x3f, 0xd2, 0x00, 0x05, 0x00,
++				     0x00, 0x5a, 0x5a, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xb2,
++				     0x05, 0x04, 0x10, 0x10, 0x44, 0x44, 0x82,
++				     0x88, 0x44, 0x86, 0x84, 0x86, 0x84, 0x86,
++				     0x84, 0x86, 0x84, 0x86, 0x84, 0x86, 0x84,
++				     0x00, 0x00, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xb3,
++				     0xf4, 0x01, 0x01, 0x11, 0x91, 0x86, 0x00,
++				     0x00, 0x84, 0x00, 0x00, 0x65, 0x4a, 0x65,
++				     0x4a);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xb4,
++				     0x19, 0x0b, 0x06, 0x0b, 0x06, 0x26, 0x26,
++				     0x88, 0xa2, 0x88, 0x44, 0x3b, 0x26, 0x00,
++				     0x55, 0x3c, 0x02, 0x08, 0x20, 0x30, 0x00,
++				     0x12, 0x20, 0x40, 0x11, 0x10, 0x20, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xb5,
++				     0x00, 0x00, 0x08, 0x04, 0x2e, 0x2f, 0x0c,
++				     0x0e, 0x10, 0x12, 0x14, 0x16, 0x18, 0x1a,
++				     0x28, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
++				     0x02, 0xff, 0xff, 0xfc, 0x0c, 0x00, 0x00,
++				     0x3c, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xb6,
++				     0x00, 0x00, 0x09, 0x05, 0x2e, 0x2f, 0x0d,
++				     0x0f, 0x11, 0x13, 0x15, 0x17, 0x19, 0x1b,
++				     0x29, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
++				     0x02, 0xff, 0xff, 0xfc, 0x0c, 0x00, 0x00,
++				     0x3c, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xc0,
++				     0x40, 0x93, 0xff, 0xff, 0xff, 0x3f, 0xff,
++				     0x00, 0xff, 0x00, 0xcc, 0xb1, 0x23, 0x45,
++				     0x67, 0x89, 0xad, 0xff, 0xff, 0xf0);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xb7,
++				     0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a,
++				     0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a,
++				     0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a,
++				     0x0a);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xbc,
++				     0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0xff,
++				     0xf0, 0x0b, 0x33, 0x5c, 0x5b, 0x43, 0x33,
++				     0x00, 0x5a, 0x5a, 0x55, 0x55);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xbd, 0xa1, 0x0a, 0x52, 0xa6);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xbf,
++				     0x0c, 0x19, 0x0c, 0x19, 0x00, 0x11, 0x04,
++				     0x18, 0x50);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xc7,
++				     0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x77,
++				     0x77, 0x70, 0x77, 0x77, 0x77, 0x77, 0x77,
++				     0x77, 0x77, 0x77, 0x70, 0x31, 0x00, 0x01,
++				     0xff, 0xff, 0x00, 0x8a, 0x8a, 0x40);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x80,
++				     0xff, 0xfa, 0xf3, 0xec, 0xe6, 0xe0, 0xdb,
++				     0xd7, 0xd3, 0xc5, 0xba, 0xb0, 0xa8, 0xa1,
++				     0x9a, 0x8f, 0x85, 0x7b, 0x73, 0x72, 0x6a,
++				     0x61, 0x58, 0x4e, 0x42, 0x32, 0x28, 0x1b,
++				     0x17, 0x13, 0x0f, 0x0a);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x81,
++				     0xff, 0xfa, 0xf3, 0xec, 0xe6, 0xe0, 0xdb,
++				     0xd7, 0xd3, 0xc5, 0xba, 0xb0, 0xa8, 0xa1,
++				     0x9a, 0x8f, 0x85, 0x7b, 0x73, 0x72, 0x6a,
++				     0x61, 0x58, 0x4e, 0x42, 0x32, 0x28, 0x1b,
++				     0x17, 0x13, 0x0f, 0x0a);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x82,
++				     0xff, 0xfa, 0xf3, 0xec, 0xe6, 0xe0, 0xdb,
++				     0xd7, 0xd3, 0xc5, 0xba, 0xb0, 0xa8, 0xa1,
++				     0x9a, 0x8f, 0x85, 0x7b, 0x73, 0x72, 0x6a,
++				     0x61, 0x58, 0x4e, 0x42, 0x32, 0x28, 0x1b,
++				     0x17, 0x13, 0x0f, 0x0a);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x83,
++				     0x01, 0x06, 0x02, 0x00, 0x00, 0x06, 0x02,
++				     0x00, 0x00, 0x06, 0x02, 0x00, 0x00, 0x0a,
++				     0x06, 0x02, 0x00, 0x0a, 0x06, 0x02, 0x00,
++				     0x0a, 0x06, 0x02, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x84,
++				     0x30, 0x3d, 0x13, 0x98, 0x32, 0x69, 0x01,
++				     0xa7, 0x64, 0x30, 0x3d, 0x13, 0x98, 0x32,
++				     0x69, 0x01, 0xa7, 0x64, 0x30, 0x3d, 0x13,
++				     0x98, 0x32, 0x69, 0x01, 0xa7, 0x64);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x89, 0xfe, 0xfe, 0x00);
++	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0x35, 0x00);
++	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0x11, 0x00);
++	mipi_dsi_msleep(&dsi_ctx, 120);
++	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0x29, 0x00);
++	mipi_dsi_usleep_range(&dsi_ctx, 10000, 11000);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xbd, 0xa1, 0x0a, 0x52, 0xae);
++	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0x6d, 0x02);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xf0, 0x00, 0x00, 0x00);
++
++	return dsi_ctx.accum_err;
++}
++
++static int icnl9916_panel_off(struct icnl9916_panel *ctx)
++{
++	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
++
++	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0x28);
++	mipi_dsi_msleep(&dsi_ctx, 50);
++	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0x10);
++	mipi_dsi_msleep(&dsi_ctx, 120);
++
++	return dsi_ctx.accum_err;
++}
++
++static int icnl9916_panel_prepare(struct drm_panel *panel)
++{
++	struct icnl9916_panel *ctx = to_icnl9916_panel(panel);
++	struct device *dev = &ctx->dsi->dev;
++	int ret;
++
++	icnl9916_panel_reset(ctx);
++
++	ret = icnl9916_panel_on(ctx);
++	if (ret < 0) {
++		dev_err(dev, "Failed to initialize panel: %d\n", ret);
++		reset_control_assert(ctx->reset);
++		return ret;
++	}
++
++	return 0;
++}
++
++static int icnl9916_panel_unprepare(struct drm_panel *panel)
++{
++	struct icnl9916_panel *ctx = to_icnl9916_panel(panel);
++	struct device *dev = &ctx->dsi->dev;
++	int ret;
++
++	ret = icnl9916_panel_off(ctx);
++	if (ret < 0)
++		dev_err(dev, "Failed to un-initialize panel: %d\n", ret);
++
++	reset_control_assert(ctx->reset);
++
++	return 0;
++}
++
++static const struct drm_display_mode icnl9916_panel_mode = {
++	.clock = 96000,
++	.hdisplay = 720,
++	.hsync_start = 720 + 70,
++	.hsync_end = 720 + 70 + 4,
++	.htotal = 720 + 70 + 4 + 80,
++	.vdisplay = 1600,
++	.vsync_start = 1600 + 180,
++	.vsync_end = 1600 + 180 + 4,
++	.vtotal = 1600 + 180 + 4 + 32,
++	.width_mm = 68,
++	.height_mm = 151,
++	.type = DRM_MODE_TYPE_DRIVER,
++};
++
++static int icnl9916_panel_get_modes(struct drm_panel *panel,
++				       struct drm_connector *connector)
++{
++	return drm_connector_helper_get_modes_fixed(connector, &icnl9916_panel_mode);
++}
++
++static const struct drm_panel_funcs icnl9916_panel_panel_funcs = {
++	.prepare = icnl9916_panel_prepare,
++	.unprepare = icnl9916_panel_unprepare,
++	.get_modes = icnl9916_panel_get_modes,
++};
++
++static int icnl9916_panel_probe(struct mipi_dsi_device *dsi)
++{
++	struct device *dev = &dsi->dev;
++	struct icnl9916_panel *ctx;
++	int ret;
++
++	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
++	if (!ctx)
++		return -ENOMEM;
++
++	ctx->reset = devm_reset_control_get_shared(dev, NULL);
++	if (IS_ERR(ctx->reset))
++		return dev_err_probe(dev, PTR_ERR(ctx->reset),
++				     "Failed to get chip reset\n");
++
++	ctx->dsi = dsi;
++	mipi_dsi_set_drvdata(dsi, ctx);
++
++	dsi->lanes = 4;
++	dsi->format = MIPI_DSI_FMT_RGB888;
++	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
++			  MIPI_DSI_MODE_VIDEO_HSE;
++	dsi->hs_rate = 691000000;
++	dsi->lp_rate = 20000000;
++
++	drm_panel_init(&ctx->panel, dev, &icnl9916_panel_panel_funcs,
++		       DRM_MODE_CONNECTOR_DSI);
++	ctx->panel.prepare_prev_first = true;
++
++	ret = drm_panel_of_backlight(&ctx->panel);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to get backlight\n");
++
++	drm_panel_add(&ctx->panel);
++
++	ret = mipi_dsi_attach(dsi);
++	if (ret < 0) {
++		drm_panel_remove(&ctx->panel);
++		return dev_err_probe(dev, ret, "Failed to attach to DSI host\n");
++	}
++
++	return 0;
++}
++
++static void icnl9916_panel_remove(struct mipi_dsi_device *dsi)
++{
++	struct icnl9916_panel *ctx = mipi_dsi_get_drvdata(dsi);
++	int ret;
++
++	ret = mipi_dsi_detach(dsi);
++	if (ret < 0)
++		dev_err(&dsi->dev, "Failed to detach from DSI host: %d\n", ret);
++
++	drm_panel_remove(&ctx->panel);
++}
++
++static const struct of_device_id icnl9916_panel_of_match[] = {
++	{ .compatible = "chipone,icnl9916-720x1600-panel" },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, icnl9916_panel_of_match);
++
++static struct mipi_dsi_driver icnl9916_panel_driver = {
++	.probe = icnl9916_panel_probe,
++	.remove = icnl9916_panel_remove,
++	.driver = {
++		.name = "panel-icnl9916-720x1600",
++		.of_match_table = icnl9916_panel_of_match,
++	},
++};
++module_mipi_dsi_driver(icnl9916_panel_driver);
++
++MODULE_AUTHOR("Otto Pflüger <otto.pflueger@abscue.de>");
++MODULE_DESCRIPTION("DRM driver for ICNL9916 720x1600 video mode DSI panel");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/gpu/drm/panel/panel-generic-dsi.c b/drivers/gpu/drm/panel/panel-generic-dsi.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..8b265a565df81a00a991634ff2a87453cbfa3aba
+--- /dev/null
++++ b/drivers/gpu/drm/panel/panel-generic-dsi.c
+@@ -0,0 +1,850 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Generic MIPI-DSI panel driver
++ * Copyright (C) 2024 ROCKNIX
++ *
++ * based on
++ *
++ * Rockteck jh057n00900 5.5" MIPI-DSI panel driver
++ * Copyright (C) Purism SPC 2019
++ */
++
++#include <linux/delay.h>
++#include <linux/gpio/consumer.h>
++#include <linux/hex.h>
++#include <linux/media-bus-format.h>
++#include <linux/module.h>
++#include <linux/firmware.h>
++#include <linux/of.h>
++#include <linux/regulator/consumer.h>
++
++#include <video/display_timing.h>
++#include <video/mipi_display.h>
++
++#include <drm/drm_mipi_dsi.h>
++#include <drm/drm_modes.h>
++#include <drm/drm_panel.h>
++
++#define DRIVER_NAME "panel-generic-dsi"
++
++static char *descfile = "";
++module_param(descfile,charp,0660);
++MODULE_PARM_DESC(descfile, "Panel description filename in firmware dir");
++
++struct generic_panel_delays {
++    int prepare;
++    int reset;
++    int init;
++    int enable;
++    int ready;
++};
++
++struct generic_panel_size {
++    int width;
++    int height;
++};
++
++struct generic_panel_mode {
++    int clock;
++    int horizontal[5];
++    int vertical[5];
++    int is_default;
++    struct generic_panel_mode *prev;
++};
++
++#define DCS_PSEUDO_CMD_SEQ 0x10000
++struct generic_panel_init_seq {
++    int dcs;
++    int len;
++    int read;
++    int wait;
++    u8 *data;
++    struct generic_panel_init_seq *link;
++};
++
++struct generic_panel {
++    struct device *dev;
++    struct drm_panel panel;
++    struct gpio_desc *enable_gpio;
++    struct gpio_desc *reset_gpio;
++    struct regulator *vdd;
++    struct regulator *iovcc;
++
++    struct generic_panel_delays delays;
++    struct generic_panel_size size;
++    struct generic_panel_mode *modes;
++    struct generic_panel_init_seq *iseq;
++
++    enum drm_panel_orientation orientation;
++    bool prepared;
++};
++
++
++int load_panel_description(struct mipi_dsi_device *dsi, struct generic_panel *ctx);
++int load_panel_description_line(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx);
++int load_globals(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx);
++int load_mode(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx);
++int load_init_seq(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx);
++
++
++
++int load_globals(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx) {
++    struct device *dev = &dsi->dev;
++    char *param, *val;
++    while (*data) {
++        data = next_arg(data, &param, &val);
++        if (!val) continue;
++        if (strcmp(param, "delays") == 0) {
++            int delays[] = {0, 5, 1, 25, 120, 50};
++            get_options(val, 6, delays);
++            ctx->delays.prepare     = delays[1];
++            ctx->delays.reset       = delays[2];
++            ctx->delays.init        = delays[3];
++            ctx->delays.enable      = delays[4];
++            ctx->delays.ready       = delays[5];
++        } else if (strcmp(param, "size") == 0) {
++            int size[] = {0, -1, -1};
++            get_options(val, 3, size);
++            ctx->size.width         = size[1];
++            ctx->size.height        = size[2];
++        } else if (strcmp(param, "format") == 0) {
++            if (strcmp(val, "rgb888") == 0) {
++                dsi->format = MIPI_DSI_FMT_RGB888;
++            } else if (strcmp(val, "rgb666") == 0) {
++                dsi->format = MIPI_DSI_FMT_RGB666;
++            } else if (strcmp(val, "rgb666_packed") == 0) {
++                dsi->format = MIPI_DSI_FMT_RGB666_PACKED;
++            } else if (strcmp(val, "rgb565") == 0) {
++                dsi->format = MIPI_DSI_FMT_RGB565;
++            } else {
++                dev_info(dev, "bad format %s\n", val);
++            }
++        } else if (strcmp(param, "lanes") == 0) {
++            if (get_option(&val, &dsi->lanes) == 0) {
++                dev_info(dev, "bad lanes %s\n", val);
++            }
++        } else if (strcmp(param, "flags") == 0) {
++            int flags;
++            if (get_option(&val, &flags) == 0) {
++                dev_info(dev, "bad flags %s\n", val);
++            } else {
++                dsi->mode_flags = flags;
++            }
++        } else if (strcmp(param, "hs_rate") == 0) {
++            int hs_rate;
++            if (get_option(&val, &hs_rate) == 0) {
++                dev_info(dev, "bad hs_rate %s\n", val);
++            } else {
++                dsi->hs_rate = hs_rate;
++            }
++        } else if (strcmp(param, "lp_rate") == 0) {
++            int lp_rate;
++            if (get_option(&val, &lp_rate) == 0) {
++                dev_info(dev, "bad lp_rate %s\n", val);
++            } else {
++                dsi->lp_rate = lp_rate;
++            }
++        } else {
++            dev_info(dev, "unknown param %s\n", param);
++            return -1;
++        }
++    }
++    return 0;
++}
++
++
++int load_mode(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx) {
++    struct device *dev = &dsi->dev;
++    struct generic_panel_mode *mode;
++    char *param, *val;
++
++    mode = devm_kzalloc(dev, sizeof(*mode), GFP_KERNEL);
++
++    while (*data) {
++        data = next_arg(data, &param, &val);
++        if (!val) continue;
++        if (strcmp(param, "clock") == 0) {
++            if (get_option(&val, &mode->clock) == 0) {
++                dev_info(dev, "bad clock %s\n", val);
++            }
++        } else if (strcmp(param, "horizontal") == 0) {
++            get_options(val, 5, &mode->horizontal[0]);
++        } else if (strcmp(param, "vertical") == 0) {
++            get_options(val, 5, &mode->vertical[0]);
++        } else if (strcmp(param, "default") == 0) {
++            get_option(&val, &mode->is_default);
++        } else {
++            dev_info(dev, "Mode unhandled %s = %s\n", param, val);
++        }
++    }
++
++    if ((mode->clock > 5000) && (mode->vertical[1] > 0) && (mode->horizontal[1] > 0)) {
++        mode->prev = ctx->modes;
++        ctx->modes = mode;
++        dev_dbg(dev, "Mode %d %d %d  %p -> %p\n", mode->clock, mode->vertical[1], mode->horizontal[1], mode, mode->prev);
++        return 0;
++    }
++    return -1;
++}
++
++int load_init_seq(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx) {
++    struct device *dev = &dsi->dev;
++    struct generic_panel_init_seq *item;
++    char *param, *val;
++
++    item = devm_kzalloc(dev, sizeof(*item), GFP_KERNEL);
++    item->dcs = -1;
++    item->len = -1;
++    item->read = 0;
++    item->wait = 0;
++
++    while (*data) {
++        data = next_arg(data, &param, &val);
++        if (!val) continue;
++        if (strcmp(param, "dcs") == 0) {
++            item->dcs = simple_strtoul(val, NULL, 16) & 0xFF;
++            //dev_info(dev, "Init dcs %02x\n", item->dcs);
++        } else if (strcmp(param, "data") == 0) {
++            item->len = (strlen(val)) >> 1;
++            item->data = devm_kzalloc(dev, item->len, GFP_KERNEL);
++            if (hex2bin(item->data, val, item->len) != 0) {
++                dev_info(dev, "bad data %s\n", val);
++                return -1;
++            }
++            //for (int i=0; i < (item->len); i++) { dev_info(dev, " %02x", item->data[i]);};
++            //dev_info(dev, "\n");
++        } else if (strcmp(param, "seq") == 0) {
++            item->dcs = DCS_PSEUDO_CMD_SEQ;
++            item->len = (strlen(val)) >> 1;
++            item->data = devm_kzalloc(dev, item->len, GFP_KERNEL);
++            if (hex2bin(item->data, val, item->len) != 0) {
++                dev_info(dev, "bad seq %s\n", val);
++                return -1;
++            }
++            dev_dbg(dev, "loaded seq len=%d %s\n", item->len, val);
++        } else if (strcmp(param, "read") == 0) {
++            item->read = simple_strtoul(val, NULL, 16);
++        } else if (strcmp(param, "wait") == 0) {
++            item->wait = simple_strtoul(val, NULL, 16);
++        } else {
++            dev_info(dev, "Init unhandled %s = %s\n", param, val);
++        }
++    }
++
++    if (item->dcs >= 0) {
++        item->link = ctx->iseq;
++        ctx->iseq = item;
++        return 0;
++    }
++
++    return -1;
++}
++
++/*
++ * data   is a null-terminated string of panel description
++ */
++int load_panel_description_line(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx) {
++    size_t pos;
++    for (pos = 0; data[pos] != 0; pos ++) {
++        if ((data[pos] == '#') || data[pos] == '\n') {
++            data[pos] = 0;
++            break;
++        }
++    }
++    if (pos < 2) return 0;
++
++    switch (data[0]) {
++        case 'G':
++            load_globals(data+1, dsi, ctx);
++            break;
++        case 'M':
++            load_mode(data+1, dsi, ctx);
++            break;
++        case 'I':
++            load_init_seq(data+1, dsi, ctx);
++            break;
++        default:
++            dev_info(NULL, "Unhandled %s\n", data);
++    }
++
++    return 0;
++}
++
++int panel_description_foreach(struct mipi_dsi_device *dsi, struct generic_panel *ctx,
++        int (*handle_line)(char*, struct mipi_dsi_device*, struct generic_panel*));
++
++int panel_description_foreach(struct mipi_dsi_device *dsi, struct generic_panel *ctx,
++        int (*handle_line)(char*, struct mipi_dsi_device*, struct generic_panel*))
++{
++    struct device *dev = &dsi->dev;
++    const struct firmware *fw;
++    int ret;
++
++    if (strlen(descfile) > 0) {
++        ret = request_firmware(&fw, descfile, dev);
++        if (ret) {
++            dev_err(dev, "No config file found (error=%d)\n", ret);
++            return -1;
++        }
++
++        size_t pos = 0, size = fw->size;
++        char *data = (char *)fw->data;
++
++        while (pos < size) {
++            while ((pos < size) && (data[pos] != '\n')) pos++;
++
++            if (pos < size) pos++;
++            data[pos - 1] = 0;
++
++            handle_line(data, dsi, ctx);
++
++            data = &data[pos];
++            size = size - pos;
++            pos = 0;
++        }
++
++        release_firmware(fw);
++    } else {
++        //ret = of_drm_get_panel_orientation(dev->of_node, &ctx->orientation);
++        const char *line;
++        char * buf;
++        size_t linescnt, i;
++
++        linescnt = of_property_count_strings(dev->of_node, "panel_description");
++        if (linescnt < 1) {
++            dev_err(dev, "failed to read panel_description from device tree %ld\n", linescnt);
++            return -1;
++        }
++
++        for (i = 0; i < linescnt; i++) {
++            ret = of_property_read_string_index(dev->of_node, "panel_description", i, &line);
++            if (ret < 0) {
++                dev_err(dev, "failed to read panel_description[%ld] from device tree %d\n", i, ret);
++                return -1;
++            }
++            buf = kstrdup(line, GFP_KERNEL);
++            if (!buf) {
++                dev_err(dev, "kstrdup(of desc line) failed\n");
++                return -1;
++            }
++
++            dev_dbg(dev, "desc[%ld]: %s", i, line);
++            handle_line(buf, dsi, ctx);
++            kfree(buf);
++        }
++    }
++    return 0;
++}
++
++int load_panel_description(struct mipi_dsi_device *dsi, struct generic_panel *ctx) {
++    int ret;
++
++    ret = panel_description_foreach(dsi, ctx, &load_panel_description_line);
++    if (ret < 0) { return ret; }
++
++    // Reverse iseq
++    struct generic_panel_init_seq *rev = ctx->iseq, *fwd = NULL, *tmp = NULL;
++    while (rev) {
++        tmp = rev;
++        rev = tmp->link;
++        tmp->link = fwd;
++        fwd = tmp;
++    }
++    ctx->iseq = fwd;
++
++
++    return 0;
++}
++
++
++static inline struct generic_panel *panel_to_generic_panel(struct drm_panel *panel)
++{
++    return container_of(panel, struct generic_panel, panel);
++}
++
++static int generic_panel_init_sequence(struct generic_panel *ctx)
++{
++    struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
++    struct device *dev = ctx->dev;
++    int ret;
++
++    struct generic_panel_init_seq *iseq = ctx->iseq;
++    while (iseq) {
++        if (iseq->read > 0) {
++            u8 readbuf[8];
++            if (iseq->read > 8) { iseq->read = 8; }
++            ret = mipi_dsi_generic_read(dsi, iseq->data, iseq->len, &readbuf[0], iseq->read);
++            if (ret < 0) {
++                dev_err(ctx->dev, "failed to read: %d\n", ret);
++            } else {
++                for (int i = 0; i < ret; i++) {
++                    dev_info(ctx->dev, "read[%d]: %02x\n", i, readbuf[i]);
++                }
++            }
++        } else if (iseq->dcs == DCS_PSEUDO_CMD_SEQ) {
++            ret = mipi_dsi_dcs_write_buffer(dsi, iseq->data, iseq->len);
++            dev_dbg(dev, "iseq 0x%px len=%d -> %d\n", (void*)iseq, iseq->len, ret);
++        } else {
++            ret = mipi_dsi_dcs_write(dsi, iseq->dcs, iseq->data, iseq->len);
++            dev_dbg(dev, "iseq %02x len=%d -> %d\n", iseq->dcs, iseq->len, ret);
++        }
++        if (ret < 0) {
++            dev_err(dev, "panel init command 0x%x failed: %d\n",
++                    iseq->dcs, ret);
++            return ret;
++        }
++        if (iseq->wait) {
++            msleep(iseq->wait);
++        }
++        iseq = iseq->link;
++    }
++
++    dev_dbg(dev, "Panel init sequence done\n");
++
++    return 0;
++}
++
++/*
++ * Assume u-boot left the panel fully initialized and skip the kernel's first
++ * prepare/unprepare cycle. The kernel's panel-side teardown was destroying
++ * u-boot's state; skipping it is REQUIRED for the panel to light (build #76:
++ * fbcon visible + boot to Debian login). sprd_dpu/sprd_dsi still reset
++ * themselves -- this only isolates the panel-side contribution.
++ *
++ * DO NOT set this to false except as a deliberate last-resort diagnostic, or
++ * once we are extremely confident the kernel can cold-init the panel without
++ * u-boot's state. Flipping it to false is exactly what regressed the display
++ * from the working #67 prehandoff image to a black kernel-native path.
++ * See DISPLAY-KNOWN-GOOD-DSI-STATE.md / WHAT-HAS-BEEN-TRIED.md.
++ *
++ * CURRENTLY false ON PURPOSE for the prepare_prev_first cold-init experiment
++ * (paired with ctx->panel.prepare_prev_first = true in probe). This is the
++ * deliberate cold-init diagnostic the warning above refers to. Recovery if the
++ * panel stays black is a reboot to the on-disk image. Set back to true to
++ * restore the known-good U-Boot-handoff display.
++ */
++static bool handoff_skip_first_cycle = false;
++
++static int generic_panel_unprepare(struct drm_panel *panel)
++{
++    struct generic_panel *ctx = panel_to_generic_panel(panel);
++    struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
++    int ret;
++
++    if (!ctx->prepared)
++        return 0;
++
++    if (handoff_skip_first_cycle) {
++        handoff_skip_first_cycle = false;
++        ctx->prepared = false;
++        dev_info(ctx->dev, "handoff: skipping first unprepare\n");
++        return 0;
++    }
++
++    ret = mipi_dsi_dcs_set_display_off(dsi);
++    if (ret < 0)
++        dev_err(ctx->dev, "failed to set display off: %d\n", ret);
++
++    ret = mipi_dsi_dcs_enter_sleep_mode(dsi);
++    if (ret < 0) {
++        dev_err(ctx->dev, "failed to enter sleep mode: %d\n", ret);
++        return ret;
++    }
++
++    if (ctx->enable_gpio) { gpiod_set_value_cansleep(ctx->enable_gpio, 0); }
++    gpiod_set_value_cansleep(ctx->reset_gpio, 1);
++
++    regulator_disable(ctx->iovcc);
++    regulator_disable(ctx->vdd);
++
++    gpiod_set_value_cansleep(ctx->reset_gpio, 1);
++
++    ctx->prepared = false;
++
++    return 0;
++}
++
++static int generic_panel_prepare(struct drm_panel *panel)
++{
++    struct generic_panel *ctx = panel_to_generic_panel(panel);
++    struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
++    /*
++     * sleep_out (0x11) and display_on (0x29) are DCS Short Write 0 Param
++     * commands. Sending them via mipi_dsi_dcs_write_buffer with len=2
++     * mis-encodes them as DCS Short Write 1 Param (type 0x15) with a
++     * spurious 0x00 parameter -- many panels silently reject the wrong
++     * packet type and stay asleep, so backlight is on but the display
++     * shows black. Use len=1 to force the correct 0-param encoding.
++     */
++    static const u8 sleep_out[] = { MIPI_DCS_EXIT_SLEEP_MODE };
++    static const u8 display_on[] = { MIPI_DCS_SET_DISPLAY_ON };
++    int dispon_ret;
++    int ret;
++
++    if (ctx->prepared) {
++        return 0;
++    }
++
++    if (handoff_skip_first_cycle) {
++        dev_info(ctx->dev, "handoff: skipping first prepare (assuming u-boot left panel live)\n");
++        ctx->prepared = true;
++        return 0;
++    }
++
++    ret = regulator_enable(ctx->vdd);
++    if (ret < 0) {
++        dev_err(ctx->dev, "Failed to enable vdd supply: %d\n", ret);
++        return ret;
++    }
++    msleep(5);
++
++    ret = regulator_enable(ctx->iovcc);
++    if (ret < 0) {
++        dev_err(ctx->dev, "Failed to enable iovcc supply: %d\n", ret);
++        goto disable_vdd;
++    }
++    msleep(5);
++
++    if (ctx->enable_gpio) { gpiod_set_value_cansleep(ctx->enable_gpio, 1); }
++    msleep(ctx->delays.prepare);
++
++    /* Stock sequence is physical high 50 ms, low 50 ms, high 120 ms. */
++    gpiod_set_value_cansleep(ctx->reset_gpio, 0);
++    msleep(ctx->delays.reset);
++    gpiod_set_value_cansleep(ctx->reset_gpio, 1);
++    msleep(ctx->delays.reset);
++    gpiod_set_value_cansleep(ctx->reset_gpio, 0);
++    msleep(ctx->delays.init);
++
++    ret = generic_panel_init_sequence(ctx);
++    if (ret < 0) {
++        dev_err(ctx->dev, "Panel init sequence failed: %d\n", ret);
++        goto disable_iovcc;
++    }
++
++    /*
++     * Send sleep_out here but defer display_on to .enable so it fires
++     * AFTER the DSI bridge has switched to video mode. Panels with
++     * dimming/PWM ramp logic (e.g. CTRL_DISPLAY 0x53=0x2c in init) need
++     * a valid video signal to ramp against; sending display_on while
++     * the DSI is still in cmd mode leaves the panel in a "ramp to 0"
++     * state and the screen never lights up even after video starts.
++     */
++    ret = mipi_dsi_dcs_write_buffer(dsi, sleep_out, sizeof(sleep_out));
++    if (ret < 0) {
++        dev_err(ctx->dev, "Failed to exit sleep mode: %d\n", ret);
++        goto disable_iovcc;
++    }
++
++    msleep(200);
++
++    /*
++     * Send display_on HERE, in CMD mode, before the bridge switches to
++     * video mode -- matching the vendor BSP which sends sleep_out AND
++     * display_on in cmd mode prior to video. The sprd host .transfer path
++     * does not switch back to cmd mode, so a display_on issued from
++     * .enable (post video-mode switch) is pushed into the command FIFO
++     * while the controller is in VIDEO mode and is not reliably
++     * transmitted -- leaving the panel powered + init'd + sleep-exited but
++     * with its source drivers OFF (pure black, backlight on). The .enable
++     * resend is kept as a harmless belt-and-suspenders.
++     */
++    dispon_ret = mipi_dsi_dcs_write_buffer(dsi, display_on, sizeof(display_on));
++    dev_info(ctx->dev, "display_on (cmd-mode) ret=%d\n", dispon_ret);
++    msleep(20);
++
++    /*
++     * Diagnostic DCS reads DISABLED for the cold-init experiment.
++     *
++     * Each of these issues a BTA which, on this board's broken short-read path,
++     * returns -EIO and parks the data lanes in stopstate (PHY_STATUS
++     * 0x1f02 -> 0x1f32) -> black. They never run on the handoff path (prepare is
++     * skipped), so they are a cold-init-only confound. Re-enable only once the
++     * short-read path is fixed and we want panel-state observability.
++     */
++#if 0
++    {
++        u8 power_mode = 0;
++        u8 display_status[4] = { 0 };
++        u8 id[3] = { 0 };
++        int status_ret;
++
++        status_ret = mipi_dsi_dcs_get_power_mode(dsi, &power_mode);
++        dev_info(ctx->dev, "DCS power mode: ret=%d value=%02x\n",
++                 status_ret, power_mode);
++        status_ret = mipi_dsi_dcs_read(dsi, MIPI_DCS_GET_DISPLAY_STATUS,
++                                       display_status, sizeof(display_status));
++        dev_info(ctx->dev,
++                 "DCS display status: ret=%d value=%*ph\n",
++                 status_ret, (int)sizeof(display_status), display_status);
++        status_ret = mipi_dsi_dcs_read(dsi, MIPI_DCS_GET_DISPLAY_ID,
++                                       id, sizeof(id));
++        dev_info(ctx->dev, "DCS display ID: ret=%d value=%*ph\n",
++                 status_ret, (int)sizeof(id), id);
++    }
++#endif
++
++    //msleep(ctx->delays.ready);
++
++    ctx->prepared = true;
++
++    return 0;
++
++disable_iovcc:
++    regulator_disable(ctx->iovcc);
++disable_vdd:
++    regulator_disable(ctx->vdd);
++    return ret;
++}
++
++/* drm_display_mode template without clock as it is variable */
++static const struct drm_display_mode mode_template = { };
++
++
++static int generic_panel_get_modes(struct drm_panel *panel,
++                struct drm_connector *connector)
++{
++    struct generic_panel *ctx = panel_to_generic_panel(panel);
++    struct drm_display_mode mode_tmp;
++    struct drm_display_mode *mode;
++    struct generic_panel_mode *genmode = ctx->modes;
++
++    while (genmode) {
++        dev_dbg(ctx->dev, "gen mode %d %dx%d\n", genmode->clock, genmode->horizontal[1], genmode->vertical[1]);
++
++        mode_tmp = mode_template;
++
++        mode_tmp.clock          = genmode->clock;
++
++        mode_tmp.hdisplay       = genmode->horizontal[1];
++        mode_tmp.hsync_start    = mode_tmp.hdisplay + genmode->horizontal[2];
++        mode_tmp.hsync_end      = mode_tmp.hsync_start + genmode->horizontal[3];
++        mode_tmp.htotal         = mode_tmp.hsync_end + genmode->horizontal[4];
++
++        mode_tmp.vdisplay       = genmode->vertical[1];
++        mode_tmp.vsync_start    = mode_tmp.vdisplay + genmode->vertical[2];
++        mode_tmp.vsync_end      = mode_tmp.vsync_start + genmode->vertical[3];
++        mode_tmp.vtotal         = mode_tmp.vsync_end + genmode->vertical[4];
++
++        mode_tmp.width_mm       = ctx->size.width;
++        mode_tmp.height_mm      = ctx->size.height;
++
++        /*
++         * Stock Spreadtrum DT omits hsync-active/vsync-active so DRM
++         * defaults to active-high; the sprd DSI controller also leaves
++         * DPI input polarity at its active-high reset default. Driving
++         * NHSYNC/NVSYNC here would make the DPU emit active-low syncs,
++         * the DSI then never recognises a valid frame, and the panel
++         * stays black even though DPU and DPHY are running.
++         */
++        mode_tmp.flags          = DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC;
++
++        mode = drm_mode_duplicate(connector->dev, &mode_tmp);
++        if (!mode) {
++            dev_err(ctx->dev, "Failed to add mode %u\n",
++                drm_mode_vrefresh(mode));
++            return -ENOMEM;
++        }
++        drm_mode_set_name(mode);
++
++        mode->type = DRM_MODE_TYPE_DRIVER;
++        if (genmode->is_default) { mode->type |= DRM_MODE_TYPE_PREFERRED; };
++
++        drm_mode_probed_add(connector, mode);
++
++        genmode = genmode->prev;
++    }
++
++    connector->display_info.width_mm = ctx->size.width;
++    connector->display_info.height_mm = ctx->size.height;
++
++
++    /*
++     * TODO: Remove once all drm drivers call
++     * drm_connector_set_orientation_from_panel()
++     */
++    drm_connector_set_panel_orientation(connector, ctx->orientation);
++
++    return 1;
++}
++
++static enum drm_panel_orientation generic_panel_get_orientation(struct drm_panel *panel)
++{
++    struct generic_panel *ctx = panel_to_generic_panel(panel);
++
++    return ctx->orientation;
++}
++
++static int generic_panel_enable(struct drm_panel *panel)
++{
++    struct generic_panel *ctx = panel_to_generic_panel(panel);
++    struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
++    static const u8 display_on[] = { MIPI_DCS_SET_DISPLAY_ON };
++    int ret;
++
++    ret = mipi_dsi_dcs_write_buffer(dsi, display_on, sizeof(display_on));
++    if (ret < 0) {
++        dev_err(ctx->dev, "Failed to set display on: %d\n", ret);
++        return ret;
++    }
++
++    msleep(100);
++    return 0;
++}
++
++static const struct drm_panel_funcs generic_panel_funcs = {
++    .unprepare  = generic_panel_unprepare,
++    .prepare    = generic_panel_prepare,
++    .enable     = generic_panel_enable,
++    .get_modes  = generic_panel_get_modes,
++    .get_orientation = generic_panel_get_orientation,
++};
++
++static int generic_panel_probe(struct mipi_dsi_device *dsi)
++{
++    struct device *dev = &dsi->dev;
++    struct generic_panel *ctx;
++    int ret;
++
++    ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
++    if (!ctx)
++        return -ENOMEM;
++
++    ctx->enable_gpio = devm_gpiod_get_optional(dev, "enable", GPIOD_OUT_LOW);
++    if (IS_ERR(ctx->enable_gpio)) {
++        dev_err(dev, "cannot get enable gpio\n");
++	ctx->enable_gpio = NULL;
++    }
++
++    ctx->reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
++    if (IS_ERR(ctx->reset_gpio)) {
++        dev_err(dev, "cannot get reset gpio\n");
++        return PTR_ERR(ctx->reset_gpio);
++    }
++
++    ctx->vdd = devm_regulator_get(dev, "vdd");
++    if (IS_ERR(ctx->vdd)) {
++        ret = PTR_ERR(ctx->vdd);
++        if (ret != -EPROBE_DEFER)
++            dev_err(dev, "Failed to request vdd regulator: %d\n", ret);
++        return ret;
++    }
++
++    ctx->iovcc = devm_regulator_get(dev, "iovcc");
++    if (IS_ERR(ctx->iovcc)) {
++        ret = PTR_ERR(ctx->iovcc);
++        if (ret != -EPROBE_DEFER)
++            dev_err(dev, "Failed to request iovcc regulator: %d\n", ret);
++        return ret;
++    }
++
++    ret = of_drm_get_panel_orientation(dev->of_node, &ctx->orientation);
++    if (ret < 0) {
++        dev_err(dev, "%pOF: failed to get orientation %d\n", dev->of_node, ret);
++        return ret;
++    }
++
++    mipi_dsi_set_drvdata(dsi, ctx);
++
++    ctx->dev = dev;
++
++    // Some defaults
++    dsi->lanes = 1;
++    dsi->format = MIPI_DSI_FMT_RGB888;
++    dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
++              MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET |
++              MIPI_DSI_CLOCK_NON_CONTINUOUS;
++
++    ret = load_panel_description(dsi, ctx);
++    if (ret < 0) {
++        dev_err(dev, "Failed to load panel description\n");
++        return ret;
++    }
++
++    mipi_dsi_set_drvdata(dsi, ctx);
++
++    dev_info(dev, "lanes %d, format %d, mode %lx\n", dsi->lanes, dsi->format, dsi->mode_flags);
++
++    drm_panel_init(&ctx->panel, &dsi->dev, &generic_panel_funcs,
++               DRM_MODE_CONNECTOR_DSI);
++
++    /*
++     * COLD-INIT EXPERIMENT (see WHAT-HAS-BEEN-TRIED.md "prepare_prev_first").
++     *
++     * The DRM bridge chain is encoder -> sprd_dsi.bridge -> panel_bridge(this).
++     * drm_atomic_bridge_chain_pre_enable() walks the chain in reverse, so by
++     * default THIS panel's prepare (which sends the 144-cmd init sequence) runs
++     * BEFORE sprd_dsi_bridge_pre_enable() has reset/initialised the DSI host or
++     * armed LP command mode -- and sprd_dsi then resets the controller, wiping
++     * whatever the panel just sent. That is the inverted ordering that makes
++     * cold kernel-native init fail while the U-Boot handoff path (which skips
++     * prepare entirely) works.
++     *
++     * Setting prepare_prev_first propagates to pre_enable_prev_first on the
++     * panel bridge (drm/bridge/panel.c), forcing sprd_dsi_bridge_pre_enable()
++     * to run FIRST: controller up + LP command mode armed, THEN this panel's
++     * init DCS -- matching the vendor U-Boot order (controller init, LP cmd
++     * enable, init cmds, video mode, hs clk). Only meaningful with
++     * handoff_skip_first_cycle = false.
++     */
++    ctx->panel.prepare_prev_first = true;
++
++    ret = drm_panel_of_backlight(&ctx->panel);
++    if (ret)
++        return ret;
++
++    drm_panel_add(&ctx->panel);
++
++    ret = mipi_dsi_attach(dsi);
++    if (ret < 0) {
++        dev_err(dev, "mipi_dsi_attach failed: %d\n", ret);
++        drm_panel_remove(&ctx->panel);
++        return ret;
++    }
++
++    return 0;
++}
++
++static void generic_panel_shutdown(struct mipi_dsi_device *dsi)
++{
++    struct generic_panel *ctx = mipi_dsi_get_drvdata(dsi);
++
++    drm_panel_unprepare(&ctx->panel);
++
++    drm_panel_disable(&ctx->panel);
++}
++
++static void generic_panel_remove(struct mipi_dsi_device *dsi)
++{
++    struct generic_panel *ctx = mipi_dsi_get_drvdata(dsi);
++    int ret;
++
++    generic_panel_shutdown(dsi);
++
++    ret = mipi_dsi_detach(dsi);
++    if (ret < 0)
++        dev_err(&dsi->dev, "Failed to detach from DSI host: %d\n", ret);
++
++    drm_panel_remove(&ctx->panel);
++}
++
++static const struct of_device_id generic_panel_of_match[] = {
++    { .compatible = "rocknix,generic-dsi" },
++    { /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, generic_panel_of_match);
++
++static struct mipi_dsi_driver generic_panel_driver = {
++    .driver = {
++        .name = DRIVER_NAME,
++        .of_match_table = generic_panel_of_match,
++    },
++    .probe  = generic_panel_probe,
++    .remove = generic_panel_remove,
++    .shutdown = generic_panel_shutdown,
++};
++module_mipi_dsi_driver(generic_panel_driver);
++
++MODULE_AUTHOR("Danil Zagoskin <z@gosk.in>");
++MODULE_DESCRIPTION("DRM driver for generic MIPI DSI panel");
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/gpu/drm/panfrost/panfrost_device.c b/drivers/gpu/drm/panfrost/panfrost_device.c
+index dedc13e56631e131c0aac288175d6d7dedca7240..4eac934b6ab2dcbd8a1f983e560c0a0812b7b0ac 100644
+--- a/drivers/gpu/drm/panfrost/panfrost_device.c
++++ b/drivers/gpu/drm/panfrost/panfrost_device.c
+@@ -70,8 +70,27 @@ static int panfrost_clk_init(struct panfrost_device *pfdev)
+ 			goto disable_clock;
+ 	}
+ 
++	pfdev->mem_clock = devm_clk_get_optional(pfdev->base.dev, "mem");
++	if (IS_ERR(pfdev->mem_clock)) {
++		dev_err(pfdev->base.dev, "get mem_clock failed %ld\n",
++			PTR_ERR(pfdev->mem_clock));
++		err = PTR_ERR(pfdev->mem_clock);
++		goto disable_bus_clock;
++	}
++
++	if (pfdev->mem_clock) {
++		rate = clk_get_rate(pfdev->mem_clock);
++		dev_info(pfdev->base.dev, "mem_clock rate = %lu\n", rate);
++
++		err = clk_prepare_enable(pfdev->mem_clock);
++		if (err)
++			goto disable_bus_clock;
++	}
++
+ 	return 0;
+ 
++disable_bus_clock:
++	clk_disable_unprepare(pfdev->bus_clock);
+ disable_clock:
+ 	clk_disable_unprepare(pfdev->clock);
+ 
+@@ -80,6 +99,7 @@ disable_clock:
+ 
+ static void panfrost_clk_fini(struct panfrost_device *pfdev)
+ {
++	clk_disable_unprepare(pfdev->mem_clock);
+ 	clk_disable_unprepare(pfdev->bus_clock);
+ 	clk_disable_unprepare(pfdev->clock);
+ }
+@@ -429,11 +449,13 @@ static int panfrost_device_runtime_resume(struct device *dev)
+ 		if (ret)
+ 			goto err_clk;
+ 
+-		if (pfdev->bus_clock) {
+-			ret = clk_enable(pfdev->bus_clock);
+-			if (ret)
+-				goto err_bus_clk;
+-		}
++		ret = clk_enable(pfdev->bus_clock);
++		if (ret)
++			goto err_bus_clk;
++
++		ret = clk_enable(pfdev->mem_clock);
++		if (ret)
++			goto err_mem_clk;
+ 	}
+ 
+ 	panfrost_device_reset(pfdev, true);
+@@ -441,6 +463,9 @@ static int panfrost_device_runtime_resume(struct device *dev)
+ 
+ 	return 0;
+ 
++err_mem_clk:
++	if (pfdev->comp->pm_features & BIT(GPU_PM_RT))
++		clk_disable(pfdev->bus_clock);
+ err_bus_clk:
+ 	if (pfdev->comp->pm_features & BIT(GPU_PM_RT))
+ 		clk_disable(pfdev->clock);
+@@ -464,9 +489,8 @@ static int panfrost_device_runtime_suspend(struct device *dev)
+ 	panfrost_gpu_power_off(pfdev);
+ 
+ 	if (pfdev->comp->pm_features & BIT(GPU_PM_RT)) {
+-		if (pfdev->bus_clock)
+-			clk_disable(pfdev->bus_clock);
+-
++		clk_disable(pfdev->mem_clock);
++		clk_disable(pfdev->bus_clock);
+ 		clk_disable(pfdev->clock);
+ 		reset_control_assert(pfdev->rstc);
+ 	}
+@@ -495,11 +519,13 @@ static int panfrost_device_resume(struct device *dev)
+ 		if (ret)
+ 			goto err_clk;
+ 
+-		if (pfdev->bus_clock) {
+-			ret = clk_enable(pfdev->bus_clock);
+-			if (ret)
+-				goto err_bus_clk;
+-		}
++		ret = clk_enable(pfdev->bus_clock);
++		if (ret)
++			goto err_bus_clk;
++
++		ret = clk_enable(pfdev->mem_clock);
++		if (ret)
++			goto err_mem_clk;
+ 	}
+ 
+ 	ret = pm_runtime_force_resume(dev);
+@@ -509,7 +535,10 @@ static int panfrost_device_resume(struct device *dev)
+ 	return 0;
+ 
+ err_resume:
+-	if (pfdev->comp->pm_features & BIT(GPU_PM_CLK_DIS) && pfdev->bus_clock)
++	if (pfdev->comp->pm_features & BIT(GPU_PM_CLK_DIS))
++		clk_disable(pfdev->mem_clock);
++err_mem_clk:
++	if (pfdev->comp->pm_features & BIT(GPU_PM_CLK_DIS))
+ 		clk_disable(pfdev->bus_clock);
+ err_bus_clk:
+ 	if (pfdev->comp->pm_features & BIT(GPU_PM_CLK_DIS))
+@@ -530,9 +559,8 @@ static int panfrost_device_suspend(struct device *dev)
+ 		return ret;
+ 
+ 	if (pfdev->comp->pm_features & BIT(GPU_PM_CLK_DIS)) {
+-		if (pfdev->bus_clock)
+-			clk_disable(pfdev->bus_clock);
+-
++		clk_disable(pfdev->mem_clock);
++		clk_disable(pfdev->bus_clock);
+ 		clk_disable(pfdev->clock);
+ 	}
+ 
+diff --git a/drivers/gpu/drm/panfrost/panfrost_device.h b/drivers/gpu/drm/panfrost/panfrost_device.h
+index 0f399241220523bae12d5486954e676b778b4a78..c0564b8ddd48fdda041e0f794348822c37f4f988 100644
+--- a/drivers/gpu/drm/panfrost/panfrost_device.h
++++ b/drivers/gpu/drm/panfrost/panfrost_device.h
+@@ -136,6 +136,7 @@ struct panfrost_device {
+ 	void __iomem *iomem;
+ 	struct clk *clock;
+ 	struct clk *bus_clock;
++	struct clk *mem_clock;
+ 	struct regulator_bulk_data *regulators;
+ 	struct reset_control *rstc;
+ 	/* pm_domains for devices with more than one. */
+diff --git a/drivers/gpu/drm/panfrost/panfrost_drv.c b/drivers/gpu/drm/panfrost/panfrost_drv.c
+index 074c0995ddc26cb4f8ad914b5ef293fd1cc61688..f1c2ab16a593d9c7609878a754a2e1ad5405016c 100644
+--- a/drivers/gpu/drm/panfrost/panfrost_drv.c
++++ b/drivers/gpu/drm/panfrost/panfrost_drv.c
+@@ -1177,6 +1177,8 @@ static const struct of_device_id dt_match[] = {
+ 	{ .compatible = "mediatek,mt8192-mali", .data = &mediatek_mt8192_data },
+ 	{ .compatible = "mediatek,mt8370-mali", .data = &mediatek_mt8370_data },
+ 	{ .compatible = "allwinner,sun50i-h616-mali", .data = &default_pm_rt_data },
++	{ .compatible = "sprd,ums9230-mali", .data = &default_pm_rt_data },
++	{ .compatible = "sprd,ums512-mali", .data = &default_pm_rt_data },
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(of, dt_match);
+diff --git a/drivers/gpu/drm/sprd/Kconfig b/drivers/gpu/drm/sprd/Kconfig
+index e22b780fe82248296a7153d02269faf8cd63294f..828384d42c5aac4bf194558f22d9a77f7c693572 100644
+--- a/drivers/gpu/drm/sprd/Kconfig
++++ b/drivers/gpu/drm/sprd/Kconfig
+@@ -2,9 +2,12 @@ config DRM_SPRD
+ 	tristate "DRM Support for Unisoc SoCs Platform"
+ 	depends on ARCH_SPRD || COMPILE_TEST
+ 	depends on DRM && OF
++	select DRM_BRIDGE_CONNECTOR
++	select DRM_DISPLAY_HELPER
+ 	select DRM_GEM_DMA_HELPER
+ 	select DRM_KMS_HELPER
+ 	select DRM_MIPI_DSI
++	select REGMAP
+ 	select VIDEOMODE_HELPERS
+ 	help
+ 	  Choose this option if you have a Unisoc chipset.
+diff --git a/drivers/gpu/drm/sprd/Makefile b/drivers/gpu/drm/sprd/Makefile
+index e82e6a6f89de2576b12af1975cc27045f3887570..80f6c66145b14372e0ce1f54ebdc09d1f4c2a569 100644
+--- a/drivers/gpu/drm/sprd/Makefile
++++ b/drivers/gpu/drm/sprd/Makefile
+@@ -3,6 +3,7 @@
+ sprd-drm-y := sprd_drm.o \
+ 	sprd_dpu.o \
+ 	sprd_dsi.o \
++	sprd_gem.o \
+ 	megacores_pll.o
+ 
+-obj-$(CONFIG_DRM_SPRD) += sprd-drm.o
+\ No newline at end of file
++obj-$(CONFIG_DRM_SPRD) += sprd-drm.o
+diff --git a/drivers/gpu/drm/sprd/megacores_pll.c b/drivers/gpu/drm/sprd/megacores_pll.c
+index 3091dfdc11e3b547a05a9edaa4047a1e367c1596..fa51a25cfae4b86b2370376b7c5d3ecca37b4410 100644
+--- a/drivers/gpu/drm/sprd/megacores_pll.c
++++ b/drivers/gpu/drm/sprd/megacores_pll.c
+@@ -21,26 +21,18 @@
+ 
+ #define AVERAGE(a, b) (min(a, b) + abs((b) - (a)) / 2)
+ 
+-/* sharkle */
+-#define VCO_BAND_LOW	750
+-#define VCO_BAND_MID	1100
+-#define VCO_BAND_HIGH	1500
+-#define PHY_REF_CLK	26000
+-
+ static int dphy_calc_pll_param(struct dphy_pll *pll)
+ {
+-	const u32 khz = 1000;
+ 	const u32 mhz = 1000000;
+ 	const unsigned long long factor = 100;
+ 	unsigned long long tmp;
+ 	int i;
+ 
+-	pll->potential_fvco = pll->freq / khz;
+-	pll->ref_clk = PHY_REF_CLK / khz;
++	pll->potential_fvco = pll->freq / mhz;
+ 
+ 	for (i = 0; i < 4; ++i) {
+-		if (pll->potential_fvco >= VCO_BAND_LOW &&
+-		    pll->potential_fvco <= VCO_BAND_HIGH) {
++		if (pll->potential_fvco >= pll->platform->band_low &&
++		    pll->potential_fvco <= pll->platform->band_high) {
+ 			pll->fvco = pll->potential_fvco;
+ 			pll->out_sel = BIT(i);
+ 			break;
+@@ -50,21 +42,23 @@ static int dphy_calc_pll_param(struct dphy_pll *pll)
+ 	if (pll->fvco == 0)
+ 		return -EINVAL;
+ 
+-	if (pll->fvco >= VCO_BAND_LOW && pll->fvco <= VCO_BAND_MID) {
++	if (pll->fvco >= pll->platform->band_low &&
++	    pll->fvco <= pll->platform->band_mid) {
+ 		/* vco band control */
+ 		pll->vco_band = 0x0;
+ 		/* low pass filter control */
+ 		pll->lpf_sel = 1;
+-	} else if (pll->fvco > VCO_BAND_MID && pll->fvco <= VCO_BAND_HIGH) {
++	} else if (pll->fvco > pll->platform->band_mid &&
++		   pll->fvco <= pll->platform->band_high) {
+ 		pll->vco_band = 0x1;
+ 		pll->lpf_sel = 0;
+ 	} else {
+ 		return -EINVAL;
+ 	}
+ 
+-	pll->nint = pll->fvco / pll->ref_clk;
++	pll->nint = pll->fvco / pll->platform->ref_clk;
+ 	tmp = pll->fvco * factor * mhz;
+-	do_div(tmp, pll->ref_clk);
++	do_div(tmp, pll->platform->ref_clk);
+ 	tmp = tmp - pll->nint * factor * mhz;
+ 	tmp *= BIT(20);
+ 	do_div(tmp, 100000000);
+@@ -72,7 +66,7 @@ static int dphy_calc_pll_param(struct dphy_pll *pll)
+ 	pll->refin = 3; /* pre-divider bypass */
+ 	pll->sdm_en = true; /* use fraction N PLL */
+ 	pll->fdk_s = 0x1; /* fraction */
+-	pll->cp_s = 0x0;
++	pll->cp_s = 0x2; /* match vendor sharkl5 BSP charge-pump setting */
+ 	pll->det_delay = 0x1;
+ 
+ 	return 0;
+@@ -83,20 +77,24 @@ static void dphy_set_pll_reg(struct dphy_pll *pll, struct regmap *regmap)
+ 	u8 reg_val[9] = {0};
+ 	int i;
+ 
++	/*
++	 * nint (reg 0x06) is written last to match the vendor sharkl5 BSP,
++	 * which commits the integer divider after all other PLL registers.
++	 */
+ 	u8 reg_addr[] = {
+-		0x03, 0x04, 0x06, 0x08, 0x09,
+-		0x0a, 0x0b, 0x0e, 0x0f
++		0x03, 0x04, 0x08, 0x09, 0x0a,
++		0x0b, 0x0e, 0x0f, 0x06
+ 	};
+ 
+ 	reg_val[0] = 1 | (1 << 1) |  (pll->lpf_sel << 2);
+ 	reg_val[1] = pll->div | (1 << 3) | (pll->cp_s << 5) | (pll->fdk_s << 7);
+-	reg_val[2] = pll->nint;
+-	reg_val[3] = pll->vco_band | (pll->sdm_en << 1) | (pll->refin << 2);
+-	reg_val[4] = pll->kint >> 12;
+-	reg_val[5] = pll->kint >> 4;
+-	reg_val[6] = pll->out_sel | ((pll->kint << 4) & 0xf);
+-	reg_val[7] = 1 << 4;
+-	reg_val[8] = pll->det_delay;
++	reg_val[2] = pll->vco_band | (pll->sdm_en << 1) | (pll->refin << 2);
++	reg_val[3] = pll->kint >> 12;
++	reg_val[4] = pll->kint >> 4;
++	reg_val[5] = pll->out_sel | ((pll->kint & 0xf) << 4);
++	reg_val[6] = 1 << 4;
++	reg_val[7] = pll->det_delay;
++	reg_val[8] = pll->nint;
+ 
+ 	for (i = 0; i < sizeof(reg_addr); ++i) {
+ 		regmap_write(regmap, reg_addr[i], reg_val[i]);
+@@ -223,7 +221,7 @@ void dphy_timing_config(struct dsi_context *ctx)
+ 	u32 tmp = 0;
+ 
+ 	/* t_ui: 1 ui, byteck: 8 ui, half byteck: 4 ui */
+-	t_ui = 1000 * scale / (pll->freq / 1000);
++	t_ui = 1000 * scale / (pll->freq / 1000000);
+ 	t_byteck = t_ui << 3;
+ 	t_half_byteck = t_ui << 2;
+ 	constant = t_ui << 1;
+diff --git a/drivers/gpu/drm/sprd/sprd_dpu.c b/drivers/gpu/drm/sprd/sprd_dpu.c
+index a3447622a33cd612e34be038e833222567bdcd2c..05950dea071429fbdb6f9ce99db1c7f1d7c3f5ef 100644
+--- a/drivers/gpu/drm/sprd/sprd_dpu.c
++++ b/drivers/gpu/drm/sprd/sprd_dpu.c
+@@ -3,31 +3,35 @@
+  * Copyright (C) 2020 Unisoc Inc.
+  */
+ 
++#include <linux/clk.h>
+ #include <linux/component.h>
+ #include <linux/delay.h>
+ #include <linux/dma-buf.h>
+ #include <linux/io.h>
++#include <linux/mfd/syscon.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/of_graph.h>
+ #include <linux/platform_device.h>
++#include <linux/regmap.h>
+ #include <linux/wait.h>
+ #include <linux/workqueue.h>
+ 
+ #include <drm/drm_atomic_helper.h>
+ #include <drm/drm_blend.h>
+-#include <drm/drm_fb_dma_helper.h>
+ #include <drm/drm_framebuffer.h>
+-#include <drm/drm_gem_dma_helper.h>
+-#include <drm/drm_gem_framebuffer_helper.h>
+ 
+ #include "sprd_drm.h"
+ #include "sprd_dpu.h"
+ #include "sprd_dsi.h"
++#include "sprd_gem.h"
+ 
+ /* Global control registers */
++#define REG_DPU_VERSION	0x00
+ #define REG_DPU_CTRL	0x04
+ #define REG_DPU_CFG0	0x08
++#define REG_DPU_CFG1	0x0C
++#define REG_DPU_CFG2	0x10
+ #define REG_PANEL_SIZE	0x20
+ #define REG_BLEND_SIZE	0x24
+ #define REG_BG_COLOR	0x2C
+@@ -53,14 +57,6 @@
+ #define REG_DPI_H_TIMING	0x1F4
+ #define REG_DPI_V_TIMING	0x1F8
+ 
+-/* MMU control registers */
+-#define REG_MMU_EN			0x800
+-#define REG_MMU_VPN_RANGE		0x80C
+-#define REG_MMU_PPN1			0x83C
+-#define REG_MMU_RANGE1			0x840
+-#define REG_MMU_PPN2			0x844
+-#define REG_MMU_RANGE2			0x848
+-
+ /* Global control bits */
+ #define BIT_DPU_RUN			BIT(0)
+ #define BIT_DPU_STOP			BIT(1)
+@@ -320,7 +316,7 @@ static u32 drm_blend_to_dpu(struct drm_plane_state *state)
+ static void sprd_dpu_layer(struct sprd_dpu *dpu, struct drm_plane_state *state)
+ {
+ 	struct dpu_context *ctx = &dpu->ctx;
+-	struct drm_gem_dma_object *dma_obj;
++	struct sprd_gem_obj *sprd_gem;
+ 	struct drm_framebuffer *fb = state->fb;
+ 	u32 addr, size, offset, pitch, blend, format, rotation;
+ 	u32 src_x = state->src_x >> 16;
+@@ -331,14 +327,15 @@ static void sprd_dpu_layer(struct sprd_dpu *dpu, struct drm_plane_state *state)
+ 	u32 dst_y = state->crtc_y;
+ 	u32 alpha = state->alpha;
+ 	u32 index = state->zpos;
++	static int dump_count;
+ 	int i;
+ 
+ 	offset = (dst_x & 0xffff) | (dst_y << 16);
+ 	size = (src_w & 0xffff) | (src_h << 16);
+ 
+ 	for (i = 0; i < fb->format->num_planes; i++) {
+-		dma_obj = drm_fb_dma_get_gem_obj(fb, i);
+-		addr = dma_obj->dma_addr + fb->offsets[i];
++		sprd_gem = to_sprd_gem_obj(fb->obj[i]);
++		addr = sprd_gem->dma_addr + fb->offsets[i];
+ 
+ 		if (i == 0)
+ 			layer_reg_wr(ctx, REG_LAY_BASE_ADDR0, addr, index);
+@@ -367,6 +364,14 @@ static void sprd_dpu_layer(struct sprd_dpu *dpu, struct drm_plane_state *state)
+ 	blend = drm_blend_to_dpu(state);
+ 	rotation = drm_rotation_to_dpu(state);
+ 
++	if (dump_count < 6) {
++		dump_count++;
++		drm_info(dpu->drm,
++			 "LAYDUMP[%d] idx=%u base=%08x size=%08x pitch=%u fmt=%08x num_planes=%u\n",
++			 dump_count, index, addr, size, pitch, format,
++			 fb->format->num_planes);
++	}
++
+ 	layer_reg_wr(ctx, REG_LAY_CTRL, BIT_DPU_LAY_EN |
+ 				format |
+ 				blend |
+@@ -377,6 +382,27 @@ static void sprd_dpu_layer(struct sprd_dpu *dpu, struct drm_plane_state *state)
+ static void sprd_dpu_flip(struct sprd_dpu *dpu)
+ {
+ 	struct dpu_context *ctx = &dpu->ctx;
++	static int dump_count;
++
++	if (dump_count < 4) {
++		dump_count++;
++		drm_info(dpu->drm,
++			 "DPUDUMP[%d] stopped=%d CTRL=%08x INT_EN=%08x INT_STS=%08x DPI_CTRL=%08x\n",
++			 dump_count, ctx->stopped,
++			 readl(ctx->base + REG_DPU_CTRL),
++			 readl(ctx->base + REG_DPU_INT_EN),
++			 readl(ctx->base + REG_DPU_INT_STS),
++			 readl(ctx->base + REG_DPI_CTRL));
++		drm_info(dpu->drm,
++			 "DPUDUMP[%d] PANEL=%08x LAY_CTRL=%08x LAY_SIZE=%08x LAY_PITCH=%08x LAY_BASE0=%08x LAY_POS=%08x\n",
++			 dump_count,
++			 readl(ctx->base + REG_PANEL_SIZE),
++			 readl(ctx->base + REG_LAY_CTRL),
++			 readl(ctx->base + REG_LAY_SIZE),
++			 readl(ctx->base + REG_LAY_PITCH),
++			 readl(ctx->base + REG_LAY_BASE_ADDR0),
++			 readl(ctx->base + REG_LAY_POS));
++	}
+ 
+ 	/*
+ 	 * Make sure the dpu is in stop status. DPU has no shadow
+@@ -391,6 +417,10 @@ static void sprd_dpu_flip(struct sprd_dpu *dpu)
+ 		if (!ctx->stopped) {
+ 			dpu_reg_set(ctx, REG_DPU_CTRL, BIT_DPU_REG_UPDATE);
+ 			dpu_wait_update_done(dpu);
++		} else {
++			dpu_reg_set(ctx, REG_DPU_CTRL, BIT_DPU_RUN);
++			dpu_reg_set(ctx, REG_DPU_CTRL, BIT_DPU_REG_UPDATE);
++			ctx->stopped = false;
+ 		}
+ 
+ 		dpu_reg_set(ctx, REG_DPU_INT_EN, BIT_DPU_INT_ERR);
+@@ -401,26 +431,94 @@ static void sprd_dpu_flip(struct sprd_dpu *dpu)
+ 	}
+ }
+ 
++static void sprd_dpu_reset(struct dpu_context *ctx)
++{
++	if (!ctx->rst_syscon)
++		return;
++
++	regmap_update_bits(ctx->rst_syscon, ctx->rst_offset,
++			   ctx->rst_mask, ctx->rst_mask);
++	udelay(10);
++	regmap_update_bits(ctx->rst_syscon, ctx->rst_offset,
++			   ctx->rst_mask, 0);
++	udelay(10);
++
++	/*
++	 * The DPU is now in a clean, stopped state. Mark it so that the
++	 * follow-up sprd_dpu_init() skips sprd_dpu_stop() - issuing STOP on a
++	 * freshly-reset DPU just times out waiting for a stop-done IRQ and
++	 * leaves it unable to start.
++	 */
++	ctx->stopped = true;
++}
++
++static void sprd_dpi_init(struct sprd_dpu *dpu);
++
+ static void sprd_dpu_init(struct sprd_dpu *dpu)
+ {
+ 	struct dpu_context *ctx = &dpu->ctx;
+ 	u32 int_mask = 0;
++	u32 dpu_version;
++
++	/* clear the bootloader's pinned state so our config can latch */
++	sprd_dpu_reset(ctx);
++
++	/*
++	 * The reset above wipes every DPU register, including the panel size
++	 * and DPI timing that sprd_dpi_init() programmed in mode_set_nofb
++	 * (which runs before this atomic_enable). Re-apply them here, after the
++	 * reset, or the DPU runs with PANEL_SIZE=0 / DPI timing=0 and can never
++	 * complete a frame (reg update done timeout, underflow, black screen).
++	 */
++	sprd_dpi_init(dpu);
++
++	dpu_version = readl(ctx->base + REG_DPU_VERSION);
+ 
+ 	writel(0x00, ctx->base + REG_BG_COLOR);
+-	writel(0x00, ctx->base + REG_MMU_EN);
+-	writel(0x00, ctx->base + REG_MMU_PPN1);
+-	writel(0xffff, ctx->base + REG_MMU_RANGE1);
+-	writel(0x00, ctx->base + REG_MMU_PPN2);
+-	writel(0xffff, ctx->base + REG_MMU_RANGE2);
+-	writel(0x1ffff, ctx->base + REG_MMU_VPN_RANGE);
++
++	/*
++	 * DDR QoS (CFG1) and CFG2. Without the QoS priorities the DPU's DDR
++	 * read requests starve and the layer FIFO underflows on the first
++	 * frame (no vsync). Values from the vendor dpu-r4p0 driver:
++	 * awqos_high=0xa awqos_low=0xa arqos_high=0xd arqos_low=0xc | BIT18 | BIT22.
++	 */
++	writel((0xa << 12) | (0xa << 8) | (0xd << 4) | 0xc | BIT(18) | BIT(22),
++	       ctx->base + REG_DPU_CFG1);
++	writel(0x14002, ctx->base + REG_DPU_CFG2);
+ 
+ 	if (ctx->if_type == SPRD_DPU_IF_DPI) {
+ 		/* use dpi as interface */
+ 		dpu_reg_clr(ctx, REG_DPU_CFG0, BIT_DPU_IF_EDPI);
+-		/* disable Halt function for SPRD DSI */
+-		dpu_reg_clr(ctx, REG_DPI_CTRL, BIT_DPU_DPI_HALT_EN);
+-		/* select te from external pad */
+-		dpu_reg_set(ctx, REG_DPI_CTRL, BIT_DPU_EDPI_FROM_EXTERNAL_PAD);
++
++		if (dpu_version < 0x300) {
++			/* disable Halt function for SPRD DSI */
++			dpu_reg_clr(ctx, REG_DPI_CTRL, BIT_DPU_DPI_HALT_EN);
++			/* select te from external pad */
++			dpu_reg_set(ctx, REG_DPI_CTRL, BIT_DPU_EDPI_FROM_EXTERNAL_PAD);
++		} else {
++			/*
++			 * Keep BIT_DPU_DPI_HALT_EN CLEARED (free-running DPI), NOT
++			 * set. The vendor BSP sets it so the DPU's DPI output gates
++			 * on the DSI ready/ack handshake, and an earlier session
++			 * re-enabled it on the theory that the flags=3 burst fix
++			 * (lanes now streaming, PHY_STATUS=0x1f02) had finally made
++			 * the handshake completable.
++			 *
++			 * The two captured dmesg logs (2026-06-26,
++			 * good-fbcon-dmesg.log vs bad-fbcon-dmesg.log) disprove that:
++			 *  - The only state that ever lights the panel (U-Boot
++			 *    handoff, fbcon visible) has DPI_CTRL=0x00000000 AND
++			 *    DSI_MODE_CFG=0x0 -- both halt halves OFF, DPU free-runs.
++			 *  - The black kernel-native state had DPI_CTRL=0x00010000
++			 *    (this HALT_EN bit) AND DSI_MODE_CFG=0x2. Both halves on,
++			 *    lanes park in stopstate (PHY_STATUS=0x1f32), no scanout.
++			 * Enabling the halt handshake has produced a black panel on
++			 * every measurement; free-running is the only proven-good
++			 * config. Pair this with DSI_MODE_CFG=0 in sprd_dsi.c
++			 * (sprd_dsi_set_work_mode). See DISPLAY-KNOWN-GOOD-DSI-STATE.md.
++			 */
++			dpu_reg_clr(ctx, REG_DPI_CTRL, BIT_DPU_DPI_HALT_EN);
++		}
+ 
+ 		/* enable dpu update done INT */
+ 		int_mask |= BIT_DPU_INT_UPDATE_DONE;
+@@ -447,6 +545,14 @@ static void sprd_dpu_init(struct sprd_dpu *dpu)
+ 	}
+ 
+ 	writel(int_mask, ctx->base + REG_DPU_INT_EN);
++
++	/*
++	 * The DPU is usually enabled by the bootloader to show
++	 * a splash screen. Stop it here when the kernel initializes
++	 * the display.
++	 */
++	if (!ctx->stopped)
++		sprd_dpu_stop(dpu);
+ }
+ 
+ static void sprd_dpu_fini(struct sprd_dpu *dpu)
+@@ -486,6 +592,7 @@ void sprd_dpu_run(struct sprd_dpu *dpu)
+ 	struct dpu_context *ctx = &dpu->ctx;
+ 
+ 	dpu_reg_set(ctx, REG_DPU_CTRL, BIT_DPU_RUN);
++	dpu_reg_set(ctx, REG_DPU_CTRL, BIT_DPU_REG_UPDATE);
+ 
+ 	ctx->stopped = false;
+ }
+@@ -577,7 +684,6 @@ static const struct drm_plane_helper_funcs sprd_plane_helper_funcs = {
+ static const struct drm_plane_funcs sprd_plane_funcs = {
+ 	.update_plane = drm_atomic_helper_update_plane,
+ 	.disable_plane	= drm_atomic_helper_disable_plane,
+-	.destroy = drm_plane_cleanup,
+ 	.reset = drm_atomic_helper_plane_reset,
+ 	.atomic_duplicate_state = drm_atomic_helper_plane_duplicate_state,
+ 	.atomic_destroy_state = drm_atomic_helper_plane_destroy_state,
+@@ -704,7 +810,6 @@ static const struct drm_crtc_helper_funcs sprd_crtc_helper_funcs = {
+ };
+ 
+ static const struct drm_crtc_funcs sprd_crtc_funcs = {
+-	.destroy	= drm_crtc_cleanup,
+ 	.set_config	= drm_atomic_helper_set_config,
+ 	.page_flip	= drm_atomic_helper_page_flip,
+ 	.reset		= drm_atomic_helper_crtc_reset,
+@@ -796,6 +901,78 @@ static int sprd_dpu_context_init(struct sprd_dpu *dpu,
+ 	if (ctx->irq < 0)
+ 		return ctx->irq;
+ 
++	ctx->clk = devm_clk_get_optional_enabled(dev, "core");
++	if (IS_ERR(ctx->clk)) {
++		dev_err(dev, "failed to get DPU core clock\n");
++		return PTR_ERR(ctx->clk);
++	}
++
++	/*
++	 * The "core" clock above is actually CLK_DISPC_EB - the APB enable
++	 * gate that lets us touch DPU registers. The DPU pipeline matrix
++	 * clock (CLK_DISPC0, "dispc0-clk" in clk_summary) is a separate
++	 * thing that vendor's BSP calls clk_dpu_core and explicitly
++	 * prepare_enables. Without it the DPU register block is reachable
++	 * but the pipeline itself can't tick - no scanout, no VSYNC, no
++	 * frames. Until 2026-06 mainline relied on clk_ignore_unused
++	 * leaving the bootloader's rate in place; with proper PM that
++	 * stops working.
++	 */
++	ctx->pipe_clk = devm_clk_get_optional_enabled(dev, "clk");
++	if (IS_ERR(ctx->pipe_clk)) {
++		dev_err(dev, "failed to get DPU pipeline clock\n");
++		return PTR_ERR(ctx->pipe_clk);
++	}
++	if (ctx->pipe_clk) {
++		int ret = clk_set_rate(ctx->pipe_clk, 384000000);
++
++		if (ret)
++			dev_warn(dev, "failed to set pipe clock rate: %d\n", ret);
++	}
++
++	/*
++	 * The DPU "dpi" clock is the pixel clock that feeds the DPI block.
++	 * Mainline only requested "core" so the framework never had a real
++	 * prepare/enable on the pixel clock: on sharkl5pro it only ran at all
++	 * because clk_ignore_unused left the bootloader's rate alone, but the
++	 * clock framework still saw it as unprepared, so transitions and any
++	 * future PM activity would gate it. Without a properly framework-
++	 * prepared pixel clock the DPI block can't drive valid frames into
++	 * the DSI controller, which then never asserts ready and the
++	 * DPU<->DSI halt handshake stalls forever.
++	 */
++	ctx->dpi_clk = devm_clk_get_optional_enabled(dev, "dpi");
++	if (IS_ERR(ctx->dpi_clk)) {
++		dev_err(dev, "failed to get DPU dpi clock\n");
++		return PTR_ERR(ctx->dpi_clk);
++	}
++	if (ctx->dpi_clk) {
++		int ret = clk_set_rate(ctx->dpi_clk, 38400000);
++
++		if (ret)
++			dev_warn(dev, "failed to set dpi clock rate: %d\n", ret);
++	}
++
++	/*
++	 * Optional hardware reset. The bootloader leaves the DPU running and
++	 * (with clk/regulator_ignore_unused) pinned; its shadow registers then
++	 * never latch our config. A soft reset before bring-up clears that.
++	 * reset-syscon = <&ap_ahb_regs offset mask>.
++	 */
++	{
++		u32 args[2];
++
++		ctx->rst_syscon = syscon_regmap_lookup_by_phandle_args(dev->of_node,
++								       "reset-syscon",
++								       2, args);
++		if (IS_ERR(ctx->rst_syscon)) {
++			ctx->rst_syscon = NULL;
++		} else {
++			ctx->rst_offset = args[0];
++			ctx->rst_mask = args[1];
++		}
++	}
++
+ 	/* disable and clear interrupts before register dpu IRQ. */
+ 	writel(0x00, ctx->base + REG_DPU_INT_EN);
+ 	writel(0xff, ctx->base + REG_DPU_INT_CLR);
+@@ -834,11 +1011,26 @@ static int sprd_dpu_bind(struct device *dev, struct device *master, void *data)
+ 	if (ret)
+ 		return ret;
+ 
++	if (device_iommu_mapped(dev)) {
++		ret = sprd_drm_iommu_attach(drm, dev);
++		if (ret)
++			return ret;
++	}
++
+ 	return 0;
+ }
+ 
++static void sprd_dpu_unbind(struct device *dev,
++			    struct device *master, void *data)
++{
++	struct drm_device *drm = data;
++
++	sprd_drm_iommu_detach(drm, dev);
++}
++
+ static const struct component_ops dpu_component_ops = {
+ 	.bind = sprd_dpu_bind,
++	.unbind = sprd_dpu_unbind,
+ };
+ 
+ static const struct of_device_id dpu_match_table[] = {
+diff --git a/drivers/gpu/drm/sprd/sprd_dpu.h b/drivers/gpu/drm/sprd/sprd_dpu.h
+index 157a78f24dc18b071602552ea9d005af66525263..1dcd11c5518d126cc1158b019b02c02007ddd0ec 100644
+--- a/drivers/gpu/drm/sprd/sprd_dpu.h
++++ b/drivers/gpu/drm/sprd/sprd_dpu.h
+@@ -44,6 +44,9 @@ enum {
+  */
+ struct dpu_context {
+ 	void __iomem *base;
++	struct clk *clk;
++	struct clk *pipe_clk;
++	struct clk *dpi_clk;
+ 	int irq;
+ 	u8 if_type;
+ 	struct videomode vm;
+@@ -51,6 +54,9 @@ struct dpu_context {
+ 	wait_queue_head_t wait_queue;
+ 	bool evt_update;
+ 	bool evt_stop;
++	struct regmap *rst_syscon;
++	u32 rst_offset;
++	u32 rst_mask;
+ };
+ 
+ /**
+diff --git a/drivers/gpu/drm/sprd/sprd_drm.c b/drivers/gpu/drm/sprd/sprd_drm.c
+index ceacdcb7c566d00b98d83c27dbab80523bc6a7d5..02a16474045f5b054c638f1b33bbaea212300632 100644
+--- a/drivers/gpu/drm/sprd/sprd_drm.c
++++ b/drivers/gpu/drm/sprd/sprd_drm.c
+@@ -5,14 +5,17 @@
+ 
+ #include <linux/component.h>
+ #include <linux/dma-mapping.h>
++#include <linux/iommu.h>
+ #include <linux/mod_devicetable.h>
+ #include <linux/module.h>
+ #include <linux/mutex.h>
+ #include <linux/of_graph.h>
+ #include <linux/platform_device.h>
+ 
++#include <drm/clients/drm_client_setup.h>
+ #include <drm/drm_atomic_helper.h>
+ #include <drm/drm_drv.h>
++#include <drm/drm_fbdev_dma.h>
+ #include <drm/drm_gem_dma_helper.h>
+ #include <drm/drm_gem_framebuffer_helper.h>
+ #include <drm/drm_of.h>
+@@ -20,6 +23,7 @@
+ #include <drm/drm_vblank.h>
+ 
+ #include "sprd_drm.h"
++#include "sprd_gem.h"
+ 
+ #define DRIVER_NAME	"sprd"
+ #define DRIVER_DESC	"Spreadtrum SoCs' DRM Driver"
+@@ -54,7 +58,10 @@ static struct drm_driver sprd_drm_drv = {
+ 	.fops			= &sprd_drm_fops,
+ 
+ 	/* GEM Operations */
+-	DRM_GEM_DMA_DRIVER_OPS,
++	.dumb_create		= sprd_gem_dumb_create,
++	.gem_prime_import_sg_table = sprd_gem_prime_import_sg_table,
++
++	DRM_FBDEV_DMA_DRIVER_OPS,
+ 
+ 	.name			= DRIVER_NAME,
+ 	.desc			= DRIVER_DESC,
+@@ -62,6 +69,49 @@ static struct drm_driver sprd_drm_drv = {
+ 	.minor			= DRIVER_MINOR,
+ };
+ 
++int sprd_drm_iommu_attach(struct drm_device *drm, struct device *dpu_dev)
++{
++	struct sprd_drm *sprd = to_sprd_drm(drm);
++	struct iommu_domain_geometry *geometry;
++	int ret;
++
++	if (!sprd->iommu_domain) {
++		sprd->iommu_domain = iommu_paging_domain_alloc(dpu_dev);
++		if (IS_ERR(sprd->iommu_domain)) {
++			ret = PTR_ERR(sprd->iommu_domain);
++			sprd->iommu_domain = NULL;
++			return ret;
++		}
++
++		geometry = &sprd->iommu_domain->geometry;
++
++		drm_mm_init(&sprd->mm, geometry->aperture_start,
++			    geometry->aperture_end -
++			    geometry->aperture_start + 1);
++		mutex_init(&sprd->mm_lock);
++	}
++
++	return iommu_attach_device(sprd->iommu_domain, dpu_dev);
++}
++
++void sprd_drm_iommu_detach(struct drm_device *drm, struct device *dpu_dev)
++{
++	struct sprd_drm *sprd = to_sprd_drm(drm);
++
++	if (sprd->iommu_domain)
++		iommu_detach_device(sprd->iommu_domain, dpu_dev);
++}
++
++static void sprd_drm_iommu_cleanup(struct sprd_drm *sprd)
++{
++	if (!sprd->iommu_domain)
++		return;
++
++	mutex_destroy(&sprd->mm_lock);
++	drm_mm_takedown(&sprd->mm);
++	iommu_domain_free(sprd->iommu_domain);
++}
++
+ static int sprd_drm_bind(struct device *dev)
+ {
+ 	struct platform_device *pdev = to_platform_device(dev);
+@@ -89,6 +139,16 @@ static int sprd_drm_bind(struct device *dev)
+ 		return ret;
+ 	}
+ 
++	/*
++	 * FIXME: sprd_gem_prime_import_sg_table() manages the IOMMU mapping,
++	 * so any additional DMA mapping in dma_buf_map_attachment() is
++	 * unnecessary when an IOMMU is in use. Since we cannot control this
++	 * here, set a fake DMA mask to avoid bouncing via swiotlb. This should
++	 * ideally match the address size supported by the IOMMU.
++	 */
++	if (sprd->iommu_domain)
++		dma_set_mask_and_coherent(drm->dev, DMA_BIT_MASK(44));
++
+ 	/* vblank init */
+ 	ret = drm_vblank_init(drm, drm->mode_config.num_crtc);
+ 	if (ret) {
+@@ -106,12 +166,15 @@ static int sprd_drm_bind(struct device *dev)
+ 	if (ret < 0)
+ 		goto err_kms_helper_poll_fini;
+ 
++	drm_client_setup(drm, NULL);
++
+ 	return 0;
+ 
+ err_kms_helper_poll_fini:
+ 	drm_kms_helper_poll_fini(drm);
+ err_unbind_all:
+ 	component_unbind_all(drm->dev, drm);
++	sprd_drm_iommu_cleanup(sprd);
+ 	return ret;
+ }
+ 
+@@ -124,6 +187,8 @@ static void sprd_drm_unbind(struct device *dev)
+ 	drm_kms_helper_poll_fini(drm);
+ 
+ 	component_unbind_all(drm->dev, drm);
++
++	sprd_drm_iommu_cleanup(to_sprd_drm(drm));
+ }
+ 
+ static const struct component_master_ops drm_component_ops = {
+diff --git a/drivers/gpu/drm/sprd/sprd_drm.h b/drivers/gpu/drm/sprd/sprd_drm.h
+index 95d1b972f333c7056ac940d91255c6a812d264de..fa1f01ead6a55aa52ece483fd8f0bca2fad7a8a0 100644
+--- a/drivers/gpu/drm/sprd/sprd_drm.h
++++ b/drivers/gpu/drm/sprd/sprd_drm.h
+@@ -7,12 +7,22 @@
+ #define _SPRD_DRM_H_
+ 
+ #include <drm/drm_atomic.h>
++#include <drm/drm_mm.h>
+ #include <drm/drm_print.h>
+ 
+ struct sprd_drm {
+ 	struct drm_device drm;
++
++	struct iommu_domain *iommu_domain;
++	struct mutex mm_lock;
++	struct drm_mm mm;
+ };
+ 
++#define to_sprd_drm(x)	container_of(x, struct sprd_drm, drm)
++
++int sprd_drm_iommu_attach(struct drm_device *drm, struct device *dpu_dev);
++void sprd_drm_iommu_detach(struct drm_device *drm, struct device *dpu_dev);
++
+ extern struct platform_driver sprd_dpu_driver;
+ extern struct platform_driver sprd_dsi_driver;
+ 
+diff --git a/drivers/gpu/drm/sprd/sprd_dsi.c b/drivers/gpu/drm/sprd/sprd_dsi.c
+index 23b0e1dc547a5023ee6ad7d5e1c49e2cec986bf0..527e62bdf31df083f729c29697aeaa0ffd7be6fc 100644
+--- a/drivers/gpu/drm/sprd/sprd_dsi.c
++++ b/drivers/gpu/drm/sprd/sprd_dsi.c
+@@ -4,13 +4,17 @@
+  */
+ 
+ #include <linux/component.h>
++#include <linux/delay.h>
++#include <linux/mfd/syscon.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
++#include <linux/regmap.h>
+ #include <video/mipi_display.h>
+ 
+ #include <drm/drm_atomic_helper.h>
+ #include <drm/drm_bridge.h>
++#include <drm/drm_bridge_connector.h>
+ #include <drm/drm_of.h>
+ #include <drm/drm_probe_helper.h>
+ 
+@@ -21,7 +25,13 @@
+ #define SOFT_RESET 0x04
+ #define MASK_PROTOCOL_INT 0x0C
+ #define MASK_INTERNAL_INT 0x14
++#define PROTOCOL_INT_STS 0x08
++#define INTERNAL_INT_STS 0x10
++#define PROTOCOL_INT_CLR 0xC8
++#define INTERNAL_INT_CLR 0xCC
+ #define DSI_MODE_CFG 0x18
++/* bit1 of DSI_MODE_CFG: DSI-side halt function enable (vendor dsi_video_mode) */
++#define DSI_VIDEO_HALT_EN BIT(1)
+ 
+ #define VIRTUAL_CHANNEL_ID 0x1C
+ #define GEN_RX_VCID GENMASK(1, 0)
+@@ -50,6 +60,10 @@
+ 
+ #define VID_MODE_CFG 0x38
+ #define VID_MODE_TYPE GENMASK(1, 0)
++#define DPI_COLOR_MODE_POL BIT(4)
++#define DPI_SHUT_DOWN_POL BIT(5)
++#define DPI_HSYNC_POL BIT(6)
++#define DPI_VSYNC_POL BIT(7)
+ #define LP_VSA_EN BIT(8)
+ #define LP_VBP_EN BIT(9)
+ #define LP_VFP_EN BIT(10)
+@@ -57,15 +71,19 @@
+ #define LP_HBP_EN BIT(12)
+ #define LP_HFP_EN BIT(13)
+ #define FRAME_BTA_ACK_EN BIT(14)
++#define LP_CMD_EN BIT(15)
+ 
+ #define TIMEOUT_CNT_CLK_CONFIG 0x40
+ #define HTX_TO_CONFIG 0x44
+ #define LRX_H_TO_CONFIG 0x48
+ 
+ #define TX_ESC_CLK_CONFIG 0x5C
++#define VACT_CMD_TRANS_LIMIT 0x60
++#define VBLK_CMD_TRANS_LIMIT 0x64
+ 
+ #define CMD_MODE_CFG 0x68
+ #define TEAR_FX_EN BIT(0)
++#define CMD_MODE_LP_CMD_EN (GENMASK(14, 8) | GENMASK(19, 16) | BIT(24))
+ 
+ #define GEN_HDR 0x6C
+ #define GEN_DT GENMASK(5, 0)
+@@ -160,6 +178,53 @@ dsi_reg_up(struct dsi_context *ctx, u32 offset, u32 mask,
+ 	writel((ret & ~mask) | (val & mask), ctx->base + offset);
+ }
+ 
++static void dsi_clear_int_status(struct dsi_context *ctx)
++{
++	u32 sts;
++
++	sts = readl(ctx->base + PROTOCOL_INT_STS);
++	if (sts)
++		writel(sts, ctx->base + PROTOCOL_INT_CLR);
++
++	sts = readl(ctx->base + INTERNAL_INT_STS);
++	if (sts)
++		writel(sts, ctx->base + INTERNAL_INT_CLR);
++}
++
++static void dsi_log_int_status(struct sprd_dsi *dsi, const char *tag,
++			       u32 proto, u32 internal)
++{
++	if (proto)
++		drm_info(dsi->drm, "%s protocol int sts=0x%08x\n", tag, proto);
++
++	if (internal & BIT(0))
++		drm_info(dsi->drm, "%s receive packet size error\n", tag);
++	if (internal & BIT(1))
++		drm_info(dsi->drm, "%s EoTp packet not received\n", tag);
++	if (internal & BIT(2))
++		drm_info(dsi->drm, "%s command FIFO write error\n", tag);
++	if (internal & BIT(3))
++		drm_info(dsi->drm, "%s RX payload FIFO read error\n", tag);
++	if (internal & BIT(4))
++		drm_info(dsi->drm, "%s RX payload FIFO write error\n", tag);
++	if (internal & BIT(5))
++		drm_info(dsi->drm, "%s TX payload FIFO write error\n", tag);
++	if (internal & BIT(6))
++		drm_info(dsi->drm, "%s TX payload FIFO read error\n", tag);
++	if (internal & BIT(7))
++		drm_info(dsi->drm, "%s DPI pixel FIFO write error\n", tag);
++	if (internal & BIT(27))
++		drm_info(dsi->drm, "%s ECC single-bit error\n", tag);
++	if (internal & BIT(28))
++		drm_info(dsi->drm, "%s ECC multi-bit error\n", tag);
++	if (internal & BIT(29))
++		drm_info(dsi->drm, "%s CRC error\n", tag);
++	if (internal & BIT(30))
++		drm_info(dsi->drm, "%s HS TX timeout\n", tag);
++	if (internal & BIT(31))
++		drm_info(dsi->drm, "%s LP RX timeout\n", tag);
++}
++
+ static int regmap_tst_io_write(void *context, u32 reg, u32 val)
+ {
+ 	struct sprd_dsi *dsi = context;
+@@ -389,7 +454,7 @@ static u32 fmt_to_coding(u32 fmt)
+ static void sprd_dsi_init(struct dsi_context *ctx)
+ {
+ 	struct sprd_dsi *dsi = container_of(ctx, struct sprd_dsi, ctx);
+-	u32 byte_clk = dsi->slave->hs_rate / 8;
++	u32 byte_clk = dsi->slave->hs_rate / 8000;
+ 	u16 data_hs2lp, data_lp2hs, clk_hs2lp, clk_lp2hs;
+ 	u16 max_rd_time;
+ 	int div;
+@@ -406,7 +471,7 @@ static void sprd_dsi_init(struct dsi_context *ctx)
+ 	dsi_reg_up(ctx, VIRTUAL_CHANNEL_ID, VIDEO_PKT_VCID, 0);
+ 	dsi_reg_up(ctx, VIRTUAL_CHANNEL_ID, GEN_RX_VCID, 0);
+ 
+-	div = DIV_ROUND_UP(byte_clk, dsi->slave->lp_rate);
++	div = DIV_ROUND_UP(byte_clk, dsi->slave->lp_rate / 1000);
+ 	writel(div, ctx->base + TX_ESC_CLK_CONFIG);
+ 
+ 	max_rd_time = ns_to_cycle(ctx->max_rd_time, byte_clk);
+@@ -448,7 +513,6 @@ static int sprd_dsi_dpi_video(struct dsi_context *ctx)
+ {
+ 	struct sprd_dsi *dsi = container_of(ctx, struct sprd_dsi, ctx);
+ 	struct videomode *vm = &ctx->vm;
+-	u32 byte_clk = dsi->slave->hs_rate / 8;
+ 	u16 bpp_x100;
+ 	u16 video_size;
+ 	u32 ratio_x1000;
+@@ -470,7 +534,7 @@ static int sprd_dsi_dpi_video(struct dsi_context *ctx)
+ 	video_size = round_video_size(coding, vm->hactive);
+ 	bpp_x100 = calc_bytes_per_pixel_x100(coding);
+ 	video_size_step = calc_video_size_step(coding);
+-	ratio_x1000 = byte_clk * 1000 / (vm->pixelclock / 1000);
++	ratio_x1000 = dsi->slave->hs_rate / 8 / (vm->pixelclock / 1000);
+ 	hline = vm->hactive + vm->hsync_len + vm->hfront_porch +
+ 		vm->hback_porch;
+ 
+@@ -490,9 +554,12 @@ static int sprd_dsi_dpi_video(struct dsi_context *ctx)
+ 	dsi_reg_wr(ctx, VIDEO_VBLK_LINES, VFP_LINES, 0, vm->vfront_porch);
+ 	dsi_reg_wr(ctx, VIDEO_VBLK_LINES, VBP_LINES, 10, vm->vback_porch);
+ 	dsi_reg_wr(ctx, VIDEO_VBLK_LINES, VSA_LINES, 20, vm->vsync_len);
++	writel(0x80, ctx->base + VBLK_CMD_TRANS_LIMIT);
+ 	dsi_reg_up(ctx, VID_MODE_CFG, LP_HBP_EN | LP_HFP_EN | LP_VACT_EN |
+ 			LP_VFP_EN | LP_VBP_EN | LP_VSA_EN, LP_HBP_EN | LP_HFP_EN |
+ 			LP_VACT_EN | LP_VFP_EN | LP_VBP_EN | LP_VSA_EN);
++	dsi_reg_up(ctx, VID_MODE_CFG, DPI_HSYNC_POL | DPI_VSYNC_POL |
++			DPI_COLOR_MODE_POL | DPI_SHUT_DOWN_POL, 0);
+ 
+ 	hs_to = (hline * vm->vactive) + (2 * bpp_x100) / 100;
+ 	for (div = 0x80; (div < hs_to) && (div > 2); div--) {
+@@ -679,27 +746,55 @@ static int sprd_dsi_rd_pkt(struct dsi_context *ctx, u8 vc, u8 type,
+ 	int i, ret;
+ 	int count = 0;
+ 	u32 temp;
++	u32 proto_int;
++	u32 internal_int;
++	u32 cmd_status;
+ 
+ 	if (vc > 3)
+ 		return -EINVAL;
+ 
++	dsi_clear_int_status(ctx);
++
+ 	/* 1st: send read command to peripheral */
+ 	ret = dsi_reg_rd(ctx, CMD_MODE_STATUS, GEN_CMD_CMD_FIFO_EMPTY, 5);
+ 	if (!ret)
+ 		return -EIO;
+ 
++	drm_info(dsi->drm,
++		 "rd_pkt[pre]  type=%02x lsb=%02x msb=%02x | PHY_STATUS=%08x CMD_MODE_STATUS=%08x PROTO_INT=%08x INT_INT=%08x\n",
++		 type, lsb_byte, msb_byte,
++		 readl(ctx->base + PHY_STATUS),
++		 readl(ctx->base + CMD_MODE_STATUS),
++		 readl(ctx->base + PROTOCOL_INT_STS),
++		 readl(ctx->base + INTERNAL_INT_STS));
++
+ 	writel(type | (vc << 6) | (lsb_byte << 8) | (msb_byte << 16),
+ 	       ctx->base + GEN_HDR);
+ 
+ 	/* 2nd: wait peripheral response completed */
+ 	ret = dsi_wait_rd_resp_completed(ctx);
+ 	if (ret) {
+-		drm_err(dsi->drm, "wait read response time out\n");
++		drm_err(dsi->drm,
++			"wait read response time out | PHY_STATUS=%08x CMD_MODE_STATUS=%08x PROTO_INT=%08x INT_INT=%08x\n",
++			readl(ctx->base + PHY_STATUS),
++			readl(ctx->base + CMD_MODE_STATUS),
++			readl(ctx->base + PROTOCOL_INT_STS),
++			readl(ctx->base + INTERNAL_INT_STS));
+ 		return ret;
+ 	}
+ 
++	cmd_status = readl(ctx->base + CMD_MODE_STATUS);
++	proto_int = readl(ctx->base + PROTOCOL_INT_STS);
++	internal_int = readl(ctx->base + INTERNAL_INT_STS);
++
++	drm_info(dsi->drm,
++		 "rd_pkt[post] PHY_STATUS=%08x CMD_MODE_STATUS=%08x PROTO_INT=%08x INT_INT=%08x\n",
++		 readl(ctx->base + PHY_STATUS),
++		 cmd_status, proto_int, internal_int);
++	dsi_log_int_status(dsi, "rd_pkt", proto_int, internal_int);
++
+ 	/* 3rd: get data from rx payload fifo */
+-	ret = dsi_reg_rd(ctx, CMD_MODE_STATUS, GEN_CMD_RDATA_FIFO_EMPTY, 1);
++	ret = !!(cmd_status & GEN_CMD_RDATA_FIFO_EMPTY);
+ 	if (ret) {
+ 		drm_err(dsi->drm, "rx payload fifo empty\n");
+ 		return -EIO;
+@@ -730,6 +825,23 @@ static void sprd_dsi_set_work_mode(struct dsi_context *ctx, u8 mode)
+ 	if (mode == DSI_MODE_CMD)
+ 		writel(1, ctx->base + DSI_MODE_CFG);
+ 	else
++		/*
++		 * Video mode: bit0=0 selects video, bit1=DSI_VIDEO_HALT_EN.
++		 * We write plain 0 (halt DISABLED), NOT DSI_VIDEO_HALT_EN.
++		 *
++		 * Live measurement on 2026-06-26 (see DISPLAY-KNOWN-GOOD-DSI-STATE.md)
++		 * settles the question the old comment got backwards: in the working
++		 * U-Boot-handoff state (panel visibly showing fbcon) DSI_MODE_CFG reads
++		 * 0x0 and the data lanes transmit HS (PHY_STATUS=0x1f02). In the broken
++		 * kernel-native state DSI_MODE_CFG read 0x2 (halt enabled) and the lanes
++		 * sat parked in stopstate (PHY_STATUS=0x1f32) -> black panel. Clearing
++		 * the bit live (devmemn 0x20400018 0) immediately dropped PHY_STATUS to
++		 * 0x1f02 and freed the lanes. The DPU-side halt is already disabled
++		 * (sprd_dpu.c "fix #5"), so arming only the DSI half left the lanes
++		 * waiting on a handshake the DPU never drives. Keep both halves off and
++		 * consistent. (Remaining wall after this is DPU scanout / DPU-RUN
++		 * ordering, not the DSI register.)
++		 */
+ 		writel(0, ctx->base + DSI_MODE_CFG);
+ }
+ 
+@@ -745,6 +857,25 @@ static int sprd_dphy_init(struct dsi_context *ctx)
+ 	struct sprd_dsi *dsi = container_of(ctx, struct sprd_dsi, ctx);
+ 	int ret;
+ 
++	/*
++	 * Wake the DPHY analog block before touching any controller-side PHY
++	 * registers. Vendor BSP sharkl5pro/global_dphy.c does this as two
++	 * separate ops via dedicated phandles; we fold both into pre_enable.
++	 * Clearing the power-shutdown bit must come with the 100us settle
++	 * delay vendor describes ("dphy has a random wakeup failed after
++	 * poweron").  Without this the digital PLL still locks but the
++	 * lanes can't drive, the DSI never asserts ready, and the
++	 * DPU<->DSI halt handshake stalls forever.
++	 */
++	if (ctx->phy_en_syscon)
++		regmap_update_bits(ctx->phy_en_syscon, ctx->phy_en_offset,
++				   ctx->phy_en_mask, ctx->phy_en_mask);
++	if (ctx->phy_pwr_syscon) {
++		regmap_update_bits(ctx->phy_pwr_syscon, ctx->phy_pwr_offset,
++				   ctx->phy_pwr_mask, 0);
++		udelay(100);
++	}
++
+ 	dsi_reg_up(ctx, PHY_INTERFACE_CTRL, RF_PHY_RESET_N, 0);
+ 	dsi_reg_up(ctx, PHY_INTERFACE_CTRL, RF_PHY_SHUTDOWN, 0);
+ 	dsi_reg_up(ctx, PHY_INTERFACE_CTRL, RF_PHY_CLK_EN, 0);
+@@ -778,25 +909,77 @@ static void sprd_dphy_fini(struct dsi_context *ctx)
+ 	dsi_reg_up(ctx, PHY_INTERFACE_CTRL, RF_PHY_RESET_N, RF_PHY_RESET_N);
+ }
+ 
+-static void sprd_dsi_encoder_mode_set(struct drm_encoder *encoder,
+-				      struct drm_display_mode *mode,
+-				 struct drm_display_mode *adj_mode)
++static const struct drm_encoder_funcs sprd_encoder_funcs = {
++	.destroy = drm_encoder_cleanup,
++};
++
++static int sprd_dsi_encoder_init(struct sprd_dsi *dsi,
++				 struct device *dev)
+ {
+-	struct sprd_dsi *dsi = encoder_to_dsi(encoder);
++	struct drm_encoder *encoder = &dsi->encoder;
++	u32 crtc_mask;
++	int ret;
++
++	crtc_mask = drm_of_find_possible_crtcs(dsi->drm, dev->of_node);
++	if (!crtc_mask) {
++		drm_err(dsi->drm, "failed to find crtc mask\n");
++		return -EINVAL;
++	}
++
++	drm_dbg(dsi->drm, "find possible crtcs: 0x%08x\n", crtc_mask);
++
++	encoder->possible_crtcs = crtc_mask;
++	ret = drm_encoder_init(dsi->drm, encoder, &sprd_encoder_funcs,
++			       DRM_MODE_ENCODER_DSI, NULL);
++	if (ret) {
++		drm_err(dsi->drm, "failed to init dsi encoder\n");
++		return ret;
++	}
++
++	return 0;
++}
++
++static int sprd_dsi_bridge_attach(struct drm_bridge *bridge,
++				  struct drm_encoder *encoder,
++				  enum drm_bridge_attach_flags flags)
++{
++	struct sprd_dsi *dsi = bridge_to_dsi(bridge);
++
++	return drm_bridge_attach(&dsi->encoder, dsi->panel_bridge,
++				 bridge, flags);
++}
++
++static void sprd_dsi_bridge_mode_set(struct drm_bridge *bridge,
++				     const struct drm_display_mode *mode,
++				     const struct drm_display_mode *adj_mode)
++{
++	struct sprd_dsi *dsi = bridge_to_dsi(bridge);
+ 
+ 	drm_display_mode_to_videomode(adj_mode, &dsi->ctx.vm);
+ }
+ 
+-static void sprd_dsi_encoder_enable(struct drm_encoder *encoder)
++static void sprd_dsi_reset(struct dsi_context *ctx)
+ {
+-	struct sprd_dsi *dsi = encoder_to_dsi(encoder);
+-	struct sprd_dpu *dpu = to_sprd_crtc(encoder->crtc);
++	if (!ctx->rst_syscon)
++		return;
++
++	regmap_update_bits(ctx->rst_syscon, ctx->rst_offset,
++			   ctx->rst_mask, ctx->rst_mask);
++	udelay(10);
++	regmap_update_bits(ctx->rst_syscon, ctx->rst_offset,
++			   ctx->rst_mask, 0);
++	udelay(10);
++}
++
++static void sprd_dsi_bridge_pre_enable(struct drm_bridge *bridge)
++{
++	struct sprd_dsi *dsi = bridge_to_dsi(bridge);
+ 	struct dsi_context *ctx = &dsi->ctx;
+ 
+-	if (ctx->enabled) {
+-		drm_warn(dsi->drm, "dsi is initialized\n");
+-		return;
+-	}
++	clk_prepare_enable(ctx->clk);
++
++	/* clear the bootloader's pinned state, then fully re-init below */
++	sprd_dsi_reset(ctx);
+ 
+ 	sprd_dsi_init(ctx);
+ 	if (ctx->work_mode == DSI_MODE_VIDEO)
+@@ -806,80 +989,101 @@ static void sprd_dsi_encoder_enable(struct drm_encoder *encoder)
+ 
+ 	sprd_dphy_init(ctx);
+ 
+-	sprd_dsi_set_work_mode(ctx, ctx->work_mode);
+-	sprd_dsi_state_reset(ctx);
+-
++	/*
++	 * Send the panel init sequence in LP, matching the vendor BSP
++	 * (mipi_dsi_lp_cmd_enable(true) before the init writes). The earlier
++	 * HS-init experiment left every command class in HS; with the DSI now
++	 * streaming clean burst video, the remaining failure is the panel not
++	 * latching init, so revert to the vendor-proven LP command transport.
++	 */
++	dsi_reg_up(ctx, CMD_MODE_CFG, CMD_MODE_LP_CMD_EN, CMD_MODE_LP_CMD_EN);
++
++	/*
++	 * Arm clock-lane auto-HS control BEFORE the panel's prepare runs (it now
++	 * runs after this, via prepare_prev_first). Without the clock lane able
++	 * to engage, the command FIFO never drains and the very first panel init
++	 * write times out ("tx cmd fifo is not empty", -ETIMEDOUT). This used to
++	 * be set only in bridge_enable (after prepare), which is why cold-init
++	 * panel writes failed while the warm rebind path (clock lane already up
++	 * from a prior enable) succeeded. Our panel is MIPI_DSI_CLOCK_NON_-
++	 * CONTINUOUS, so use the auto-clklane path; bridge_enable re-applies the
++	 * matching setting.
++	 */
+ 	if (dsi->slave->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS) {
+ 		dsi_reg_up(ctx, PHY_CLK_LANE_LP_CTRL, AUTO_CLKLANE_CTRL_EN,
+ 			   AUTO_CLKLANE_CTRL_EN);
+ 	} else {
+-		dsi_reg_up(ctx, PHY_CLK_LANE_LP_CTRL, RF_PHY_CLK_EN, RF_PHY_CLK_EN);
+ 		dsi_reg_up(ctx, PHY_CLK_LANE_LP_CTRL, PHY_CLKLANE_TX_REQ_HS,
+ 			   PHY_CLKLANE_TX_REQ_HS);
+ 		dphy_wait_pll_locked(ctx);
+ 	}
+ 
+-	sprd_dpu_run(dpu);
+-
+-	ctx->enabled = true;
++	/*
++	 * Initialize in command mode to allow panels to prepare by sending
++	 * DSI commands before the DPU is started.
++	 */
++	sprd_dsi_set_work_mode(ctx, DSI_MODE_CMD);
+ }
+ 
+-static void sprd_dsi_encoder_disable(struct drm_encoder *encoder)
++static void sprd_dsi_bridge_enable(struct drm_bridge *bridge)
+ {
+-	struct sprd_dsi *dsi = encoder_to_dsi(encoder);
+-	struct sprd_dpu *dpu = to_sprd_crtc(encoder->crtc);
++	struct sprd_dsi *dsi = bridge_to_dsi(bridge);
+ 	struct dsi_context *ctx = &dsi->ctx;
+ 
+-	if (!ctx->enabled) {
+-		drm_warn(dsi->drm, "dsi isn't initialized\n");
+-		return;
+-	}
++	sprd_dsi_set_work_mode(ctx, ctx->work_mode);
+ 
+-	sprd_dpu_stop(dpu);
+-	sprd_dphy_fini(ctx);
+-	sprd_dsi_fini(ctx);
++	/*
++	 * Vendor BSP power-cycles the controller (SOFT_RESET 0->1) right after
++	 * switching from cmd mode to video mode. This is what actually arms
++	 * the video pixel FSM: without it the controller stays in the cmd-mode
++	 * state where it accepts panel init writes but never streams DPI video
++	 * packets out to the panel. The DPU and DPHY both look fine, but no
++	 * pixels reach the panel.
++	 */
++	sprd_dsi_state_reset(ctx);
+ 
+-	ctx->enabled = false;
++	if (dsi->slave->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS) {
++		dsi_reg_up(ctx, PHY_CLK_LANE_LP_CTRL, AUTO_CLKLANE_CTRL_EN,
++			   AUTO_CLKLANE_CTRL_EN);
++	} else {
++		dsi_reg_up(ctx, PHY_CLK_LANE_LP_CTRL, AUTO_CLKLANE_CTRL_EN, 0);
++		dsi_reg_up(ctx, PHY_CLK_LANE_LP_CTRL, PHY_CLKLANE_TX_REQ_HS,
++			   PHY_CLKLANE_TX_REQ_HS);
++		dphy_wait_pll_locked(ctx);
++	}
+ }
+ 
+-static const struct drm_encoder_helper_funcs sprd_encoder_helper_funcs = {
+-	.mode_set	= sprd_dsi_encoder_mode_set,
+-	.enable		= sprd_dsi_encoder_enable,
+-	.disable	= sprd_dsi_encoder_disable
+-};
+-
+-static const struct drm_encoder_funcs sprd_encoder_funcs = {
+-	.destroy = drm_encoder_cleanup,
+-};
+-
+-static int sprd_dsi_encoder_init(struct sprd_dsi *dsi,
+-				 struct device *dev)
++static void sprd_dsi_bridge_disable(struct drm_bridge *bridge)
+ {
+-	struct drm_encoder *encoder = &dsi->encoder;
+-	u32 crtc_mask;
+-	int ret;
++	struct sprd_dsi *dsi = bridge_to_dsi(bridge);
++	struct dsi_context *ctx = &dsi->ctx;
+ 
+-	crtc_mask = drm_of_find_possible_crtcs(dsi->drm, dev->of_node);
+-	if (!crtc_mask) {
+-		drm_err(dsi->drm, "failed to find crtc mask\n");
+-		return -EINVAL;
+-	}
++	sprd_dpu_stop(to_sprd_crtc(dsi->encoder.crtc));
+ 
+-	drm_dbg(dsi->drm, "find possible crtcs: 0x%08x\n", crtc_mask);
++	/* Switch to command mode to allow panels to unprepare */
++	sprd_dsi_set_work_mode(ctx, DSI_MODE_CMD);
++}
+ 
+-	encoder->possible_crtcs = crtc_mask;
+-	ret = drm_encoder_init(dsi->drm, encoder, &sprd_encoder_funcs,
+-			       DRM_MODE_ENCODER_DSI, NULL);
+-	if (ret) {
+-		drm_err(dsi->drm, "failed to init dsi encoder\n");
+-		return ret;
+-	}
++static void sprd_dsi_bridge_post_disable(struct drm_bridge *bridge)
++{
++	struct sprd_dsi *dsi = bridge_to_dsi(bridge);
++	struct dsi_context *ctx = &dsi->ctx;
+ 
+-	drm_encoder_helper_add(encoder, &sprd_encoder_helper_funcs);
++	sprd_dphy_fini(ctx);
++	sprd_dsi_fini(ctx);
+ 
+-	return 0;
++	clk_disable_unprepare(ctx->clk);
+ }
+ 
++static const struct drm_bridge_funcs sprd_dsi_bridge_funcs = {
++	.attach		= sprd_dsi_bridge_attach,
++	.mode_set	= sprd_dsi_bridge_mode_set,
++	.pre_enable	= sprd_dsi_bridge_pre_enable,
++	.enable		= sprd_dsi_bridge_enable,
++	.disable	= sprd_dsi_bridge_disable,
++	.post_disable	= sprd_dsi_bridge_post_disable,
++};
++
+ static int sprd_dsi_bridge_init(struct sprd_dsi *dsi,
+ 				struct device *dev)
+ {
+@@ -889,11 +1093,34 @@ static int sprd_dsi_bridge_init(struct sprd_dsi *dsi,
+ 	if (IS_ERR(dsi->panel_bridge))
+ 		return PTR_ERR(dsi->panel_bridge);
+ 
+-	ret = drm_bridge_attach(&dsi->encoder, dsi->panel_bridge, NULL, 0);
++	dsi->bridge.of_node = dev->of_node;
++	dsi->bridge.type = DRM_MODE_CONNECTOR_DSI;
++
++	drm_bridge_add(&dsi->bridge);
++
++	ret = drm_bridge_attach(&dsi->encoder, &dsi->bridge, NULL,
++				DRM_BRIDGE_ATTACH_NO_CONNECTOR);
+ 	if (ret)
+-		return ret;
++		goto err_cleanup;
++
++	dsi->connector = drm_bridge_connector_init(dsi->drm, &dsi->encoder);
++	if (IS_ERR(dsi->connector)) {
++		drm_err(dsi->drm, "Unable to create bridge connector\n");
++		ret = PTR_ERR(dsi->connector);
++		goto err_cleanup;
++	}
++
++	ret = drm_connector_attach_encoder(dsi->connector, &dsi->encoder);
++	if (ret < 0)
++		goto err_cleanup;
+ 
+ 	return 0;
++
++err_cleanup:
++	drm_bridge_remove(&dsi->bridge);
++	drm_of_panel_bridge_remove(dev->of_node, 1, 0);
++
++	return ret;
+ }
+ 
+ static int sprd_dsi_context_init(struct sprd_dsi *dsi,
+@@ -914,14 +1141,56 @@ static int sprd_dsi_context_init(struct sprd_dsi *dsi,
+ 		return PTR_ERR(ctx->regmap);
+ 	}
+ 
++	/* optional soft reset: reset-syscon = <&ap_ahb_regs offset mask> */
++	{
++		u32 args[2];
++
++		ctx->rst_syscon = syscon_regmap_lookup_by_phandle_args(dev->of_node,
++								       "reset-syscon",
++								       2, args);
++		if (IS_ERR(ctx->rst_syscon)) {
++			ctx->rst_syscon = NULL;
++		} else {
++			ctx->rst_offset = args[0];
++			ctx->rst_mask = args[1];
++		}
++	}
++
++	/*
++	 * DPHY analog block glue. See sprd_dphy_init for what these do.
++	 * Both are optional; absent on SoC variants that don't need them.
++	 */
++	{
++		u32 args[2];
++
++		ctx->phy_en_syscon = syscon_regmap_lookup_by_phandle_args(dev->of_node,
++									  "sprd,phy-en-syscon",
++									  2, args);
++		if (IS_ERR(ctx->phy_en_syscon)) {
++			ctx->phy_en_syscon = NULL;
++		} else {
++			ctx->phy_en_offset = args[0];
++			ctx->phy_en_mask = args[1];
++		}
++
++		ctx->phy_pwr_syscon = syscon_regmap_lookup_by_phandle_args(dev->of_node,
++									   "sprd,phy-pwr-syscon",
++									   2, args);
++		if (IS_ERR(ctx->phy_pwr_syscon)) {
++			ctx->phy_pwr_syscon = NULL;
++		} else {
++			ctx->phy_pwr_offset = args[0];
++			ctx->phy_pwr_mask = args[1];
++		}
++	}
++
+ 	ctx->data_hs2lp = 120;
+ 	ctx->data_lp2hs = 500;
+ 	ctx->clk_hs2lp = 4;
+ 	ctx->clk_lp2hs = 15;
+-	ctx->max_rd_time = 6000;
++	ctx->max_rd_time = 0x8000;
+ 	ctx->int0_mask = 0xffffffff;
+ 	ctx->int1_mask = 0xffffffff;
+-	ctx->enabled = true;
+ 
+ 	return 0;
+ }
+@@ -940,13 +1209,21 @@ static int sprd_dsi_bind(struct device *dev, struct device *master, void *data)
+ 
+ 	ret = sprd_dsi_bridge_init(dsi, dev);
+ 	if (ret)
+-		return ret;
++		goto err_cleanup_encoder;
+ 
+ 	ret = sprd_dsi_context_init(dsi, dev);
+ 	if (ret)
+-		return ret;
++		goto err_cleanup_bridge;
+ 
+ 	return 0;
++
++err_cleanup_encoder:
++	drm_encoder_cleanup(&dsi->encoder);
++err_cleanup_bridge:
++	drm_bridge_remove(&dsi->bridge);
++	drm_of_panel_bridge_remove(dev->of_node, 1, 0);
++
++	return ret;
+ }
+ 
+ static void sprd_dsi_unbind(struct device *dev,
+@@ -954,6 +1231,7 @@ static void sprd_dsi_unbind(struct device *dev,
+ {
+ 	struct sprd_dsi *dsi = dev_get_drvdata(dev);
+ 
++	drm_bridge_remove(&dsi->bridge);
+ 	drm_of_panel_bridge_remove(dev->of_node, 1, 0);
+ 
+ 	drm_encoder_cleanup(&dsi->encoder);
+@@ -1022,8 +1300,23 @@ static const struct mipi_dsi_host_ops sprd_dsi_host_ops = {
+ 	.transfer = sprd_dsi_host_transfer,
+ };
+ 
++static const struct dphy_pll_platform dphy_pll_sharkl3 = {
++	.band_low = 750,
++	.band_mid = 1100,
++	.band_high = 1500,
++	.ref_clk = 26,
++};
++
++static const struct dphy_pll_platform dphy_pll_ums9230 = {
++	.band_low = 1250,
++	.band_mid = 1800,
++	.band_high = 2500,
++	.ref_clk = 26,
++};
++
+ static const struct of_device_id dsi_match_table[] = {
+-	{ .compatible = "sprd,sharkl3-dsi-host" },
++	{ .compatible = "sprd,sharkl3-dsi-host", .data = &dphy_pll_sharkl3 },
++	{ .compatible = "sprd,ums9230-dsi-host", .data = &dphy_pll_ums9230 },
+ 	{ /* sentinel */ },
+ };
+ 
+@@ -1032,15 +1325,25 @@ static int sprd_dsi_probe(struct platform_device *pdev)
+ 	struct device *dev = &pdev->dev;
+ 	struct sprd_dsi *dsi;
+ 
+-	dsi = devm_kzalloc(dev, sizeof(*dsi), GFP_KERNEL);
+-	if (!dsi)
+-		return -ENOMEM;
++	dsi = devm_drm_bridge_alloc(dev, struct sprd_dsi, bridge,
++				    &sprd_dsi_bridge_funcs);
++	if (IS_ERR(dsi))
++		return PTR_ERR(dsi);
+ 
+ 	dev_set_drvdata(dev, dsi);
+ 
+ 	dsi->host.ops = &sprd_dsi_host_ops;
+ 	dsi->host.dev = dev;
+ 
++	dsi->ctx.pll.platform = of_device_get_match_data(dev);
++	if (!dsi->ctx.pll.platform)
++		return -EINVAL;
++
++	dsi->ctx.clk = devm_clk_get_optional(dev, "pclk");
++	if (IS_ERR(dsi->ctx.clk))
++		return dev_err_probe(dev, PTR_ERR(dsi->ctx.clk),
++				     "failed to get pclk\n");
++
+ 	return mipi_dsi_host_register(&dsi->host);
+ }
+ 
+diff --git a/drivers/gpu/drm/sprd/sprd_dsi.h b/drivers/gpu/drm/sprd/sprd_dsi.h
+index d858ebb111150546e99403a87bc7cea42cad0158..11137ee7fafdd08d156eeb3294527e44750fe7ce 100644
+--- a/drivers/gpu/drm/sprd/sprd_dsi.h
++++ b/drivers/gpu/drm/sprd/sprd_dsi.h
+@@ -6,8 +6,9 @@
+ #ifndef __SPRD_DSI_H__
+ #define __SPRD_DSI_H__
+ 
+-#include <linux/of.h>
++#include <linux/clk.h>
+ #include <linux/device.h>
++#include <linux/of.h>
+ #include <linux/regmap.h>
+ #include <video/videomode.h>
+ 
+@@ -18,8 +19,8 @@
+ #include <drm/drm_print.h>
+ #include <drm/drm_panel.h>
+ 
+-#define encoder_to_dsi(encoder) \
+-	container_of(encoder, struct sprd_dsi, encoder)
++#define bridge_to_dsi(x)	container_of(x, struct sprd_dsi, bridge)
++#define encoder_to_dsi(x)	container_of(x, struct sprd_dsi, encoder)
+ 
+ enum dsi_work_mode {
+ 	DSI_MODE_CMD = 0,
+@@ -64,6 +65,13 @@ enum pll_timing {
+ 	TA_WAIT,
+ };
+ 
++struct dphy_pll_platform {
++	u32 band_low;
++	u32 band_mid;
++	u32 band_high;
++	u32 ref_clk; /* dphy reference clock, unit: MHz */
++};
++
+ struct dphy_pll {
+ 	u8 refin; /* Pre-divider control signal */
+ 	u8 cp_s; /* 00: SDM_EN=1, 10: SDM_EN=0 */
+@@ -71,7 +79,6 @@ struct dphy_pll {
+ 	u8 sdm_en;
+ 	u8 div;
+ 	u8 int_n; /* integer N PLL */
+-	u32 ref_clk; /* dphy reference clock, unit: MHz */
+ 	u32 freq; /* panel config, unit: KHz */
+ 	u32 fvco;
+ 	u32 potential_fvco;
+@@ -81,14 +88,34 @@ struct dphy_pll {
+ 	u8 out_sel; /* post divider control */
+ 	u8 vco_band; /* vco range */
+ 	u8 det_delay;
++	const struct dphy_pll_platform *platform;
+ };
+ 
+ struct dsi_context {
+ 	void __iomem *base;
+ 	struct regmap *regmap;
++	struct regmap *rst_syscon;
++	u32 rst_offset;
++	u32 rst_mask;
++	/*
++	 * DPHY analog block glue. Vendor BSP global_dphy.c plumbing:
++	 * - phy_en_syscon  : enable bits in AP-AHB syscon (set to enable)
++	 * - phy_pwr_syscon : analog shutdown bit in AP-APB syscon
++	 *                   (clear to power up, set to power down)
++	 * Without these the controller-side PHY interface comes up and
++	 * PHY_STATUS reports digital PLL lock, but the lanes can't
++	 * electrically transmit, the DSI never asserts ready, and the
++	 * DPU<->DSI halt handshake stalls.
++	 */
++	struct regmap *phy_en_syscon;
++	u32 phy_en_offset;
++	u32 phy_en_mask;
++	struct regmap *phy_pwr_syscon;
++	u32 phy_pwr_offset;
++	u32 phy_pwr_mask;
++	struct clk *clk;
+ 	struct dphy_pll pll;
+ 	struct videomode vm;
+-	bool enabled;
+ 
+ 	u8 work_mode;
+ 	u8 burst_mode;
+@@ -116,7 +143,9 @@ struct sprd_dsi {
+ 	struct mipi_dsi_host host;
+ 	struct mipi_dsi_device *slave;
+ 	struct drm_encoder encoder;
++	struct drm_bridge bridge;
+ 	struct drm_bridge *panel_bridge;
++	struct drm_connector *connector;
+ 	struct dsi_context ctx;
+ };
+ 
+diff --git a/drivers/gpu/drm/sprd/sprd_gem.c b/drivers/gpu/drm/sprd/sprd_gem.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..1d24efe6291d534a9416b40d6f6f6eacbe7dd616
+--- /dev/null
++++ b/drivers/gpu/drm/sprd/sprd_gem.c
+@@ -0,0 +1,343 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (C) 2019 Unisoc Inc.
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#include <linux/dma-mapping.h>
++#include <linux/iommu.h>
++#include <linux/vmalloc.h>
++
++#include <drm/drm_gem_dma_helper.h>
++
++#include "sprd_drm.h"
++#include "sprd_gem.h"
++
++static int sprd_gem_get_pages(struct sprd_gem_obj *sprd_gem)
++{
++	struct drm_gem_object *obj = &sprd_gem->base;
++	struct scatterlist *s;
++	int i, ret;
++
++	sprd_gem->pages = drm_gem_get_pages(obj);
++	if (IS_ERR(sprd_gem->pages))
++		return PTR_ERR(sprd_gem->pages);
++
++	sprd_gem->sgt = drm_prime_pages_to_sg(obj->dev, sprd_gem->pages,
++					      obj->size >> PAGE_SHIFT);
++	if (IS_ERR(sprd_gem->sgt)) {
++		ret = PTR_ERR(sprd_gem->sgt);
++		goto err_put_pages;
++	}
++
++	/*
++	 * From drivers/gpu/drm/rockchip/rockchip_drm_gem.c:
++	 *
++	 * Fake up the SG table so that dma_sync_sg_for_device() can be used
++	 * to flush the pages associated with it.
++	 *
++	 * TODO: Replace this by drm_clflush_sg() once it can be implemented
++	 * without relying on symbols that are not exported.
++	 */
++	for_each_sgtable_sg(sprd_gem->sgt, s, i)
++		sg_dma_address(s) = sg_phys(s);
++
++	dma_sync_sgtable_for_device(obj->dev->dev, sprd_gem->sgt, DMA_TO_DEVICE);
++
++	return 0;
++
++err_put_pages:
++	drm_gem_put_pages(obj, sprd_gem->pages, false, false);
++	return ret;
++}
++
++static void sprd_gem_put_pages(struct sprd_gem_obj *sprd_gem)
++{
++	sg_free_table(sprd_gem->sgt);
++	kfree(sprd_gem->sgt);
++	drm_gem_put_pages(&sprd_gem->base, sprd_gem->pages, true, true);
++}
++
++static int sprd_gem_iommu_map(struct sprd_gem_obj *sprd_gem)
++{
++	struct drm_gem_object *obj = &sprd_gem->base;
++	struct sprd_drm *sprd = to_sprd_drm(obj->dev);
++	ssize_t ret;
++
++	mutex_lock(&sprd->mm_lock);
++	ret = drm_mm_insert_node_generic(&sprd->mm, &sprd_gem->mm,
++					 obj->size, PAGE_SIZE, 0, 0);
++	mutex_unlock(&sprd->mm_lock);
++
++	if (ret) {
++		drm_err(obj->dev, "out of I/O virtual memory\n");
++		return ret;
++	}
++
++	sprd_gem->dma_addr = sprd_gem->mm.start;
++
++	ret = iommu_map_sgtable(sprd->iommu_domain, sprd_gem->dma_addr,
++				sprd_gem->sgt, IOMMU_READ | IOMMU_WRITE);
++	if (ret < (ssize_t)obj->size) {
++		drm_err(obj->dev,
++			"failed to map buffer: requested=%zd, ret=%zd\n",
++			obj->size, ret);
++		ret = -ENOMEM;
++		goto err_remove_node;
++	}
++
++	sprd_gem->map_size = ret;
++
++	return 0;
++
++err_remove_node:
++	mutex_lock(&sprd->mm_lock);
++	drm_mm_remove_node(&sprd_gem->mm);
++	mutex_unlock(&sprd->mm_lock);
++	return ret;
++}
++
++static void sprd_gem_iommu_unmap(struct sprd_gem_obj *sprd_gem)
++{
++	struct drm_gem_object *obj = &sprd_gem->base;
++	struct sprd_drm *sprd = to_sprd_drm(obj->dev);
++
++	iommu_unmap(sprd->iommu_domain, sprd_gem->dma_addr, sprd_gem->map_size);
++
++	mutex_lock(&sprd->mm_lock);
++	drm_mm_remove_node(&sprd_gem->mm);
++	mutex_unlock(&sprd->mm_lock);
++}
++
++static void sprd_gem_free_object(struct drm_gem_object *obj)
++{
++	struct sprd_drm *sprd = to_sprd_drm(obj->dev);
++	struct sprd_gem_obj *sprd_gem = to_sprd_gem_obj(obj);
++
++	if (obj->import_attach) {
++		if (sprd->iommu_domain)
++			sprd_gem_iommu_unmap(sprd_gem);
++		drm_prime_gem_destroy(obj, sprd_gem->sgt);
++	} else {
++		if (sprd->iommu_domain) {
++			sprd_gem_iommu_unmap(sprd_gem);
++			sprd_gem_put_pages(sprd_gem);
++		} else {
++			dma_free_wc(obj->dev->dev, obj->size,
++				    sprd_gem->vaddr, sprd_gem->dma_addr);
++		}
++	}
++
++	drm_gem_object_release(obj);
++
++	kfree(sprd_gem);
++}
++
++static struct sg_table *sprd_gem_object_get_sg_table(struct drm_gem_object *obj)
++{
++	struct sprd_gem_obj *sprd_gem = to_sprd_gem_obj(obj);
++	struct sg_table *sgt;
++	int ret;
++
++	if (sprd_gem->pages)
++		return drm_prime_pages_to_sg(obj->dev, sprd_gem->pages,
++					     obj->size >> PAGE_SHIFT);
++
++	sgt = kzalloc(sizeof(*sgt), GFP_KERNEL);
++	if (!sgt)
++		return ERR_PTR(-ENOMEM);
++
++	ret = dma_get_sgtable(obj->dev->dev, sgt, sprd_gem->vaddr,
++			      sprd_gem->dma_addr, obj->size);
++	if (ret < 0) {
++		kfree(sgt);
++		return ERR_PTR(ret);
++	}
++
++	return sgt;
++}
++
++static int sprd_gem_object_vmap(struct drm_gem_object *obj,
++				struct iosys_map *map)
++{
++	struct sprd_gem_obj *sprd_gem = to_sprd_gem_obj(obj);
++	void *vaddr;
++
++	if (!sprd_gem->pages) {
++		iosys_map_set_vaddr(map, sprd_gem->vaddr);
++		return 0;
++	}
++
++	vaddr = vmap(sprd_gem->pages, sprd_gem->base.size >> PAGE_SHIFT,
++		     VM_MAP, pgprot_writecombine(PAGE_KERNEL));
++	if (!vaddr)
++		return -ENOMEM;
++
++	iosys_map_set_vaddr(map, vaddr);
++
++	return 0;
++}
++
++static void sprd_gem_object_vunmap(struct drm_gem_object *obj,
++				   struct iosys_map *map)
++{
++	struct sprd_gem_obj *sprd_gem = to_sprd_gem_obj(obj);
++
++	if (sprd_gem->pages)
++		vunmap(map->vaddr);
++}
++
++static int sprd_gem_object_mmap(struct drm_gem_object *obj,
++				struct vm_area_struct *vma)
++{
++	struct sprd_gem_obj *sprd_gem = to_sprd_gem_obj(obj);
++	int ret;
++
++	/*
++	 * Clear the VM_PFNMAP flag that was set by drm_gem_mmap(), and set the
++	 * vm_pgoff (used as a fake buffer offset by DRM) to 0 as we want to map
++	 * the whole buffer.
++	 */
++	vm_flags_mod(vma, VM_DONTEXPAND, VM_PFNMAP);
++	vma->vm_pgoff = 0;
++
++	vma->vm_page_prot = pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
++
++	if (sprd_gem->pages)
++		ret = vm_map_pages(vma, sprd_gem->pages,
++				   obj->size >> PAGE_SHIFT);
++	else
++		ret = dma_mmap_wc(obj->dev->dev, vma, sprd_gem->vaddr,
++				  sprd_gem->dma_addr, obj->size);
++
++	if (ret)
++		drm_gem_vm_close(vma);
++
++	return ret;
++}
++
++static const struct drm_gem_object_funcs sprd_gem_object_funcs = {
++	.free = sprd_gem_free_object,
++	.get_sg_table = sprd_gem_object_get_sg_table,
++	.vmap = sprd_gem_object_vmap,
++	.vunmap = sprd_gem_object_vunmap,
++	.mmap = sprd_gem_object_mmap,
++	.vm_ops = &drm_gem_dma_vm_ops,
++};
++
++static struct sprd_gem_obj *sprd_gem_obj_create(struct drm_device *drm,
++						unsigned long size)
++{
++	struct sprd_gem_obj *sprd_gem;
++	int ret;
++
++	sprd_gem = kzalloc(sizeof(*sprd_gem), GFP_KERNEL);
++	if (!sprd_gem)
++		return ERR_PTR(-ENOMEM);
++
++	sprd_gem->base.funcs = &sprd_gem_object_funcs;
++
++	ret = drm_gem_object_init(drm, &sprd_gem->base, size);
++	if (ret < 0) {
++		drm_err(drm, "failed to initialize gem object\n");
++		goto err_free;
++	}
++
++	return sprd_gem;
++
++err_free:
++	kfree(sprd_gem);
++	return ERR_PTR(ret);
++}
++
++int sprd_gem_dumb_create(struct drm_file *file_priv, struct drm_device *drm,
++			 struct drm_mode_create_dumb *args)
++{
++	struct sprd_drm *sprd = to_sprd_drm(drm);
++	struct sprd_gem_obj *sprd_gem;
++	int ret;
++
++	args->pitch = DIV_ROUND_UP(args->width * args->bpp, 8);
++	args->size = round_up(args->pitch * args->height, PAGE_SIZE);
++
++	sprd_gem = sprd_gem_obj_create(drm, args->size);
++	if (IS_ERR(sprd_gem))
++		return PTR_ERR(sprd_gem);
++
++	if (sprd->iommu_domain) {
++		ret = sprd_gem_get_pages(sprd_gem);
++		if (ret < 0)
++			goto err_free_object;
++
++		ret = sprd_gem_iommu_map(sprd_gem);
++		if (ret < 0) {
++			sprd_gem_put_pages(sprd_gem);
++			goto err_free_object;
++		}
++	} else {
++		sprd_gem->vaddr = dma_alloc_wc(drm->dev, args->size,
++					       &sprd_gem->dma_addr,
++					       GFP_KERNEL);
++		if (!sprd_gem->vaddr) {
++			drm_err(drm, "failed to allocate buffer of size %llu\n",
++				args->size);
++			ret = -ENOMEM;
++			goto err_free_object;
++		}
++	}
++
++	ret = drm_gem_handle_create(file_priv, &sprd_gem->base, &args->handle);
++	if (ret)
++		goto err_free_buf;
++
++	/* The handle holds its own reference, so we can drop ours now. */
++	drm_gem_object_put(&sprd_gem->base);
++
++	return 0;
++
++err_free_buf:
++	if (sprd->iommu_domain) {
++		sprd_gem_iommu_unmap(sprd_gem);
++		sprd_gem_put_pages(sprd_gem);
++	} else {
++		dma_free_wc(drm->dev, args->size, sprd_gem->vaddr,
++			    sprd_gem->dma_addr);
++	}
++err_free_object:
++	drm_gem_object_release(&sprd_gem->base);
++	kfree(sprd_gem);
++	return ret;
++}
++
++struct drm_gem_object *
++sprd_gem_prime_import_sg_table(struct drm_device *drm,
++			       struct dma_buf_attachment *attach,
++			       struct sg_table *sgt)
++{
++	struct sprd_drm *sprd = to_sprd_drm(drm);
++	struct sprd_gem_obj *sprd_gem;
++	int ret;
++
++	sprd_gem = sprd_gem_obj_create(drm, attach->dmabuf->size);
++	if (IS_ERR(sprd_gem))
++		return ERR_CAST(sprd_gem);
++
++	sprd_gem->sgt = sgt;
++
++	if (sprd->iommu_domain) {
++		ret = sprd_gem_iommu_map(sprd_gem);
++		if (ret < 0) {
++			drm_err(drm, "failed to import with IOMMU: %d\n", ret);
++			goto err_free_object;
++		}
++	} else {
++		sprd_gem->dma_addr = sg_dma_address(sgt->sgl);
++	}
++
++	return &sprd_gem->base;
++
++err_free_object:
++	drm_gem_object_release(&sprd_gem->base);
++	kfree(sprd_gem);
++	return ERR_PTR(ret);
++}
+diff --git a/drivers/gpu/drm/sprd/sprd_gem.h b/drivers/gpu/drm/sprd/sprd_gem.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..9531f37836c9f032aad28e4c8232651055f3b98c
+--- /dev/null
++++ b/drivers/gpu/drm/sprd/sprd_gem.h
+@@ -0,0 +1,34 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * Copyright (C) 2019 Unisoc Inc.
++ */
++
++#ifndef _SPRD_GEM_H_
++#define _SPRD_GEM_H_
++
++#include <drm/drm_gem.h>
++
++struct sprd_gem_obj {
++	struct drm_gem_object	base;
++	dma_addr_t		dma_addr;
++	struct sg_table		*sgt;
++	void			*vaddr;
++
++	/* Used when IOMMU is enabled */
++	struct drm_mm_node	mm;
++	struct page		**pages;
++	size_t			map_size;
++};
++
++#define to_sprd_gem_obj(x)	container_of(x, struct sprd_gem_obj, base)
++
++int sprd_gem_dumb_create(struct drm_file *file_priv,
++			 struct drm_device *dev,
++			 struct drm_mode_create_dumb *args);
++
++struct drm_gem_object *
++sprd_gem_prime_import_sg_table(struct drm_device *dev,
++			       struct dma_buf_attachment *attach,
++			       struct sg_table *sgtb);
++
++#endif

@@ -71,7 +71,7 @@ on:
       T618:
         description: 'T618'
         required: false
-        default: false
+        default: true
         type: boolean
       SDM845:
         description: 'SDM845'

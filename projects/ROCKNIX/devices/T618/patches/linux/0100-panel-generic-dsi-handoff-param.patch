@@ -1,0 +1,24 @@
+From: RG405M bring-up <rg405m@localhost>
+Subject: [PATCH] drm/panel: generic-dsi: expose bootloader handoff as module parameter
+
+---
+--- a/drivers/gpu/drm/panel/panel-generic-dsi.c
++++ b/drivers/gpu/drm/panel/panel-generic-dsi.c
+@@ -424,6 +424,8 @@
+  * restore the known-good U-Boot-handoff display.
+  */
+ static bool handoff_skip_first_cycle = false;
++module_param_named(handoff, handoff_skip_first_cycle, bool, 0444);
++MODULE_PARM_DESC(handoff, "Keep the panel state left by the bootloader (skip first prepare/unprepare)");
+ 
+ static int generic_panel_unprepare(struct drm_panel *panel)
+ {
+@@ -787,7 +789,7 @@
+      * enable, init cmds, video mode, hs clk). Only meaningful with
+      * handoff_skip_first_cycle = false.
+      */
+-    ctx->panel.prepare_prev_first = true;
++    ctx->panel.prepare_prev_first = !handoff_skip_first_cycle;
+ 
+     ret = drm_panel_of_backlight(&ctx->panel);
+     if (ret)

@@ -1,0 +1,5704 @@
+Subject: [PATCH] sprd: dvfs-i2c support for UMS512
+
+Consolidated from beebono/linux-mainline-sprd rg-rotate 464b3e7bf45bb300e190339977abba36c8078e1f, rebased onto Linux 7.1.2.
+Original authors and patch hashes are recorded in series-origin.json.
+
+diff --git a/drivers/cpufreq/Kconfig.arm b/drivers/cpufreq/Kconfig.arm
+index 47c9b031f1b3b83831390711fe449d5f9cc5281e..8966ea984470bba2d5f113b8b19aef554a9822eb 100644
+--- a/drivers/cpufreq/Kconfig.arm
++++ b/drivers/cpufreq/Kconfig.arm
+@@ -212,6 +212,51 @@ config ARM_SPEAR_CPUFREQ
+ 	help
+ 	  This adds the CPUFreq driver support for SPEAr SOCs.
+ 
++config ARM_SPRD_CPUFREQ_V2
++	bool "Spreadtrum/Unisoc CPUFreq v2 support"
++	depends on ARCH_SPRD || COMPILE_TEST
++	default y
++	help
++	  This adds the CPUFreq driver support for Spreadtrum/Unisoc SoCs.
++
++config ARM_SPRD_HW_CPUFREQ_NORMAL
++	bool "Sprd apcpu hardware dvfs driver for sharkl5 family SOCs"
++	depends on ARCH_SPRD || COMPILE_TEST
++	select PM_OPP
++	default y if ARCH_SPRD
++	help
++	  This driver enable hardware to adjust the voltage and frequency
++	  automatically for DSU cluster and cores in sharkl5 and the platforms
++	  whose apcpu hardware DVFS IP is similar to sharkl5.
++
++	  If in doubt, say N.
++
++config ARM_SPRD_HW_CPUFREQ_ARCH_UMS512
++	bool "SPRD UMS512 HW DVFS Driver"
++	depends on ARM_SPRD_HW_CPUFREQ_NORMAL
++	default y if ARCH_SPRD
++	help
++	  This includes SPRD UMS512 HW DVFS Architecture-dependent Driver
++
++	  If in doubt, say N.
++
++config ARM_SPRD_CPUFREQ_PUBLIC
++	bool "SPRD CPUfreq Driver Public Data"
++	default y if ARCH_SPRD
++	help
++	  This includes all SPRD cpufreq driver public data, including but
++	  not limted to the EXPORT SYMBOL with the same name.
++
++	  If in doubt, say N.
++
++config ARM_SPRD_TOP_DVFS
++	bool "Spreadtrum/Unisoc TOP DVFS subsystem-DCDC driver"
++	depends on ARCH_SPRD || COMPILE_TEST
++	default y if ARCH_SPRD
++	help
++	  This drives the TOP DVFS controller's subsystem/device DCDC voltage
++	  management (non-CPU rails) on sharkl5pro-family SoCs.
++
+ config ARM_STI_CPUFREQ
+ 	tristate "STi CPUFreq support"
+ 	depends on CPUFREQ_DT
+diff --git a/drivers/cpufreq/Makefile b/drivers/cpufreq/Makefile
+index 385c9fcc65c625226f91941f8d01682c2437a62b..da824cb989863918bf10551629b5bc75a993d5ed 100644
+--- a/drivers/cpufreq/Makefile
++++ b/drivers/cpufreq/Makefile
+@@ -80,6 +80,11 @@ obj-$(CONFIG_ARM_SA1110_CPUFREQ)	+= sa1110-cpufreq.o
+ obj-$(CONFIG_ARM_SCMI_CPUFREQ)		+= scmi-cpufreq.o
+ obj-$(CONFIG_ARM_SCPI_CPUFREQ)		+= scpi-cpufreq.o
+ obj-$(CONFIG_ARM_SPEAR_CPUFREQ)		+= spear-cpufreq.o
++obj-$(CONFIG_ARM_SPRD_CPUFREQ_V2)	+= sprd-cpufreq-v2.o
++obj-$(CONFIG_ARM_SPRD_HW_CPUFREQ_NORMAL)	+= sprd-hwdvfs-cpufreq.o sprd-hwdvfs-debugfs.o
++obj-$(CONFIG_ARM_SPRD_HW_CPUFREQ_ARCH_UMS512)	+= sprd-hwdvfs-normal.o sprd-hwdvfs-ums512.o
++obj-$(CONFIG_ARM_SPRD_CPUFREQ_PUBLIC)	+= sprd-cpufreq-public.o
++obj-$(CONFIG_ARM_SPRD_TOP_DVFS)	+= sprd-top-dvfs.o
+ obj-$(CONFIG_ARM_STI_CPUFREQ)		+= sti-cpufreq.o
+ obj-$(CONFIG_ARM_ALLWINNER_SUN50I_CPUFREQ_NVMEM) += sun50i-cpufreq-nvmem.o
+ obj-$(CONFIG_ARM_TEGRA20_CPUFREQ)	+= tegra20-cpufreq.o
+diff --git a/drivers/cpufreq/sprd-cpufreq-public.c b/drivers/cpufreq/sprd-cpufreq-public.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..b816232b980c67c0d5d02f2abb6f1826150605a0
+--- /dev/null
++++ b/drivers/cpufreq/sprd-cpufreq-public.c
+@@ -0,0 +1,74 @@
++// SPDX-License-Identifier: GPL-2.0
++//
++// Unisoc cpufreq driver public data
++//
++// Copyright (C) 2021 Unisoc, Inc.
++//
++// Trimmed vs realme 5.4: the "cpufreq-clus0" branch serviced the retired
++// old-generation sprd-cpufreqhw driver and is dropped; only the hwdvfs
++// policy layer ("opp-table0") remains.
++
++#include "sprd-hwdvfs-cpufreq.h"
++
++static unsigned int sprd_cpufreq_update_normal(struct cpufreq_policy *policy,
++					       int cpu, int temp)
++{
++	struct sprd_cpufreq_info *info = NULL;
++
++	info = policy->driver_data;
++	if (IS_ERR_OR_NULL(info) || !info->update_opp)
++		return 0;
++
++	return info->update_opp(cpu, temp);
++}
++
++unsigned int sprd_cpufreq_update_opp(int cpu, int temp_now)
++{
++	struct device_node *cpu_np, *cpufreq_np;
++	struct device *cpu_dev;
++	struct cpufreq_policy *policy;
++	unsigned int max_freq = 0;
++
++	/* cpufreq_get_policy() is gone in 7.1; take a policy reference */
++	policy = cpufreq_cpu_get(0);
++	if (!policy) {
++		pr_debug("%s: No cpu data found\n", __func__);
++		return 0;
++	}
++
++	cpu_dev = get_cpu_device(0);
++	if (!cpu_dev) {
++		pr_err("%s: Failed to get cpu0 device\n", __func__);
++		goto put_policy;
++	}
++
++	cpu_np = of_node_get(cpu_dev->of_node);
++	if (!cpu_np) {
++		pr_err("%s: Failed to find cpu node\n", __func__);
++		goto put_policy;
++	}
++
++	cpufreq_np = of_parse_phandle(cpu_np, "cpufreq-data-v1", 0);
++	if (!cpufreq_np) {
++		pr_err("%s: No cpufreq data found for cpu0\n", __func__);
++		of_node_put(cpu_np);
++		goto put_policy;
++	}
++
++	pr_debug("%s: cluster name is: %s\n", __func__, cpufreq_np->full_name);
++
++	if (!strcmp(cpufreq_np->full_name, "opp-table0"))
++		max_freq = sprd_cpufreq_update_normal(policy, cpu, temp_now);
++	else
++		pr_err("%s: Error name of cpufreq data v1!\n", __func__);
++
++	of_node_put(cpufreq_np);
++	of_node_put(cpu_np);
++put_policy:
++	cpufreq_cpu_put(policy);
++
++	return max_freq;
++}
++EXPORT_SYMBOL_GPL(sprd_cpufreq_update_opp);
++
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/cpufreq/sprd-cpufreq-v2.c b/drivers/cpufreq/sprd-cpufreq-v2.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..38c6a2ef9cd5eb804ec32074e6ae795e28ea9c92
+--- /dev/null
++++ b/drivers/cpufreq/sprd-cpufreq-v2.c
+@@ -0,0 +1,421 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (C) 2025 Otto Pflüger
++ */
++
++#include <linux/arm-smccc.h>
++#include <linux/cpufreq.h>
++#include <linux/nvmem-consumer.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++
++#define SPRD_CPUFREQ_MIN_TEMPERATURE	(-274)
++
++#define SPRD_SIP_SVC_DVFS_REV						\
++	(ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,			\
++			    ARM_SMCCC_SMC_32,				\
++			    ARM_SMCCC_OWNER_SIP,			\
++			    0x0600))
++
++#define SPRD_SIP_SVC_DVFS_ENABLE					\
++	(ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,			\
++			    ARM_SMCCC_SMC_32,				\
++			    ARM_SMCCC_OWNER_SIP,			\
++			    0x0601))
++
++#define SPRD_SIP_SVC_DVFS_TABLE_UPDATE					\
++	(ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,			\
++			    ARM_SMCCC_SMC_32,				\
++			    ARM_SMCCC_OWNER_SIP,			\
++			    0x0602))
++
++#define SPRD_SIP_SVC_DVFS_STEP_SET					\
++	(ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,			\
++			    ARM_SMCCC_SMC_32,				\
++			    ARM_SMCCC_OWNER_SIP,			\
++			    0x0603))
++
++#define SPRD_SIP_SVC_DVFS_MARGIN_SET					\
++	(ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,			\
++			    ARM_SMCCC_SMC_32,				\
++			    ARM_SMCCC_OWNER_SIP,			\
++			    0x0604))
++
++#define SPRD_SIP_SVC_DVFS_FREQ_SET					\
++	(ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,			\
++			    ARM_SMCCC_SMC_32,				\
++			    ARM_SMCCC_OWNER_SIP,			\
++			    0x0605))
++
++#define SPRD_SIP_SVC_DVFS_FREQ_GET					\
++	(ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,			\
++			    ARM_SMCCC_SMC_32,				\
++			    ARM_SMCCC_OWNER_SIP,			\
++			    0x0606))
++
++#define SPRD_SIP_SVC_DVFS_PAIR_GET					\
++	(ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,			\
++			    ARM_SMCCC_SMC_32,				\
++			    ARM_SMCCC_OWNER_SIP,			\
++			    0x0607))
++
++#define SPRD_SIP_SVC_DVFS_PMIC_SET					\
++	(ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,			\
++			    ARM_SMCCC_SMC_32,				\
++			    ARM_SMCCC_OWNER_SIP,			\
++			    0x0608))
++
++#define SPRD_SIP_SVC_DVFS_BIN_SET					\
++	(ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,			\
++			    ARM_SMCCC_SMC_32,				\
++			    ARM_SMCCC_OWNER_SIP,			\
++			    0x0609))
++
++#define SPRD_SIP_SVC_DVFS_VERSION_SET					\
++	(ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,			\
++			    ARM_SMCCC_SMC_32,				\
++			    ARM_SMCCC_OWNER_SIP,			\
++			    0x060a))
++
++#define SPRD_SIP_SVC_DVFS_INIT						\
++	(ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,			\
++			    ARM_SMCCC_SMC_32,				\
++			    ARM_SMCCC_OWNER_SIP,			\
++			    0x060b))
++
++#define SPRD_SIP_SVC_DVFS_DEBUG_INIT					\
++	(ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,			\
++			    ARM_SMCCC_SMC_32,				\
++			    ARM_SMCCC_OWNER_SIP,			\
++			    0x060c))
++
++struct sprd_cpufreq_data {
++	struct device *cpu_dev;
++	u32 cluster;
++};
++
++static int sprd_cpufreq_set_target(struct cpufreq_policy *policy,
++				   unsigned int index)
++{
++	struct sprd_cpufreq_data *data = policy->driver_data;
++	struct arm_smccc_res res;
++
++	arm_smccc_smc(SPRD_SIP_SVC_DVFS_FREQ_SET, data->cluster,
++		      index, 0, 0, 0, 0, 0, &res);
++
++	if (res.a0)
++		return -EINVAL;
++
++	return 0;
++}
++
++static unsigned int sprd_cpufreq_get_freq(unsigned int cpu)
++{
++	struct cpufreq_policy *policy = cpufreq_cpu_get_raw(cpu);
++	struct sprd_cpufreq_data *data;
++	struct arm_smccc_res res;
++
++	if (!policy)
++		return 0;
++
++	data = policy->driver_data;
++
++	arm_smccc_smc(SPRD_SIP_SVC_DVFS_FREQ_GET, data->cluster,
++		      0, 0, 0, 0, 0, 0, &res);
++	if (res.a0)
++		return 0;
++
++	do_div(res.a1, 1000);
++
++	return (u32)res.a1;
++}
++
++static int sprd_cpufreq_table_init(struct cpufreq_policy *policy,
++				   int temperature)
++{
++	struct sprd_cpufreq_data *data = policy->driver_data;
++	struct arm_smccc_res res;
++	unsigned int i, length;
++	int ret;
++
++	arm_smccc_smc(SPRD_SIP_SVC_DVFS_TABLE_UPDATE, data->cluster,
++		      temperature, 0, 0, 0, 0, 0, &res);
++	if (res.a0) {
++		dev_err(data->cpu_dev,
++			"failed to get table for temperature %d\n",
++			temperature);
++		return -EINVAL;
++	}
++
++	length = res.a1;
++
++	for (i = 0; i < length; i++) {
++		arm_smccc_smc(SPRD_SIP_SVC_DVFS_PAIR_GET, data->cluster,
++			      i, 0, 0, 0, 0, 0, &res);
++		if (res.a0) {
++			dev_err(data->cpu_dev, "failed to get freq %d\n", i);
++			return -EINVAL;
++		}
++
++		dev_dbg(data->cpu_dev, "[%d] freq: %lu voltage: %lu\n",
++			i, res.a1, res.a2);
++
++		ret = dev_pm_opp_add(data->cpu_dev, res.a1, res.a2);
++		if (ret) {
++			dev_warn(data->cpu_dev, "failed to add freq %lu: %d\n",
++				 res.a1, ret);
++		}
++	}
++
++	arm_smccc_smc(SPRD_SIP_SVC_DVFS_FREQ_GET, data->cluster,
++		      0, 0, 0, 0, 0, 0, &res);
++	if (res.a0) {
++		dev_err(data->cpu_dev, "failed to get initial frequency\n");
++		return -EINVAL;
++	}
++
++	dev_dbg(data->cpu_dev, "initial frequency: %lu\n", res.a1);
++
++	arm_smccc_smc(SPRD_SIP_SVC_DVFS_ENABLE, data->cluster,
++		      0, 0, 0, 0, 0, 0, &res);
++	if (res.a0) {
++		dev_err(data->cpu_dev, "failed to enable DVFS\n");
++		return -EINVAL;
++	}
++
++	ret = dev_pm_opp_init_cpufreq_table(data->cpu_dev, &policy->freq_table);
++	if (ret) {
++		dev_err(data->cpu_dev, "failed to init cpufreq table\n");
++		return ret;
++	}
++
++	return 0;
++}
++
++static int sprd_cpufreq_init(struct cpufreq_policy *policy)
++{
++	struct device *cpufreq_dev = cpufreq_get_driver_data();
++	struct sprd_cpufreq_data *data;
++	struct of_phandle_args args;
++	struct device *cpu_dev;
++	struct device_node *np;
++	int ret, temperature;
++	u32 val;
++
++	cpu_dev = get_cpu_device(policy->cpu);
++	if (!cpu_dev)
++		return -ENODEV;
++
++	ret = of_perf_domain_get_sharing_cpumask(policy->cpu,
++						 "performance-domains",
++						 "#performance-domain-cells",
++						 policy->cpus, &args);
++	of_node_put(args.np);
++	if (ret)
++		return ret;
++
++	data = kzalloc(sizeof(*data), GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
++
++	data->cpu_dev = cpu_dev;
++	data->cluster = args.args[0];
++
++	policy->driver_data = data;
++	policy->dvfs_possible_from_any_cpu = true;
++
++	for_each_available_child_of_node(cpufreq_dev->of_node, np) {
++		ret = of_property_read_u32(np, "reg", &val);
++		if (!ret && val == args.args[0])
++			break;
++	}
++
++	if (!np) {
++		dev_err(cpu_dev, "cluster %d not found\n", args.args[0]);
++		kfree(data);
++		return -ENODEV;
++	}
++
++	ret = of_property_read_u32(np, "sprd,transition-delay-us", &val);
++	if (!ret)
++		policy->transition_delay_us = val;
++
++	ret = of_property_read_u32(np, "sprd,default-temperature", &val);
++	if (!ret)
++		temperature = val;
++	else
++		temperature = SPRD_CPUFREQ_MIN_TEMPERATURE;
++
++	ret = sprd_cpufreq_table_init(policy, temperature);
++	if (ret) {
++		dev_pm_opp_remove_all_dynamic(cpu_dev);
++		kfree(data);
++		return ret;
++	}
++
++	dev_pm_opp_set_sharing_cpus(cpu_dev, policy->cpus);
++
++	return 0;
++}
++
++static void sprd_cpufreq_exit(struct cpufreq_policy *policy)
++{
++	struct sprd_cpufreq_data *data = policy->driver_data;
++
++	dev_pm_opp_free_cpufreq_table(data->cpu_dev, &policy->freq_table);
++	dev_pm_opp_remove_all_dynamic(data->cpu_dev);
++	kfree(data);
++}
++
++static struct cpufreq_driver sprd_cpufreq_driver = {
++	.name = "sprd",
++	.flags = CPUFREQ_HAVE_GOVERNOR_PER_POLICY |
++		 CPUFREQ_NEED_INITIAL_FREQ_CHECK |
++		 CPUFREQ_IS_COOLING_DEV,
++	.verify = cpufreq_generic_frequency_table_verify,
++	.target_index = sprd_cpufreq_set_target,
++	.get = sprd_cpufreq_get_freq,
++	.init = sprd_cpufreq_init,
++	.exit = sprd_cpufreq_exit,
++	.register_em = cpufreq_register_em_with_opp,
++	.set_boost = cpufreq_boost_set_sw,
++};
++
++static int sprd_cpufreq_cluster_init(struct device *dev,
++				     struct device_node *np,
++				     bool first_cluster)
++{
++	struct arm_smccc_res res;
++	struct nvmem_cell *cell;
++	u32 cluster, val;
++	u64 version;
++	size_t len;
++	u8 *buf;
++	int ret;
++
++	ret = of_property_read_u32(np, "reg", &cluster);
++	if (ret)
++		return 0;
++
++	ret = of_property_read_u32(np, "sprd,voltage-step", &val);
++	if (!ret) {
++		arm_smccc_smc(SPRD_SIP_SVC_DVFS_STEP_SET, cluster,
++			      val, 0, 0, 0, 0, 0, &res);
++		if (res.a0) {
++			dev_err(dev, "%pOF: failed to set step\n", np);
++			return -EINVAL;
++		}
++	}
++
++	ret = of_property_read_u32(np, "sprd,voltage-margin", &val);
++	if (!ret) {
++		arm_smccc_smc(SPRD_SIP_SVC_DVFS_MARGIN_SET, cluster,
++			      val, 0, 0, 0, 0, 0, &res);
++		if (res.a0) {
++			dev_err(dev, "%pOF: failed to set margin\n", np);
++			return -EINVAL;
++		}
++	}
++
++	ret = of_property_read_u32(np, "sprd,pmic-type", &val);
++	if (!ret) {
++		arm_smccc_smc(SPRD_SIP_SVC_DVFS_PMIC_SET, cluster,
++			      val, 0, 0, 0, 0, 0, &res);
++		if (res.a0) {
++			dev_err(dev, "%pOF: failed to set pmic type\n", np);
++			return -EINVAL;
++		}
++	}
++
++	/*
++	 * This is not just for debugging, it is required as part of
++	 * the fixed initialization sequence.
++	 */
++	if (first_cluster) {
++		arm_smccc_smc(SPRD_SIP_SVC_DVFS_DEBUG_INIT,
++			      0, 0, 0, 0, 0, 0, 0, &res);
++		if (res.a0) {
++			dev_err(dev, "failed to call DVFS_DEBUG_INIT\n");
++			return -EINVAL;
++		}
++	}
++
++	cell = of_nvmem_cell_get(np, "dvfs_bin");
++	if (IS_ERR(cell))
++		return dev_err_probe(dev, PTR_ERR(cell),
++				     "%pOF: failed to get DVFS bin\n", np);
++
++	buf = nvmem_cell_read(cell, &len);
++	if (IS_ERR(buf)) {
++		dev_err(dev, "%pOF: failed to read DVFS bin\n", np);
++		nvmem_cell_put(cell);
++		return PTR_ERR(buf);
++	}
++
++	dev_dbg(dev, "%pOF: DVFS bin is %d\n", np, *buf);
++
++	arm_smccc_smc(SPRD_SIP_SVC_DVFS_BIN_SET, cluster,
++		      *buf, 0, 0, 0, 0, 0, &res);
++	kfree(buf);
++	nvmem_cell_put(cell);
++	if (res.a0) {
++		dev_err(dev, "%pOF: failed to set DVFS bin\n", np);
++		return -EINVAL;
++	}
++
++	ret = of_property_read_u64(dev->of_node, "sprd,soc-version", &version);
++	if (!ret) {
++		arm_smccc_smc(SPRD_SIP_SVC_DVFS_VERSION_SET, cluster,
++			      version, 0, 0, 0, 0, 0, &res);
++		if (res.a0) {
++			dev_err(dev, "%pOF: failed to set SoC version\n", np);
++			return -EINVAL;
++		}
++	}
++
++	return 0;
++}
++
++static int sprd_cpufreq_probe(struct platform_device *pdev)
++{
++	struct arm_smccc_res res;
++	struct device_node *np;
++	bool first_cluster = true;
++	int ret;
++
++	for_each_available_child_of_node(pdev->dev.of_node, np) {
++		ret = sprd_cpufreq_cluster_init(&pdev->dev, np, first_cluster);
++		if (ret)
++			return ret;
++		first_cluster = false;
++	}
++
++	arm_smccc_smc(SPRD_SIP_SVC_DVFS_INIT,
++		      0, 0, 0, 0, 0, 0, 0, &res);
++	if (res.a0) {
++		dev_err(&pdev->dev, "failed to initialize DVFS\n");
++		return -EINVAL;
++	}
++
++	sprd_cpufreq_driver.driver_data = &pdev->dev;
++
++	return cpufreq_register_driver(&sprd_cpufreq_driver);
++}
++
++static const struct of_device_id sprd_cpufreq_of_match[] = {
++	{ .compatible = "sprd,cpufreq-v2" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sprd_cpufreq_of_match);
++
++static struct platform_driver sprd_cpufreq_platform_driver = {
++	.probe = sprd_cpufreq_probe,
++	.driver = {
++		.name = "sprd-cpufreq-v2",
++		.of_match_table = sprd_cpufreq_of_match,
++	},
++};
++module_platform_driver(sprd_cpufreq_platform_driver);
++
++MODULE_DESCRIPTION("Spreadtrum/Unisoc cpufreq v2 driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/cpufreq/sprd-hwdvfs-archdata.h b/drivers/cpufreq/sprd-hwdvfs-archdata.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..af4e59d003e33c4c921462ddc2e94793e3866719
+--- /dev/null
++++ b/drivers/cpufreq/sprd-hwdvfs-archdata.h
+@@ -0,0 +1,178 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++//
++// Unisoc APCPU HW DVFS driver
++//
++// Copyright (C) 2020 Unisoc, Inc.
++// Author: Jack Liu <jack.liu@unisoc.com>
++#ifndef SPRD_HWDVFS_ARCHDATA_H
++#define SPRD_HWDVFS_ARCHDATA_H
++
++#include <linux/cpufreq.h>
++#include <linux/device.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/regmap.h>
++
++#define MAX_VOLT_GRADE_NUM	16
++#define MAX_MPLL_INDEX_NUM	8
++#define MAX_APCPU_DVFS_MISC_CFG_ENTRY	16
++#define MAX_TOP_DVFS_MISC_CFG_ENTRY	16
++#define MAX_DVFS_INDEX_NUM		16
++
++#define GENREGSET(r, o, m)		{.reg = r, .off = o, .msk = m, .val = 0}
++#define GENREGVALSET(r, o, m, v)	{.reg = r, .off = o, .msk = m, .val = v}
++#define SPECREGVALSET(x, r, o, m, v) \
++	{.x.reg = r, .x.off = o, .x.msk = m, .x.val = v}
++
++#define MAX_MPLL	8
++#define DVFS_HOST_CLUSTER_MAX	4
++
++#define MAX_DTS_TBL_NAME_LEN	36
++
++struct dvfs_cluster {
++	u32 id;				/* cluster id */
++	char *name;			/* cluster name */
++	bool is_host;
++	u32 dcdc;
++	unsigned long pre_grade_volt;
++	u32 tmp_vol_grade;
++	u32 max_vol_grade;
++	void *parent;			/* parent device */
++	struct plat_opp *freqvolt;	/* store the opp for the cluster */
++	struct device_node *of_node;
++	char dts_tbl_name[MAX_DTS_TBL_NAME_LEN]; /* map table name in dts */
++	char default_tbl_name[MAX_DTS_TBL_NAME_LEN];
++	u32 tbl_column_num;		/* the column num in map table */
++	u32 tbl_row_num;		/* the row num in map table */
++	u32 map_idx_max;
++	u32 *opp_map_tbl;
++	bool existed;
++};
++
++enum cpudvfs_pmic {
++	PMIC_SC2730,
++	PMIC_SC2703,
++	PMIC_FAN5355_05,
++	MAX_PMIC_TYPE_NUM = 8,
++};
++
++struct reg_info {
++	u32 reg;
++	u32 off;
++	u32 msk;
++	u32 val;
++};
++
++struct output_parameter {
++	struct reg_info postdiv;
++	struct reg_info icp;
++	struct reg_info n;
++};
++
++struct mpll_index_tbl {
++	struct output_parameter entry[MAX_MPLL_INDEX_NUM];
++};
++
++struct volt_grades_table {
++	struct reg_info regs_array[MAX_VOLT_GRADE_NUM];
++	int grade_count;
++};
++
++struct udelay_tbl {
++	struct reg_info tbl[MAX_VOLT_GRADE_NUM];
++};
++
++struct dvfs_index_entry_info {
++	char *name;
++	u8 off, msk;
++};
++
++struct dvfs_index_tbl {
++	struct reg_info regs[MAX_DVFS_INDEX_NUM];
++	struct dvfs_index_entry_info  entry_info[MAX_DVFS_INDEX_NUM];
++	u32 tbl_row_num, tbl_column_num;
++};
++
++struct mpll_freq_manager {
++	struct mpll_index_tbl *mpll_tbl;
++	struct reg_info *auto_relock_cfg;
++	struct reg_info *auto_pd_cfg;
++	u32 mpll_num;
++};
++
++struct  topdvfs_volt_manager {
++	struct volt_grades_table *grade_tbl;
++	struct udelay_tbl *up_udelay_tbl;
++	struct udelay_tbl *down_udelay_tbl;
++	struct reg_info *host_vol_auto_tune_cfg;
++	struct reg_info *host_freq_auto_tune_cfg;
++	struct reg_info *idle_vol_cfg;
++	struct reg_info *misc_cfg;
++	struct reg_info *third_pmic_cfg;
++	/*
++	 * Optional per-DCDC VOLTAGE_MEET bypass. On rg-rotate the DCDC_CPU1
++	 * I2C channel to the FAN53555 never completes (no CURRENT_VOLTAGE
++	 * readback, STATE_I2C parks at 4), which freezes the frequency arm
++	 * at the boot index. The rail powers up at its top grade, so
++	 * bypassing the voltage-meet wait gives full frequency scaling at a
++	 * statically-high voltage. Remove once the pm_sys/SIPC-serviced I2C
++	 * channel actually works.
++	 */
++	u32 dcdc_num, vir_dcdc_adi_num;
++};
++
++struct cpudvfs_freq_manager {
++	struct reg_info *slave_freq_auto_tune_cfg;
++	struct reg_info *dev_idle_disable_cfg;
++	struct reg_info *misc_cfg;
++	struct reg_info *hcluster_work_index_cfg;
++	struct reg_info *hcluster_idle_index_cfg;
++	struct dvfs_index_tbl *host_cluster_index_tbl;
++	struct dvfs_index_tbl *slave_cluster_index_tbl;
++	u32 host_cluster_num, slave_cluster_num;
++	u32 dvfs_device_num;
++};
++
++struct pmic_data {
++	u32 volt_base;	/*uV*/
++	u32 per_step;	/*uV*/
++	u32 margin_us;
++	int (*update)(struct regmap *map, struct reg_info *regs, void *pm,
++		      unsigned long u_volt, int index, int count);
++	u32 (*up_cycle_calculate)(u32 max_val_uV, u32 slew_rate,
++				  u32 module_clk_khz, u32 margin_us);
++	u32 (*down_cycle_calculate)(u32 max_val_uV, u32 slew_rate,
++				    u32 module_clk_hz, u32 margin_us);
++};
++
++struct dvfs_private_data {
++	u32 module_clk_khz;
++	struct pmic_data *pmic;
++	struct topdvfs_volt_manager *volt_manager;
++	struct cpudvfs_freq_manager *freq_manager;
++	struct mpll_freq_manager *mpll_manager;
++	struct dvfs_cluster *host_cluster;
++	struct dvfs_cluster *slave_cluster;
++};
++
++#define DECLARE_APCPU_DVFS_CLUSTER(clu_name)	\
++	{				\
++		.name = clu_name,	\
++		.dts_tbl_name = clu_name "_tbl",	\
++		.default_tbl_name = clu_name "_tbl",	\
++	}
++
++#define DECLARE_DVFS_INDEX_INFO(column_entry_name, f, m)	\
++	{					\
++		.name = column_entry_name,	\
++		.off = f,			\
++		.msk = m,			\
++	}
++
++extern int default_dcdc_volt_update(struct regmap *map, struct reg_info *regs,
++				    void *data, unsigned long u_volt, int index,
++				    int count);
++extern u32 default_cycle_calculate(u32 max_val_uV, u32 slew_rate,
++				   u32 module_clk_hz, u32 margin_us);
++
++#endif
+diff --git a/drivers/cpufreq/sprd-hwdvfs-cpufreq.c b/drivers/cpufreq/sprd-hwdvfs-cpufreq.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..6873b64a52f3340ae9040563a0f8a7507d6c1659
+--- /dev/null
++++ b/drivers/cpufreq/sprd-hwdvfs-cpufreq.c
+@@ -0,0 +1,1093 @@
++// SPDX-License-Identifier: GPL-2.0
++//
++// Unisoc APCPU HW DVFS driver
++//
++// Copyright (C) 2020 Unisoc, Inc.
++// Author: Jack Liu <jack.liu@unisoc.com>
++
++#include <linux/arch_topology.h>
++#include <linux/cpu.h>
++#include <linux/cpufreq.h>
++#include <linux/jiffies.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/nvmem-consumer.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/pm_opp.h>
++#include <linux/regulator/consumer.h>
++#include <linux/slab.h>
++#include <linux/types.h>
++#include <linux/of_platform.h>
++#include "sprd-hwdvfs-cpufreq.h"
++
++static struct cpufreq_driver sprd_hardware_cpufreq_driver;
++static unsigned long boot_done_timestamp;
++static int boost_mode_flag = 1;
++static struct sprd_cpufreq_info *global_cpufreq_info;
++
++static const struct of_device_id sprd_hardware_cpufreq_of_match[] = {
++	{.compatible = "sprd,hardware-cpufreq",},
++	{},
++};
++
++static inline struct sprd_cpufreq_info *sprd_cpufreq_info_lookup(u32 cpu)
++{
++	if (cpu >= nr_cpu_ids) {
++		pr_err("invalid cpu id\n");
++		return ERR_PTR(-EINVAL);
++	}
++
++	if (!global_cpufreq_info) {
++		pr_err("the cpufreq information for all cpus is null\n");
++		return ERR_PTR(-ENODEV);
++	}
++
++	return &global_cpufreq_info[cpu];
++}
++
++static int sprd_related_cpus_cluster_alloc(struct sprd_cpufreq_info *info,
++					   struct cpufreq_policy *policy)
++{
++	struct sprd_cpufreq_info *temp;
++	int cpu;
++
++	if (!info || !policy)
++		return -ENODEV;
++
++	for_each_cpu(cpu, policy->cpus) {
++		if (cpu == policy->cpu)
++			continue;
++		temp = sprd_cpufreq_info_lookup(cpu);
++		if (IS_ERR(temp))
++			return PTR_ERR(temp);
++
++		temp->pcluster = info->pcluster;
++	}
++
++	return 0;
++}
++
++static
++int sprd_nvmem_info_read(struct device_node *node, const char *name, u32 *value)
++{
++	struct nvmem_cell *cell;
++	void *buf;
++	size_t len = 0;
++
++	cell = of_nvmem_cell_get(node, name);
++	if (IS_ERR(cell))
++		return PTR_ERR(cell);
++
++	buf = nvmem_cell_read(cell, &len);
++	if (IS_ERR(buf)) {
++		nvmem_cell_put(cell);
++		return PTR_ERR(buf);
++	}
++
++	if (len > sizeof(u32))
++		len = sizeof(u32);
++
++	memcpy(value, buf, len);
++
++	kfree(buf);
++	nvmem_cell_put(cell);
++
++	return 0;
++}
++
++static int sprd_cpufreq_arch_update(struct sprd_cpufreq_info *info)
++{
++	struct sprd_cpu_cluster_info *clu;
++	struct cpudvfs_phy_ops *driver;
++	struct dev_pm_opp *opp;
++	unsigned long rate, volt, freq;
++	int opp_num, i, ret = 0;
++
++	if (!info) {
++		pr_err("the info for cpu is null\n");
++		return -EINVAL;
++	}
++
++	if (!info->cpufreq_np || !info->cpu_dev || !info->pcluster ||
++	    !info->parchdev) {
++		dev_err(info->pdev, "cpu or cluster information is missing\n");
++		return -EINVAL;
++	}
++
++	clu = info->pcluster;
++	driver = info->parchdev->phy_ops;
++	if (!driver) {
++		dev_err(info->pdev, "the way to operate dvfs device is null\n");
++		return -EINVAL;
++	}
++
++	if (!driver->udelay_update || !driver->idle_pd_volt_update ||
++	    !driver->index_map_table_update) {
++		dev_err(info->pdev,
++			"no way to update cpu hw dvfs device parameters\n");
++		return -EINVAL;
++	}
++
++	opp_num = dev_pm_opp_get_opp_count(info->cpu_dev);
++	if (opp_num < 0) {
++		dev_err(info->pdev,
++			"failed to get entry num of opp tbl(%d)\n", opp_num);
++		return opp_num;
++	}
++
++	for (i = 0, rate = 0; i < opp_num; i++, rate++) {
++		opp = dev_pm_opp_find_freq_ceil(info->cpu_dev, &rate);
++		if (IS_ERR(opp))
++			return PTR_ERR(opp);
++
++		volt = dev_pm_opp_get_voltage(opp);
++		freq = dev_pm_opp_get_freq(opp);		/* in HZ */
++
++		dev_pm_opp_put(opp);
++
++		ret = driver->volt_grade_table_update(info->parchdev,
++						      info->clu_id, freq,
++						      volt, i);
++		if (ret) {
++			dev_err(info->pdev, "failed to update vol grade val\n");
++			return ret;
++		}
++	}
++
++	/*
++	 * Because the opp table is changed, some dvfs hardare parameters need
++	 * to be changed meanwhile
++	 */
++	ret = driver->udelay_update(info->parchdev, info->clu_id);
++	if (ret) {
++		dev_err(info->pdev, "failed to update hw delay time\n");
++		return ret;
++	}
++
++	ret = driver->index_map_table_update(info->parchdev, clu->opp_name,
++					     info->clu_id, clu->cpu_diff_ver,
++					     clu->cpubin_str,
++					     clu->curr_temp_threshold);
++	if (ret) {
++		dev_err(info->pdev, "failed to update dvfs index table\n");
++		return ret;
++	}
++
++	ret = driver->idle_pd_volt_update(info->parchdev, info->clu_id);
++	if (ret)
++		dev_err(info->pdev, "failed to set idle pd voltage\n");
++
++	return ret;
++}
++
++static int sprd_dev_pm_opp_table_update(struct sprd_cpufreq_info *info)
++{
++	struct sprd_cpu_cluster_info *clu;
++	struct property *prop;
++	const __be32 *value;
++	struct dev_pm_opp *opp;
++	unsigned long rate;
++	int ret, num;
++
++	if (!info) {
++		pr_err("the info for cpu is null\n");
++		return -EINVAL;
++	}
++
++	if (!info->cpufreq_np || !info->cpu_dev || !info->pcluster ||
++	    !info->parchdev) {
++		dev_err(info->pdev, "cpu or cluster information is missing\n");
++		return -EINVAL;
++	}
++
++	clu = info->pcluster;
++	if (!strcmp(clu->pre_opp_name, clu->opp_name))
++		return 0;
++
++	prop = of_find_property(info->cpufreq_np, clu->opp_name, &num);
++	if (!prop || !prop->value) {
++		dev_err(info->pdev, "no %s property found\n", clu->opp_name);
++		return -ENOENT;
++	}
++
++	num = num / sizeof(u32);
++	if (num % 2) {
++		dev_err(info->pdev, "invalid opp table list\n");
++		return -EINVAL;
++	}
++	value = prop->value;
++
++	dev_dbg(info->pdev, "the final opp table name: %s opp num: %d\n",
++		clu->opp_name, num / 2);
++
++	clu->temp_max_freq = 0;
++	while (num) {
++		unsigned long freq = be32_to_cpup(value++) * 1000; /*in HZ*/
++		unsigned long volt = be32_to_cpup(value++);	   /*in uV */
++
++		ret = dev_pm_opp_add(info->cpu_dev, freq, volt);
++		if (ret) {
++			dev_pm_opp_remove(info->cpu_dev, freq);
++			ret = dev_pm_opp_add(info->cpu_dev, freq, volt);
++			if (ret) {
++				dev_err(info->pdev, "failed to add opp: %luHZ-%luUV\n",
++					freq, volt);
++				return ret;
++			}
++		}
++		if (freq / 1000 > clu->temp_max_freq)
++			clu->temp_max_freq = freq / 1000;
++
++		num -= 2;
++		dev_dbg(info->pdev, "add opp: %luHZ-%luUV\n", freq, volt);
++	}
++
++	rate = (unsigned long)clu->temp_max_freq * 1000 + 1;
++	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(info->cpu_dev, &rate))) {
++		dev_pm_opp_put(opp);
++		dev_pm_opp_remove(info->cpu_dev, rate);
++		rate++;
++	}
++
++	ret = sprd_cpufreq_arch_update(info);
++	if (ret) {
++		dev_err(info->pdev, "failed to update hw dvfs parameters\n");
++		return ret;
++	}
++
++	strcpy(clu->pre_opp_name, clu->opp_name);
++
++	return 0;
++}
++
++static
++int sprd_locate_opp_table_by_temp(struct sprd_cpufreq_info *info,
++				  int temp_now, char *temp_opp_name)
++{
++	struct sprd_cpu_cluster_info *clu;
++	int num, temp_threshold, temp_index = -1;
++
++	if (!info) {
++		pr_err("cpufreq info is not initialized\n");
++		return -EINVAL;
++	}
++
++	clu = info->pcluster;
++	if (!clu) {
++		dev_err(info->pdev, "cpu cluster info for cpu%d is not initialized\n",
++			info->cpu_id);
++		return -EINVAL;
++	}
++
++	for (num = 0; num < clu->temp_threshold_max; num++) {
++		temp_threshold = clu->temp_list[num];
++
++		if (temp_now >= temp_threshold) {
++			temp_index = num;
++			clu->curr_temp_threshold = temp_threshold;
++			sprintf(temp_opp_name, "-%d", temp_threshold);
++		} else {
++			/* Use the default opp table */
++			strcpy(temp_opp_name, "");
++			clu->curr_temp_threshold = 0;
++		}
++	}
++
++	dev_dbg(info->pdev, "get the highest themperature threshold: %d\n",
++		clu->curr_temp_threshold);
++
++	clu->temp_bottom = temp_index < 0 ?  clu->temp_min :
++		clu->temp_list[temp_index];
++	clu->temp_top = (temp_index + 1) >= clu->temp_threshold_max ?
++		clu->temp_max : clu->temp_list[temp_index + 1];
++
++	dev_dbg(info->pdev, "temp_threshold_num: %d, temp_bottom: %d temp top: %d\n",
++		clu->temp_threshold_max, clu->temp_bottom, clu->temp_top);
++
++	return 0;
++}
++
++static int sprd_opp_select(struct sprd_cpufreq_info *info, int temp_now)
++{
++	struct sprd_cpu_cluster_info *clu;
++	char temp_opp_name[8] = "";
++	int ret;
++
++	if (!info) {
++		pr_err("cpufreq info is not initialized\n");
++		return -EINVAL;
++	}
++
++	clu = info->pcluster;
++	if (!clu) {
++		dev_err(info->pdev, "cpu cluster info for cpu%d is not initialized\n",
++			info->cpu_id);
++		return -EINVAL;
++	}
++
++	ret = sprd_locate_opp_table_by_temp(info, temp_now, temp_opp_name);
++	if (ret) {
++		dev_err(info->pdev, "error in updating opp table\n");
++		return ret;
++	}
++
++	if (!strcmp(temp_opp_name, ""))
++		strcpy(clu->opp_name, clu->default_opp_name);
++	else
++		strcat(clu->opp_name, temp_opp_name);
++
++	dev_dbg(info->pdev, "opp name after locating by current temp: %s\n",
++		clu->opp_name);
++
++	ret = sprd_dev_pm_opp_table_update(info);
++	if (ret)
++		dev_err(info->pdev, "failed to update opp table by temp\n");
++
++	return ret;
++}
++
++unsigned int sprd_cpufreq_update_opp_normal(int cpu, int temp_now)
++{
++	struct sprd_cpufreq_info *info;
++	struct sprd_cpu_cluster_info *clu;
++	int ret = 0;
++
++	info = sprd_cpufreq_info_lookup(cpu);
++	if (!info) {
++		pr_err("cpufreq info for cpu%d is not initialized\n", cpu);
++		return -EINVAL;
++	}
++
++	clu = info->pcluster;
++	if (!clu) {
++		dev_err(info->pdev, "cpu cluster info for cpu%d is not initialized\n",
++			cpu);
++		return -EINVAL;
++	}
++
++	if (clu->cpu_bin == INVALID_CPU_BIN)
++		return 0;
++
++	if (!clu->temp_threshold_defined) /* ignore temperature influence */
++		return 0;
++
++	if (!mutex_trylock(&clu->opp_mutex))
++		return 0;
++
++	dev_dbg(info->pdev, "current cpu: %d current_temp: %d\n",
++		info->cpu_id, temp_now);
++
++	clu->temp_now = temp_now;
++
++	if (!(clu->online && clu->temp_threshold_max > 0))
++		goto out;
++
++	temp_now = temp_now / 1000;
++	if (temp_now <= clu->temp_min || temp_now >= clu->temp_max)
++		goto out;
++
++	if (temp_now < clu->temp_bottom && !clu->temp_fall_time)
++		clu->temp_fall_time = jiffies + clu->freq_temp_fall_hz;
++
++	if (temp_now >= clu->temp_bottom)
++		clu->temp_fall_time = 0;
++
++	if (!(temp_now >= clu->temp_top ||
++	    (clu->temp_fall_time && time_after(jiffies, clu->temp_fall_time))))
++		goto out;
++
++	if (temp_now >= clu->temp_top)
++		dev_dbg(info->pdev, "temp_now(%d) is higher than temp_top(%d),so switch OPP table to high temp table\n",
++			clu->temp_now, clu->temp_top * 1000);
++
++	if (clu->temp_fall_time && time_after(jiffies, clu->temp_fall_time))
++		dev_dbg(info->pdev, "temp_now(%d) is lower than temp_bottom(%d), so switch OPP table to low temp table\n",
++			clu->temp_now, clu->temp_bottom * 1000);
++
++	clu->temp_fall_time = 0;
++
++	ret = sprd_opp_select(info, temp_now);
++	if (ret)
++		ret = 0;
++	else
++		ret = clu->temp_max_freq;
++
++out:
++	mutex_unlock(&clu->opp_mutex);
++
++	return ret;
++}
++
++static int sprd_cpu_soc_version_parse(struct sprd_cpufreq_info *info)
++{
++	struct sprd_cpu_cluster_info *clu;
++	struct device_node *hwf;
++	const char *value;
++	char str[30];
++
++	if (!info || !info->pcluster) {
++		pr_err("invalid inputted parameters\n");
++		return -EINVAL;
++	}
++
++	clu = info->pcluster;
++
++	if (!info->cpufreq_np) {
++		dev_err(info->pdev, "cpu device or cluster info is missing\n");
++		return -EINVAL;
++	}
++
++	if (!of_property_read_bool(info->cpufreq_np, "sprd,multi-version")) {
++		dev_info(info->pdev, "cpu cluster has no different versions\n");
++		strcpy(clu->cpu_diff_ver, "");
++		return 0;
++	}
++
++	/*
++	 * Note: We distinguish cpu as 3 kinds in UMS512, t610/t618/t610s
++	 * you can distinguish other types here
++	 */
++	hwf = of_find_node_by_path("/hwfeature/auto");
++	if (IS_ERR_OR_NULL(hwf)) {
++		pr_err("NO hwfeature/auto node found\n");
++		return PTR_ERR(hwf);
++	}
++
++	value = of_get_property(hwf, "efuse", NULL);
++	if (strcmp(value, "T610") && strcmp(value, "T618") &&
++	    strcmp(value, "T700") && strcmp(value, "T610S") &&
++	    strcmp(value, "T606") && strcmp(value, "T612") &&
++	    strcmp(value, "T616")) {
++		dev_err(info->pdev, "the cpu version defined is error(%s)\n",
++			clu->cpu_diff_ver);
++		return 0;
++	}
++
++	strcpy(clu->cpu_diff_ver, value);
++
++	dev_info(info->pdev, "the cpu version: %s\n", clu->cpu_diff_ver);
++
++	sprintf(str, "-%s", clu->cpu_diff_ver);
++	strcat(clu->opp_name, str);
++	strcat(clu->default_opp_name, str);
++
++	return 0;
++}
++
++static int sprd_cpu_binning_parse(struct sprd_cpufreq_info *info)
++{
++	struct sprd_cpu_cluster_info *clu;
++	char str[30], *temp;
++	int ret = 0;
++
++	if (!info || !info->pcluster) {
++		pr_err("invalid inputted parameters\n");
++		return -EINVAL;
++	}
++
++	clu = info->pcluster;
++
++	if (!info->cpufreq_np || !clu->bin_prop_name) {
++		dev_err(info->pdev, "cpu device or cluster info is missing\n");
++		return -EINVAL;
++	}
++
++	dev_dbg(info->pdev, "opp name before cpu bin parsed: %s\n",
++		clu->opp_name);
++
++	ret = of_property_match_string(info->cpufreq_np, "nvmem-cell-names",
++				       clu->bin_prop_name);
++	if (ret == -EINVAL) { /* No definition is allowed */
++		dev_warn(info->pdev, "Warning: no '%s' appointed\n",
++			 clu->bin_prop_name);
++		clu->cpu_bin = INVALID_CPU_BIN;
++		clu->cpubin_str = "";
++		ret = 0;
++	} else {
++		ret = sprd_nvmem_info_read(info->cpufreq_np, clu->bin_prop_name,
++					   &clu->cpu_bin);
++		if (ret) {
++			dev_err(info->pdev, "error in reading cpu bin value\n");
++			goto out;
++		}
++
++		if (clu->cpu_bin > clu->max_cpu_bin) {
++			dev_err(info->pdev, "invalid cpu bin value(%d)\n",
++				clu->cpu_bin);
++			ret = -EINVAL;
++			goto out;
++		}
++
++		if (!clu->cpu_bin) {
++			dev_warn(info->pdev, "Warning: no cpu bin value set\n");
++			clu->cpu_bin = INVALID_CPU_BIN;
++			clu->cpubin_str = "";
++			ret = 0;
++		} else {
++			dev_dbg(info->pdev, "cpu bin: %d\n", clu->cpu_bin);
++
++			ret = cpubin2str(clu->cpu_bin, &temp);
++			if (ret)
++				goto out;
++			clu->cpubin_str = temp;
++			sprintf(str, "-%s", temp);
++			strcat(clu->opp_name, str);
++			strcat(clu->default_opp_name, str);
++		}
++	}
++
++	dev_dbg(info->pdev, "opp name after cpu bin parsed: %s\n",
++		clu->opp_name);
++
++	/*
++	 * Do not of_node_put(info->cpufreq_np) here (vendor code did):
++	 * info_init() already balanced its reference and the node stays
++	 * cached in info for later opp updates; the extra put underflows
++	 * the refcount on every policy init.
++	 */
++out:
++	return ret;
++}
++
++static int sprd_temp_threshold_parse(struct sprd_cpufreq_info *info)
++{
++	struct sprd_cpu_cluster_info *clu;
++	const char *name;
++	int num, i;
++	int ret = 0;
++
++	if (!info) {
++		pr_err("invalid inputted parameters\n");
++		return -EINVAL;
++	}
++
++	clu = info->pcluster;
++	if (!clu || !clu->temp_threshold_name) {
++		dev_err(info->pdev, "cpu cluster info is not initialized\n");
++		return -EINVAL;
++	}
++
++	name = clu->temp_threshold_name;
++
++	if (!of_find_property(info->cpufreq_np, name, &num)) {
++		dev_warn(info->pdev, "warning: no %s temp thresholds found\n",
++			 name);
++		ret = 0;	/* No definition is allowed */
++		clu->temp_threshold_defined = false;
++		goto out;
++	}
++
++	num = num / sizeof(u32);
++	if (num > TEMP_THRESHOLD_NUM) {
++		dev_err(info->pdev, "the temp threshold num is overflowing\n");
++		ret = -EINVAL;
++		goto out;
++	}
++
++	clu->temp_threshold_max = 0;
++	clu->temp_threshold_defined = true;
++	clu->temp_min = SPRD_CPUFREQ_TEMP_MIN;
++	clu->temp_max = SPRD_CPUFREQ_TEMP_MAX;
++	clu->curr_temp_threshold = 0;
++
++	dev_dbg(info->pdev, "temperature threshold number: %d\n", num);
++
++	for (i = 0; i < num; i++) {
++		ret = of_property_read_u32_index(info->cpufreq_np, name, i,
++						 &clu->temp_list[i]);
++		if (ret) {
++			dev_err(info->pdev, "failed to get temp threshold\n");
++			goto out;
++		}
++
++		clu->temp_threshold_max++;
++		dev_dbg(info->pdev, "threshold[%d]:%d\n", i, clu->temp_list[i]);
++	}
++
++out:
++	of_node_put(info->cpufreq_np);
++
++	return ret;
++}
++
++static
++int sprd_hardware_cpufreq_set_target_index(struct cpufreq_policy *policy,
++					   unsigned int index)
++{
++	struct sprd_cpufreq_info *info;
++	struct cpudvfs_device *pdev;
++	struct cpudvfs_phy_ops *driver;
++	int ret;
++
++	info = policy->driver_data;
++	if (IS_ERR(info))
++		return PTR_ERR(info);
++
++	pdev = info->parchdev;
++	if (!pdev) {
++		dev_err(info->pdev, "no dvfs device found\n");
++		return -ENODEV;
++	}
++
++	driver = pdev->phy_ops;
++	if (!driver || !driver->target_set) {
++		dev_err(info->pdev, "no way to operate dvfs device\n");
++		return -EINVAL;
++	}
++
++	if (!info->pcluster) {
++		dev_err(info->pdev, "cluster info for cpu%d is missing\n",
++			policy->cpu);
++		return -EINVAL;
++	}
++
++	/*
++	 * Should to set frequency after boot_done_timestamp ticks since the
++	 * cpufreq device has been probed
++	 */
++
++	if (boost_mode_flag) {
++		if (!time_after(jiffies, boot_done_timestamp))
++			return 0;
++		boost_mode_flag = 0;
++		pr_info("Disables boost it is %lu seconds after boot up\n",
++			SPRD_CPUFREQ_BOOST_DURATION / HZ);
++	}
++
++	mutex_lock(&info->pcluster->opp_mutex);
++	ret = driver->target_set(pdev, info->clu_id, index);
++	mutex_unlock(&info->pcluster->opp_mutex);
++
++	if (ret) {
++		dev_err(info->pdev, "failed to set target index%d for cpu%d\n",
++			index, info->cpu_id);
++		return ret;
++	}
++
++	arch_set_freq_scale(policy->related_cpus,
++			    policy->freq_table[index].frequency,
++			    policy->cpuinfo.max_freq);
++	return 0;
++}
++
++static
++int sprd_hw_dvfs_enable(struct device *dev, struct cpudvfs_device *pdev,
++			u32 clu_id)
++{
++	struct cpudvfs_phy_ops *driver;
++
++	if (!pdev) {
++		dev_err(dev, "no cpu dvfs device found\n");
++		return -ENODEV;
++	}
++
++	driver = pdev->phy_ops;
++	if (!driver || !driver->dvfs_enable) {
++		dev_err(dev, "no way to operate cpu dvfs device\n");
++		return -EINVAL;
++	}
++
++	return driver->dvfs_enable(pdev, clu_id, true);
++}
++
++static int sprd_cpu_cluster_static_init(struct device *pdev,
++					struct sprd_cpu_cluster_info *clu)
++{
++	if (!clu) {
++		dev_err(pdev, "the cluster to access is null\n");
++		return -EINVAL;
++	}
++
++	clu->bin_prop_name = "dvfs_bin";
++	clu->temp_threshold_name = "temp-threshold";
++	clu->max_cpu_bin = 4;
++	clu->freq_temp_fall_hz = 2 * HZ;
++	strcpy(clu->opp_name, VENDOR_NAME);
++	strcpy(clu->default_opp_name, VENDOR_NAME);
++	strcpy(clu->pre_opp_name, "");
++	strcpy(clu->cpu_diff_ver, "");
++	mutex_init(&clu->opp_mutex);
++
++	return 0;
++}
++
++static int sprd_hardware_cpufreq_init(struct cpufreq_policy *policy)
++{
++	struct cpufreq_frequency_table *freq_table;
++	struct sprd_cpufreq_info *info;
++	int ret;
++	unsigned int cpumask;
++	cpumask_t cluster_cpumask;
++
++	info = sprd_cpufreq_info_lookup(policy->cpu);
++	if (IS_ERR(info))
++		return PTR_ERR(info);
++
++	/* CPUs in the same cluster share same clock and power domain */
++	if (!info->cpufreq_np) {
++		dev_err(info->pdev, "cpu device or cluster info is missing\n");
++		return -EINVAL;
++	}
++	ret = of_property_read_u32(info->cpufreq_np, "cpufreq-cluster-cpumask",
++			     &cpumask);
++	if (ret) {
++		dev_err(info->pdev, "cpufreq cluster cpumask read fail");
++		return ret;
++	}
++	cluster_cpumask.bits[0] = (unsigned long)cpumask;
++	cpumask_or(policy->cpus, policy->cpus, &cluster_cpumask);
++	cpumask_copy(&info->cpus, policy->cpus);
++
++	if (!info->pcluster) { /* Just do once for every policy */
++		struct sprd_cpu_cluster_info *clu;
++
++		clu = kzalloc(sizeof(*clu), GFP_KERNEL);
++		if (!clu)
++			return -ENOMEM;
++
++		info->pcluster = clu;
++
++		ret = sprd_cpu_cluster_static_init(info->pdev, clu);
++		if (ret)
++			return ret;
++
++		ret = sprd_cpu_soc_version_parse(info);
++		if (ret)
++			return ret;
++
++		ret = sprd_cpu_binning_parse(info);
++		if (ret)
++			return ret;
++
++		ret = sprd_temp_threshold_parse(info);
++		if (ret)
++			return ret;
++
++		ret = sprd_related_cpus_cluster_alloc(info, policy);
++		if (ret)
++			return ret;
++	}
++
++	if (info->policy_trans)
++		policy->transition_delay_us = info->policy_trans;
++
++	mutex_lock(&info->pcluster->opp_mutex);
++	ret = sprd_dev_pm_opp_table_update(info);
++	if (ret) {
++		dev_err(info->pdev, "failed to update opp table\n");
++		mutex_unlock(&info->pcluster->opp_mutex);
++		return ret;
++	}
++
++	ret = dev_pm_opp_init_cpufreq_table(info->cpu_dev, &freq_table);
++	if (ret) {
++		dev_err(info->pdev, "error in initializing frequency table (%d)\n",
++			ret);
++		mutex_unlock(&info->pcluster->opp_mutex);
++		goto free_opp;
++	}
++
++	policy->freq_table = freq_table;
++	policy->suspend_freq = freq_table[0].frequency;
++	info->pcluster->online = true;
++	mutex_unlock(&info->pcluster->opp_mutex);
++
++	policy->dvfs_possible_from_any_cpu = true;
++	dev_pm_opp_of_register_em(info->cpu_dev, policy->cpus);
++	policy->driver_data = info;
++
++#if defined(CONFIG_DEBUG_FS)
++	ret = sprd_cpufreq_debugfs_add(info);
++	if (ret) {
++		dev_err(info->pdev, "error in adding debug nodes\n");
++		goto free_table;
++	}
++#endif
++
++	if (!info->pcluster->arch_dvfs_enabled) {
++		ret = sprd_hw_dvfs_enable(info->pdev, info->parchdev,
++					  info->clu_id);
++		if (ret)
++			goto free_table;
++		info->pcluster->arch_dvfs_enabled = true;
++	}
++
++	return 0;
++
++free_table:
++	if (policy->freq_table)
++		dev_pm_opp_free_cpufreq_table(info->cpu_dev,
++					      &policy->freq_table);
++free_opp:
++	dev_pm_opp_of_remove_table(info->cpu_dev);
++	return ret;
++}
++
++static void sprd_hardware_cpufreq_exit(struct cpufreq_policy *policy)
++{
++	struct sprd_cpufreq_info *info = policy->driver_data;
++	__maybe_unused int ret;
++
++	if (IS_ERR(info))
++		return;
++
++	mutex_lock(&info->pcluster->opp_mutex);
++	dev_pm_opp_free_cpufreq_table(info->cpu_dev, &policy->freq_table);
++	dev_pm_opp_of_remove_table(info->cpu_dev);
++
++	policy->driver_data = NULL;
++	info->pcluster->online = false;
++	strcpy(info->pcluster->pre_opp_name, "");
++	mutex_unlock(&info->pcluster->opp_mutex);
++
++#if defined(CONFIG_DEBUG_FS)
++	ret = sprd_cpufreq_debugfs_remove(info);
++	if (ret)
++		dev_err(info->pdev, "failed to remove debugfs node\n");
++#endif
++}
++
++static int sprd_hardware_cpufreq_table_verify(struct cpufreq_policy_data
++					      *policy_data)
++{
++	return cpufreq_generic_frequency_table_verify(policy_data);
++}
++
++static unsigned int sprd_hardware_cpufreq_get(unsigned int cpu)
++{
++	struct sprd_cpufreq_info *info;
++	struct cpudvfs_device *pdev;
++	struct cpudvfs_phy_ops *driver;
++
++	info = sprd_cpufreq_info_lookup(cpu);
++	if (IS_ERR(info))
++		return 0;
++
++	pdev = info->parchdev;
++	if (!pdev) {
++		dev_err(info->pdev, "no cpu dvfs device found.\n");
++		return  0;
++	}
++	driver = pdev->phy_ops;
++	if (!driver || !driver->freq_get) {
++		dev_err(info->pdev, "no way to access cpu dvfs device\n");
++		return 0;
++	}
++
++	return driver->freq_get(pdev, info->clu_id);
++}
++
++static int sprd_hardware_cpufreq_suspend(struct cpufreq_policy *policy)
++{
++	struct sprd_cpufreq_info *info;
++	struct cpudvfs_device *pdev;
++	struct cpudvfs_phy_ops *driver;
++	int cpu;
++
++	if (!strcmp(policy->governor->name, "userspace")) {
++		pr_info("Do nothing for governor-%s\n",
++			policy->governor->name);
++		return 0;
++	}
++
++	/*
++	 * If suspend occus during the boost, cancel the boost and
++	 * actively switch frequency to suspend freq.
++	 */
++	if (boost_mode_flag) {
++		boost_mode_flag = 0;
++
++		/* Current policy switch to suspend freq */
++		info = policy->driver_data;
++		pdev = info->parchdev;
++		driver = pdev->phy_ops;
++		mutex_lock(&info->pcluster->opp_mutex);
++		driver->target_set(pdev, info->clu_id, 0);
++		mutex_unlock(&info->pcluster->opp_mutex);
++
++		/* The other policy switch to suspend freq */
++		cpu = cpumask_next_zero(-1, policy->cpus);
++		info = sprd_cpufreq_info_lookup(cpu);
++		if (IS_ERR_OR_NULL(info->pcluster))
++			return 0;
++		mutex_lock(&info->pcluster->opp_mutex);
++		driver->target_set(pdev, info->clu_id, 0);
++		mutex_unlock(&info->pcluster->opp_mutex);
++	}
++
++	return cpufreq_generic_suspend(policy);
++}
++
++static int sprd_hardware_cpufreq_resume(struct cpufreq_policy *policy)
++{
++	if (!strcmp(policy->governor->name, "userspace")) {
++		pr_info("Do nothing for governor-%s\n", policy->governor->name);
++		return 0;
++	}
++
++	return cpufreq_generic_suspend(policy);
++}
++
++static struct cpufreq_driver sprd_hardware_cpufreq_driver = {
++	.name = "sprd-cpufreq",
++	.flags = CPUFREQ_NEED_INITIAL_FREQ_CHECK
++			| CPUFREQ_HAVE_GOVERNOR_PER_POLICY
++			| CPUFREQ_IS_COOLING_DEV,
++	.init = sprd_hardware_cpufreq_init,
++	.exit = sprd_hardware_cpufreq_exit,
++	.verify = sprd_hardware_cpufreq_table_verify,
++	.target_index = sprd_hardware_cpufreq_set_target_index,
++	.get = sprd_hardware_cpufreq_get,
++	.suspend = sprd_hardware_cpufreq_suspend,
++	.resume = sprd_hardware_cpufreq_resume,
++};
++
++static int sprd_cpufreq_info_init(struct sprd_cpufreq_info *info, int cpu)
++{
++	struct device_node *cpu_np, *dev_np, *cpufreq_np;
++	struct device *cpu_dev;
++	struct nvmem_cell *cell;
++	struct platform_device *pdev;
++	int ret;
++	unsigned int policy_trans_delay;
++
++	cpu_dev = get_cpu_device(cpu);
++	if (!cpu_dev) {
++		dev_err(info->pdev, "failed to get cpu%d device\n", cpu);
++		return -ENODEV;
++	}
++
++	cpu_np = of_node_get(cpu_dev->of_node);
++	if (!cpu_np) {
++		dev_err(info->pdev, "failed to get cpu%d node\n", cpu);
++		return -ENODEV;
++	}
++
++	cpufreq_np = of_parse_phandle(cpu_np, "cpufreq-data-v1", 0);
++	if (!cpufreq_np) {
++		dev_err(info->pdev, "no cpufreq-data-v1 node found\n");
++		ret = -EINVAL;
++		goto cpu_np_put;
++	}
++
++	if (!of_property_read_u32(cpufreq_np, "transition_delay_us",
++			     &policy_trans_delay))
++		info->policy_trans = policy_trans_delay;
++
++	dev_np = of_parse_phandle(cpufreq_np, "sprd,hw-dvfs-device", 0);
++	if (!dev_np) {
++		dev_err(info->pdev, "no associated hw dvfs device appointed\n");
++		ret = -EINVAL;
++		goto cpufreq_np_put;
++	}
++
++	pdev = of_find_device_by_node(dev_np);
++	if (IS_ERR_OR_NULL(pdev)) {
++		ret = -EPROBE_DEFER;
++		goto dev_np_put;
++	}
++
++	info->cpudvfs_dev_np = dev_np;
++	info->cpu_dev = cpu_dev;
++	info->cpu_np = cpu_np;
++	info->cpufreq_np = cpufreq_np;
++	/*
++	 * On 4.14/5.4 the cpu-map "cluster" nodes set physical_package_id,
++	 * but since ~5.16 those set cluster_id (package_id stays 0 without a
++	 * "socket" level), so use topology_cluster_id() for the cluster index.
++	 */
++	info->clu_id = topology_cluster_id(cpu);
++	info->cpu_id = cpu;
++
++	info->parchdev = (struct cpudvfs_device *)platform_get_drvdata(pdev);
++	if (!info->parchdev) {
++		ret = -EPROBE_DEFER;
++		goto dev_np_put;
++	}
++
++	cell = of_nvmem_cell_get(cpufreq_np, "dvfs_bin");
++	if (IS_ERR(cell)) {
++		if (PTR_ERR(cell) == -EPROBE_DEFER)
++			ret = -EPROBE_DEFER;
++		else
++			ret = 0;	/* No definition is allowed */
++	} else {
++		nvmem_cell_put(cell);
++		ret = 0;
++	}
++
++	info->update_opp = sprd_cpufreq_update_opp_normal;
++
++dev_np_put:
++	of_node_put(dev_np);
++cpufreq_np_put:
++	of_node_put(cpufreq_np);
++cpu_np_put:
++	of_node_put(cpu_np);
++
++	return ret;
++}
++
++static int sprd_hardware_cpufreq_probe(struct platform_device *pdev)
++{
++	struct sprd_cpufreq_info *info;
++	int ret, cpu;
++
++	boot_done_timestamp = jiffies + SPRD_CPUFREQ_BOOST_DURATION;
++
++	global_cpufreq_info = devm_kcalloc(&pdev->dev, nr_cpu_ids,
++					   sizeof(struct sprd_cpufreq_info),
++					   GFP_KERNEL);
++	if (!global_cpufreq_info)
++		return -ENOMEM;
++
++	for_each_possible_cpu(cpu) {
++		info = sprd_cpufreq_info_lookup(cpu);
++		if (IS_ERR(info))
++			return PTR_ERR(info);
++
++		info->pdev = &pdev->dev;
++		ret = sprd_cpufreq_info_init(info, cpu);
++		if (ret)
++			return ret;
++	}
++
++	ret = cpufreq_register_driver(&sprd_hardware_cpufreq_driver);
++	if (ret)
++		dev_err(&pdev->dev, "Failed to reigister cpufreq driver\n");
++	else
++		dev_info(&pdev->dev, "Succeeded to register cpufreq driver\n");
++
++	return 0;
++}
++
++static void sprd_hardware_cpufreq_remove(struct platform_device *pdev)
++{
++	cpufreq_unregister_driver(&sprd_hardware_cpufreq_driver);
++}
++
++static struct platform_driver sprd_hardware_cpufreq_platdrv = {
++	.driver = {
++		.name	= "sprd-hw-cpufreq",
++		.of_match_table = sprd_hardware_cpufreq_of_match,
++	},
++	.probe		= sprd_hardware_cpufreq_probe,
++	.remove		= sprd_hardware_cpufreq_remove,
++};
++
++static int __init sprd_hardware_cpufreq_common_init(void)
++{
++	return platform_driver_register(&sprd_hardware_cpufreq_platdrv);
++}
++
++static void __exit sprd_hardware_cpufreq_common_exit(void)
++{
++	return platform_driver_unregister(&sprd_hardware_cpufreq_platdrv);
++}
++
++device_initcall(sprd_hardware_cpufreq_common_init);
++module_exit(sprd_hardware_cpufreq_common_exit);
++
++MODULE_DESCRIPTION("sprd hardware cpufreq driver");
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/cpufreq/sprd-hwdvfs-cpufreq.h b/drivers/cpufreq/sprd-hwdvfs-cpufreq.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..5fca2b689e1ccbacf2b6af541a22b3fd8b4938dd
+--- /dev/null
++++ b/drivers/cpufreq/sprd-hwdvfs-cpufreq.h
+@@ -0,0 +1,106 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++//
++// Unisoc APCPU HW DVFS driver
++//
++// Copyright (C) 2020 Unisoc, Inc.
++// Author: Jack Liu <jack.liu@unisoc.com>
++
++#ifndef SPRD_HW_CPUFREQ_H
++#define SPRD_HW_CPUFREQ_H
++
++#include "sprd-hwdvfs-normal.h"
++
++#define TEMP_THRESHOLD_NUM		4
++#define INVALID_CPU_BIN			0
++#define INVALID_MIN_VOL			(-1)
++#define SPRD_CPUFREQ_TEMP_MIN		(-200)
++#define	SPRD_CPUFREQ_TEMP_MAX		200
++#define CPUFREQ_OPP_NAME_LEN		36
++#define SPRD_CPUFREQ_BOOST_DURATION	(60ul * HZ)
++
++#define VENDOR_NAME	"operating-points"
++
++#define MAX_CPU_VER_NAME_LEN		16
++
++struct sprd_cpu_cluster_info {
++	struct dentry *dir;
++	struct mutex opp_mutex;
++	int temp_threshold_max, temp_now;
++	int temp_top, temp_bottom;
++	unsigned int temp_list[TEMP_THRESHOLD_NUM];
++	int temp_min, temp_max;
++	int curr_temp_threshold;
++	unsigned long temp_fall_time;
++	unsigned long freq_temp_fall_hz;
++	bool online, temp_threshold_defined;
++	bool arch_dvfs_enabled;
++	const char *bin_prop_name;
++	const char *temp_threshold_name;
++	char opp_name[CPUFREQ_OPP_NAME_LEN];	/* vendor + cpu bin + temp */
++	char default_opp_name[CPUFREQ_OPP_NAME_LEN];  /*vendor + cpu bin */
++	char pre_opp_name[CPUFREQ_OPP_NAME_LEN];
++	u32 cpu_bin, max_cpu_bin, min_vol;
++	char *cpubin_str;
++	unsigned int temp_max_freq;
++	char cpu_diff_ver[MAX_CPU_VER_NAME_LEN];
++};
++
++struct sprd_cpufreq_info {
++	struct device *pdev;
++	struct cpumask cpus;
++	struct cpufreq_policy *policy;
++	struct opp_table *opp_table;
++	struct device *cpu_dev;
++	struct device_node *cpu_np;
++	struct device_node *cpufreq_np;
++	struct device_node *cpudvfs_dev_np;
++	struct cpudvfs_device *parchdev;
++	unsigned int clu_id, cpu_id;
++	struct sprd_cpu_cluster_info *pcluster;
++	unsigned int policy_trans;
++	/*CUFREQ points to update opp by temp*/
++	unsigned int (*update_opp)(int cpu, int temp_now);
++};
++
++static inline int cpubin2str(int bin, char **name)
++{
++	switch (bin) {
++	case 1:
++		*name = "ff";
++		break;
++	case 2:
++		*name = "tt";
++		break;
++	case 3:
++		*name = "ss";
++		break;
++	case 4:
++		*name = "od";
++		break;
++	default:
++		pr_err("invalid cpu bin value(%d)\n", bin);
++		*name = NULL;
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++unsigned int sprd_cpufreq_update_opp_normal(int cpu, int temp_now);
++unsigned int sprd_cpufreq_update_opp(int cpu, int temp_now);
++
++#if defined(CONFIG_DEBUG_FS)
++int sprd_cpufreq_debugfs_add(struct sprd_cpufreq_info *info);
++int sprd_cpufreq_debugfs_remove(struct sprd_cpufreq_info *info);
++#else
++static inline int sprd_cpufreq_debugfs_add(struct sprd_cpufreq_info *info)
++{
++	return 0;
++}
++static inline int sprd_cpufreq_debugfs_remove(struct sprd_cpufreq_info *info)
++{
++	return 0;
++}
++#endif
++
++#endif
+diff --git a/drivers/cpufreq/sprd-hwdvfs-debugfs.c b/drivers/cpufreq/sprd-hwdvfs-debugfs.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..270cecb481d4c6d62a02ed8b314fed0cbe3460cb
+--- /dev/null
++++ b/drivers/cpufreq/sprd-hwdvfs-debugfs.c
+@@ -0,0 +1,193 @@
++// SPDX-License-Identifier: GPL-2.0
++//
++// Unisoc APCPU HW DVFS driver
++//
++// Copyright (C) 2020 Unisoc, Inc.
++// Author: Jack Liu <jack.liu@unisoc.com>
++
++#include <linux/debugfs.h>
++#include "sprd-hwdvfs-cpufreq.h"
++
++static struct dentry *debugfs_root;
++static char opp_name_before_bin[CPUFREQ_OPP_NAME_LEN];
++
++struct dvfs_debug_param {
++	const char *name;
++	umode_t mode;
++	const struct file_operations *fops;
++};
++
++static int debugfs_cpu_bin_get(void *data, u64 *val)
++{
++	struct sprd_cpufreq_info *info = data;
++
++	if (!info || !info->pcluster) {
++		pr_err("cpu information is missing\n");
++		return -ENODEV;
++	}
++
++	*val = info->pcluster->cpu_bin;
++
++	dev_dbg(info->pdev, "debug: get cpu bin val: %llu\n", *val);
++
++	return 0;
++}
++
++static int debugfs_cpu_bin_set(void *data, u64 val)
++{
++	struct sprd_cpufreq_info *info = data;
++	struct sprd_cpu_cluster_info *clu;
++	char *temp, str[16] = "";
++	int ret;
++
++	if (!info || !info->pcluster) {
++		pr_err("cpu information is missing\n");
++		return -ENODEV;
++	}
++
++	clu = info->pcluster;
++
++	if (val && clu->cpu_bin != INVALID_CPU_BIN) {
++		dev_err(info->pdev, "the cpu binning value already is existed, earse it first\n");
++		return -EINVAL;
++	}
++
++	dev_dbg(info->pdev, "debug: set cpu bin val: %llu\n", val);
++
++	if (val) {
++		ret = cpubin2str(val, &temp);
++		if (ret)
++			return ret;
++
++		if (clu->cpu_bin == INVALID_CPU_BIN)
++			strcpy(opp_name_before_bin, clu->opp_name);
++
++		mutex_lock(&clu->opp_mutex);
++		clu->cpu_bin = val;
++		sprintf(str, "-%s", temp);
++		strcat(clu->opp_name, str);
++		strcat(clu->default_opp_name, str);
++		clu->cpubin_str = temp;
++		mutex_unlock(&clu->opp_mutex);
++	} else {
++		mutex_lock(&clu->opp_mutex);
++		clu->cpu_bin = INVALID_CPU_BIN;
++		strcpy(clu->opp_name, opp_name_before_bin);
++		strcpy(clu->default_opp_name, opp_name_before_bin);
++		clu->cpubin_str = "";
++		mutex_unlock(&clu->opp_mutex);
++	}
++
++	dev_dbg(info->pdev, "debug: current opp name: %s\n", clu->opp_name);
++
++	return 0;
++}
++
++static int debugfs_cpu_temp_get(void *data, u64 *val)
++{
++	struct sprd_cpufreq_info *info = data;
++
++	if (!info || !info->pcluster) {
++		pr_err("cpu information is missing\n");
++		return -ENODEV;
++	}
++
++	*val = info->pcluster->temp_now;
++
++	return 0;
++}
++
++static int debugfs_cpu_temp_set(void *data, u64 val)
++{
++	struct sprd_cpufreq_info *info = data;
++	int ret, temp_now = val;
++
++	if (!info || !info->pcluster) {
++		pr_err("cpu information is missing\n");
++		return -ENODEV;
++	}
++
++	if (info->pcluster->cpu_bin == INVALID_CPU_BIN) {
++		dev_err(info->pdev, "cpu binning value is empty!\n");
++		return -EINVAL;
++	}
++
++	if (!info->pcluster->temp_threshold_defined)
++		info->pcluster->temp_threshold_defined = true;
++
++	dev_dbg(info->pdev, "debug: set cpu temperature: %llu\n", val);
++
++	temp_now = temp_now * 1000;
++
++	ret = sprd_cpufreq_update_opp_normal(info->cpu_id, temp_now);
++	if (!ret)
++		dev_err(info->pdev, "failed to update opp according to temp\n");
++
++	return 0;
++}
++
++DEFINE_SIMPLE_ATTRIBUTE(fops_cpu_bin, debugfs_cpu_bin_get, debugfs_cpu_bin_set,
++			"%llu\n");
++DEFINE_SIMPLE_ATTRIBUTE(fops_cpu_temp, debugfs_cpu_temp_get,
++			debugfs_cpu_temp_set, "%llu\n");
++
++static struct dvfs_debug_param dvfs_debug_node[] = {
++	{"cpu_bin", 0400, &fops_cpu_bin,},
++	{"cpu_temp", 0600, &fops_cpu_temp,},
++	{},
++};
++
++int sprd_cpufreq_debugfs_add(struct sprd_cpufreq_info *info)
++{
++	struct sprd_cpu_cluster_info *clu;
++	char name[10];
++	u32 j = 0;
++
++	if (!info || !info->pcluster) {
++		pr_err("cpu information is missing\n");
++		return -ENODEV;
++	}
++
++	if (!debugfs_root) {
++		debugfs_root = debugfs_create_dir("cpudvfs", NULL);
++		if (IS_ERR_OR_NULL(debugfs_root)) {
++			dev_err(info->pdev,
++				"failed to create debugfs node for dvfs\n");
++			return -EINVAL;
++		}
++	}
++
++	sprintf(name, "cluster%d", info->clu_id);
++	clu = info->pcluster;
++
++	if (!clu->dir) {
++		clu->dir = debugfs_create_dir(name, debugfs_root);
++		if (!clu->dir) {
++			dev_err(info->pdev, "failed to set child debug dir\n");
++			return -EINVAL;
++		}
++	}
++
++	while (dvfs_debug_node[j].name) {
++		debugfs_create_file(dvfs_debug_node[j].name,
++				    dvfs_debug_node[j].mode, clu->dir, info,
++				    dvfs_debug_node[j].fops);
++		j += 1;
++	}
++
++	return 0;
++}
++
++int sprd_cpufreq_debugfs_remove(struct sprd_cpufreq_info *info)
++{
++	if (!info || !info->pcluster) {
++		pr_err("cpu information is missing\n");
++		return -ENODEV;
++	}
++
++	debugfs_remove_recursive(info->pcluster->dir);
++	info->pcluster->dir = NULL;
++	return 0;
++}
++
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/cpufreq/sprd-hwdvfs-normal.c b/drivers/cpufreq/sprd-hwdvfs-normal.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..4c7cf4711614a9a5135107fcc838f6710c881e48
+--- /dev/null
++++ b/drivers/cpufreq/sprd-hwdvfs-normal.c
+@@ -0,0 +1,1909 @@
++// SPDX-License-Identifier: GPL-2.0
++//
++// Unisoc APCPU HW DVFS driver
++//
++// Copyright (C) 2020 Unisoc, Inc.
++// Author: Jack Liu <jack.liu@unisoc.com>
++
++#include <linux/cpu.h>
++#include <linux/cpufreq.h>
++#include <linux/jiffies.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/i2c.h>
++#include <linux/platform_device.h>
++#include <linux/pm_opp.h>
++#include <linux/regulator/consumer.h>
++#include <linux/slab.h>
++#include <linux/types.h>
++#include <linux/of_platform.h>
++#include <linux/regmap.h>
++#include <linux/delay.h>
++#include <linux/workqueue.h>
++#include <linux/sched.h>
++#include <linux/random.h>
++#include <linux/topology.h>
++#include <linux/jiffies.h>
++#include <linux/kthread.h>
++#include <linux/io.h>
++#include <linux/mutex.h>
++#include <linux/mfd/syscon.h>
++#include <linux/printk.h>
++#include "sprd-hwdvfs-normal.h"
++
++const struct dvfs_private_data ums312_dvfs_private_data __weak;
++const struct dvfs_private_data ums512_dvfs_private_data __weak;
++const struct dvfs_private_data ums9230_dvfs_private_data __weak;
++
++static const struct of_device_id sprd_cpudvfs_of_match[] = {
++	{
++		.compatible = "sprd,sharkl5-cpudvfs",
++		.data = &ums312_dvfs_private_data,
++	},
++	{
++		.compatible = "sprd,sharkl5pro-cpudvfs",
++		.data = &ums512_dvfs_private_data,
++	},
++	{
++		.compatible = "sprd,qogirl6-cpudvfs",
++		.data = &ums9230_dvfs_private_data,
++	},
++	{
++		/* Sentinel */
++	},
++};
++MODULE_DEVICE_TABLE(of, sprd_cpudvfs_of_match);
++
++static int cpudvfs_i2c_probe(struct i2c_client *client)
++{
++	struct platform_device *platdev;
++	struct cpudvfs_device *pdev;
++	struct device_node *np, *attr_node;
++	u32 dcdc;
++	int ret = 0;
++
++
++	np = client->dev.of_node;
++	if (!np) {
++		dev_err(&client->dev, "no i2c node found.\n");
++		return -ENODEV;
++	}
++
++	ret = of_property_read_u32(np, "dvfs-dcdc-i2c", &dcdc);
++	if (ret) {
++		dev_err(&client->dev, "no dvfs-dcdc property found\n");
++		goto parent_node_put;
++	}
++
++	attr_node = of_parse_phandle(np, "sprd,attributed-device", 0);
++	if (!attr_node) {
++		dev_err(&client->dev,
++			"no associated cpu dvfs deivice appointed\n");
++		ret = -EINVAL;
++		goto parent_node_put;
++	}
++
++	platdev = of_find_device_by_node(attr_node);
++	if (!platdev) {
++		ret = -EPROBE_DEFER;
++		goto child_node_put;
++	}
++
++	dev_dbg(&client->dev, "found the associated cpu dvfs device\n");
++
++	pdev = platform_get_drvdata(platdev);
++	if (!pdev) {
++		dev_err(&platdev->dev, "no private driver data set\n");
++		ret = -EINVAL;
++		goto child_node_put;
++	}
++
++	if (dcdc >= pdev->dcdc_num) {
++		dev_err(pdev->dev, "the dcdc id that used i2c channel is overflowing\n");
++		ret = -EINVAL;
++		goto child_node_put;
++	}
++
++	pdev->pwr[dcdc].i2c_client = client;
++
++	dev_dbg(pdev->dev, "probe an i2c device for dcdc%d\n", dcdc);
++
++child_node_put:
++	of_node_put(attr_node);
++parent_node_put:
++	of_node_put(np);
++
++	return ret;
++}
++
++static const struct of_device_id cpudvfs_dcdc_cpu0_i2c_of_match[] = {
++	{.compatible = "sprd,cpudvfs-regulator-dcdc-cpu0-roc1",},
++	{},
++};
++MODULE_DEVICE_TABLE(of, cpudvfs_dcdc_cpu0_i2c_of_match);
++
++static const struct of_device_id cpudvfs_dcdc_cpu1_i2c_of_match[] = {
++	{.compatible = "sprd,cpudvfs-regulator-sharkl5pro",},
++	{.compatible = "sprd,cpudvfs-regulator-sharkl5",},
++	{},
++};
++MODULE_DEVICE_TABLE(of, cpudvfs_dcdc_cpu1_i2c_of_match);
++
++static struct i2c_driver sprd_cpudvfs_i2c_driver[] = {
++	{
++		.driver = {
++			.name = "cpudvfs_dcdc_cpu0_i2c_drv",
++			.owner = THIS_MODULE,
++			.of_match_table = cpudvfs_dcdc_cpu0_i2c_of_match,
++		},
++		.probe = cpudvfs_i2c_probe,
++	},
++	{
++		.driver = {
++			.name = "cpudvfs_dcdc_cpu1_i2c_drv",
++			.owner = THIS_MODULE,
++			.of_match_table = cpudvfs_dcdc_cpu1_i2c_of_match,
++		},
++		.probe = cpudvfs_i2c_probe,
++	}
++};
++
++static void sprd_cpudvfs_get_supply_mode(char *dcdc_supply)
++{
++	struct device_node *cmdline_node;
++	const char *cmd_line, *dcdc_type, *ver_str = "-v1";
++	int value = -1, ret;
++
++	cmdline_node = of_find_node_by_path("/chosen");
++	ret = of_property_read_string(cmdline_node, "bootargs", &cmd_line);
++
++	if (ret) {
++		pr_err("Fail to find cmdline bootargs property\n");
++		return;
++	}
++
++	dcdc_type = strstr(cmd_line, "power.from.extern=");
++	if (!dcdc_type) {
++		pr_info("no property power.from.extern found\n");
++		return;
++	}
++
++	sscanf(dcdc_type, "power.from.extern=%d", &value);
++	if (value)
++		return;
++
++	strcat(dcdc_supply, ver_str);
++}
++
++static
++void cpudvfs_bits_update(struct cpudvfs_device *pdev, u32 reg, u32 msk, u32 val)
++{
++	u32 new_data = readl((pdev->membase + reg)) & ~msk;
++
++	new_data |= val & msk;
++
++	writel(new_data, (pdev->membase + reg));
++}
++
++int default_dcdc_volt_update(struct regmap *map, struct reg_info *regs,
++			     void *data, unsigned long u_volt, int index,
++			     int count)
++{
++	u32 reg, off, msk, val;
++	struct pmic_data *pm = (struct pmic_data *)data;
++
++	if (index < 0 || index > count) {
++		pr_err("%s: incorrcet voltage gear table index, index: %d, count = %d\n",
++		       __func__, index, count);
++		return -EINVAL;
++	}
++
++	if (!pm) {
++		pr_err("%s: the pmic voltage grade table is NULL\n", __func__);
++		return -ENODEV;
++	}
++
++	reg = regs[index].reg;
++	off = regs[index].off;
++	msk = regs[index].msk;
++
++	if ((u_volt - pm->volt_base) % pm->per_step)
++		u_volt += pm->per_step;
++
++	val = (u_volt - pm->volt_base) / pm->per_step;
++
++	pr_debug("TOP_DVFS_VOL_GRADE_TBL[%d]: reg = 0x%x, off = %d, msk = 0x%x, val = 0x%x\n",
++		 index, reg, off, msk, val);
++
++	return regmap_update_bits(map, reg, msk << off, val << off);
++}
++
++u32 default_cycle_calculate(u32 max_val_uV, u32 slew_rate,
++			    u32 module_clk_hz, u32 margin_us)
++{
++	pr_debug("max_val_uV = %d, slew_rate = %d, module_clk_hz = %d margin = %d\n",
++		 max_val_uV, slew_rate, module_clk_hz,
++		 margin_us);
++
++	return (max_val_uV / slew_rate + margin_us) * module_clk_hz / 1000;
++}
++
++static
++void  fill_in_dvfs_tbl_entry(struct dvfs_cluster *clu, int entry_num,
++			     u32 *entry_data, u32 column_size)
++{
++	struct cpudvfs_device *pdev = (struct cpudvfs_device *)clu->parent;
++	struct cpudvfs_freq_manager *manager = pdev->priv->freq_manager;
++	struct dvfs_index_entry_info *entry;
++	struct reg_info *regs;
++	u32 col = 0, val = 0;
++	u32 off, msk;
++
++	if (clu->is_host) {
++		entry = manager->host_cluster_index_tbl[clu->id].entry_info;
++		regs = manager->host_cluster_index_tbl[clu->id].regs;
++	} else {
++		entry = manager->slave_cluster_index_tbl[clu->id].entry_info;
++		regs = manager->slave_cluster_index_tbl[clu->id].regs;
++	}
++
++	for (col = 0; col < column_size; ++col) {
++		off = entry[col].off;
++		msk = entry[col].msk;
++		val &= ~(msk << off);
++		val |= (entry_data[col] & msk) << off;
++
++		dev_dbg(pdev->dev, "DTS_TBL[%d][%d]: %d(%s, %d, 0x%x)",
++			entry_num, col, entry_data[col], entry[col].name,
++			off, msk);
++	}
++
++	dev_dbg(pdev->dev, "INDEX[%d]: 0x%x, Reg[0x%x]\n", entry_num, val,
++		regs[entry_num].reg);
++
++	writel(val, pdev->membase + regs[entry_num].reg);
++}
++
++static int dvfs_map_tbl_init(struct cpudvfs_device *pdev,
++			     struct dvfs_cluster *clu)
++{
++	u32 row, column, num;
++	int ret;
++	u32 *tbl;
++
++	if (!clu->opp_map_tbl) {
++		num = clu->tbl_row_num * clu->tbl_column_num;
++		tbl = kcalloc(num, sizeof(u32), GFP_KERNEL);
++		if (!tbl)
++			return -ENOMEM;
++		clu->opp_map_tbl = tbl;
++	} else {
++		tbl = clu->opp_map_tbl;
++	}
++
++	for (row = 0; row < clu->tbl_row_num; ++row) {
++		for (column = 0; column < clu->tbl_column_num; ++column) {
++			ret = of_property_read_u32_index(clu->of_node,
++							 clu->dts_tbl_name,
++					row * clu->tbl_column_num + column,
++			(u32 *)&(tbl + row * clu->tbl_column_num)[column]);
++			if (ret) {
++				dev_err(pdev->dev,
++					"error in parsing dts data\n");
++				goto table_free;
++			}
++		}
++		fill_in_dvfs_tbl_entry(clu, row,
++				       (tbl + row * clu->tbl_column_num),
++				       clu->tbl_column_num);
++	}
++
++	return 0;
++
++table_free:
++	kfree(clu->opp_map_tbl);
++	clu->opp_map_tbl = NULL;
++
++	return ret;
++}
++
++static void find_maximum_vol_diff(unsigned long *vol, u32 *max_diff_val,
++				  int vol_size, int n)
++{
++	int i, j;
++	u32 tmp_diff, max_diff = 0;
++	int max_i = 0, max_j = 0;
++
++	if (n == vol_size - 1)
++		return;
++
++	for (i = 0, j = i + n + 1; j < vol_size; ++i, ++j) {
++		tmp_diff = vol[j] - vol[i];
++		if (max_diff < tmp_diff) {
++			max_i = i;
++			max_j = j;
++			max_diff = tmp_diff;
++		}
++	}
++
++	pr_debug("j = %d, i = %d, vol[%d](%ld) - vol[%d](%ld) = %d\n",
++		 max_j, max_i, max_j, vol[max_j], max_i, vol[max_i], max_diff);
++	*max_diff_val = max_diff;
++}
++
++static int sprd_dvfs_module_eb(struct cpudvfs_device *pdev)
++{
++	int ret;
++	struct device_node *node = pdev->of_node;
++	u32 args[2], enable_reg, dvfs_eb_msk;
++
++	pdev->aonmap = syscon_regmap_lookup_by_phandle_args(node,
++				"enable-syscon", 2, args);
++	if (IS_ERR(pdev->aonmap)) {
++		dev_err(pdev->dev, "no dvfs module enable-syscon\n");
++		return PTR_ERR(pdev->aonmap);
++	}
++
++	enable_reg = args[0];
++	dvfs_eb_msk = args[1];
++
++	ret = regmap_update_bits(pdev->aonmap, enable_reg, dvfs_eb_msk,
++				 dvfs_eb_msk);
++	if (ret) {
++		dev_err(pdev->dev, "failed to enable dvfs module\n");
++		goto err_out;
++	}
++
++	dev_dbg(pdev->dev, "finish to enable dvfs module\n");
++
++	return 0;
++
++err_out:
++	return ret;
++}
++
++static
++int sprd_dvfs_third_pmic_enable(struct cpudvfs_device *pdev, u32 num)
++{
++	struct topdvfs_volt_manager *manager = pdev->priv->volt_manager;
++	struct reg_info *regdata;
++	int ret;
++
++	if (num >= pdev->dcdc_num) {
++		dev_err(pdev->dev, "incorrect dcdc id(%d)\n", num);
++		return -EINVAL;
++	}
++
++	if (!pdev->pwr[num].third_pmic_used)
++		return 0;
++
++	regdata = &manager->third_pmic_cfg[num];
++
++	if (pdev->pwr[num].i2c_used)
++		ret = regmap_update_bits(pdev->topdvfs_map, regdata->reg,
++					 BIT(regdata->off), BIT(regdata->off));
++	else
++		ret = regmap_update_bits(pdev->topdvfs_map, regdata->reg,
++					 BIT(regdata->off), ~BIT(regdata->off));
++
++	if (ret)
++		return ret;
++
++	return 0;
++}
++
++static
++int sprd_dvfs_block_dcdc_shutdown_enable(struct cpudvfs_device *pdev, u32 num)
++{
++	struct device_node *dcdc_node, *parent;
++	struct regmap *blk_sd_map, *map;
++	u32 syscon_args[2], reg, bits;
++	int ret;
++
++	if (num >= pdev->dcdc_num) {
++		dev_err(pdev->dev, "incorrect dcdc id(%d)\n", num);
++		return -EINVAL;
++	}
++
++	map = pdev->topdvfs_map;
++	parent = pdev->topdvfs_of_node;
++
++	dcdc_node = of_parse_phandle(parent, "cpu-dcdc-cells", num);
++	if (!dcdc_node) {
++		dev_err(pdev->dev, "no cpu-dcdc-cell%d found\n", num);
++		of_node_put(parent);
++		return -EINVAL;
++	}
++
++	/*
++	 * Deliberately optional on this board: asserting DVFS_BLOCK_SHUTDOWN
++	 * while the DCDC_CPU1 external rail path is not working wedges the
++	 * A75 cores (they stop answering IPIs and boot hangs). Omitting the
++	 * property skips the write; see docs/A75-DVFS-REALME-PORT-PLAN.md.
++	 */
++	blk_sd_map = syscon_regmap_lookup_by_phandle_args(dcdc_node,
++				"dvfs-blk-sd-syscon", 2, syscon_args);
++	if (IS_ERR(blk_sd_map)) {
++		dev_info(pdev->dev, "no dvfs block shutdown syscon, skipping\n");
++		ret = 0;
++		goto out;
++	} else {
++		reg = syscon_args[0];
++		bits = syscon_args[1];
++	}
++
++	ret = regmap_update_bits(blk_sd_map, reg, bits, bits);
++
++out:
++	of_node_put(dcdc_node);
++	of_node_put(parent);
++
++	return ret;
++}
++
++static
++int sprd_mpll_output_source_switch(struct cpudvfs_device *pdev, u32 num)
++{
++	int ret;
++
++	if (num >= pdev->mpll_num) {
++		dev_err(pdev->dev, "invalid mpll id(%d)\n", num);
++		return -EINVAL;
++	}
++
++	dev_dbg(pdev->dev, "MPLL%d_debug_sel_cfg: reg: 0x%x, sel: 0x%x\n", num,
++		pdev->mplls[num].anag_reg, pdev->mplls[num].dbg_sel);
++
++	ret = regmap_update_bits(pdev->mplls[num].anag_map,
++				 pdev->mplls[num].anag_reg,
++				 pdev->mplls[num].dbg_sel,
++				 0);
++	if (ret)
++		return ret;
++
++	/* Need to delay to wait for finishing analog configuration */
++	udelay(50);
++
++	pdev->mplls[num].output_switch_done = true;
++
++	return 0;
++}
++
++static
++int sprd_mpll_relock_enable(struct cpudvfs_device *pdev, u32 num)
++{
++	struct mpll_freq_manager *manager = pdev->priv->mpll_manager;
++	struct reg_info *regdata;
++	u32 enable;
++
++	if (num >= pdev->mpll_num) {
++		dev_err(pdev->dev, "invalid mpll number(%d)\n", num);
++		return -EINVAL;
++	}
++
++	if (!pdev->mplls[num].output_switch_done) {
++		dev_err(pdev->dev, "the output of mpll%d is not be switched to hardware\n",
++			num);
++		return -EINVAL;
++	}
++
++	regdata = &manager->auto_relock_cfg[num];
++	if (!regdata->reg && !regdata->off) {
++		dev_err(pdev->dev, "MPLL%d auto relock reg info is empty\n",
++			num);
++		return -ENODEV;
++	}
++
++	dev_dbg(pdev->dev, "MPLL%d_relock_cfg: reg = 0x%x, off = 0x%x\n", num,
++		regdata->reg, regdata->off);
++
++	enable = regdata->val;
++	if (enable)
++		cpudvfs_bits_update(pdev, regdata->reg, BIT(regdata->off),
++				     BIT(regdata->off));
++	else
++		cpudvfs_bits_update(pdev, regdata->reg, BIT(regdata->off),
++				     ~BIT(regdata->off));
++
++	dev_dbg(pdev->dev, "enable mpll%d to auto relock\n", num);
++
++	return 0;
++}
++
++static
++int sprd_mpll_pd_enable(struct cpudvfs_device *pdev, u32 num)
++{
++	struct mpll_freq_manager *manager = pdev->priv->mpll_manager;
++	struct reg_info *regdata;
++	u32 enable;
++
++	if (num >= pdev->mpll_num) {
++		dev_err(pdev->dev, "invalid mpll number\n");
++		return -EINVAL;
++	}
++
++	if (!pdev->mplls[num].output_switch_done) {
++		dev_err(pdev->dev, "the output of mpll%d has not be switched to hardware",
++			num);
++		return -EINVAL;
++	}
++
++	regdata = &manager->auto_pd_cfg[num];
++	if (!regdata->reg && !regdata->off) {
++		dev_err(pdev->dev, "MPLL%d_auto_pd_cfg, reg info is empty\n",
++			num);
++		return -ENODEV;
++	}
++
++	dev_dbg(pdev->dev, "MPLL%d_auto_pd_cfg: reg = 0x%x, off = 0x%x\n", num,
++		regdata->reg, regdata->off);
++
++
++	enable = regdata->val;
++	if (enable)
++		cpudvfs_bits_update(pdev, regdata->reg, BIT(regdata->off),
++				     BIT(regdata->off));
++	else
++		cpudvfs_bits_update(pdev, regdata->reg, BIT(regdata->off),
++				     ~BIT(regdata->off));
++
++	dev_dbg(pdev->dev, "enable mpll%d to auto power down\n", num);
++
++	return 0;
++}
++
++static
++int sprd_host_cluster_dvfs_enable(struct cpudvfs_device *pdev, u32 clu_id,
++				  bool enable)
++{
++	struct topdvfs_volt_manager *manager = pdev->priv->volt_manager;
++	struct dvfs_cluster *clu;
++	struct reg_info *regdata;
++	int ret;
++
++	if (clu_id >= pdev->host_cluster_num) {
++		dev_err(pdev->dev, "the host cluster id(%d) is overflowing\n",
++			clu_id);
++		return -EINVAL;
++	}
++
++	clu = pdev->hcluster[clu_id];
++	if (!clu) {
++		dev_err(pdev->dev, "the host-cluster%d is null\n", clu_id);
++		return -ENODEV;
++	}
++
++	if (clu->dcdc >= pdev->dcdc_num) {
++		dev_err(pdev->dev, "the cluster's dcdc id(%d) is overflowing\n",
++			clu->dcdc);
++		return -EINVAL;
++	}
++
++	dev_dbg(pdev->dev, "cluster%d's hardware dvfs function is %s\n",
++		clu_id, (enable > 0 ? "enabled" : "disabled"));
++
++	/* Enable TOP DVFS to change voltage dynamically */
++	regdata = &manager->host_vol_auto_tune_cfg[clu->dcdc];
++
++	if (enable && !regdata->val) {
++		ret = regmap_update_bits(pdev->topdvfs_map, regdata->reg,
++					 BIT(regdata->off), ~BIT(regdata->off));
++		if (ret)
++			return ret;
++	}
++
++	/* Enable Subsys DVFS to change frequency dynamically */
++	regdata = &manager->host_freq_auto_tune_cfg[clu_id];
++	if (enable && !regdata->val) {
++		ret = regmap_update_bits(pdev->topdvfs_map, regdata->reg,
++					 BIT(regdata->off), ~BIT(regdata->off));
++		if (ret)
++			return ret;
++	}
++
++	/* Nothing to do when enable is false */
++
++	dev_dbg(pdev->dev, "enable cpu host cluster%d dvfs\n", clu_id);
++
++	return 0;
++}
++
++static
++int sprd_slave_cluster_auto_tune_enable(struct cpudvfs_device *pdev, u32 clu_id,
++					bool enable)
++{
++	struct dvfs_cluster *clu;
++	struct reg_info *regdata;
++
++	clu = pdev->scluster[clu_id];
++	if (!clu) {
++		dev_err(pdev->dev, "the slave-cluster%d is null\n", clu_id);
++		return -ENODEV;
++	}
++
++	regdata = &pdev->priv->freq_manager->slave_freq_auto_tune_cfg[clu->id];
++
++	if (enable && regdata->val) /* enable */
++		cpudvfs_bits_update(pdev, regdata->reg, BIT(regdata->off),
++				    BIT(regdata->off));
++	else
++		cpudvfs_bits_update(pdev, regdata->reg, BIT(regdata->off),
++				    ~BIT(regdata->off));
++
++	dev_dbg(pdev->dev, "enable cpu slave cluster%d dvfs\n", clu->id);
++
++	return 0;
++}
++
++static
++int sprd_cpudvfs_cluster_dvfs_enable(void *data, u32 clu_id, bool enable)
++{
++	struct cpudvfs_device *pdev = (struct cpudvfs_device *)data;
++	struct dvfs_cluster *clu, *slave;
++	int ret, idx = 0;
++
++	if (!pdev) {
++		pr_err("no cpu dvfs device found\n");
++		return -ENODEV;
++	}
++
++	if (clu_id >= pdev->host_cluster_num) {
++		dev_err(pdev->dev, "the host cluster id(%d) is overflowing\n",
++			clu_id);
++		return -EINVAL;
++	}
++
++	clu = pdev->hcluster[clu_id];
++
++	slave = pdev->scluster[0];
++	while (slave) {
++		if (slave->dcdc == clu->dcdc) {
++			ret = sprd_slave_cluster_auto_tune_enable(pdev,
++								  slave->id,
++								  enable);
++			if (ret)
++				return ret;
++		}
++		slave = pdev->scluster[++idx];
++	}
++
++	return sprd_host_cluster_dvfs_enable(pdev, clu_id, enable);
++}
++
++static int sprd_dvfs_idle_disable(struct cpudvfs_device *pdev, u32 device_id)
++{
++	struct cpudvfs_freq_manager *manager = pdev->priv->freq_manager;
++	struct reg_info *regdata;
++
++	if (device_id >= manager->dvfs_device_num) {
++		dev_err(pdev->dev, "the dvfs device id(%d) is overflowing\n",
++			device_id);
++		return -EINVAL;
++	}
++
++	regdata = &manager->dev_idle_disable_cfg[device_id];
++
++	if (regdata->val) /* disable dvfs idle */
++		cpudvfs_bits_update(pdev, regdata->reg, BIT(regdata->off),
++				    BIT(regdata->off));
++	else
++		cpudvfs_bits_update(pdev, regdata->reg, BIT(regdata->off),
++				    ~BIT(regdata->off));
++
++	return 0;
++}
++
++static int sprd_mpll_table_init(struct cpudvfs_device *pdev, u32 mpll_num)
++{
++	struct mpll_freq_manager *manager;
++	int i = 0, ret;
++	struct regmap *map;
++	struct reg_info *regdata;
++	struct output_parameter *en;
++
++	manager = pdev->priv->mpll_manager;
++	if (!manager || !manager->mpll_tbl) {
++		dev_err(pdev->dev, "empty mpll table\n");
++		return -EINVAL;
++	}
++
++	if (mpll_num >= manager->mpll_num) {
++		dev_err(pdev->dev, "invalid mpll id\n");
++		return -EINVAL;
++	}
++
++	map = pdev->mplls[mpll_num].anag_map;
++	en = &manager->mpll_tbl[mpll_num].entry[0];
++	regdata = &en->icp;
++
++	while (!(!regdata->reg && !regdata->off && !regdata->msk &&
++		 !regdata->val)){
++		dev_dbg(pdev->dev, "MPLL%d-index%d-icp: reg = 0x%x, msk = 0x%x, off = %d, val = 0x%x\n",
++			mpll_num, i, regdata->reg, regdata->msk, regdata->off,
++			regdata->val);
++
++		ret = regmap_update_bits(map, regdata->reg,
++					 regdata->msk << regdata->off,
++					 regdata->val << regdata->off);
++		if (ret)
++			return ret;
++
++		regdata = &en->postdiv;
++
++		dev_dbg(pdev->dev, "MPLL%d-index%d-postdiv: reg = 0x%x, msk = 0x%x, off = %d, val = 0x%x\n",
++			mpll_num, i, regdata->reg, regdata->msk, regdata->off,
++			regdata->val);
++
++		ret = regmap_update_bits(map, regdata->reg,
++					 regdata->msk << regdata->off,
++					 regdata->val << regdata->off);
++		if (ret)
++			return ret;
++
++		regdata = &en->n;
++
++		dev_dbg(pdev->dev, "MPLL%d-index%d-n: reg = 0x%x, msk = 0x%x, off = %d, val = 0x%x\n",
++			mpll_num, i, regdata->reg, regdata->msk, regdata->off,
++			regdata->val);
++
++		ret = regmap_update_bits(map, regdata->reg,
++					 regdata->msk << regdata->off,
++					 regdata->val << regdata->off);
++		if (ret)
++			return ret;
++
++		if (++i >= MAX_MPLL_INDEX_NUM)
++			break;
++
++		en = &manager->mpll_tbl[mpll_num].entry[i];
++		regdata = &en->icp;
++	}
++
++	return 0;
++}
++
++static int sprd_hw_dvfs_misc_config(struct cpudvfs_device *pdev)
++{
++	struct topdvfs_volt_manager *volt_manager;
++	struct cpudvfs_freq_manager *freq_manager;
++	struct reg_info *en;
++	struct regmap *map;
++	int i = 0, j = 0, ret;
++
++	volt_manager = pdev->priv->volt_manager;
++	freq_manager = pdev->priv->freq_manager;
++
++	if (!volt_manager || !freq_manager) {
++		pr_err("Voltage or frequency manger is NULL\n");
++		return -EINVAL;
++	}
++
++	map = pdev->topdvfs_map;
++	/* Voltage related configurations */
++	en = &volt_manager->misc_cfg[0];
++
++	while (!(!en->reg && !en->off && !en->msk && !en->val)) {
++		dev_dbg(pdev->dev, "TOP_DVFS_MISC_CFG[%d]: reg = 0x%x, msk = 0x%x, off = %d, val = 0x%x\n",
++			i, en->reg, en->msk, en->off, en->val);
++
++		ret = regmap_update_bits(map, en->reg, en->msk << en->off,
++					 en->val << en->off);
++		if (ret)
++			return ret;
++
++		if (++i >= MAX_TOP_DVFS_MISC_CFG_ENTRY)
++			break;
++
++		en = &volt_manager->misc_cfg[i];
++	}
++
++	/* Frequency related configurations */
++	en = &freq_manager->misc_cfg[0];
++
++	while (!(!en->reg && !en->off && !en->msk && !en->val)) {
++		dev_dbg(pdev->dev, "APCPU_DVFS_MISC_CFG[%d]: reg = 0x%x, msk = 0x%x, off = %d, val = 0x%x\n",
++			j, en->reg, en->msk, en->off, en->val);
++
++		cpudvfs_bits_update(pdev, en->reg, en->msk << en->off,
++				     en->val << en->off);
++
++		if (++j >= MAX_APCPU_DVFS_MISC_CFG_ENTRY)
++			break;
++
++		en = &freq_manager->misc_cfg[j];
++	}
++
++	return 0;
++}
++
++static int sprd_setup_i2c_channel(struct cpudvfs_device *pdev, u32 dcdc_nr)
++{
++	int ret;
++
++	if (!pdev->pwr) {
++		dev_err(pdev->dev, "no DCDC Power domain found\n");
++		return -EINVAL;
++	}
++
++	if (dcdc_nr >= pdev->dcdc_num) {
++		dev_err(pdev->dev, "incorrect dcdc id(%d)\n", dcdc_nr);
++		return -EINVAL;
++	}
++
++	if (pdev->pwr[dcdc_nr].i2c_used && pdev->pwr[dcdc_nr].i2c_shared) {
++		ret = i2c_add_driver(&sprd_cpudvfs_i2c_driver[dcdc_nr]);
++		if (ret)
++			dev_err(pdev->dev, "failed to add an i2c driver\n");
++		else
++			dev_info(pdev->dev, "the dcdc%d shares the i2c channel with other devices\n",
++				 dcdc_nr);
++	} else if (pdev->pwr[dcdc_nr].i2c_used &&
++		   !pdev->pwr[dcdc_nr].i2c_shared) {
++		dev_info(pdev->dev, "the dcdc%d use the i2c channel alone\n",
++			 dcdc_nr);
++	} else {
++		dev_info(pdev->dev, "the dcdc%d does not need an i2c channel\n",
++			 dcdc_nr);
++	}
++
++	return 0;
++}
++
++/*
++ * sprd_dvfs_device_init - configure hardware dvfs,
++ * not including enabling hardware dvfs for every host cpu cluster
++ */
++static int sprd_dvfs_device_init(struct cpudvfs_device *pdev)
++{
++	int ret, ix;
++
++	ret = sprd_dvfs_module_eb(pdev);
++	if (ret) {
++		dev_err(pdev->dev, "failed to enable dvfs module(%d)\n", ret);
++		return ret;
++	}
++
++	for (ix = 0; ix < pdev->mpll_num; ++ix) {
++		/* Let DVFS control the output of MPLL */
++		ret = sprd_mpll_output_source_switch(pdev, ix);
++		if (ret) {
++			dev_err(pdev->dev,
++				"failed to let dvfs control output of mpll\n");
++			return ret;
++		}
++
++		/* Enable mpll auto relock */
++		ret = sprd_mpll_relock_enable(pdev, ix);
++		if (ret) {
++			dev_err(pdev->dev,
++				"failed to enable mpll auto relock\n");
++			return ret;
++		}
++
++		/* Enable mpll auto power down */
++		ret = sprd_mpll_pd_enable(pdev, ix);
++		if (ret) {
++			dev_err(pdev->dev, "failed to enable mpll auto pd\n");
++			return ret;
++		}
++
++		/* Need to initialize the mpll index table if necessary */
++		ret = sprd_mpll_table_init(pdev, ix);
++		if (ret) {
++			dev_err(pdev->dev,
++				"failed to initialize the mpll index table\n");
++			return ret;
++		}
++	}
++
++	for (ix = 0; ix < pdev->dcdc_num; ++ix) {
++		ret = sprd_setup_i2c_channel(pdev, ix);
++		if (ret) {
++			dev_err(pdev->dev, "failed to setup i2c channel%d\n",
++				ix);
++			return ret;
++		}
++
++		ret = sprd_dvfs_block_dcdc_shutdown_enable(pdev, ix);
++		if (ret) {
++			dev_err(pdev->dev, "failed to enable dvfs to block dcdc%d to shutdown\n",
++				ix);
++			return ret;
++		}
++
++		ret = sprd_dvfs_third_pmic_enable(pdev, ix);
++		if (ret) {
++			dev_err(pdev->dev, "failed to select the third pmic when the third pmic is used for dcdc%d\n",
++				ix);
++			return ret;
++		}
++
++	}
++
++	for (ix = 0; ix < pdev->dvfs_device_num; ++ix) {
++		ret = sprd_dvfs_idle_disable(pdev, ix);
++		if (ret) {
++			dev_err(pdev->dev, "failed to set dvfs idle\n");
++			return ret;
++		}
++	}
++
++	/* Other common board dvfs configurations */
++	ret = sprd_hw_dvfs_misc_config(pdev);
++	if (ret) {
++		dev_err(pdev->dev, "error in setting misc configurations\n");
++		return ret;
++	}
++
++	return 0;
++}
++
++static int sprd_voltage_grade_value_update(struct dvfs_cluster *clu,
++					   unsigned long volt, int opp_idx)
++{
++	struct cpudvfs_device *pdev = (struct cpudvfs_device *)clu->parent;
++	struct reg_info *regdata;
++	struct pmic_data *pm;
++	int ret, count, grade_index = clu->dcdc;
++	u32 pmic_num, grade_id;
++
++	if (!pdev->priv->volt_manager || !pdev->priv->volt_manager->grade_tbl ||
++	    !pdev->priv->pmic) {
++		dev_err(pdev->dev, "the voltage grade table is NULL\n");
++		return -EINVAL;
++	}
++
++	if (opp_idx == 0) {
++		clu->pre_grade_volt = 0;
++		clu->tmp_vol_grade  = 0;
++		clu->max_vol_grade  = 0;
++	}
++
++	if (clu->pre_grade_volt == volt)
++		return 0;
++
++	if (clu->pre_grade_volt > volt) {
++		dev_err(pdev->dev, "the voltages are not in ascending order\n");
++		return -EINVAL;
++	}
++
++	/*
++	 * The registers to store voltage grade values in pmic are different,
++	 * if the way to adjust voltage is different, so get the right registers
++	 */
++	if (pdev->pwr[clu->dcdc].i2c_used)
++		grade_index += pdev->priv->volt_manager->vir_dcdc_adi_num;
++
++	regdata = pdev->priv->volt_manager->grade_tbl[grade_index].regs_array;
++	if (!regdata) {
++		dev_err(pdev->dev, "empty voltage grade reg info\n");
++		return -EINVAL;
++	}
++
++	/* Get the count of voltage grade */
++	count = pdev->priv->volt_manager->grade_tbl[grade_index].grade_count;
++
++	dev_dbg(pdev->dev, "grade_index in volt grade table array is %d\n",
++		grade_index);
++
++	/*
++	 * Get the current voltage grade id and store the corresponding
++	 * voltage value
++	 */
++	grade_id = clu->tmp_vol_grade++;
++	if (grade_id >= MAX_VOLT_GRADE_NUM) {
++		dev_err(pdev->dev, "the volt grade number(%d) is beyond the maximun(%d)\n",
++			grade_id, MAX_VOLT_GRADE_NUM);
++		return -EINVAL;
++	}
++	pdev->pwr[clu->dcdc].grade_volt_val_array[grade_id] = volt;
++
++	/* Update the max volage grade */
++	if (clu->max_vol_grade < grade_id)
++		clu->max_vol_grade = grade_id;
++
++	dev_dbg(pdev->dev, "voltage grade[%d]: vol[%ld]uV\n", grade_id, volt);
++
++	/* Get pmic id */
++	pmic_num = pdev->pwr[clu->dcdc].pmic_num;
++	if (pmic_num >= pdev->pmic_type_sum) {
++		dev_err(pdev->dev, "incorrect pmic sequenc number\n");
++		return -EINVAL;
++	}
++
++	/* Find the pmic */
++	pm = &pdev->priv->pmic[pmic_num];
++	if (!pm) {
++		dev_err(pdev->dev, "empty pmic info\n");
++		return -EINVAL;
++	}
++
++	/*
++	 * Update the voltage value in pmic that is matched with current
++	 * voltage grade id
++	 */
++	ret = pm->update(pdev->topdvfs_map, regdata, pm, volt, grade_id, count);
++	if (ret) {
++		dev_err(pdev->dev, "error in updating volt gear values for dcdc%d\n",
++			clu->dcdc);
++		return ret;
++	}
++
++	clu->pre_grade_volt = volt;
++
++	return 0;
++}
++
++static
++int sprd_cpudvfs_opp_table_update(void *data, u32 clu_id, unsigned long freq_hz,
++				  unsigned long volt_uV, int opp_idx)
++{
++	struct cpudvfs_device *pdev = (struct cpudvfs_device *)data;
++	struct dvfs_cluster *clu;
++	int ret;
++
++	if (clu_id >= pdev->host_cluster_num) {
++		dev_err(pdev->dev, "cluster id(%d) is overflowing\n", clu_id);
++		return -EINVAL;
++	}
++
++	clu = pdev->hcluster[clu_id];
++	if (!clu) {
++		dev_err(pdev->dev, "cluster device is null\n");
++		return -EINVAL;
++	}
++
++	clu->freqvolt[opp_idx].freq = freq_hz;
++	clu->freqvolt[opp_idx].volt = volt_uV;
++
++	if (clu->map_idx_max < opp_idx)
++		clu->map_idx_max = opp_idx;
++
++	/* Fill in binning voltages dynamically*/
++	ret = sprd_voltage_grade_value_update(clu, volt_uV, opp_idx);
++	if (ret)
++		dev_err(pdev->dev, "failed to update opp table in arch dev\n");
++
++	return ret;
++}
++
++static
++int sprd_cpudvfs_time_udelay_update(void *data, u32 clu_id)
++{
++	struct cpudvfs_device *pdev = (struct cpudvfs_device *)data;
++	struct dvfs_cluster *clu;
++	int ret = 0, i;
++	u32 max_value = 0;
++	struct pmic_data *pm;
++	u32 slew_rate, module_clk_khz, margin;
++	u32 cycle, reg, off, msk, pmic_id;
++	struct topdvfs_volt_manager *manager;
++
++	if (clu_id >= pdev->host_cluster_num) {
++		dev_err(pdev->dev, "cluster id (%d) is overflowing\n", clu_id);
++		return -EINVAL;
++	}
++
++	clu = pdev->hcluster[clu_id];
++	if (!clu) {
++		dev_err(pdev->dev, "the cluster%d to get is null\n", clu_id);
++		return -ENODEV;
++	}
++
++	dev_dbg(pdev->dev, "Update voltage delay time for dcdc%d\n", clu->dcdc);
++
++	pmic_id = pdev->pwr[clu->dcdc].pmic_num;
++	if (pmic_id >= pdev->pmic_type_sum) {
++		dev_err(pdev->dev, "incorrect pmic sequenc number\n");
++		return -EINVAL;
++	}
++
++	pm = &pdev->priv->pmic[pmic_id];
++	if (!pm) {
++		dev_err(pdev->dev, "empty private data\n");
++		return -EINVAL;
++	}
++
++	module_clk_khz = pdev->priv->module_clk_khz;
++	margin = pdev->priv->pmic[pmic_id].margin_us;
++	manager = pdev->priv->volt_manager;
++	slew_rate = pdev->pwr[clu->dcdc].slew_rate;
++
++	for (i = 0; i <= clu->max_vol_grade; ++i) {
++		find_maximum_vol_diff(pdev->pwr[clu->dcdc].grade_volt_val_array,
++				      &max_value, clu->max_vol_grade + 1, i);
++
++		cycle = pm->up_cycle_calculate(max_value, slew_rate,
++					       module_clk_khz, margin);
++		dev_dbg(pdev->dev, "up udelay[%d] = 0x%x\n", i, cycle);
++
++		reg = manager->up_udelay_tbl[clu->dcdc].tbl[i].reg;
++		off = manager->up_udelay_tbl[clu->dcdc].tbl[i].off;
++		msk = manager->up_udelay_tbl[clu->dcdc].tbl[i].msk;
++
++		ret = regmap_update_bits(pdev->topdvfs_map, reg, msk << off,
++					 cycle << off);
++		if (ret)
++			return ret;
++
++		cycle = pm->down_cycle_calculate(max_value, slew_rate,
++						 module_clk_khz, margin);
++		dev_dbg(pdev->dev, "down udelay[%d] = 0x%x\n", i, cycle);
++
++		reg = manager->down_udelay_tbl[clu->dcdc].tbl[i].reg;
++		off = manager->down_udelay_tbl[clu->dcdc].tbl[i].off;
++		msk = manager->down_udelay_tbl[clu->dcdc].tbl[i].msk;
++
++		ret = regmap_update_bits(pdev->topdvfs_map, reg, msk << off,
++					 cycle << off);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static
++int sprd_cpudvfs_index_map_table_update(void *data, char *opp_name, u32 clu_id,
++					char *cpudiff_str, char *cpubin_str,
++					int curr_temp_threshold)
++{
++	struct cpudvfs_device *pdev = (struct cpudvfs_device *)data;
++	struct dvfs_cluster *clu, *slave;
++	char temp[32];
++	char postfix[32] = "";
++	int ret, idx = 0;
++
++	if (clu_id >= pdev->host_cluster_num) {
++		dev_err(pdev->dev, "the host cluster id is overflowing\n");
++		return -EINVAL;
++	}
++
++	if (!opp_name || !cpudiff_str || !cpubin_str) {
++		dev_err(pdev->dev, "empty parameters!\n");
++		return -EINVAL;
++	}
++
++	/* optional */
++	if (strcmp(cpudiff_str, "")) {
++		sprintf(temp, "_%s", cpudiff_str);
++		strcat(postfix, temp);
++	}
++
++	/* optional */
++	if (!strcmp(cpubin_str, ""))
++		goto init_map;
++
++	sprintf(temp, "_%s", cpubin_str);
++	strcat(postfix, temp);
++
++	/* cpu binning value is required when we switch temperature table */
++	if (curr_temp_threshold) {
++		sprintf(temp, "_%d", curr_temp_threshold);
++		strcat(postfix, temp);
++	}
++
++	dev_dbg(pdev->dev, "the postfix: %s\n", postfix);
++
++init_map:
++	clu = pdev->hcluster[clu_id];
++	strcpy(clu->dts_tbl_name, clu->default_tbl_name);
++	strcat(clu->dts_tbl_name, postfix);
++
++	/*
++	 * Use the default dts_tbl_name, if opp name is "operating-points",
++	 * otherwise change the dts_tbl_name.
++	 */
++	dev_info(pdev->dev, "update dvfs index map table for host cluster%d host-tbl-name: %s\n",
++		clu_id, clu->dts_tbl_name);
++
++	ret = dvfs_map_tbl_init(pdev, clu);
++	if (ret < 0)
++		return ret;
++
++	/*
++	 * Initialize the slave clusters whose power domain is same with the
++	 * current host cluster.
++	 */
++	slave = pdev->scluster[0];
++
++	while (slave) {
++		if (slave->dcdc == clu->dcdc) {
++			strcpy(slave->dts_tbl_name, slave->default_tbl_name);
++			strcat(slave->dts_tbl_name, postfix);
++
++			dev_dbg(pdev->dev,
++				"update dvfs index map tbl for slave cluster%d (%s)that belong to the host cluster%d\n",
++				idx, slave->dts_tbl_name, clu->id);
++
++			ret = dvfs_map_tbl_init(pdev, slave);
++			if (ret < 0)
++				return ret;
++		}
++		slave = pdev->scluster[++idx];
++	}
++
++	return 0;
++}
++
++/*
++ * Set dvfs idle pd voltage, it's needed to set pd voltage as the max
++ * grade when dvfs idle is disabled in sharkl5.
++ */
++static
++int sprd_cpudvfs_idle_pd_volt_update(void *data, u32 clu_id)
++{
++	struct cpudvfs_device *pdev = (struct cpudvfs_device *)data;
++	struct topdvfs_volt_manager *manager = pdev->priv->volt_manager;
++	struct reg_info *regdata;
++	struct dvfs_cluster *clu;
++	u32 value, vol_max;
++	int ret;
++
++	if (clu_id >= pdev->host_cluster_num) {
++		dev_err(pdev->dev, "the cluster number is overflowing\n");
++		return -EINVAL;
++	}
++
++	clu = pdev->hcluster[clu_id];
++
++	if (clu->dcdc >= pdev->dcdc_num) {
++		dev_err(pdev->dev, "the dcdc id(%d) is overflowing\n",
++			clu->dcdc);
++		return -EINVAL;
++	}
++
++	/* Some platforms do not need to set idle pd voltage,
++	 * then return 0
++	 */
++	regdata = &manager->idle_vol_cfg[clu->dcdc];
++	if (!regdata->val)
++		return 0;
++
++	vol_max = clu->max_vol_grade;
++
++	/*
++	 * Since the registers about idle voltage don't support set/clr, we
++	 * cannot use regmap_update_bits().
++	 */
++	ret = regmap_read(pdev->topdvfs_map, regdata->reg, &value);
++	if (ret)
++		return ret;
++
++	value &= ~(regdata->msk << regdata->off);
++	value |= vol_max << regdata->off;
++
++	ret = regmap_write(pdev->topdvfs_map, regdata->reg, value);
++	if (ret) {
++		dev_err(pdev->dev, "failed to set idle voltage for dcdc-cpu%d\n",
++			clu->dcdc);
++		return ret;
++	}
++
++	return 0;
++}
++
++static
++int sprd_cpudvfs_dvfs_target_set(void *data, u32 clu_id, u32 opp_idx)
++{
++	struct cpudvfs_device *pdev = (struct cpudvfs_device *)data;
++	struct cpudvfs_freq_manager *manager = pdev->priv->freq_manager;
++	struct dvfs_cluster *clu;
++	struct i2c_client *client;
++	struct reg_info *regdata;
++	int hw_map_opp_idx = 0;
++	int i2c_flag = 0;
++
++	if (clu_id >= pdev->host_cluster_num) {
++		dev_err(pdev->dev, "the host cluster id is overflowing\n");
++		return -EINVAL;
++	}
++
++	/* Consider the default first entry 'XTL_26M' in hw dvfs table */
++	hw_map_opp_idx = opp_idx + 1;
++
++	clu = pdev->hcluster[clu_id];
++	if (opp_idx >= clu->tbl_row_num) {
++		dev_err(pdev->dev, "invalid dvfs tbl index of host-cluster%d\n",
++			clu_id);
++		return -EINVAL;
++	}
++
++
++	if (pdev->pwr[clu->dcdc].i2c_used && pdev->pwr[clu->dcdc].i2c_shared) {
++		client = pdev->pwr[clu->dcdc].i2c_client;
++		if (!client) {
++			dev_err(pdev->dev, "no i2c device found for dcdc%d\n",
++				clu->dcdc);
++			return -ENODEV;
++		}
++		i2c_lock_bus(client->adapter, I2C_LOCK_ROOT_ADAPTER);
++		i2c_flag = 1;
++	}
++
++	regdata = &manager->hcluster_work_index_cfg[clu_id];
++
++	writel(hw_map_opp_idx, pdev->membase + regdata->reg);
++
++	/* Delay here to wait for finishing dvfs operations by hardware */
++	udelay(pdev->pwr[clu->dcdc].tuning_latency_us);
++
++	if (i2c_flag)
++		i2c_unlock_bus(client->adapter, I2C_LOCK_ROOT_ADAPTER);
++
++	return 0;
++}
++
++static
++unsigned int sprd_cpudvfs_curr_freq_get(void *data, u32 clu_id)
++{
++	struct cpudvfs_device *pdev = (struct cpudvfs_device *)data;
++	struct cpudvfs_freq_manager *manager = pdev->priv->freq_manager;
++	struct reg_info *regdata;
++	struct dvfs_cluster *clu;
++	int hw_opp_index, sw_opp_index;
++
++	clu = pdev->hcluster[clu_id];
++	if (!clu) {
++		dev_err(pdev->dev, "the cluster to access is null\n");
++		return 0;
++	}
++
++	regdata = &manager->hcluster_work_index_cfg[clu_id];
++
++	hw_opp_index = (readl(pdev->membase + regdata->reg) >> regdata->off) &
++		regdata->msk;
++
++	sw_opp_index = hw_opp_index - 1;
++
++	if (sw_opp_index > clu->map_idx_max)
++		sw_opp_index = clu->map_idx_max;
++
++	return clu->freqvolt[sw_opp_index].freq / 1000;
++}
++
++/*
++ * Special hardware dvfs operations in SharkL5 family SOCs
++ */
++static struct cpudvfs_phy_ops sprd_cpudvfs_phy_ops = {
++	.dvfs_enable = sprd_cpudvfs_cluster_dvfs_enable,
++	.volt_grade_table_update = sprd_cpudvfs_opp_table_update,
++	.udelay_update = sprd_cpudvfs_time_udelay_update,
++	.index_map_table_update = sprd_cpudvfs_index_map_table_update,
++	.idle_pd_volt_update = sprd_cpudvfs_idle_pd_volt_update,
++	.target_set = sprd_cpudvfs_dvfs_target_set,
++	.freq_get = sprd_cpudvfs_curr_freq_get,
++};
++
++static  int sprd_mpll_dt_parse(struct cpudvfs_device *pdev)
++{
++	u32 idx = 0;
++	struct device_node *node = NULL;
++	struct regmap *map;
++	int ret = 0, num;
++	u32 args[2];
++
++	if (!of_find_property(pdev->of_node, "mpll-cells", &num)) {
++		dev_err(pdev->dev, "no mpll-cells node found\n");
++		of_node_put(pdev->of_node);
++		return -ENODEV;
++	}
++
++	num = num / sizeof(u32);
++	if (num > MAX_MPLL) {
++		dev_err(pdev->dev, "the number of mpll(%d) is beyond the maximum value(%d)",
++			num, MAX_MPLL);
++		return -EINVAL;
++	}
++
++	pdev->mplls = kcalloc(num, sizeof(struct mpll_cfg), GFP_KERNEL);
++	if (!pdev->mplls) {
++		of_node_put(pdev->of_node);
++		return -ENOMEM;
++	}
++
++	for (idx = 0; idx < num; ++idx) {
++		struct mpll_freq_manager *man = pdev->priv->mpll_manager;
++
++		if (!man) {
++			dev_err(pdev->dev, "empty mpll frequency manager\n");
++			ret = -EINVAL;
++			goto mpll_free;
++		}
++
++		node =	of_parse_phandle(pdev->of_node, "mpll-cells", idx);
++		if (!node) {
++			dev_err(pdev->dev, "failed to get mpll%d node\n", idx);
++			ret = -EINVAL;
++			goto mpll_free;
++		}
++
++		map = syscon_regmap_lookup_by_phandle_args(node,
++					"mpll-sel-syscon", 2, args);
++		if (IS_ERR(map)) {
++			dev_err(pdev->dev, "no mpll-sel-syscon found\n");
++			ret = PTR_ERR(map);
++			goto mpll_free;
++		} else {
++			pdev->mplls[idx].anag_reg = args[0];
++			pdev->mplls[idx].dbg_sel = args[1];
++			pdev->mplls[idx].anag_map = map;
++		}
++
++		of_node_put(node);
++	}
++
++	pdev->mpll_num = num;
++
++	of_node_put(pdev->of_node);
++
++	dev_dbg(pdev->dev, "finish to parse mpll information in dts\n");
++
++	return 0;
++
++mpll_free:
++	if (node)
++		of_node_put(node);
++	of_node_put(pdev->of_node);
++	kfree(pdev->mplls);
++	pdev->mplls = NULL;
++
++	return ret;
++}
++
++static int sprd_dcdc_dt_parse(struct cpudvfs_device *pdev)
++{
++	struct device_node *node, *dcdc_node = NULL, *cfg_node = NULL;
++	char dcdc_supply[64] = "dcdc-cpu-dvfs-cfg";
++	int nr, ix;
++	struct regmap *map;
++	int ret;
++
++	node = of_parse_phandle(pdev->of_node, "topdvfs-controller", 0);
++	if (!node) {
++		dev_err(pdev->dev, "no topdvfs-controller found\n");
++		ret = -EINVAL;
++		goto err_out;
++	}
++
++	pdev->topdvfs_of_node = node;
++
++	map = syscon_regmap_lookup_by_phandle(node, "sprd,topdvfs-sysctrl");
++	if (IS_ERR(map)) {
++		dev_err(pdev->dev, "no regmap for syscon topdvfs-sysctrl\n");
++		ret = -ENODEV;
++		goto err_out;
++	}
++
++	pdev->topdvfs_map = map;
++
++	if (!of_find_property(node, "cpu-dcdc-cells", &nr)) {
++		dev_err(pdev->dev, "no cpu-dcdc-cells found\n");
++		ret = -EINVAL;
++		goto err_out;
++	}
++
++	nr = nr / sizeof(u32);
++
++	if (nr != pdev->priv->volt_manager->dcdc_num) {
++		dev_err(pdev->dev, "the total dcdc number is not matched\n");
++		ret = -EINVAL;
++		goto err_out;
++	}
++
++	pdev->dcdc_num = nr;
++
++	dev_dbg(pdev->dev, "the dcdc number: %d\n", pdev->dcdc_num);
++
++	pdev->pwr = kcalloc(nr, sizeof(struct dcdc_pwr), GFP_KERNEL);
++	if (!pdev->pwr) {
++		ret = -ENOMEM;
++		goto err_out;
++	}
++
++	for (ix = 0; ix < pdev->dcdc_num; ix++) {
++		dcdc_node = of_parse_phandle(node, "cpu-dcdc-cells", ix);
++		if (!dcdc_node) {
++			dev_err(pdev->dev, "no cpu-dcdc-cell%d found\n", ix);
++			ret = -EINVAL;
++			goto err_power_free;
++		}
++
++		if (of_property_read_bool(dcdc_node, "sprd,multi-supply"))
++			sprd_cpudvfs_get_supply_mode(dcdc_supply);
++
++		dev_info(pdev->dev, "dcdc-cpu%d supply[%s]\n", ix, dcdc_supply);
++
++		cfg_node = of_parse_phandle(dcdc_node, dcdc_supply, 0);
++		if (!cfg_node) {
++			dev_err(pdev->dev, "no dvfs dcdc configure found\n");
++			ret = -EINVAL;
++			goto err_power_free;
++		}
++
++		if (of_property_read_bool(cfg_node, "third-pmic-used"))
++			pdev->pwr[ix].third_pmic_used = true;
++
++		ret = of_property_read_u32(cfg_node, "pmic-type-num",
++					   &pdev->pwr[ix].pmic_num);
++		if (ret) {
++			dev_err(pdev->dev, "no kind of pmic found\n");
++			goto err_power_free;
++		}
++
++		ret = of_property_read_u32(cfg_node, "slew-rate",
++					   &pdev->pwr[ix].slew_rate);
++		if (ret) {
++			dev_err(pdev->dev, "no slew rate of pmic found\n");
++			goto err_power_free;
++		}
++
++		ret = of_property_read_u32(cfg_node, "tuning-latency-us",
++					   &pdev->pwr[ix].tuning_latency_us);
++		if (ret) {
++			dev_err(pdev->dev, "no tune latency of dvfs found\n");
++			goto err_power_free;
++		}
++
++		if (!of_property_read_bool(cfg_node, "chnl-i2c-used")) {
++			pdev->pwr[ix].i2c_used = false;
++		} else {
++			pdev->pwr[ix].i2c_used = true;
++
++			if (of_property_read_bool(cfg_node, "chnl-i2c-shared"))
++				pdev->pwr[ix].i2c_shared = true;
++			else
++				pdev->pwr[ix].i2c_shared = false;
++		}
++
++		of_node_put(cfg_node);
++		of_node_put(dcdc_node);
++	}
++
++	of_node_put(node);
++	of_node_put(pdev->of_node);
++
++	return 0;
++
++err_power_free:
++	if (cfg_node)
++		of_node_put(cfg_node);
++	if (dcdc_node)
++		of_node_put(dcdc_node);
++	kfree(pdev->pwr);
++	pdev->pwr = NULL;
++
++err_out:
++	if (node)
++		of_node_put(node);
++	of_node_put(pdev->of_node);
++
++	return ret;
++}
++
++static int sprd_cluster_detail_parse(struct dvfs_cluster *clu)
++{
++	struct cpudvfs_device *pdev = (struct cpudvfs_device *)clu->parent;
++	struct cpudvfs_freq_manager *manager = pdev->priv->freq_manager;
++	char *clu_name;
++	struct device_node *node;
++	struct dvfs_index_tbl *index_tbl;
++	u32 dcdc_cell;
++	int ret;
++
++	if (clu->is_host)
++		clu_name = "host-cluster-cells";
++	else
++		clu_name = "slave-cluster-cells";
++
++	node = of_parse_phandle(pdev->of_node, clu_name, clu->id);
++	if (!node) {
++		dev_err(pdev->dev, "%s[%d] node is not defined in dts\n",
++			clu_name, clu->id);
++		ret =  -EINVAL;
++		goto parent_node_put;
++	}
++
++	if (!of_property_read_u32(node, "belong-dcdc-cell", &dcdc_cell)) {
++		clu->dcdc = dcdc_cell;
++	} else {
++		dev_err(pdev->dev, "no belong-dcdc-cell found\n");
++		ret = -EINVAL;
++		goto child_node_put;
++	}
++
++	if (!of_find_property(node, clu->dts_tbl_name, NULL)) {
++		dev_err(pdev->dev, "no %s property found\n", clu->dts_tbl_name);
++		ret = -EINVAL;
++		goto child_node_put;
++	}
++
++	clu->of_node = node;
++
++	if (clu->is_host)
++		index_tbl = &manager->host_cluster_index_tbl[clu->id];
++	else
++		index_tbl = &manager->slave_cluster_index_tbl[clu->id];
++
++	clu->tbl_row_num = index_tbl->tbl_row_num;
++	clu->tbl_column_num = index_tbl->tbl_column_num;
++
++	ret = clu->tbl_row_num;
++
++child_node_put:
++	of_node_put(node);
++parent_node_put:
++	of_node_put(pdev->of_node);
++
++	return ret;
++}
++
++static void sprd_cluster_plat_opp_release(struct cpudvfs_device *pdev)
++{
++	struct dvfs_cluster *clu, **clu_array;
++	struct plat_opp *opp;
++	int kind = 2, clu_num, clu_id;
++
++	clu = pdev->phost_cluster;
++	clu_num = pdev->host_cluster_num;
++	clu = pdev->phost_cluster;
++	clu_array = pdev->hcluster;
++
++	while (kind--) {
++		for (clu_id = 0; clu_id < clu_num; ++clu_id) {
++			opp = clu[clu_id].freqvolt;
++			kfree(opp);
++			clu[clu_id].freqvolt = NULL;
++			clu_array[clu_id] = NULL;
++		}
++
++		clu = pdev->pslave_cluster;
++		clu_num = pdev->slave_cluster_num;
++		clu_array = pdev->scluster;
++	}
++}
++
++static int sprd_cluster_dt_parse(struct cpudvfs_device *pdev)
++{
++	struct cluster_info {
++		const char *name;
++		u32 num;
++		struct dvfs_cluster *pcluster;
++		bool is_host;
++		struct dvfs_cluster **ppcluster;
++	};
++	int ret, i;
++
++	struct cluster_info info_array[2] = {
++		{
++			"host-cluster-cells",
++			pdev->host_cluster_num,
++			pdev->phost_cluster,
++			true,
++			pdev->hcluster,
++		},
++		{
++			"slave-cluster-cells",
++			pdev->slave_cluster_num,
++			pdev->pslave_cluster,
++			false,
++			pdev->scluster,
++		},
++	};
++
++	for (i = 0; i < 2; i++) {
++		const char *name = info_array[i].name;
++		u32 clu_num = info_array[i].num;
++		int dt_clu_num, id;
++		struct dvfs_cluster *cluster;
++		struct plat_opp *opp;
++		int row_num;
++
++		if (!of_find_property(pdev->of_node, name, &dt_clu_num)) {
++			dev_err(pdev->dev, "no %s defined in dts\n", name);
++			ret = -EINVAL;
++			goto err_opp_free;
++		}
++
++		dt_clu_num = dt_clu_num / sizeof(u32);
++		if (dt_clu_num != clu_num) {
++			dev_err(pdev->dev, "the number of %s defined in dts is incorrect\n",
++				name);
++			ret = -EINVAL;
++			goto err_opp_free;
++		}
++
++		cluster = info_array[i].pcluster;
++		for (id = 0; id < clu_num; ++id) {
++			cluster[id].is_host = info_array[i].is_host;
++			cluster[id].id = id;
++			cluster[id].parent = pdev;
++
++			row_num = sprd_cluster_detail_parse(&cluster[id]);
++			if (row_num < 0) {
++				dev_err(pdev->dev, "fail to parse %s\n", name);
++				ret = row_num;
++				goto err_opp_free;
++			}
++
++			opp = kcalloc(row_num, sizeof(*opp), GFP_KERNEL);
++			if (!opp) {
++				ret = -ENOMEM;
++				goto err_opp_free;
++			}
++
++			cluster[id].freqvolt = opp;
++			info_array[i].ppcluster[id] = &cluster[id];
++		}
++		of_node_put(pdev->of_node);
++	}
++
++	return 0;
++
++err_opp_free:
++	sprd_cluster_plat_opp_release(pdev);
++	of_node_put(pdev->of_node);
++
++	return ret;
++}
++
++static int sprd_dvfs_device_dt_parse(struct cpudvfs_device *pdev)
++{
++	int ret;
++
++	ret = sprd_cluster_dt_parse(pdev);
++	if (ret)
++		return ret;
++
++	ret = sprd_mpll_dt_parse(pdev);
++	if (ret)
++		return ret;
++
++	ret = sprd_dcdc_dt_parse(pdev);
++	if (ret)
++		return ret;
++
++	dev_info(pdev->dev, "finish to parse the cpu hardware dvfs device\n");
++
++	return 0;
++}
++
++static int sprd_cpudvfs_probe(struct platform_device *pdev)
++{
++	const struct dvfs_private_data *pdata;
++	struct cpudvfs_device *parchdev;
++	struct device_node *np;
++	struct resource	*res;
++	void __iomem *base;
++	int ret;
++
++	parchdev = devm_kzalloc(&pdev->dev,
++				sizeof(struct cpudvfs_device), GFP_KERNEL);
++	if (!parchdev)
++		return -ENOMEM;
++
++	np = pdev->dev.of_node;
++	if (!np) {
++		dev_err(&pdev->dev, "have not found device node!\n");
++		ret = -ENODEV;
++		goto err_out;
++	}
++
++	parchdev->of_node = np;
++
++	pdata = of_device_get_match_data(&pdev->dev);
++	if (!pdata || !pdata->volt_manager || !pdata->freq_manager ||
++	    !pdata->mpll_manager) {
++		dev_err(&pdev->dev, "no matched private driver data found\n");
++		ret = -EINVAL;
++		goto err_out;
++	}
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	base = devm_ioremap_resource(&pdev->dev, res);
++	if (!base) {
++		dev_err(&pdev->dev, "failed to remap the top dvfs register\n");
++		ret = -ENOMEM;
++		goto err_out;
++	}
++
++	parchdev->membase = base;
++	parchdev->dev = &pdev->dev;
++	parchdev->phy_ops = &sprd_cpudvfs_phy_ops;
++	parchdev->phost_cluster = pdata->host_cluster;
++	parchdev->pslave_cluster = pdata->slave_cluster;
++
++	parchdev->priv = pdata;
++	parchdev->host_cluster_num =
++		parchdev->priv->freq_manager->host_cluster_num;
++	parchdev->slave_cluster_num =
++		parchdev->priv->freq_manager->slave_cluster_num;
++	parchdev->dvfs_device_num =
++		parchdev->priv->freq_manager->dvfs_device_num;
++	parchdev->pmic_type_sum = MAX_PMIC_TYPE_NUM;
++
++	ret = sprd_dvfs_device_dt_parse(parchdev);
++	if (ret)
++		goto err_mem_unmap;
++
++	platform_set_drvdata(pdev, parchdev);
++
++	ret = sprd_dvfs_device_init(parchdev);
++	if (ret) {
++		dev_err(&pdev->dev,
++			"failed to initialize the cpu hw dvfs device\n");
++		return ret;
++	}
++
++	dev_info(&pdev->dev, "finish to probe the cpu hardware dvfs device\n");
++
++	return 0;
++
++err_mem_unmap:
++	devm_iounmap(&pdev->dev, parchdev->membase);
++	parchdev->membase = NULL;
++
++err_out:
++	return ret;
++}
++
++static void sprd_cpudvfs_remove(struct platform_device *pdev)
++{
++	int ix;
++	struct cpudvfs_device *parch = platform_get_drvdata(pdev);
++
++	for (ix = 0; ix < parch->dcdc_num; ix++) {
++		if (parch->pwr[ix].i2c_used && parch->pwr[ix].i2c_client &&
++		    parch->pwr[ix].i2c_shared)
++			i2c_del_driver(&sprd_cpudvfs_i2c_driver[ix]);
++	}
++}
++
++#ifdef CONFIG_PM_SLEEP
++static int sprd_cpudvfs_resume(struct device *dev)
++{
++	struct cpudvfs_device *pdev = dev_get_drvdata(dev);
++	int ret, ix;
++
++	for (ix = 0; ix < pdev->dvfs_device_num; ++ix) {
++		ret = sprd_dvfs_idle_disable(pdev, ix);
++		if (ret) {
++			dev_err(pdev->dev, "failed to set dvfs idle\n");
++			return ret;
++		}
++	}
++
++	return 0;
++}
++#endif
++
++static const struct dev_pm_ops sprd_cpudvfs_pm_ops = {
++	SET_SYSTEM_SLEEP_PM_OPS(NULL, sprd_cpudvfs_resume)
++};
++
++static struct platform_driver sprd_cpudvfs_driver = {
++	.probe = sprd_cpudvfs_probe,
++	.remove = sprd_cpudvfs_remove,
++	.driver = {
++		.name = "sprd,hwdvfs-drv",
++		.pm = &sprd_cpudvfs_pm_ops,
++		.of_match_table = sprd_cpudvfs_of_match,
++	},
++};
++
++static int __init sprd_cpudvfs_init(void)
++{
++	return platform_driver_register(&sprd_cpudvfs_driver);
++}
++
++static void __exit sprd_cpudvfs_exit(void)
++{
++	platform_driver_unregister(&sprd_cpudvfs_driver);
++}
++
++device_initcall(sprd_cpudvfs_init);
++module_exit(sprd_cpudvfs_exit);
++MODULE_LICENSE("GPL v2");
++MODULE_AUTHOR("Jack Liu<Jack.Liu@unisoc.com>");
++MODULE_DESCRIPTION("sprd hardware dvfs driver");
+diff --git a/drivers/cpufreq/sprd-hwdvfs-normal.h b/drivers/cpufreq/sprd-hwdvfs-normal.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..ef70b320e2b96f4b9b14fa1862fd9adc3e798848
+--- /dev/null
++++ b/drivers/cpufreq/sprd-hwdvfs-normal.h
+@@ -0,0 +1,74 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++//
++// Unisoc APCPU HW DVFS driver
++//
++// Copyright (C) 2020 Unisoc, Inc.
++// Author: Jack Liu <jack.liu@unisoc.com>
++
++#ifndef SPRD_HWDVFS_NORMAL_H
++#define SPRD_HWDVFS_NORMAL_H
++
++#include "sprd-hwdvfs-archdata.h"
++
++struct plat_opp {
++	unsigned long freq;	/*hz*/
++	unsigned long volt;	/*uV*/
++};
++
++struct cpudvfs_phy_ops {
++	int (*dvfs_enable)(void *pdev, u32 clu_id, bool enable);
++	int (*volt_grade_table_update)(void *pdev, u32 clu_id,
++				       unsigned long freq_hz,
++				       unsigned long volt_uV, int opp_idx);
++	int (*udelay_update)(void *pdev, u32 clu_id);
++	int (*index_map_table_update)(void *pdev, char *opp_name, u32 clu_id,
++				      char *cpudiff_str, char *cpubin_str,
++				      int curr_temp_threshold);
++	int (*idle_pd_volt_update)(void *pdev, u32 clu_id);
++	int (*target_set)(void *pdev, u32 clu_id, u32 opp_idx);
++	unsigned int (*freq_get)(void *pdev, u32 clu_id);
++};
++
++struct mpll_cfg {
++	struct regmap *anag_map;
++	u32 anag_reg, dbg_sel;
++	bool output_switch_done;
++};
++
++struct dcdc_pwr {
++	char name[10];
++	bool third_pmic_used;
++	u32 pmic_num;		/* sequence number in pmic_array*/
++	u32 tuning_latency_us;
++	u32 voltage_grade_num;
++	u32 slew_rate;		/* mv/us */
++	unsigned long grade_volt_val_array[MAX_VOLT_GRADE_NUM];	/* in uV*/
++	bool i2c_used, i2c_shared;
++	struct i2c_client *i2c_client;
++};
++
++struct cpudvfs_device {
++	struct regmap *aonmap;
++	struct device *dev;
++	void __iomem *membase;
++	const struct dvfs_private_data *priv;
++	struct device_node *topdvfs_of_node;
++	struct regmap *topdvfs_map;
++	struct device_node *of_node;
++	struct dvfs_cluster *phost_cluster;
++	struct dvfs_cluster *pslave_cluster;
++	struct dvfs_cluster *hcluster[8];
++	struct dvfs_cluster *scluster[8];
++	struct cpudvfs_phy_ops *phy_ops;
++	u32 host_cluster_num, slave_cluster_num;
++	u32 total_cluster_num;
++	u32 dvfs_device_num;
++	struct mpll_cfg *mplls;
++	u32 mpll_num;
++	struct dcdc_pwr *pwr;
++	u32 dcdc_num;
++	u32 pmic_type_sum; /* the total number of different pmics*/
++	bool i2c_used[DVFS_HOST_CLUSTER_MAX];
++};
++
++#endif /* DVFS_CTRL_H */
+diff --git a/drivers/cpufreq/sprd-hwdvfs-ums512.c b/drivers/cpufreq/sprd-hwdvfs-ums512.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..eb8bc42e90b7caa386350184f7a63dbd0ee4d230
+--- /dev/null
++++ b/drivers/cpufreq/sprd-hwdvfs-ums512.c
+@@ -0,0 +1,503 @@
++// SPDX-License-Identifier: GPL-2.0
++//
++// Unisoc APCPU HW DVFS driver
++//
++// Copyright (C) 2020 Unisoc, Inc.
++// Author: Jack Liu <jack.liu@unisoc.com>
++
++#include <linux/cpufreq.h>
++#include <linux/device.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include "sprd-hwdvfs-archdata.h"
++
++#define	HOST_CLUSTER_NUM	2
++#define SLAVE_CLUSTER_NUM	3
++#define MPLL_NUM		3
++#define DCDC_NUM		2
++
++#define CPU_LIT_CLUSTER		0
++#define CPU_BIG_CLUSTER		1
++
++#define SCU_SLAVE_CLUSTER	0
++#define PERIPH_SLAVE_CLUSTER	1
++#define GIC_SLAVE_CLUSTER	2
++
++#define MPLL0	0
++#define MPLL1	1
++#define MPLL2	2
++
++
++#define DVFS_DEVICE_NUM		12
++
++#define	DEV_CORE0	0
++#define	DEV_CORE1	1
++#define	DEV_CORE2	2
++#define	DEV_CORE3	3
++#define	DEV_CORE4	4
++#define	DEV_CORE5	5
++#define	DEV_CORE6	6
++#define	DEV_CORE7	7
++#define	DEV_SCU		8
++#define	DEV_ATB		9
++#define	DEV_PERIPH	10
++#define	DEV_GIC		11
++
++#define DCDC_CPU0	0
++#define DCDC_CPU1	1
++#define VIR_DCDC_CPU_ADI_NUM	DCDC_NUM
++#define DCDC_CPU_I2C(n)	(DCDC_CPU##n + VIR_DCDC_CPU_ADI_NUM)
++
++static struct pmic_data pmic_array[MAX_PMIC_TYPE_NUM] = {
++	[PMIC_SC2730] = {
++		.volt_base = 0,
++		.per_step = 3125,
++		.margin_us = 20,
++		.update = default_dcdc_volt_update,
++		.up_cycle_calculate = default_cycle_calculate,
++		.down_cycle_calculate = default_cycle_calculate,
++	},
++	[PMIC_FAN5355_05] = {
++		.volt_base = 600000,
++		.per_step = 10000,
++		.margin_us = 30,
++		.update = default_dcdc_volt_update,
++		.up_cycle_calculate = default_cycle_calculate,
++		.down_cycle_calculate = default_cycle_calculate,
++	},
++	{
++	},
++};
++
++/* UMS512 Private Data */
++static struct volt_grades_table ums512_volt_grades_tbl[] = {
++	[DCDC_CPU0] = {
++		.regs_array = {
++			GENREGSET(0xf4, 0, 0x1ff),
++			GENREGSET(0xf4, 9, 0x1ff),
++			GENREGSET(0xf4, 18, 0x1ff),
++			GENREGSET(0xf8, 0, 0x1ff),
++			GENREGSET(0xf8, 9, 0x1ff),
++			GENREGSET(0xf8, 18, 0x1ff),
++			GENREGSET(0xfc, 0, 0x1ff),
++			GENREGSET(0xfc, 9, 0x1ff),
++		},
++		.grade_count = 8,
++	},
++	[DCDC_CPU_I2C(1)] = {
++		.regs_array = {
++			GENREGSET(0x12c, 0, 0x7f),
++			GENREGSET(0x12c, 7, 0x7f),
++			GENREGSET(0x12c, 14, 0x7f),
++			GENREGSET(0x12c, 21, 0x7f),
++			GENREGSET(0x130, 0, 0x7f),
++			GENREGSET(0x130, 7, 0x7f),
++		},
++		.grade_count = 6,
++	},
++};
++
++static struct udelay_tbl ums512_up_udelay_tbl[DCDC_NUM] = {
++	[DCDC_CPU0] = {
++		.tbl = {
++			GENREGSET(0x58, 0, 0xffff),
++			GENREGSET(0x58, 16, 0xffff),
++			GENREGSET(0x54, 0, 0xffff),
++			GENREGSET(0x54, 16, 0xffff),
++			GENREGSET(0x50, 0, 0xffff),
++			GENREGSET(0x50, 16, 0xffff),
++			GENREGSET(0x110, 0, 0xffff),
++		},
++	},
++	[DCDC_CPU1] = {
++		.tbl = {
++			GENREGSET(0x84, 0, 0xffff),
++			GENREGSET(0x84, 16, 0xffff),
++			GENREGSET(0x80, 0, 0xffff),
++			GENREGSET(0x80, 16, 0xffff),
++			GENREGSET(0x7c, 0, 0xffff),
++			GENREGSET(0x7c, 16, 0xffff),
++			GENREGSET(0x118, 0, 0xffff),
++		},
++	},
++};
++
++static struct udelay_tbl ums512_down_udelay_tbl[DCDC_NUM] = {
++	[DCDC_CPU0] = {
++		.tbl = {
++			GENREGSET(0x64, 0, 0xffff),
++			GENREGSET(0x64, 16, 0xffff),
++			GENREGSET(0x60, 0, 0xffff),
++			GENREGSET(0x60, 16, 0xffff),
++			GENREGSET(0x5c, 0, 0xffff),
++			GENREGSET(0x5c, 16, 0xffff),
++			GENREGSET(0x114, 0, 0xffff),
++		},
++	},
++	[DCDC_CPU1] = {
++		.tbl = {
++			GENREGSET(0x90, 0, 0xffff),
++			GENREGSET(0x90, 16, 0xffff),
++			GENREGSET(0x8c, 0, 0xffff),
++			GENREGSET(0x8c, 16, 0xffff),
++			GENREGSET(0x88, 0, 0xffff),
++			GENREGSET(0x88, 16, 0xffff),
++			GENREGSET(0x11c, 0, 0xffff),
++		},
++	},
++};
++
++static struct reg_info ums512_volt_misc_cfg[] = {
++	/* Select voltage up slew rate to grade4 */
++	GENREGVALSET(0x128, 0, 0x7, 4),
++	GENREGVALSET(0x128, 3, 0x7, 4),
++	GENREGVALSET(0x128, 6, 0x7, 4),
++	GENREGVALSET(0x128, 9, 0x7, 4),
++	GENREGVALSET(0x128, 12, 0x7, 4),
++	GENREGVALSET(0x128, 15, 0x7, 4),
++	GENREGVALSET(0x128, 18, 0x7, 4),
++	GENREGVALSET(0x128, 21, 0x7, 4),
++	GENREGVALSET(0, 0, 0, 0),
++};
++
++static struct reg_info ums512_freq_misc_cfg[] = {
++	/* Set default work index 2 to twpll for lit core */
++	GENREGVALSET(0x214, 0, 0xf, 0xa),
++	/* Set default work index 1 to ltepll for big core */
++	GENREGVALSET(0x224, 0, 0xf, 6),
++	/* Set default work index 3 to twpll for scu */
++	GENREGVALSET(0x22c, 0, 0xf, 9),
++	GENREGVALSET(0, 0, 0, 0),
++};
++
++static struct mpll_index_tbl ums512_mpll_index_tbl[MPLL_NUM] = {
++	[MPLL0] = {
++		.entry = {
++			/* MPLL0 Index5 */
++			{
++				.icp = GENREGVALSET(0x8c, 0, 0x7, 5),
++				.postdiv = GENREGVALSET(0x8c, 3, 0x1, 0),
++				.n = GENREGVALSET(0x8c, 4, 0x7ff, 0x4d),
++			},
++			/* MPLL0 Index6 */
++			{
++				.icp = GENREGVALSET(0x90, 0, 0x7, 5),
++				.postdiv = GENREGVALSET(0x90, 3, 0x1, 0),
++				.n = GENREGVALSET(0x90, 4, 0x7ff, 0x4d),
++			},
++			/* MPLL0 Index7 */
++			{
++				.icp = GENREGVALSET(0x94, 0, 0x7, 5),
++				.postdiv = GENREGVALSET(0x94, 3, 0x1, 0),
++				.n = GENREGVALSET(0x94, 4, 0x7ff, 0x4d),
++			},
++		},
++	},
++
++	[MPLL1] = {
++		.entry = {
++			/* MPLL1 Index2 */
++			{
++				.icp = GENREGVALSET(0x2c, 0, 0x7, 4),
++				.postdiv = GENREGVALSET(0x2c, 3, 0x1, 0),
++				.n = GENREGVALSET(0x2c, 4, 0x7ff, 0x46),
++			},
++			/* MPLL1 Index3 */
++			{
++				.icp = GENREGVALSET(0x30, 0, 0x7, 4),
++				.postdiv = GENREGVALSET(0x30, 3, 0x1, 0),
++				.n = GENREGVALSET(0x30, 4, 0x7ff, 0x48),
++			},
++			/* MPLL1 Index4 */
++			{
++				.icp = GENREGVALSET(0x34, 0, 0x7, 5),
++				.postdiv = GENREGVALSET(0x34, 3, 0x1, 0),
++				.n = GENREGVALSET(0x34, 4, 0x7ff, 0x4d),
++			},
++			/* MPLL1 Index5 */
++			{
++				.icp = GENREGVALSET(0x38, 0, 0x7, 5),
++				.postdiv = GENREGVALSET(0x38, 3, 0x1, 0),
++				.n = GENREGVALSET(0x38, 4, 0x7ff, 0x4d),
++			},
++			/* MPLL1 Index6 */
++			{
++				.icp = GENREGVALSET(0x3c, 0, 0x7, 5),
++				.postdiv = GENREGVALSET(0x3c, 3, 0x1, 0),
++				.n = GENREGVALSET(0x3c, 4, 0x7ff, 0x4d),
++			},
++			/* MPLL1 Index7 */
++			{
++				.icp = GENREGVALSET(0x40, 0, 0x7, 5),
++				.postdiv = GENREGVALSET(0x40, 3, 0x1, 0),
++				.n = GENREGVALSET(0x40, 4, 0x7ff, 0x4d),
++			},
++		},
++	},
++
++	[MPLL2] = {
++		.entry = {
++			/* MPLL2 Index7 */
++			{
++				.icp = GENREGVALSET(0xd8, 0, 0x7, 0x2),
++				.postdiv = GENREGVALSET(0xd8, 3, 0x1, 0),
++				.n = GENREGVALSET(0xd8, 4, 0x7ff, 0x36),
++			},
++			/* MPLL2 Index6 */
++			{
++				.icp = GENREGVALSET(0xd4, 0, 0x7, 0x1),
++				.postdiv = GENREGVALSET(0xd4, 3, 0x1, 0),
++				.n = GENREGVALSET(0xd4, 4, 0x7ff, 0x33),
++			},
++			/* MPLL2 Index5 */
++			{
++				.icp = GENREGVALSET(0xd0, 0, 0x7, 0x1),
++				.postdiv = GENREGVALSET(0xd0, 3, 0x1, 0),
++				.n = GENREGVALSET(0xd0, 4, 0x7ff, 0x2f),
++			},
++			/* MPLL2 Index4 */
++			{
++				.icp = GENREGVALSET(0xcc, 0, 0x7, 0x0),
++				.postdiv = GENREGVALSET(0xcc, 3, 0x1, 0),
++				.n = GENREGVALSET(0xcc, 4, 0x7ff, 0x2b),
++			},
++			/* MPLL2 Index3 */
++			{
++				.icp = GENREGVALSET(0xc8, 0, 0x7, 0x0),
++				.postdiv = GENREGVALSET(0xc8, 3, 0x1, 0),
++				.n = GENREGVALSET(0xc8, 4, 0x7ff, 0x27),
++			},
++		},
++	},
++};
++
++static struct reg_info ums512_mpll_auto_relock_cfg[MPLL_NUM] = {
++	[MPLL0] = GENREGVALSET(0x244, 1, 0x1, 1),
++	[MPLL1] = GENREGVALSET(0x258, 1, 0x1, 1),
++	[MPLL2] = GENREGVALSET(0x26c, 1, 0x1, 1),
++};
++
++static struct reg_info ums512_mpll_auto_pd_cfg[MPLL_NUM] = {
++	[MPLL0] = GENREGVALSET(0x244, 0, 0x1, 1),
++	[MPLL1] = GENREGVALSET(0x258, 0, 0x1, 1),
++	[MPLL2] = GENREGVALSET(0x26c, 0, 0x1, 1),
++};
++
++static struct reg_info ums512_idle_vol_cfg[DCDC_NUM] = {
++	[DCDC_CPU0] = GENREGVALSET(0x16c, 3, 0x7, 1),
++	[DCDC_CPU1] = GENREGVALSET(0x16c, 0, 0x7, 1),
++};
++
++static struct reg_info ums512_third_pmic_cfg[DCDC_NUM] = {
++	[DCDC_CPU1] = GENREGSET(0x120, 0, 0x1),
++};
++
++static struct reg_info ums512_host_vol_auto_tune_cfg[DCDC_NUM] = {
++	[DCDC_CPU0] = GENREGVALSET(0x68, 20, 0x1, 0),
++	[DCDC_CPU1] = GENREGVALSET(0x94, 0, 0x1, 0),
++};
++
++static struct reg_info ums512_host_freq_auto_tune_cfg[HOST_CLUSTER_NUM] = {
++	[CPU_LIT_CLUSTER] = GENREGVALSET(0x150, 6, 0x1, 0),
++	[CPU_BIG_CLUSTER] = GENREGVALSET(0x150, 7, 0x1, 0),
++};
++
++static struct reg_info ums512_slave_freq_auto_tune_cfg[SLAVE_CLUSTER_NUM] = {
++	[SCU_SLAVE_CLUSTER] = GENREGVALSET(0x18, 1, 0x1, 1),
++	[PERIPH_SLAVE_CLUSTER] = GENREGVALSET(0x18, 0, 0x1, 1),
++	[GIC_SLAVE_CLUSTER] = GENREGVALSET(0x18, 2, 0x1, 1),
++};
++
++static struct reg_info ums512_hcluster_work_index_cfg[HOST_CLUSTER_NUM] = {
++	[CPU_LIT_CLUSTER] = GENREGSET(0x214, 0, 0xf),
++	[CPU_BIG_CLUSTER] = GENREGSET(0x224, 0, 0xf),
++};
++
++static struct reg_info ums512_hcluster_idle_index_cfg[HOST_CLUSTER_NUM] = {
++	[CPU_LIT_CLUSTER] = GENREGSET(0x218, 0, 0xf),
++	[CPU_BIG_CLUSTER] = GENREGSET(0x228, 0, 0xf),
++};
++
++static struct reg_info ums512_dev_idle_disable_cfg[DVFS_DEVICE_NUM] = {
++	[DEV_CORE0] = GENREGVALSET(0x1c, 0, 0x1, 1),
++	[DEV_CORE1] = GENREGVALSET(0x1c, 1, 0x1, 1),
++	[DEV_CORE2] = GENREGVALSET(0x1c, 2, 0x1, 1),
++	[DEV_CORE3] = GENREGVALSET(0x1c, 3, 0x1, 1),
++	[DEV_CORE4] = GENREGVALSET(0x1c, 8, 0x1, 1),
++	[DEV_CORE5] = GENREGVALSET(0x1c, 9, 0x1, 1),
++	[DEV_CORE6] = GENREGVALSET(0x1c, 10, 0x1, 1),
++	[DEV_CORE7] = GENREGVALSET(0x1c, 11, 0x1, 1),
++	[DEV_SCU] = GENREGVALSET(0x1c, 4, 0x1, 1),
++	[DEV_ATB] = GENREGVALSET(0x1c, 5, 0x1, 1),
++	[DEV_PERIPH] = GENREGVALSET(0x1c, 6, 0x1, 1),
++	[DEV_GIC] = GENREGVALSET(0x1c, 7, 0x1, 1),
++};
++
++static
++struct dvfs_index_tbl ums512_host_cluster_index_tbl[HOST_CLUSTER_NUM] = {
++	[CPU_LIT_CLUSTER] = {
++		.regs = {
++			GENREGSET(0x60, 0, 0xffff),
++			GENREGSET(0x64, 0, 0xffff),
++			GENREGSET(0x68, 0, 0xffff),
++			GENREGSET(0x6c, 0, 0xffff),
++			GENREGSET(0x70, 0, 0xffff),
++			GENREGSET(0x74, 0, 0xffff),
++			GENREGSET(0x78, 0, 0xffff),
++			GENREGSET(0x7c, 0, 0xffff),
++			GENREGSET(0x80, 0, 0xffff),
++			GENREGSET(0x84, 0, 0xffff),
++			GENREGSET(0x88, 0, 0xffff),
++		},
++		.entry_info = {
++			DECLARE_DVFS_INDEX_INFO("sel", 0, 0x3),
++			DECLARE_DVFS_INDEX_INFO("div", 2, 0x7),
++			DECLARE_DVFS_INDEX_INFO("voted_volt", 15, 0x7),
++			DECLARE_DVFS_INDEX_INFO("voted_scu_index", 5, 0xf),
++			DECLARE_DVFS_INDEX_INFO("voted_peri_index", 9, 0x7),
++			DECLARE_DVFS_INDEX_INFO("voted_gic_index", 18, 0x7),
++			DECLARE_DVFS_INDEX_INFO("voted_mpll_index", 12, 0x7),
++		},
++		.tbl_row_num = 11,
++		.tbl_column_num = 7,
++	},
++	[CPU_BIG_CLUSTER] = {
++		.regs = {
++			GENREGSET(0xa0, 0, 0xffff),
++			GENREGSET(0xa4, 0, 0xffff),
++			GENREGSET(0xa8, 0, 0xffff),
++			GENREGSET(0xac, 0, 0xffff),
++			GENREGSET(0xb0, 0, 0xffff),
++			GENREGSET(0xb4, 0, 0xffff),
++			GENREGSET(0xb8, 0, 0xffff),
++		},
++		.entry_info = {
++			DECLARE_DVFS_INDEX_INFO("sel", 0, 0x3),
++			DECLARE_DVFS_INDEX_INFO("div", 2, 0x7),
++			DECLARE_DVFS_INDEX_INFO("voted_volt", 15, 0x7),
++			DECLARE_DVFS_INDEX_INFO("voted_scu_index", 5, 0xf),
++			DECLARE_DVFS_INDEX_INFO("voted_peri_index", 9, 0x7),
++			DECLARE_DVFS_INDEX_INFO("voted_gic_index", 21, 0x7),
++			DECLARE_DVFS_INDEX_INFO("voted_mpll_index", 12, 0x7),
++		},
++		.tbl_row_num = 7,
++		.tbl_column_num = 7,
++	},
++};
++
++static
++struct dvfs_index_tbl ums512_slave_cluster_index_tbl[SLAVE_CLUSTER_NUM] = {
++	[SCU_SLAVE_CLUSTER] = {
++		.regs = {
++			GENREGSET(0x180, 0, 0xffff),
++			GENREGSET(0x184, 0, 0xffff),
++			GENREGSET(0x188, 0, 0xffff),
++			GENREGSET(0x18c, 0, 0xffff),
++			GENREGSET(0x190, 0, 0xffff),
++			GENREGSET(0x194, 0, 0xffff),
++			GENREGSET(0x198, 0, 0xffff),
++			GENREGSET(0x19c, 0, 0xffff),
++			GENREGSET(0x1a0, 0, 0xffff),
++			GENREGSET(0x1a4, 0, 0xffff),
++		},
++		.entry_info = {
++			DECLARE_DVFS_INDEX_INFO("sel", 0, 0x3),
++			DECLARE_DVFS_INDEX_INFO("div", 2, 0x7),
++			DECLARE_DVFS_INDEX_INFO("voted_volt", 11, 0x7),
++			DECLARE_DVFS_INDEX_INFO("ace_div", 5, 0x7),
++			DECLARE_DVFS_INDEX_INFO("voted_mpll_index", 8, 0x7),
++		},
++		.tbl_row_num = 10,
++		.tbl_column_num = 5,
++	},
++	[PERIPH_SLAVE_CLUSTER] = {
++		.regs = {
++			GENREGSET(0x1f4, 0, 0xffff),
++			GENREGSET(0x1f8, 0, 0xffff),
++			GENREGSET(0x1fc, 0, 0xffff),
++			GENREGSET(0x200, 0, 0xffff),
++			GENREGSET(0x204, 0, 0xffff),
++			GENREGSET(0x208, 0, 0xffff),
++		},
++		.entry_info = {
++			DECLARE_DVFS_INDEX_INFO("sel", 0, 0x3),
++			DECLARE_DVFS_INDEX_INFO("div", 2, 0x7),
++			DECLARE_DVFS_INDEX_INFO("voted_volt", 5, 0x7),
++		},
++		.tbl_row_num = 6,
++		.tbl_column_num = 3,
++	},
++	[GIC_SLAVE_CLUSTER] = {
++		.regs = {
++			GENREGSET(0x280, 0, 0xffff),
++			GENREGSET(0x284, 0, 0xffff),
++			GENREGSET(0x288, 0, 0xffff),
++			GENREGSET(0x28c, 0, 0xffff),
++			GENREGSET(0x290, 0, 0xffff),
++			GENREGSET(0x294, 0, 0xffff),
++		},
++		.entry_info = {
++			DECLARE_DVFS_INDEX_INFO("sel", 0, 0x3),
++			DECLARE_DVFS_INDEX_INFO("div", 2, 0x7),
++			DECLARE_DVFS_INDEX_INFO("voted_volt", 5, 0x7),
++		},
++		.tbl_row_num = 6,
++		.tbl_column_num = 3,
++	},
++};
++
++static struct topdvfs_volt_manager ums512_volt_manager = {
++	.grade_tbl = ums512_volt_grades_tbl,
++	.up_udelay_tbl =  ums512_up_udelay_tbl,
++	.down_udelay_tbl = ums512_down_udelay_tbl,
++	.host_vol_auto_tune_cfg = ums512_host_vol_auto_tune_cfg,
++	.host_freq_auto_tune_cfg = ums512_host_freq_auto_tune_cfg,
++	.idle_vol_cfg = ums512_idle_vol_cfg,
++	.misc_cfg = ums512_volt_misc_cfg,
++	.third_pmic_cfg = ums512_third_pmic_cfg,
++	.dcdc_num = DCDC_NUM,
++	.vir_dcdc_adi_num = VIR_DCDC_CPU_ADI_NUM,
++};
++
++static struct cpudvfs_freq_manager ums512_freq_manager = {
++	.slave_freq_auto_tune_cfg = ums512_slave_freq_auto_tune_cfg,
++	.hcluster_work_index_cfg = ums512_hcluster_work_index_cfg,
++	.hcluster_idle_index_cfg = ums512_hcluster_idle_index_cfg,
++	.dev_idle_disable_cfg = ums512_dev_idle_disable_cfg,
++	.host_cluster_index_tbl = ums512_host_cluster_index_tbl,
++	.slave_cluster_index_tbl = ums512_slave_cluster_index_tbl,
++	.misc_cfg = ums512_freq_misc_cfg,
++	.host_cluster_num = HOST_CLUSTER_NUM,
++	.slave_cluster_num = SLAVE_CLUSTER_NUM,
++	.dvfs_device_num = DVFS_DEVICE_NUM,
++};
++
++static struct mpll_freq_manager ums512_mpll_manager = {
++	.mpll_tbl = ums512_mpll_index_tbl,
++	.auto_relock_cfg =  ums512_mpll_auto_relock_cfg,
++	.auto_pd_cfg = ums512_mpll_auto_pd_cfg,
++	.mpll_num = MPLL_NUM,
++};
++
++static struct dvfs_cluster host_cluster[HOST_CLUSTER_NUM] = {
++	DECLARE_APCPU_DVFS_CLUSTER("lit_core_cluster"),
++	DECLARE_APCPU_DVFS_CLUSTER("big_core_cluster"),
++};
++
++static struct dvfs_cluster slave_cluster[SLAVE_CLUSTER_NUM] = {
++	DECLARE_APCPU_DVFS_CLUSTER("scu_cluster"),
++	DECLARE_APCPU_DVFS_CLUSTER("periph_cluster"),
++	DECLARE_APCPU_DVFS_CLUSTER("gic_cluster"),
++};
++
++const struct dvfs_private_data ums512_dvfs_private_data = {
++	.module_clk_khz = 128000,
++	.pmic = pmic_array,
++	.volt_manager = &ums512_volt_manager,
++	.freq_manager = &ums512_freq_manager,
++	.mpll_manager = &ums512_mpll_manager,
++	.host_cluster = host_cluster,
++	.slave_cluster = slave_cluster,
++};
++
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/cpufreq/sprd-top-dvfs.c b/drivers/cpufreq/sprd-top-dvfs.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..77f981d0ece68bc3652e82395c9ae992e6fd14db
+--- /dev/null
++++ b/drivers/cpufreq/sprd-top-dvfs.c
+@@ -0,0 +1,398 @@
++//SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (C) 2018 Spreadtrum Communications Inc.
++ *
++ * This software is licensed under the terms of the GNU General Public
++ * License version 2, as published by the Free Software Foundation, and
++ * may be copied, distributed, and modified under those terms.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * Ported to mainline from vendor/linux-kernel-5-4-ums512 (same generation
++ * stock T618 runs). It only brings the *device* DCDCs (mm, modem) and their
++ * subsystems into hardware-DVFS mode; the cpu DCDCs are handled by
++ * sprd-cpufreqhw. Kept a plain platform_driver (no devfreq framework use).
++ */
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/io.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/mfd/syscon.h>
++#include <linux/regmap.h>
++#include <linux/of.h>
++#include <linux/printk.h>
++#include <linux/kernel.h>
++#include <linux/device.h>
++#include <linux/slab.h>
++
++struct dcdc_subsys {
++	u32 subsys_tune_ctl_reg;
++	u32 subsys_tune_ctl_bit;
++	u32 subsys_tune_eb;
++};
++
++struct dvfs_dcdc_pwr {
++	u32 dvfs_ctl_reg;
++	u32 dvfs_ctl_bit;
++	u32 dvfs_eb;
++	u32 judge_vol_sw_reg;
++	u32 judge_vol_sw_bit;
++	u32 judge_vol_sw_mask;
++	u32 judge_vol_val;	/* real voltage needed to tell dvfs module */
++	struct dcdc_subsys *subsys;
++	u32 subsys_num;
++};
++
++struct topdvfs_dev {
++	void __iomem *base;
++	struct device_node *of_node;
++	struct regmap *aon_apb_regs;
++	struct dvfs_dcdc_pwr *pwr;
++	u32 module_eb_reg;
++	u32 module_eb_bit;
++	u32 dcdc_share_reg;
++	u32 dcdc_share_off;
++	bool dcdc_modem_mm_shared;
++	u32 device_dcdc_num;
++	bool parse_done;
++};
++
++static void top_dvfs_bits_update(struct topdvfs_dev *pdev, u32 reg, u32 mask, u32 val)
++{
++	u32 temp;
++
++	temp = readl(pdev->base + reg) & ~mask;
++	temp |= val & mask;
++
++	writel(temp, pdev->base + reg);
++}
++
++static void subsys_dvfs_tune_enable(struct topdvfs_dev *pdev,
++				    struct dcdc_subsys *subsys, u32 enable)
++{
++	u32 reg = subsys->subsys_tune_ctl_reg;
++	u32 bit = 0x1 << subsys->subsys_tune_ctl_bit;
++
++	if (enable)
++		top_dvfs_bits_update(pdev, reg, bit, ~bit);
++	else
++		top_dvfs_bits_update(pdev, reg, bit, bit);
++}
++
++static void dcdc_pwr_dvfs_enable(struct topdvfs_dev *pdev,
++				 struct dvfs_dcdc_pwr *pwr, u32 enable)
++{
++	u32 reg = pwr->dvfs_ctl_reg;
++	u32 bit = 0x1 << pwr->dvfs_ctl_bit;
++
++	if (enable)
++		top_dvfs_bits_update(pdev, reg, bit, ~bit);
++	else
++		top_dvfs_bits_update(pdev, reg, bit, bit);
++}
++
++static int coordinate_dcdc_current_voltage(struct topdvfs_dev *pdev,
++					   struct dvfs_dcdc_pwr *pwr)
++{
++	u32 addr, bit, mask;
++	u32 curr_volt, val;
++
++	if (!pwr) {
++		pr_err("No DCDC Power domain found\n");
++		return -ENODEV;
++	}
++
++	addr = pwr->judge_vol_sw_reg;
++	bit = pwr->judge_vol_sw_bit;
++	mask = pwr->judge_vol_sw_mask;
++	curr_volt = pwr->judge_vol_val;
++
++	val = readl(pdev->base + addr) & (~(mask << bit));
++	val |= curr_volt << bit;
++
++	writel(val, pdev->base + addr);
++
++	return 0;
++}
++
++static int sprd_topdvfs_common_config(struct topdvfs_dev *pdev)
++{
++	struct dcdc_subsys *subsys;
++	struct regmap *aon_apb;
++	u32 dcdc_num, num;
++
++	if (!pdev || !pdev->of_node) {
++		pr_err("No top dvfs device found\n");
++		return -ENODEV;
++	}
++
++	if (!pdev->parse_done) {
++		pr_err("Not finished to parse top dvfs device\n");
++		return -EPERM;
++	}
++
++	aon_apb = pdev->aon_apb_regs;
++	regmap_update_bits(aon_apb, pdev->module_eb_reg,
++			   1 << pdev->module_eb_bit,
++			   1 << pdev->module_eb_bit);
++
++	for (dcdc_num = 0; dcdc_num < pdev->device_dcdc_num; ++dcdc_num) {
++		coordinate_dcdc_current_voltage(pdev, &pdev->pwr[dcdc_num]);
++		dcdc_pwr_dvfs_enable(pdev, &pdev->pwr[dcdc_num],
++				     pdev->pwr[dcdc_num].dvfs_eb);
++		for (num = 0; num < pdev->pwr[dcdc_num].subsys_num; num++) {
++			subsys = &pdev->pwr[dcdc_num].subsys[num];
++			subsys_dvfs_tune_enable(pdev, subsys,
++						subsys->subsys_tune_eb);
++		}
++	}
++
++	if (pdev->dcdc_modem_mm_shared)
++		top_dvfs_bits_update(pdev, pdev->dcdc_share_reg,
++				     1 << pdev->dcdc_share_off,
++				     1 << pdev->dcdc_share_off);
++
++	return 0;
++}
++
++static int topdvfs_device_dt_parse(struct topdvfs_dev *pdev)
++{
++	struct device_node *dcdc_node, *subsys_node;
++	struct dcdc_subsys *psubsys;
++	struct property *prop;
++	int nr, subsys_num, num, len, ix;
++	u32 i;
++	int ret = 0;
++
++	if (!pdev || !pdev->of_node) {
++		pr_err("No topdvfs device found\n");
++		return -ENODEV;
++	}
++
++	if (!of_find_property(pdev->of_node, "module-enable-cfg", &len)) {
++		pr_err("No 'module-enable-cfg' property found\n");
++		return -EPERM;
++	}
++
++	pdev->dcdc_modem_mm_shared =
++		of_property_read_bool(pdev->of_node, "dcdc-modem-mm-share");
++
++	if (pdev->dcdc_modem_mm_shared) {
++		ret = of_property_read_u32_index(pdev->of_node,
++						 "dcdc-modem-mm-share-en",
++						 0, &pdev->dcdc_share_reg);
++		if (ret) {
++			pr_err("Failed to get dcdc-modem-mm-share-en reg offset\n");
++			return ret;
++		}
++
++		ret = of_property_read_u32_index(pdev->of_node,
++						 "dcdc-modem-mm-share-en",
++						 1, &pdev->dcdc_share_off);
++		if (ret) {
++			pr_err("Failed to get bit to enable dcdc-modem-mm-share-en\n");
++			return ret;
++		}
++	}
++
++	if (len / sizeof(u32) == 2) {
++		of_property_read_u32_index(pdev->of_node, "module-enable-cfg",
++					   0, &pdev->module_eb_reg);
++		of_property_read_u32_index(pdev->of_node, "module-enable-cfg",
++					   1, &pdev->module_eb_bit);
++	} else {
++		pr_err("Failed to get module enable info\n");
++		return -EINVAL;
++	}
++
++	if (!of_find_property(pdev->of_node, "device-dcdc-cells", &nr)) {
++		pr_err("Failed to find 'device-dcdc-cells' property\n");
++		return -EINVAL;
++	}
++
++	nr = nr / sizeof(u32);
++	pdev->device_dcdc_num = nr;
++
++	if (!pdev->pwr) {
++		pdev->pwr = kcalloc(nr, sizeof(struct dvfs_dcdc_pwr),
++				    GFP_KERNEL);
++		if (!pdev->pwr)
++			return -ENOMEM;
++	}
++
++	for (ix = 0; ix < nr; ix++) {
++		dcdc_node = of_parse_phandle(pdev->of_node,
++					     "device-dcdc-cells", ix);
++
++		if (!dcdc_node) {
++			pr_err("Failed to find '%s' node-%d\n",
++			       "device-dcdc-cells", ix);
++			ret = -EINVAL;
++			goto err_pwr_free;
++		}
++
++		of_property_read_u32_index(dcdc_node, "dcdc-dvfs-enable",
++					   0, &pdev->pwr[ix].dvfs_ctl_reg);
++		of_property_read_u32_index(dcdc_node, "dcdc-dvfs-enable",
++					   1, &pdev->pwr[ix].dvfs_ctl_bit);
++		of_property_read_u32_index(dcdc_node, "dcdc-dvfs-enable",
++					   2, &pdev->pwr[ix].dvfs_eb);
++
++		of_property_read_u32_index(dcdc_node, "dcdc-judge-vol-sw", 0,
++					   &pdev->pwr[ix].judge_vol_sw_reg);
++
++		of_property_read_u32_index(dcdc_node, "dcdc-judge-vol-sw", 1,
++					   &pdev->pwr[ix].judge_vol_sw_bit);
++
++		of_property_read_u32_index(dcdc_node, "dcdc-judge-vol-sw", 2,
++					   &pdev->pwr[ix].judge_vol_sw_mask);
++
++		of_property_read_u32_index(dcdc_node, "dcdc-judge-vol-sw", 3,
++					   &pdev->pwr[ix].judge_vol_val);
++
++		if (!of_find_property(dcdc_node,
++				      "dcdc-subsys-cells", &subsys_num)) {
++			pr_err("Failed to find 'dcdc-subsys-cells' node\n");
++			ret = -EINVAL;
++			goto err_pwr_free;
++		}
++
++		subsys_num = subsys_num / sizeof(u32);
++
++		pdev->pwr[ix].subsys_num = subsys_num;
++
++		pdev->pwr[ix].subsys =
++			kcalloc(subsys_num, sizeof(struct dcdc_subsys),
++				GFP_KERNEL);
++		if (!pdev->pwr[ix].subsys) {
++			ret = -ENOMEM;
++			ix = ix - 1;
++			goto err_subsys_free;
++		}
++
++		for (i = 0; i < subsys_num; ++i) {
++			subsys_node = of_parse_phandle(dcdc_node,
++						       "dcdc-subsys-cells", i);
++			if (!subsys_node) {
++				pr_err("No subsys-cell-%d found\n", i);
++				ret = -EINVAL;
++				goto err_subsys_free;
++			}
++
++			prop = of_find_property(subsys_node,
++						"dcdc-subsys-tune-enable",
++						&num);
++			if (!prop) {
++				pr_err("No %s property found\n",
++				       "dcdc-subsys-tune-enable");
++				ret = -EINVAL;
++				goto err_subsys_free;
++			}
++
++			num = num / sizeof(u32);
++			if (num != 3) {
++				pr_err("Invalid dts configuration\n");
++				ret = -EPERM;
++				goto err_subsys_free;
++			}
++
++			psubsys = &pdev->pwr[ix].subsys[i];
++
++			of_property_read_u32_index(subsys_node,
++						   "dcdc-subsys-tune-enable",
++						   0,
++					&psubsys->subsys_tune_ctl_reg);
++			of_property_read_u32_index(subsys_node,
++						   "dcdc-subsys-tune-enable",
++						   1,
++					&psubsys->subsys_tune_ctl_bit);
++			of_property_read_u32_index(subsys_node,
++						   "dcdc-subsys-tune-enable",
++						   2,
++					&psubsys->subsys_tune_eb);
++		}
++	}
++
++	pdev->parse_done = true;
++
++	return 0;
++
++err_subsys_free:
++	for (; ix >= 0; ix--)
++		kfree(pdev->pwr[ix].subsys);
++err_pwr_free:
++	kfree(pdev->pwr);
++	return ret;
++}
++
++static int sprd_topdvfs_probe(struct platform_device *pdev)
++{
++	struct topdvfs_dev *ptopdvfs;
++	struct resource *res;
++	int ret = 0;
++
++	ptopdvfs = devm_kzalloc(&pdev->dev, sizeof(struct topdvfs_dev),
++				GFP_KERNEL);
++	if (!ptopdvfs)
++		return -ENOMEM;
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++
++	ptopdvfs->base = devm_ioremap_resource(&pdev->dev, res);
++	if (IS_ERR(ptopdvfs->base))
++		return PTR_ERR(ptopdvfs->base);
++
++	ptopdvfs->of_node = pdev->dev.of_node;
++
++	ptopdvfs->aon_apb_regs =
++			syscon_regmap_lookup_by_phandle(ptopdvfs->of_node,
++							"sprd,syscon-enable");
++	if (IS_ERR(ptopdvfs->aon_apb_regs)) {
++		pr_err("Failed to get aon apb control register map.\n");
++		return -ENODEV;
++	}
++
++	ret = topdvfs_device_dt_parse(ptopdvfs);
++	if (ret)
++		return ret;
++
++	ret = sprd_topdvfs_common_config(ptopdvfs);
++	if (ret)
++		return ret;
++
++	pr_info("Succeeded to register a top dvfs device\n");
++
++	return 0;
++}
++
++static void sprd_topdvfs_remove(struct platform_device *pdev)
++{
++}
++
++static const struct of_device_id sprd_topdvfs_dev_of_match[] = {
++	{ .compatible = "sprd,topdvfs-dev"},
++	{},
++};
++
++static struct platform_driver sprd_topdvfs_driver = {
++	.probe = sprd_topdvfs_probe,
++	.remove = sprd_topdvfs_remove,
++	.driver = {
++		.name = "sprd-topdvfs-drv",
++		.of_match_table = of_match_ptr(sprd_topdvfs_dev_of_match),
++	},
++};
++
++static int __init top_dvfs_init(void)
++{
++	return platform_driver_register(&sprd_topdvfs_driver);
++}
++device_initcall(top_dvfs_init);
++
++MODULE_LICENSE("GPL v2");
++MODULE_AUTHOR("Jack Liu<Jack.Liu@unisoc.com>");
++MODULE_DESCRIPTION("sprd hardware dvfs driver");
+diff --git a/drivers/i2c/busses/Kconfig b/drivers/i2c/busses/Kconfig
+index 8c935f867a37a7b342761d01a7e3e6177c665376..f1fb69b1bcc377336868cf417159392705c8ebeb 100644
+--- a/drivers/i2c/busses/Kconfig
++++ b/drivers/i2c/busses/Kconfig
+@@ -1154,6 +1154,17 @@ config I2C_SPRD
+ 	  If you say yes to this option, support will be included for the
+ 	  Spreadtrum I2C interface.
+ 
++config I2C_SPRD_HW
++	tristate "Spreadtrum I2C hardware channel interface"
++	depends on I2C=y && (ARCH_SPRD || COMPILE_TEST)
++	depends on COMMON_CLK
++	help
++	  If you say yes to this option, support will be included for the
++	  Spreadtrum "hardware channel" I2C controller found in the AON
++	  domain of sharkl3/sharkl5/sharkl5pro SoCs, which arbitrates
++	  autonomous hardware request channels (e.g. CPU DVFS voltage
++	  scaling) with a software channel.
++
+ config I2C_ST
+ 	tristate "STMicroelectronics SSC I2C support"
+ 	depends on ARCH_STI || COMPILE_TEST
+diff --git a/drivers/i2c/busses/Makefile b/drivers/i2c/busses/Makefile
+index 547123ab351f1083329e70e045669dd78495a231..2ea5048bf06e3e67b16d3b926de70fb667c56373 100644
+--- a/drivers/i2c/busses/Makefile
++++ b/drivers/i2c/busses/Makefile
+@@ -110,6 +110,7 @@ obj-$(CONFIG_I2C_SH7760)	+= i2c-sh7760.o
+ obj-$(CONFIG_I2C_SH_MOBILE)	+= i2c-sh_mobile.o
+ obj-$(CONFIG_I2C_SIMTEC)	+= i2c-simtec.o
+ obj-$(CONFIG_I2C_SPRD)		+= i2c-sprd.o
++obj-$(CONFIG_I2C_SPRD_HW)	+= i2c-sprd-hw.o
+ obj-$(CONFIG_I2C_ST)		+= i2c-st.o
+ obj-$(CONFIG_I2C_STM32F4)	+= i2c-stm32f4.o
+ obj-$(CONFIG_I2C_STM32F7)	+= i2c-stm32f7-drv.o
+diff --git a/drivers/i2c/busses/i2c-sprd-hw.c b/drivers/i2c/busses/i2c-sprd-hw.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..2cbba74927b6885f1b99a3b34b9aaec7901a568f
+--- /dev/null
++++ b/drivers/i2c/busses/i2c-sprd-hw.c
+@@ -0,0 +1,555 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (C) 2020 Spreadtrum Communications Inc.
++ *
++ * "Hardware channel" I2C controller (IP v1 register layout, as used on
++ * sharkl3/sharkl5/sharkl5pro AON). The controller arbitrates between
++ * autonomous hardware request channels (e.g. the TOP_DVFS DCDC_CPU1
++ * voltage channel) and the ARM software channel driven here. Note the
++ * ARM channel registers live at 0x134+ on this IP — the qogirl6 "v2"
++ * layout (ARM regs at 0x34+) does not apply to sharkl5pro.
++ */
++
++#include <linux/clk.h>
++#include <linux/delay.h>
++#include <linux/err.h>
++#include <linux/io.h>
++#include <linux/i2c.h>
++#include <linux/init.h>
++#include <linux/interrupt.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/of_device.h>
++#include <linux/platform_device.h>
++#include <linux/slab.h>
++#include <linux/iopoll.h>
++
++#define I2C_CTL			0x000
++#define I2C_STATUS		0x014
++#define ADDR_DVD0		0x020
++#define ADDR_DVD1		0x024
++#define ADDR_STA0_DVD		0x028
++#define ADDR_RST		0x02c
++
++#define HW_CTL			0x030
++#define HW_CHNL_PRIL		0x034
++#define HW_CHNL_PRIH		0x038
++#define CHNL_EN0		0x060
++#define CHNL_EN1		0x064
++#define ARM_CMD_WR		0x134
++#define ARM_DAT_WR		0x138
++#define ARM_RD_CMD		0x13c
++#define ARM_RD_DATA		0x140
++#define ARM_DEBUG0		0x144
++#define ARM_DEBUG1		0x148
++#define HW_RST			0x14c
++
++/* I2C_CTL */
++#define I2C_DVD_OPT		BIT(8)
++#define I2C_OUT_OPT		BIT(7)
++#define I2C_TRIM_OPT		BIT(6)
++#define I2C_HS_MODE		BIT(4)
++#define I2C_MODE		BIT(3)
++#define I2C_EN			BIT(2)
++#define I2C_INT_EN		BIT(1)
++#define I2C_START		BIT(0)
++
++/* I2C_STATUS */
++#define I2C_INT			BIT(2)
++#define I2C_RX_ACK		BIT(1)
++#define I2C_BUSY		BIT(0)
++
++/* ADDR_RST */
++#define I2C_RST			BIT(0)
++
++/* HW_CTL */
++#define HW_CTL_VALUE		0x30
++#define PRIL_HIGH_APB		0x64
++
++/*
++ * Hardware request channels used by the TOP_DVFS DCDC_CPU1 voltage
++ * engine on sharkl5pro. Stock u-boot programs these in its Android
++ * postload path (i2c_dvfs_hwchn_init): each channel's command config
++ * is (slave_addr << 8 | reg_addr) << 2 for the FAN53555 at 0x60, and
++ * the channel must be enabled in CHNL_EN0 or DVFS voltage requests
++ * park unserviced (STATE_I2C stuck at 4).
++ */
++#define CHNLX_ADDR(x)		(0x068 + (((x) - 2) << 2))
++#define DVFS_CHNL_ADDR(da, ra)	((((da) << 8) | (ra)) << 2)
++#define DVFS_FAN53555_ADDR	0x60
++#define DVFS_TX_5_CHNL		5
++#define DVFS_TX_5_REG		0x02
++#define DVFS_TX_7_CHNL		7
++#define DVFS_TX_7_REG		0x00
++
++/* ARM_CMD_WR */
++#define REG_ADDR_OFFSET		2
++#define SLAVE_ADDR_OFFSET	10
++#define ARM_RD_CMD_BUSY		BIT(31)
++
++/* ARM_DEBUG1 */
++#define CHNL_PENDING		BIT(6)
++#define CHNL_SEL		GENMASK(4, 0)
++#define CHNL_WRITE		0
++#define CHNL_READ		1
++
++#define TIMIMG_MAST_L		GENMASK(15, 0)
++#define TIMIMG_MAST_H		GENMASK(31, 16)
++
++#define I2C_TIMEOUT		1000	/* ms */
++/* Absolutely safe for status update at 100 kHz I2C: */
++#define I2C_WAIT		200
++
++/* Absolutely safe for wait pending update at 100kHz */
++#define I2C_100K_WRITE_WAIT	1500	/* us */
++
++/* Absolutely safe for wait pending update at 400kHz */
++#define I2C_400K_WRITE_WAIT	1000	/* us */
++
++/* Absolutely safe for wait pending update at 1MHz */
++#define I2C_1M_WRITE_WAIT	600	/* us */
++
++/* Absolutely safe for wait pending update at 3.4MHz */
++#define I2C_3M4_WRITE_WAIT	200	/* us */
++
++/* i2c default source clock */
++#define I2C_SOURCE_CLK_26M	26000000
++
++/* For 100KHz speed */
++#define I2C_CLK_100K	100000
++
++/* For 400KHz speed */
++#define I2C_CLK_400K	400000
++
++/* For 3.4MHz speed */
++#define I2C_CLK_3M4	3400000
++
++/* For 1MHz speed */
++#define I2C_CLK_1M	1000000
++
++/* For 3.4MHz clock adjustment */
++#define I2C_CLK_3M4_HIGH_ADJUST	1
++#define I2C_CLK_3M4_LOW_ADJUST	1
++
++/* i2c data structure */
++struct sprd_i2c_hw {
++	struct i2c_msg *msg;
++	struct i2c_adapter adap;
++	struct device *dev;
++	void __iomem *base;
++	struct clk *clk;
++	struct clk *clk_hw;
++	u32 src_clk;
++	int irq;
++	u32 bus_freq;
++	u8 *buf;
++	u32 count;
++	u32 write_wait_time;
++};
++
++static void sprd_i2c_hw_dump_reg(struct sprd_i2c_hw *i2c_dev)
++{
++	dev_err(i2c_dev->dev, "I2C_CTL:0x%x STATUS:0x%x DVD0:0x%x DVD1:0x%x STA0_DVD:0x%x\n",
++		readl(i2c_dev->base + I2C_CTL),
++		readl(i2c_dev->base + I2C_STATUS),
++		readl(i2c_dev->base + ADDR_DVD0),
++		readl(i2c_dev->base + ADDR_DVD1),
++		readl(i2c_dev->base + ADDR_STA0_DVD));
++	dev_err(i2c_dev->dev, "HW_CTL:0x%x PRIL:0x%x CHNL_EN0:0x%x CMD_WR:0x%x DAT_WR:0x%x RD_CMD:0x%x DBG0:0x%x DBG1:0x%x\n",
++		readl(i2c_dev->base + HW_CTL),
++		readl(i2c_dev->base + HW_CHNL_PRIL),
++		readl(i2c_dev->base + CHNL_EN0),
++		readl(i2c_dev->base + ARM_CMD_WR),
++		readl(i2c_dev->base + ARM_DAT_WR),
++		readl(i2c_dev->base + ARM_RD_CMD),
++		readl(i2c_dev->base + ARM_DEBUG0),
++		readl(i2c_dev->base + ARM_DEBUG1));
++}
++
++static void sprd_i2c_hw_reset_fifo(struct sprd_i2c_hw *i2c_dev)
++{
++	writel(I2C_RST, i2c_dev->base + ADDR_RST);
++}
++
++static int sprd_i2c_hw_writebyte(struct sprd_i2c_hw *i2c_dev, u8 *buf, u32 len)
++{
++	u32 tmp, status;
++
++	/* only support 2 bytes, 1:reg address; 2:reg data. */
++	tmp = i2c_dev->msg->addr << SLAVE_ADDR_OFFSET |
++		buf[0] << REG_ADDR_OFFSET;
++
++	/* len: 2 write operation, len:1 read operation */
++	if (len == 2) {
++		writel(tmp, i2c_dev->base + ARM_CMD_WR);
++		writel(buf[1], i2c_dev->base + ARM_DAT_WR);
++	} else {
++		writel(tmp, i2c_dev->base + ARM_RD_CMD);
++		return 0;
++	}
++
++	/* waitting for write finish */
++	usleep_range(i2c_dev->write_wait_time, i2c_dev->write_wait_time + 50);
++
++	tmp = readl(i2c_dev->base + ARM_DEBUG1);
++	if (!(tmp & CHNL_PENDING))
++		return 0;
++
++	status = readl(i2c_dev->base + I2C_STATUS);
++	if (status & I2C_RX_ACK) {
++		if ((tmp & CHNL_SEL) == CHNL_WRITE)
++			dev_err(i2c_dev->dev, "no ack error!\n");
++		else
++			dev_err(i2c_dev->dev, "hw channel no ack error!\n");
++		sprd_i2c_hw_dump_reg(i2c_dev);
++
++		return -EIO;
++	}
++
++	if ((tmp & CHNL_SEL) == CHNL_WRITE) {
++		dev_err(i2c_dev->dev, "bus error!\n");
++		sprd_i2c_hw_dump_reg(i2c_dev);
++		sprd_i2c_hw_reset_fifo(i2c_dev);
++		return -EIO;
++	}
++
++	return 0;
++}
++
++static void sprd_i2c_hw_chnl_priority(struct sprd_i2c_hw *i2c_dev)
++{
++	writel(PRIL_HIGH_APB, i2c_dev->base + HW_CHNL_PRIL);
++}
++
++static void sprd_i2c_hw_dvfs_chnl_init(struct sprd_i2c_hw *i2c_dev)
++{
++	u32 val;
++
++	writel(DVFS_CHNL_ADDR(DVFS_FAN53555_ADDR, DVFS_TX_5_REG),
++	       i2c_dev->base + CHNLX_ADDR(DVFS_TX_5_CHNL));
++	writel(DVFS_CHNL_ADDR(DVFS_FAN53555_ADDR, DVFS_TX_7_REG),
++	       i2c_dev->base + CHNLX_ADDR(DVFS_TX_7_CHNL));
++
++	val = readl(i2c_dev->base + CHNL_EN0);
++	val |= BIT(DVFS_TX_5_CHNL) | BIT(DVFS_TX_7_CHNL);
++	writel(val, i2c_dev->base + CHNL_EN0);
++}
++
++static void sprd_i2c_hw_clear_ack(struct sprd_i2c_hw *i2c_dev)
++{
++	u32 tmp = readl(i2c_dev->base + I2C_STATUS);
++
++	if (tmp & I2C_RX_ACK) {
++		dev_err(i2c_dev->dev, "no ack error!\n");
++		sprd_i2c_hw_reset_fifo(i2c_dev);
++		writel(tmp & ~I2C_RX_ACK, i2c_dev->base + I2C_STATUS);
++	}
++}
++
++static int sprd_i2c_hw_check_noack(struct sprd_i2c_hw *i2c_dev)
++{
++	u32 tmp = readl(i2c_dev->base + I2C_STATUS);
++
++	if (tmp & I2C_RX_ACK) {
++		dev_warn(i2c_dev->dev, "i2c report last time: no ack error!\n");
++		sprd_i2c_hw_dump_reg(i2c_dev);
++		writel(tmp & ~I2C_RX_ACK, i2c_dev->base + I2C_STATUS);
++		sprd_i2c_hw_reset_fifo(i2c_dev);
++
++		return -EIO;
++	}
++
++	return 0;
++}
++
++static int sprd_i2c_hw_readbyte(struct sprd_i2c_hw *i2c_dev, u8 *buf, u32 len)
++{
++	int data, i, err;
++
++	for (i = 0; i < len; i++) {
++		err = readl_poll_timeout_atomic(i2c_dev->base + ARM_RD_DATA,
++						data,
++						!(data & ARM_RD_CMD_BUSY),
++						I2C_WAIT, I2C_TIMEOUT);
++		if (err) {
++			dev_err(i2c_dev->dev, "Timed out for reading data=0x%04x\n",
++				data);
++			sprd_i2c_hw_dump_reg(i2c_dev);
++			return -ETIMEDOUT;
++		}
++
++		buf[i] = data;
++	}
++
++	return 0;
++}
++
++static int sprd_i2c_hw_handle_msg(struct i2c_adapter *i2c_adap,
++				  struct i2c_msg *pmsg)
++{
++	struct sprd_i2c_hw *i2c_dev = i2c_adap->algo_data;
++	int ret;
++
++	i2c_dev->msg = pmsg;
++	i2c_dev->buf = pmsg->buf;
++	i2c_dev->count = pmsg->len;
++
++	ret = sprd_i2c_hw_check_noack(i2c_dev);
++	if (ret)
++		return ret;
++
++	if (i2c_dev->count > 2) {
++		dev_err(i2c_dev->dev,
++			"i2c report: only support 1 byte transfer, bytes=%d !!!\n",
++			i2c_dev->count);
++		return -EINVAL;
++	}
++
++	if (pmsg->flags & I2C_M_RD)
++		ret = sprd_i2c_hw_readbyte(i2c_dev, i2c_dev->buf,
++						i2c_dev->count);
++	else
++		ret = sprd_i2c_hw_writebyte(i2c_dev, i2c_dev->buf,
++						i2c_dev->count);
++
++	/* Transmission is done and clear ack */
++	sprd_i2c_hw_clear_ack(i2c_dev);
++	return ret;
++}
++
++static int sprd_i2c_hw_master_xfer(struct i2c_adapter *i2c_adap,
++				   struct i2c_msg *msgs, int num)
++{
++	int im, ret = 0;
++
++	for (im = 0; ret >= 0 && im != num; im++) {
++		ret = sprd_i2c_hw_handle_msg(i2c_adap, &msgs[im]);
++		if (ret)
++			break;
++	}
++
++	return (ret >= 0) ? im : ret;
++}
++
++static u32 sprd_i2c_hw_func(struct i2c_adapter *adap)
++{
++	return I2C_FUNC_I2C | I2C_FUNC_SMBUS_EMUL;
++}
++
++static const struct i2c_algorithm sprd_i2c_hw_algo = {
++	.master_xfer = sprd_i2c_hw_master_xfer,
++	.functionality = sprd_i2c_hw_func,
++};
++
++static void sprd_i2c_hw_set_clk(struct sprd_i2c_hw *i2c_dev, u32 freq)
++{
++	u32 apb_clk = i2c_dev->src_clk, high, low, div0, div1;
++	/*
++	 * From I2C databook, the prescale calculation formula:
++	 * prescale = freq_i2c / (4 * freq_scl) - 1;
++	 */
++	u32 i2c_dvd = apb_clk / (4 * freq) - 1;
++
++	/*
++	 * From I2C databook, the high period of SCL clock is recommended as
++	 * 40% (2/5), and the low period of SCL clock is recommended as 60%
++	 * (3/5), then the formula should be:
++	 * high = (prescale * 2 * 2) / 6
++	 * low = (prescale * 2 * 3) / 6
++	 *
++	 * For high speed mode, the SCL should be adjust after we get the
++	 * prescale, we should adjust the high period of SCL clock is recommended
++	 * more then 60ns, and the low period of SCL clock is recommended more
++	 * then 160ns, then the formula should be:
++	 * high = (((i2c_dvd -  I2C_CLK_3M4_HIGH_ADJUST) << 1) * 3) / 10;
++	 * low = (((i2c_dvd -  I2C_CLK_3M4_LOW_ADJUST) << 1) * 7) / 10;
++	 */
++	if (freq == I2C_CLK_3M4) {
++		high = (((i2c_dvd -  I2C_CLK_3M4_HIGH_ADJUST) << 1) * 3) / 10;
++		low = (((i2c_dvd -  I2C_CLK_3M4_LOW_ADJUST) << 1) * 7) / 10;
++	} else {
++		high = ((i2c_dvd << 1) * 2) / 6;
++		low = ((i2c_dvd << 1) * 3) / 6;
++	}
++
++	div0 = (high & TIMIMG_MAST_L) << 16 | (low & TIMIMG_MAST_L);
++	div1 = (high & TIMIMG_MAST_H) | ((low & TIMIMG_MAST_H) >> 16);
++
++	writel(div0, i2c_dev->base + ADDR_DVD0);
++	writel(div1, i2c_dev->base + ADDR_DVD1);
++
++	/* Start hold timing = hold time(us) * source clock */
++	switch (freq) {
++	case I2C_CLK_3M4:
++		writel((18 * apb_clk) / 100000000, i2c_dev->base + ADDR_STA0_DVD);
++		i2c_dev->write_wait_time = I2C_3M4_WRITE_WAIT;
++		break;
++	case I2C_CLK_1M:
++		writel((8 * apb_clk) / 10000000, i2c_dev->base + ADDR_STA0_DVD);
++		i2c_dev->write_wait_time = I2C_1M_WRITE_WAIT;
++		break;
++	case I2C_CLK_400K:
++		writel((6 * apb_clk) / 10000000, i2c_dev->base + ADDR_STA0_DVD);
++		i2c_dev->write_wait_time = I2C_400K_WRITE_WAIT;
++		break;
++	case I2C_CLK_100K:
++		writel((4 * apb_clk) / 1000000, i2c_dev->base + ADDR_STA0_DVD);
++		i2c_dev->write_wait_time = I2C_100K_WRITE_WAIT;
++		break;
++	default:
++		dev_err(i2c_dev->dev, "Invalid bus frequency!");
++		break;
++	}
++}
++
++static void sprd_i2c_hw_enable(struct sprd_i2c_hw *i2c_dev)
++{
++	u32 tmp = I2C_DVD_OPT;
++
++	sprd_i2c_hw_clear_ack(i2c_dev);
++
++	writel(tmp, i2c_dev->base + I2C_CTL);
++	dev_dbg(i2c_dev->dev, "freq=%d\n", i2c_dev->bus_freq);
++
++	sprd_i2c_hw_set_clk(i2c_dev, i2c_dev->bus_freq);
++
++	tmp = readl(i2c_dev->base + I2C_CTL);
++	writel(tmp | I2C_EN | I2C_INT_EN, i2c_dev->base + I2C_CTL);
++	writel(HW_CTL_VALUE, i2c_dev->base + HW_CTL);
++}
++
++static int sprd_i2c_hw_clk_init(struct sprd_i2c_hw *i2c_dev)
++{
++	struct clk *clk_i2c, *clk_parent;
++
++	clk_i2c = devm_clk_get(i2c_dev->dev, "i2c");
++	if (IS_ERR(clk_i2c)) {
++		dev_warn(i2c_dev->dev, "i2c%d can't get the i2c clock\n",
++			 i2c_dev->adap.nr);
++		clk_i2c = NULL;
++	}
++
++	clk_parent = devm_clk_get(i2c_dev->dev, "source");
++	if (IS_ERR(clk_parent)) {
++		dev_warn(i2c_dev->dev, "i2c%d can't get the source clock\n",
++			 i2c_dev->adap.nr);
++		clk_parent = NULL;
++	}
++
++	if (clk_i2c && clk_parent && !clk_set_parent(clk_i2c, clk_parent))
++		i2c_dev->src_clk = clk_get_rate(clk_i2c);
++	else
++		i2c_dev->src_clk = I2C_SOURCE_CLK_26M;
++
++	dev_dbg(i2c_dev->dev, "i2c%d set source clock is %d\n",
++		i2c_dev->adap.nr, i2c_dev->src_clk);
++
++	i2c_dev->clk = devm_clk_get(i2c_dev->dev, "enable");
++	if (IS_ERR(i2c_dev->clk)) {
++		dev_warn(i2c_dev->dev, "i2c%d can't get the enable clock\n",
++			 i2c_dev->adap.nr);
++		i2c_dev->clk = NULL;
++	}
++
++	return 0;
++}
++
++static int sprd_i2c_hw_probe(struct platform_device *pdev)
++{
++	struct device_node *np = pdev->dev.of_node;
++	struct sprd_i2c_hw *i2c_dev;
++	u32 prop;
++	int ret;
++
++	pdev->id = of_alias_get_id(np, "i2c");
++	if (pdev->id < 0)
++		return pdev->id;
++
++	i2c_dev = devm_kzalloc(&pdev->dev, sizeof(struct sprd_i2c_hw), GFP_KERNEL);
++	if (!i2c_dev)
++		return -ENOMEM;
++
++	i2c_dev->base = devm_platform_ioremap_resource(pdev, 0);
++	if (IS_ERR(i2c_dev->base))
++		return PTR_ERR(i2c_dev->base);
++
++	i2c_dev->irq = platform_get_irq(pdev, 0);
++	if (i2c_dev->irq < 0) {
++		dev_err(&pdev->dev, "failed to get irq resource\n");
++		return i2c_dev->irq;
++	}
++
++	i2c_set_adapdata(&i2c_dev->adap, i2c_dev);
++	snprintf(i2c_dev->adap.name, sizeof(i2c_dev->adap.name),
++		 "%s", "sprd-i2c-hw");
++
++	i2c_dev->bus_freq = I2C_CLK_100K;
++	i2c_dev->adap.owner = THIS_MODULE;
++	i2c_dev->dev = &pdev->dev;
++	i2c_dev->adap.retries = 3;
++	i2c_dev->adap.algo = &sprd_i2c_hw_algo;
++	i2c_dev->adap.algo_data = i2c_dev;
++	i2c_dev->adap.dev.parent = &pdev->dev;
++	i2c_dev->adap.nr = pdev->id;
++	i2c_dev->adap.dev.of_node = pdev->dev.of_node;
++
++	if (!of_property_read_u32(pdev->dev.of_node, "clock-frequency", &prop))
++		i2c_dev->bus_freq = prop;
++
++	ret = sprd_i2c_hw_clk_init(i2c_dev);
++	if (ret)
++		return ret;
++
++	platform_set_drvdata(pdev, i2c_dev);
++
++	ret = clk_prepare_enable(i2c_dev->clk);
++	if (ret) {
++		dev_err(&pdev->dev, "failed to enable clk!\n");
++		return ret;
++	}
++
++	sprd_i2c_hw_enable(i2c_dev);
++	sprd_i2c_hw_chnl_priority(i2c_dev);
++	sprd_i2c_hw_dvfs_chnl_init(i2c_dev);
++
++	ret = i2c_add_numbered_adapter(&i2c_dev->adap);
++	if (ret < 0) {
++		dev_err(&pdev->dev, "add_adapter failed!\n");
++		goto err_clk_disable;
++	}
++
++	return 0;
++
++err_clk_disable:
++	clk_disable_unprepare(i2c_dev->clk);
++	return ret;
++}
++
++static void sprd_i2c_hw_remove(struct platform_device *pdev)
++{
++	struct sprd_i2c_hw *i2c_dev = platform_get_drvdata(pdev);
++
++	i2c_del_adapter(&i2c_dev->adap);
++	clk_disable_unprepare(i2c_dev->clk);
++}
++
++static const struct of_device_id sprd_i2c_hw_of_match[] = {
++	{ .compatible = "sprd,sharkl5pro-hw-i2c", },
++	{ .compatible = "sprd,sharkl3-hw-i2c", },
++	{ .compatible = "sprd,sc9860-hw-i2c", },
++	{},
++};
++
++static struct platform_driver sprd_i2c_hw_driver = {
++	.probe = sprd_i2c_hw_probe,
++	.remove = sprd_i2c_hw_remove,
++	.driver = {
++		.name = "sprd-hw-i2c",
++		.of_match_table = sprd_i2c_hw_of_match,
++	},
++};
++
++module_platform_driver(sprd_i2c_hw_driver);
++MODULE_DESCRIPTION("Spreadtrum hardware I2C support");
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/i2c/busses/i2c-sprd.c b/drivers/i2c/busses/i2c-sprd.c
+index 1b490525d8dd12e72a814e52371f74a552297a61..4531a89300c2b1c48e591bff68c3bf4537858b49 100644
+--- a/drivers/i2c/busses/i2c-sprd.c
++++ b/drivers/i2c/busses/i2c-sprd.c
+@@ -31,6 +31,8 @@
+ #define ADDR_RST		0x2c
+ 
+ /* I2C_CTL */
++#define I2C_NACK_EN		BIT(22)
++#define I2C_TRANS_EN		BIT(21)
+ #define STP_EN			BIT(20)
+ #define FIFO_AF_LVL_MASK	GENMASK(19, 16)
+ #define FIFO_AF_LVL		16
+@@ -361,7 +363,8 @@ static void sprd_i2c_enable(struct sprd_i2c *i2c_dev)
+ 	sprd_i2c_clear_irq(i2c_dev);
+ 
+ 	tmp = readl(i2c_dev->base + I2C_CTL);
+-	writel(tmp | I2C_EN | I2C_INT_EN, i2c_dev->base + I2C_CTL);
++	tmp |= I2C_EN | I2C_INT_EN | I2C_TRANS_EN | I2C_NACK_EN;
++	writel(tmp, i2c_dev->base + I2C_CTL);
+ }
+ 
+ static irqreturn_t sprd_i2c_isr_thread(int irq, void *dev_id)

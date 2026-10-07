@@ -1,0 +1,231 @@
+{
+  "baseline_commit": "d9f199ed3f",
+  "working_rg405m_kernel_sha256": "ae626af6e5a334839c363be5c0a66e560c16c6f9551110fe3ef0fdaad5ea909e",
+  "working_rg405m_dtb_sha256": "c57d240862938aa42e68424ba0f21260cb34dfde5f19018f44571e4f213eb434",
+  "files": [
+    {
+      "path": "projects/ROCKNIX/devices/T618/filesystem/usr/share/alsa/ucm2/Unisoc/rg405m/HiFi.conf",
+      "symlink": false,
+      "sha256": "9dd078b94a0002fc12f235d7a1dbde4fc2d83c691e771321a6dcb059685a502c"
+    },
+    {
+      "path": "projects/ROCKNIX/devices/T618/filesystem/usr/share/inputplumber/capability_maps/rg405m.yaml",
+      "symlink": false,
+      "sha256": "e6e13f559f1b8272280a5e63454fa1203b2f750d471a33d99e07dd5dfcd996fa"
+    },
+    {
+      "path": "projects/ROCKNIX/devices/T618/filesystem/usr/share/inputplumber/devices/50-rg405m.yaml",
+      "symlink": false,
+      "sha256": "14a4c5dc68db36090262b5a2791e8006a0b1bdf91f00b22cb63e0bce5b7ff200"
+    },
+    {
+      "path": "projects/ROCKNIX/devices/T618/filesystem/usr/share/wireplumber/wireplumber.conf.d/51-rg405m-audio.conf",
+      "symlink": false,
+      "sha256": "d422269a5577fca5dd4e69b79f6e54394eb8527cda293621cee6f49a192af876"
+    },
+    {
+      "path": "projects/ROCKNIX/devices/T618/options",
+      "symlink": false,
+      "sha256": "32e0d2e8d5cb5ec721b7feb8738a888d20a24be1eee8e977d330f012ed0748d1"
+    },
+    {
+      "path": "projects/ROCKNIX/devices/T618/packages/t618-kernel-integration/sources/sound/soc/sprd/vendor/sprd-codec.c",
+      "symlink": false,
+      "sha256": "f4a53dcbd4ad4804ab46a00820598dcdcf8c6d166e3a2bbc49644a4ed9124575"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/emulators/libretro/easyrpg-lr/scripts/easyrpg.sh",
+      "symlink": false,
+      "sha256": "39ea6fa636cf931dfc90e5d1287de3507e7574a941d33bdbfe4b38a22f2cec7c"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/emulators/libretro/pcsx_rearmed-lr/package.mk",
+      "symlink": false,
+      "sha256": "f558c6edafd3ce0038ca85efc263500749610e58d21924e0bd50307fbe458c22"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/emulators/libretro/retroarch/sources/T618/retroarch32bit-append.cfg",
+      "symlink": false,
+      "sha256": "f5b54d6c9b3576db18796b52aaf1655e5bef19dcd8e684b52be38088c91d6ef5"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/emulators/libretro/retroarch/sources/T618/retroarch64bit-append.cfg",
+      "symlink": false,
+      "sha256": "29b44aef699fee57bf549181cfbadececaac0855d5afcf6d858b84414b1f309a"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/emulators/standalone/aethersx2-sa/config/T618",
+      "symlink": true,
+      "sha256": "7b6023db3a4c4d6cbb7c64f5266ef8b6d9cfffbb0c4f9254fd54222270052367"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/emulators/standalone/aram-sa/scripts/build_aram_source.sh",
+      "symlink": false,
+      "sha256": "860f2b9d6e68185190e746e231d2c466ad9d20bab1c2dd8352e8921df0b42b0b"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/emulators/standalone/azahar-sa/config/T618",
+      "symlink": true,
+      "sha256": "7b6023db3a4c4d6cbb7c64f5266ef8b6d9cfffbb0c4f9254fd54222270052367"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/emulators/standalone/azahar-sa/scripts/start_azahar.sh",
+      "symlink": false,
+      "sha256": "e33824f3ff915349038075b3f66463a0c187b96f34a0bd9bd5b4aba8b57f45cb"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/emulators/standalone/dolphin-sa/config/T618",
+      "symlink": true,
+      "sha256": "ab038118e99dfed0f19c35cd8b442d9c880af9534ffe81b05471c1bcaf7b1aeb"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/emulators/standalone/dolphin-sa/patches/017-wayland-nogui-fullscreen.patch",
+      "symlink": false,
+      "sha256": "6f7551b2540fdc59eb2f2dda19a14f9d41c69f4e7f1b3f2c15550d3e79485ee2"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/emulators/standalone/drastic-sa/config/T618",
+      "symlink": true,
+      "sha256": "ab038118e99dfed0f19c35cd8b442d9c880af9534ffe81b05471c1bcaf7b1aeb"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/emulators/standalone/drastic-sa/package.mk",
+      "symlink": false,
+      "sha256": "37627482e0e96d2d35d1321afb13a5d0bff02c178a6efd5b5638299a8d48025a"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/emulators/standalone/duckstation-sa/config/T618/settings.ini",
+      "symlink": false,
+      "sha256": "0bfc1d318adf1407812b09ef31a70e3d4192382ba378dccfed153f396e69057d"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/emulators/standalone/duckstation-sa/package.mk",
+      "symlink": false,
+      "sha256": "10d7a6d150f268cb7cbdfa9f5bd2b9007ae7283b4ff11e6862d7d78c40fbb26d"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/emulators/standalone/duckstation-sa/scripts/start_duckstation.sh",
+      "symlink": false,
+      "sha256": "71268ad5485c029fe075da0bc3f45b3db5b6d8db381465a9389cdf336ff0333a"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/emulators/standalone/melonds-sa/config/T618",
+      "symlink": true,
+      "sha256": "7b6023db3a4c4d6cbb7c64f5266ef8b6d9cfffbb0c4f9254fd54222270052367"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/emulators/standalone/melonds-sa/package.mk",
+      "symlink": false,
+      "sha256": "06d0e36db152210ce37772e2567ad5f326a4e1ff6e9151f71b175d56e59ac4e4"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/emulators/standalone/mupen64plus-sa/mupen64plus-sa-core/scripts/start_mupen64plus.sh",
+      "symlink": false,
+      "sha256": "843afb8fa38a17d88a894807a49281806667c00ca12e1c65335bf44936b244d6"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/emulators/standalone/ppsspp-sa/sources/T618",
+      "symlink": true,
+      "sha256": "7b6023db3a4c4d6cbb7c64f5266ef8b6d9cfffbb0c4f9254fd54222270052367"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/graphics/cairo/package.mk",
+      "symlink": false,
+      "sha256": "548c6cddb13afc7015af0c6b2a14af32f74dfad3a7ed3c4a0a68615a8f60c126"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/hardware/quirks/platforms/T618/020-suspend_mode",
+      "symlink": false,
+      "sha256": "b3dd9846d25046dbd9bd11f4413cc4d9b5b3ea494ed34eb373a1dd4ced887013"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/hardware/quirks/platforms/T618/040-affinity",
+      "symlink": false,
+      "sha256": "3c102ce61827c4f630eae41683cf91d4f3b89ebeccea3bdbd2959ff9933a5906"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/hardware/quirks/platforms/T618/050-modifiers",
+      "symlink": false,
+      "sha256": "0d7845618f839a1bee89bb76fecd976486fd13c3f4b76e0f35264df6e3ee9427"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/hardware/quirks/platforms/T618/065-Touchscreen-events",
+      "symlink": false,
+      "sha256": "28cbd7e6935046152d09d1b7110377ae4879ae17aa284ffcf38bc50721f7c540"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/hardware/quirks/platforms/T618/090-ui_service",
+      "symlink": false,
+      "sha256": "2ca67cf4d423927d3c032d2f33d5f33cc462f10987fe554e922fbceb0c4017bf"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/hardware/quirks/platforms/T618/091-ui_shader",
+      "symlink": false,
+      "sha256": "709c0890cc5b08aee898aa0956016c97cdba49da960c2f6375b0ee690653271b"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/hardware/quirks/platforms/T618/sleep.d/post/010-wifi",
+      "symlink": false,
+      "sha256": "ebb5698769225aec806f3c4a4f6da867671e8d6577b8576cf6238acba1d118cf"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/hardware/quirks/platforms/T618/sleep.d/pre/010-wifi",
+      "symlink": false,
+      "sha256": "a52ea6267c1dede8fad5b2aa9537e436a8f62427dbc068427a5bf705074ffbbf"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/misc/modules/package.mk",
+      "symlink": false,
+      "sha256": "d0d5272726bef18eb1734bc0e5774810a0600262b8c3573feb258d4f97d06524"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/rocknix/profile.d/001-functions",
+      "symlink": false,
+      "sha256": "de784b7b5f91dd539b34388d5a472be55f7bdbf1f2e003c9972699d1857baf5d"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/rocknix/sources/scripts/rocknix-info",
+      "symlink": false,
+      "sha256": "3647904420c732b21a86453327b513b3dc0afd0f1acca62d3be8b941e3353f55"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/sysutils/autostart/profile.d/002-autostart",
+      "symlink": false,
+      "sha256": "9d8196593b16b68e5e50d1f8150c4101836553f5027e9d315381f0f39f66e9af"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/sysutils/busybox/package.mk",
+      "symlink": false,
+      "sha256": "722e56e84982757791195a9438b9739ab286cfa45fb842763d9ee96da3a947a6"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/sysutils/powerstate/sources/powerstate.sh",
+      "symlink": false,
+      "sha256": "13e3c814aea6f9b268c266b268c64964b1d9508a2dcfbf1c2d65982042219605"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/ui/emulationstation/package.mk",
+      "symlink": false,
+      "sha256": "04d8f51c0d382af8534763855fc7153d3a08a0e78a3425cfb8cbec523c409ac0"
+    },
+    {
+      "path": "projects/ROCKNIX/packages/virtual/emulators/package.mk",
+      "symlink": false,
+      "sha256": "217b761ef3e8248d411f144c2fce8ec9c199d62ff96b668d9ca9dd47a0d433c0"
+    }
+  ],
+  "firmware": {
+    "wcnmodem.bin": "39abf4bd216a5bec2d39219529322eb4b238856ecdd5f8c31093979ed2366bf2",
+    "gnssmodem.bin": "3a44bdaaff12aec35d18d1da315d27c3ad27cae0e88cc288a7c4c512ddb174ed",
+    "wifi_board_config.ini": "a58f40c8d99e2bdee1adaac55ab72481c7823b5c386bc9b3085fb43f573f2a5c",
+    "sprd/wifi_board_config.ini": "a58f40c8d99e2bdee1adaac55ab72481c7823b5c386bc9b3085fb43f573f2a5c",
+    "bt_configure_pskey.ini": "82267aedf0e3e85eb3bccde90b61e2f7ca56fecb4d9081829bb8410023538641",
+    "sprd/bt_configure_pskey.ini": "82267aedf0e3e85eb3bccde90b61e2f7ca56fecb4d9081829bb8410023538641",
+    "bt_configure_rf.ini": "0b86cd94f846f7aecdba2ee3f81313b7c9ffb14aa3041574bad85b2a4be95df2",
+    "sprd/bt_configure_rf.ini": "0b86cd94f846f7aecdba2ee3f81313b7c9ffb14aa3041574bad85b2a4be95df2",
+    "audio_structure": "cb2f9d8aa3bd15f9d6909953becc834e1f9401e3ecd5fbc8443125050ec0192b",
+    "dsp_vbc": "90fe459a03d9dcefe9c1e928254c62e4c7627054719fa46925c3716b17af1ee1",
+    "agdsp.bin": "d0c7e40d090e8ace008ff7acabacaeb19677bce2c634cebda742762507573929",
+    "pm_sys.bin": "8c464267411f83bf912c8dee4ba4a038394012ff5c403b3cfecb464b9f103f77"
+  }
+}

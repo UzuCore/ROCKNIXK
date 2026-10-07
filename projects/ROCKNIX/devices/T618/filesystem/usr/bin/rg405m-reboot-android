@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""RG405M/RG405V: make the Android slot the next boot target and reboot.
+
+Android and ROCKNIX live in opposite A/B slots. Which one holds Android is NOT fixed:
+a stock OTA installs to the inactive slot and switches, so Android can end up in either
+slot. This tool therefore reads the slot it is running from (androidboot.slot_suffix on
+the kernel cmdline) and targets the other one.
+
+Writes ONLY the 32-byte Android A/B boot_control block at misc+2048 (the same
+field `fastboot --set-active` and Android's boot-control HAL write). Target slot:
+priority 15, 7 tries, successful. The running slot keeps its tries/flags but gets
+priority <= 14, so U-Boot's SPL-rollback branch (rb slot priority > chosen slot) can
+never be taken. Nothing else on eMMC is touched. Refuses on any unexpected
+metadata instead of repairing it.
+"""
+import argparse
+import fcntl
+import os
+from pathlib import Path
+import re
+import stat
+import struct
+import subprocess
+import sys
+import zlib
+
+sys.path.insert(0, '/usr/lib/rg405m')
+from boot_success import supported_model
+
+OFFSET, SIZE = 2048, 32
+
+
+def decode(data: bytes) -> list:
+    if len(data) != SIZE or struct.unpack_from('<I', data, 4)[0] != 0x42414342 or data[8] != 1:
+        raise SystemExit('unknown boot-control magic/version - refusing, nothing written')
+    if data[9] & 7 != 2:
+        raise SystemExit('expected exactly two slots - refusing, nothing written')
+    if zlib.crc32(data[:28]) != struct.unpack_from('<I', data, 28)[0]:
+        raise SystemExit('boot-control CRC mismatch - refusing, nothing written')
+    return [{'priority': data[12 + 2 * i] & 15, 'tries': (data[12 + 2 * i] >> 4) & 7,
+             'successful': bool(data[12 + 2 * i] & 128), 'verity_corrupted': bool(data[13 + 2 * i] & 1)}
+            for i in range(2)]
+
+
+def running_slot() -> int:
+    """Index of the slot this kernel booted from, taken from the bootloader's cmdline.
+
+    ROCKNIX and Android live in opposite slots, so "the other OS" is always the other
+    index. Nothing here assumes Android is slot A: an OTA can move Android to slot B.
+    """
+    text = Path('/proc/cmdline').read_text()
+    m = re.search(r'androidboot\.slot_suffix=_([ab])\b', text)
+    if not m:
+        raise SystemExit('cannot tell which slot is running (no androidboot.slot_suffix) - nothing written')
+    return 'ab'.index(m.group(1))
+
+
+def other_slot_first(data: bytes, running: int) -> bytes:
+    """Make the slot that is NOT running the next boot target."""
+    decode(data)
+    target = 1 - running
+    new = bytearray(data)
+    new[0:4] = ('_' + 'ab'[target]).encode() + b'\0\0'
+    new[12 + 2 * target] = 15 | (7 << 4) | 128    # target: priority 15, tries 7, successful
+    new[13 + 2 * target] = 0                      # target: not verity-corrupted
+    b = new[12 + 2 * running]
+    new[12 + 2 * running] = (b & 0xF0) | min((b & 15) or 14, 14)   # running slot: priority <= 14
+    struct.pack_into('<I', new, 28, zlib.crc32(bytes(new[:28])))
+    slots = decode(bytes(new))
+    if not slots[target]['priority'] > slots[running]['priority']:
+        raise SystemExit('internal check failed - nothing written')
+    return bytes(new)
+
+
+def misc_device() -> Path:
+    model = Path('/sys/firmware/devicetree/base/model').read_bytes().rstrip(b'\0')
+    if not supported_model(model):
+        raise SystemExit('not an RG405M or RG405V')
+    dev = Path('/dev/disk/by-partlabel/misc').resolve(strict=True)
+    m = re.fullmatch(r'/dev/(mmcblk\d+)p\d+', str(dev))
+    if not m or not stat.S_ISBLK(dev.stat().st_mode):
+        raise SystemExit('misc is not an eMMC partition')
+    parent = Path('/sys/class/block') / m[1]
+    if (parent / 'device/type').read_text().strip() != 'MMC' or (parent / 'removable').read_text().strip() != '0':
+        raise SystemExit('misc is not on the internal eMMC')
+    if (Path('/sys/class/block') / dev.name / 'size').read_text().strip() == '0':
+        raise SystemExit('misc has zero size')
+    return dev
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument('--dry-run', action='store_true', help='read and show only; never write')
+    ap.add_argument('--no-reboot', action='store_true')
+    a = ap.parse_args()
+    if os.geteuid() != 0:
+        raise SystemExit('run as root')
+    dev = misc_device()
+    running = running_slot()
+    target = 1 - running
+    fd = os.open(dev, (os.O_RDONLY if a.dry_run else os.O_RDWR) | os.O_CLOEXEC)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        old = os.pread(fd, SIZE, OFFSET)
+        new = other_slot_first(old, running)
+        print('device', dev)
+        print('running slot', 'ab'[running], '-> target slot', 'ab'[target])
+        print('before', old.hex(), decode(old))
+        print('after ', new.hex(), decode(new))
+        if a.dry_run:
+            print('dry-run: nothing written')
+            return
+        if new != old:
+            if os.pread(fd, SIZE, OFFSET) != old:
+                raise SystemExit('metadata changed concurrently - nothing written')
+            if os.pwrite(fd, new, OFFSET) != SIZE:
+                raise SystemExit('short write')
+            os.fsync(fd)
+            if os.pread(fd, SIZE, OFFSET) != new:
+                raise SystemExit('readback mismatch')
+        print(f'boot-control updated: next boot = Android (slot {"AB"[target]})')
+    finally:
+        os.close(fd)
+    if a.no_reboot:
+        return
+    subprocess.run(['sync'])
+    subprocess.run(['systemctl', 'reboot'])
+
+
+if __name__ == '__main__':
+    main()

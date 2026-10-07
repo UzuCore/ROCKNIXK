@@ -1,0 +1,9 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Keep NORMAL_AP01; unsupported DSP scene probing can disable the audio DSP.
+c=$(readlink /proc/asound/RG405V 2>/dev/null); c=${c#card}
+[ -n "$c" ] || exit 0
+for n in /dev/snd/pcmC${c}D*; do
+  case "${n##*/}" in pcmC${c}D0p|pcmC${c}D0c) ;; *) rm -f "$n" ;; esac
+done
+exit 0

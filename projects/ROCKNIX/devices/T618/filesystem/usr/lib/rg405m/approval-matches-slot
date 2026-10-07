@@ -1,0 +1,12 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Exit 0 only if the user approved boot-control writes for the slot ROCKNIX is running from.
+# An approval left over from an install in the other slot (e.g. before a reinstall) does not count.
+MODEL=$(tr -d '\000' </sys/firmware/devicetree/base/model 2>/dev/null) || exit 1
+case "$MODEL" in
+  'Anbernic RG405M') F=/storage/.config/rg405m/allow-boot-control-write ;;
+  'Anbernic RG405V') F=/storage/.config/rg405v/allow-boot-control-write ;;
+  *) exit 1 ;;
+esac
+S=$(sed -n 's/.*androidboot\.slot_suffix=\(_[ab]\).*/\1/p' /proc/cmdline)
+[ -n "$S" ] && [ -f "$F" ] && [ "$(cat "$F" 2>/dev/null)" = "$S" ]

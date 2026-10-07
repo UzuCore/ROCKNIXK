@@ -1,0 +1,31 @@
+From: RG405M port <rg405m@localhost>
+Subject: [PATCH] Platform: find batteries that are not named BAT*
+
+The RG405M fuel gauge is exposed as /sys/class/power_supply/sc27xx-fgu, which none of the name
+checks match, so EmulationStation showed no battery. Fall back to the first power supply whose
+type is Battery and whose scope is not Device (controller batteries are scope=Device).
+
+--- a/es-core/src/utils/Platform.cpp	2026-09-30 18:26:28.393730943 +0900
++++ b/es-core/src/utils/Platform.cpp	2026-09-30 18:26:28.418930941 +0900
+@@ -447,6 +447,21 @@
+ 						chargerRootPath = file;
+ 				}
+ 
++				// Some fuel gauges use their driver name (e.g. "sc27xx-fgu" on the Anbernic RG405M):
++				// take the first power supply of type Battery that is not a peripheral (scope=Device).
++				if (batteryRootPath.empty())
++				{
++					for (auto file : files)
++					{
++						if (Utils::String::trim(Utils::FileSystem::readAllText(file + "/type")) != "Battery")
++							continue;
++						if (Utils::String::trim(Utils::FileSystem::readAllText(file + "/scope")) == "Device")
++							continue;
++						batteryRootPath = file;
++						break;
++					}
++				}
++
+ 				// If there's no battery device, look for discrete charger and fuel gauge
+ 				if (batteryRootPath.empty())
+ 				{

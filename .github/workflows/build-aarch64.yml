@@ -58,6 +58,21 @@ jobs:
       - name: Clean up compressed aarch64-toolchain file
         run: rm build.aarch64-toolchain.tar.zst
 
+      - name: Download arm (${{ inputs.DEVICE }})
+        if: ${{ inputs.DEVICE != 'SM8650' && inputs.DEVICE != 'SM8750' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: arm (${{ inputs.DEVICE }})
+
+      - name: Extract artifact arm
+        if: ${{ inputs.DEVICE != 'SM8650' && inputs.DEVICE != 'SM8750' }}
+        run: |
+          tar --zstd -xf build.arm.tar.zst
+
+      - name: Clean up compressed arm file
+        if: ${{ inputs.DEVICE != 'SM8650' && inputs.DEVICE != 'SM8750' }}
+        run: rm build.arm.tar.zst
+
       - name: Build
         uses: corrupt952/actions-retry-command@v1.0.7
         with:

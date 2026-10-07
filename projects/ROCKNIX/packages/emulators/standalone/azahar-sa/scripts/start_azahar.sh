@@ -242,6 +242,12 @@ case ${HW_DEVICE} in
     SM8550|SM8250)
         [[ "${DEVICE_HAS_DUAL_SCREEN}" = "true" ]] && export QT_QPA_PLATFORM=xcb
     ;;
+    T618)
+        # Mali-G52 (Bifrost v7) + PanVK advertises Vulkan 1.0 only; Azahar requires 1.1 and aborts with
+        # "Vulkan 1.1 is required, but only 1.0 is supported by device!". With the override the game runs
+        # (checked on RG405M: Cave Story title and menu render on both screens).
+        export MESA_VK_VERSION_OVERRIDE=1.1
+    ;;
 esac
 
 rm -rf /storage/.local/share/azahar
