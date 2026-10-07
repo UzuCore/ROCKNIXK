@@ -29,6 +29,10 @@ PKG_MESON_OPTS_TARGET="-Ddrm_backend=enabled \
                        -Denable_tests=false \
                        -Dsdl2_backend=enabled"
 
+if [ "${DEVICE}" = "SDM845" ]; then
+  PKG_MESON_OPTS_TARGET+=" -Dv4l-utils:bpf=disabled"
+fi
+
 pre_configure_target() {
   # Subprojects (libliftoff tests, wlroots) use -Werror; distro GCC is stricter than upstream CI.
   # - libdrm_mock.c: unused-but-set-variable
