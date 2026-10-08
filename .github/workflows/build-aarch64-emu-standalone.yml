@@ -80,13 +80,13 @@ jobs:
         run: rm build.aarch64-toolchain.tar.zst
 
       - name: Download arm (${{ inputs.DEVICE }})
-        if: ${{ inputs.DEVICE != 'SM8650' && inputs.DEVICE != 'SM8750' }}
+        if: ${{ inputs.DEVICE == 'T618' }}
         uses: actions/download-artifact@v8
         with:
           name: arm (${{ inputs.DEVICE }})
 
       - name: Extract artifact arm
-        if: ${{ inputs.DEVICE != 'SM8650' && inputs.DEVICE != 'SM8750' }}
+        if: ${{ inputs.DEVICE == 'T618' }}
         run: |
           tar --zstd -xf build.arm.tar.zst
           rm build.arm.tar.zst
