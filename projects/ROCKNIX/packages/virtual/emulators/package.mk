@@ -673,7 +673,7 @@ makeinstall_target() {
 
   ### Nintendo Triforce
   case ${DEVICE} in
-    RK3399|SM4450|SM6115|SM8250|SM8550|SM8650|SM8750|AMD64)
+    RK3399|SM4450|SM6115|SM8250|SM8550|SM8650|SM8750|T618|AMD64)
       add_emu_core triforce dolphin dolphin-sa-gc true
       add_emu_core triforce dolphin dolphin-qt-gc false
       install_script "Start Dolphin.sh"

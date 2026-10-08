@@ -1,0 +1,33 @@
+Subject: [PATCH] Input: goodix: allow boards to retain controller configuration
+
+Based on beebono/distribution beta-20260818's Goodix firmware timeout
+workaround. Make it opt-in so only boards with a usable controller
+configuration skip the optional firmware request and fallback timeout.
+
+--- a/Documentation/devicetree/bindings/input/touchscreen/goodix.yaml
++++ b/Documentation/devicetree/bindings/input/touchscreen/goodix.yaml
+@@ -46,6 +46,12 @@
+ 
+   panel: true
+ 
++  goodix,no-config-load:
++    type: boolean
++    description:
++      Use the controller's existing configuration without requesting an
++      optional configuration firmware file from disk.
++
+   reset-gpios:
+     maxItems: 1
+ 
+--- a/drivers/input/touchscreen/goodix.c
++++ b/drivers/input/touchscreen/goodix.c
+@@ -1021,7 +1021,8 @@
+ 	default:
+ 		if (ts->gpiod_int && ts->gpiod_rst) {
+ 			ts->reset_controller_at_probe = true;
+-			ts->load_cfg_from_disk = true;
++			ts->load_cfg_from_disk =
++				!device_property_read_bool(dev, "goodix,no-config-load");
+ 			ts->irq_pin_access_method = IRQ_PIN_ACCESS_GPIO;
+ 		}
+ 	}
