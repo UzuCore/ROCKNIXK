@@ -16,6 +16,10 @@ case ${DEVICE} in
     ;;
 esac
 
+if [ "${DEVICE}" = "SDM845" ]; then
+  PKG_DEPENDS_TARGET+=" odin-tools"
+fi
+
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/config/modules
     cp -rf ${PKG_DIR}/sources/* ${INSTALL}/usr/config/modules
