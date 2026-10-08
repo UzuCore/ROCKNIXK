@@ -49,18 +49,6 @@ jobs:
           URL="https://github.com/${{ github.repository_owner }}/${{ vars.CACHE_REPO || 'distribution-cache' }}/releases/download/ccache/ccache-aarch64-${{ inputs.DEVICE }}-emu-libretro.tar"
           curl -L --fail --silent --show-error "$URL" | tar -xvf - || echo "Cache archive not found, skipping."  
 
-      - name: Download arm (${{ inputs.DEVICE }})
-        if: ${{ inputs.DEVICE == 'T618' }}
-        uses: actions/download-artifact@v8
-        with:
-          name: arm (${{ inputs.DEVICE }})
-
-      - name: Extract artifact arm
-        if: ${{ inputs.DEVICE == 'T618' }}
-        run: |
-          tar --zstd -xf build.arm.tar.zst
-          rm build.arm.tar.zst
-
       - name: Download aarch64 (${{ inputs.DEVICE }})
         uses: actions/download-artifact@v8
         with:

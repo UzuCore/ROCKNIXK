@@ -256,7 +256,7 @@ class FirmwareTests(unittest.TestCase):
     def test_t618_retains_full_build_graphics_and_compatibility(self):
         options = (ROOT / 'options').read_text()
         self.assertIn('VULKAN_SUPPORT="yes"', options)
-        self.assertIn('ENABLE_32BIT="true"', options)
+        self.assertNotIn('ENABLE_32BIT="true"', options)
         self.assertIn('arm)', options)
         self.assertIn('T618_TEST_BUILD', options)
 
