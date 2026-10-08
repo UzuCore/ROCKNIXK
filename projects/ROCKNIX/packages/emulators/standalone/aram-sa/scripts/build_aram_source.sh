@@ -5,6 +5,15 @@ set -euo pipefail
 BUILD_DIR="${1:?missing package build directory}"
 SOURCE_ROOT="${BUILD_DIR}/source"
 
+export GOTOOLCHAIN=go1.25.0+auto
+export GOPATH="${BUILD_DIR}/.gopath"
+export GOMODCACHE="${GOPATH}/pkg/mod"
+export GOCACHE="${BUILD_DIR}/.gocache"
+export GOTMPDIR="${BUILD_DIR}/.gotmp"
+
+mkdir -p "${GOPATH}" "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
+trap 'chmod -R u+w "${GOMODCACHE}"' EXIT
+
 # ARAM requires Go 1.25 or newer.
 ARAM_GO_MIN=1.25
 go_new_enough() {
@@ -65,13 +74,6 @@ git -C "${SOURCE_ROOT}/aram-frontend" apply \
 export GOOS=linux
 export GOARCH=arm64
 export CGO_ENABLED=1
-export GOTOOLCHAIN=go1.25.0+auto
-export GOPATH="${BUILD_DIR}/.gopath"
-export GOMODCACHE="${GOPATH}/pkg/mod"
-export GOCACHE="${BUILD_DIR}/.gocache"
-export GOTMPDIR="${BUILD_DIR}/.gotmp"
-
-mkdir -p "${GOPATH}" "${GOMODCACHE}" "${GOCACHE}" "${GOTMPDIR}"
 
 if [ -n "${CFLAGS:-}" ]; then
   export CGO_CFLAGS="${CFLAGS}"

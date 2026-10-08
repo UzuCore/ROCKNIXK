@@ -6,7 +6,7 @@ PKG_VERSION="7d4bc1b9e58c6afbb210c73f58727692cd395bda"
 PKG_LICENSE="PolyForm-Noncommercial-1.0.0"
 PKG_SITE="https://github.com/mirusu400/aram-emu"
 PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain xwayland libX11 libXcursor libXi libXinerama libXrandr libXxf86vm libglvnd alsa-lib"
+PKG_DEPENDS_TARGET="toolchain go:host xwayland libX11 libXcursor libXi libXinerama libXrandr libXxf86vm libglvnd alsa-lib"
 PKG_LONGDESC="ARAM emulator for Korean feature-phone WIPI, SKVM, and Raptor software."
 PKG_TOOLCHAIN="manual"
 
