@@ -26,7 +26,7 @@ Files are under `D:\rxodin\build\image`; detailed evidence is under `D:\rxodin\a
 | SYSTEM | `c1d4c39193c75bf74ba2fc4032a6ce2a2efb498daa487c69927115719b3122b1` |
 | KERNEL | `99f244fc41dc80dc4ca888a84b51071b508bbcd9f7801cdd031cfd7c0b62fb89` |
 
-These artifacts were built before synchronizing the three newer remote `odin` commits and before removing the Odin serial notice opt-in. Rebuild to include that removal and the subsequent cleanup and lib32 cache fix.
+These artifacts were built before synchronizing the three newer remote `sdm845` commits and before removing the Odin serial notice opt-in. Rebuild to include that removal and the subsequent cleanup and lib32 cache fix.
 
 ## Integration cleanup - 2026-10-07
 
@@ -39,4 +39,4 @@ These artifacts were built before synchronizing the three newer remote `odin` co
 
 The PS1 repair on the test device uses a temporary, hash-conditional library mount outside the source tree. Do not ship that service; rebuilt images must contain the correct lib32 bundle. The current image artifacts above predate this repair. Other device cache inputs and generated boot command lines retain their previous values. This cleanup has not been rebuilt or boot-tested.
 
-The dev branch merged Odin and then reverted that merge (`478eb2be3b`, `acde8ca134`). Commit ancestry alone therefore omits reverted Odin changes. Review the final tree when integrating; retain upstream changes already in dev. The shared BIOS downloader and RetroArch DualShock default already belong to dev. Keep Odin workflow selection policy separate from device runtime review.
+The dev branch merged the SDM845 branch and then reverted that merge (`478eb2be3b`, `acde8ca134`). Commit ancestry alone therefore omits reverted Odin changes. Review the final tree when integrating; retain upstream changes already in dev. The shared BIOS downloader and RetroArch DualShock default already belong to dev. Keep SDM845 workflow selection policy separate from device runtime review.

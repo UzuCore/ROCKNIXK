@@ -257,7 +257,7 @@ jobs:
            echo "RELEASE_NAME=${DATE} T618" >> $GITHUB_ENV
            echo "RELEASE_PRERELEASE=true" >> $GITHUB_ENV
            echo "RELEASE_LATEST=false" >> $GITHUB_ENV
-         elif [[ "${GITHUB_REF_NAME}" == "odin" ]]; then
+         elif [[ "${GITHUB_REF_NAME}" == "sdm845" ]]; then
            echo "RELEASE_TAG=${DATE}-sdm845" >> $GITHUB_ENV
            echo "RELEASE_NAME=${DATE} SDM845" >> $GITHUB_ENV
            echo "RELEASE_PRERELEASE=true" >> $GITHUB_ENV
