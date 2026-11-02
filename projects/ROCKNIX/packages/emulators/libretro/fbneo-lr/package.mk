@@ -5,7 +5,7 @@
 
 PKG_NAME="fbneo-lr"
 PKG_VERSION="37a1eff1e1e6e0603cb21789c35c84a889a85bde" # DsNo (261031)
-PKG_SHA256="611ab0f25a5a2b35f7eb14f7093d9a274d7ec14a888dea18b5598cd3b351e0aa"
+PKG_SHA256="2a48438ab5ea6b78f26f35abbb62fea8b2e2e3b09a04f745ed20fd29746bdb95"
 PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/aleksei74/FBNeo"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
