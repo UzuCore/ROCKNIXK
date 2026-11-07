@@ -9,29 +9,28 @@ PKG_LONGDESC="Emulation metapackage."
 PKG_TOOLCHAIN="manual"
 
 PKG_EMUS="amiberry duckstation-sa flycast-sa gzdoom-sa hatarisa hypseus-singe moonlight mupen64plus-sa openbor pico-8   \
-          ppsspp-sa scummvm-sa touchhle-sa vice-sa wine yabasanshiro-sa"
+          ppsspp-sa scummvm-sa touchhle-sa vice-sa wine yabasanshiro-pirry-sa"
 
 EMUS_32BIT=""
 
 PKG_RETROARCH="core-info libretro-database retroarch retroarch-assets retroarch-joypads retroarch-overlays retropie-shaders slang-shaders"
 
 LIBRETRO_CORES="81-lr a5200-lr arduous-lr atari800-lr b2-lr beetle-gba-lr beetle-lynx-lr beetle-ngp-lr beetle-pce-lr beetle-pce-fast-lr \
-                beetle-pcfx-lr bk-lr bsnes2014-accuracy-lr bsnes2014-balanced-lr bsnes2014-performance-lr bsnes-mercury-accuracy-lr     \
-                bsnes-mercury-balanced-lr bsnes-mercury-performance-lr beetle-supafaust-lr beetle-supergrafx-lr beetle-vb-lr            \
-                beetle-wswan-lr bluemsx-lr cap32-lr crocods-lr daphne-lr doublecherrygb-lr dosbox-core-lr dosbox-pure-lr                \
+                beetle-pcfx-lr bk-lr bsnes2014-balanced-lr bsnes-mercury-balanced-lr beetle-supafaust-lr beetle-supergrafx-lr           \
+                beetle-vb-lr beetle-wswan-lr bluemsx-lr cap32-lr crocods-lr daphne-lr doublecherrygb-lr dosbox-core-lr dosbox-pure-lr   \
                 easyrpg-lr emuscv-lr fake08-lr fbalpha2012-lr fbalpha2019-lr fbneo-lr fceumm-lr flycast-lr fmsx-lr                      \
-                freeintv-lr freej2me-lr fuse-lr gambatte-lr gearboy-lr gearcoleco-lr geargrafx-lr gearlynx-lr gearsystem-lr \
+                freeintv-lr freej2me-lr fuse-lr gambatte-lr gearboy-lr gearcoleco-lr geargrafx-lr gearlynx-lr gearsystem-lr             \
                 geolith-lr genesis-plus-gx-lr genesis-plus-gx-wide-lr gw-lr handy-lr hatari-lr idtech-lr jaxe-lr mame-lr                \
                 mame2003-plus-lr mame2010-lr mame2015-lr melonds-lr melonds-ds-lr mesen-lr mesen-s-lr mgba-lr minivmac-lr mojozork-lr   \
-                mu-lr mupen64plus-lr mupen64plus-nx-lr neocd_lr nestopia-lr np2kai-lr o2em-lr opera-lr parallel-n64-lr pcsx_rearmed-lr  \
+                mu-lr mupen64plus-nx-lr neocd_lr nestopia-lr np2kai-lr o2em-lr opera-lr parallel-n64-lr pcsx_rearmed-lr                 \
                 picodrive-lr pokemini-lr potator-lr prboom-lr prosystem-lr puae-lr puae2021-lr px68k-lr quasi88-lr quicknes-lr race-lr  \
                 same_cdi-lr sameboy-lr sameduck-lr scummvm-lr skyemu-lr smsplus-gx-lr snes9x-lr snes9x2002-lr snes9x2005_plus-lr        \
-                snes9x2010-lr stella-lr supersnes9x-lr swanstation-lr tgbdual-lr theodore-lr tic80-lr uzem-lr vba-next-lr       \
+                snes9x2010-lr stella-lr supersnes9x-lr swanstation-lr tgbdual-lr theodore-lr tic80-lr uzem-lr vba-next-lr               \
                 vbam-lr vecx-lr vice-lr vircon32-lr virtualjaguar-lr xmil-lr wasm4-lr yabasanshiro-lr"
 
 ### aarch64 libretro and sa cores
 if [ "${ARCH}" = "aarch64" ]; then
-  LIBRETRO_CORES+=" duckstation-lr flycast2021-lr ppsspp-lr"
+  LIBRETRO_CORES+=" flycast2021-lr ppsspp-lr"
   PKG_EMUS+=" box64 dsperate-sa portmaster"
 fi
 
@@ -64,7 +63,7 @@ case "${DEVICE}" in
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 desmume-lr gpsp-lr pcsx_rearmed-lr yabadabadoo-lr"
     PKG_DEPENDS_TARGET+=" common-shaders glsl-shaders"
     PKG_EMUS+=" armsx2-sa azahar-sa dolphin-sa drastic-sa mednafen melonds-sa vita3k-sa"
-    LIBRETRO_CORES+=" dolphin-lr uae4arm-lr"
+    LIBRETRO_CORES+=" dolphin-lr hakux-lr uae4arm-lr"
     ;;
   RK3588)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 desmume-lr gpsp-lr pcsx_rearmed-lr yabadabadoo-lr"
@@ -74,42 +73,42 @@ case "${DEVICE}" in
   SM6115)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 desmume-lr gpsp-lr pcsx_rearmed-lr yabadabadoo-lr"
     PKG_EMUS+=" azahar-sa dolphin-sa drastic-sa mednafen melonds-sa supermodel-sa vita3k-sa armsx2-sa"
-    LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr uae4arm-lr"
+    LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr hakux-lr uae4arm-lr"
     ;;
   SDM845)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 daedalusx64-sa desmume-lr gpsp-lr pcsx_rearmed-lr"
-    PKG_EMUS+=" armsx2-sa azahar-sa bigpemu-sa cemu-sa dolphin-sa heroic mednafen melonds-sa nanoboyadvance-sa supermodel-sa \
+    PKG_EMUS+=" armsx2-sa azahar-sa bigpemu-sa cemu-sa dolphin-sa heroic mednafen melonds-sa nanoboyadvance-sa rpcs3-sa supermodel-sa \
                 xemu-sa skyemu-sa steam vita3k-sa eden-sa"
-    LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr kronos-lr uae4arm-lr"
+    LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr hakux-lr kronos-lr uae4arm-lr"
     ;;
   # TODO: cemu and xemu testing, drop if unplayable
   SM4450)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 daedalusx64-sa desmume-lr gpsp-lr pcsx_rearmed-lr yabadabadoo-lr"
-    PKG_EMUS+=" azahar-sa bigpemu-sa cemu-sa dolphin-sa heroic mednafen melonds-sa nanoboyadvance-sa supermodel-sa xemu-sa \
+    PKG_EMUS+=" azahar-sa bigpemu-sa cemu-sa dolphin-sa heroic mednafen melonds-sa nanoboyadvance-sa supermodel-sa \
                 skyemu-sa steam vita3k-sa armsx2-sa"
-    LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr kronos-lr uae4arm-lr"
+    LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr hakux-lr kronos-lr uae4arm-lr"
     ;;
   SM8250)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 daedalusx64-sa desmume-lr gpsp-lr pcsx_rearmed-lr"
     PKG_EMUS+=" armsx2-sa azahar-sa bigpemu-sa cemu-sa dolphin-sa heroic mednafen melonds-sa nanoboyadvance-sa rpcs3-sa armsx3-sa supermodel-sa \
                 xemu-sa xenia-sa skyemu-sa steam vita3k-sa eden-sa"
-    LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr kronos-lr uae4arm-lr"
+    LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr hakux-lr kronos-lr uae4arm-lr"
     ;;
   SM8550)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 daedalusx64-sa desmume-lr gpsp-lr pcsx_rearmed-lr"
     PKG_EMUS+=" ares-sa armsx2-sa azahar-sa bigpemu-sa cemu-sa dolphin-sa drastic-sa gopher64-sa heroic mednafen melonds-sa nanoboyadvance-sa rpcs3-sa armsx3-sa supermodel-sa \
                 xemu-sa xenia-sa skyemu-sa steam vita3k-sa eden-sa"
-    LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr kronos-lr uae4arm-lr"
+    LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr hakux-lr kronos-lr uae4arm-lr"
     ;;
   SM8650|SM8750)
     PKG_EMUS+=" ares-sa armsx2-sa azahar-sa bigpemu-sa cemu-sa dolphin-sa drastic-sa gopher64-sa heroic mednafen melonds-sa nanoboyadvance-sa rpcs3-sa armsx3-sa supermodel-sa \
                 xemu-sa xenia-sa skyemu-sa steam vita3k-sa eden-sa"
-    LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr kronos-lr uae4arm-lr"
+    LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr hakux-lr kronos-lr uae4arm-lr"
     ;;
   S922X)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 pcsx_rearmed-lr"
     PKG_EMUS+=" azahar-sa bigpemu-sa dolphin-sa drastic-sa duckstation-sa melonds-sa vita3k-sa armsx2-sa"
-    LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr uae4arm-lr"
+    LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr hakux-lr uae4arm-lr"
     ;;
   AMD64)
     PKG_EMUS+=" ares-sa azahar-sa cemu-sa dolphin-sa gopher64-sa mednafen melonds-sa nanoboyadvance-sa \
@@ -963,10 +962,6 @@ makeinstall_target() {
 
   ### Nintendo 64
   add_emu_core n64 retroarch mupen64plus_next true
-  if [ "${PREFER_GLES}" = "yes" ]; then
-    # This core only has gles renderer
-    add_emu_core n64 retroarch mupen64plus false
-  fi
   add_emu_core n64 retroarch parallel_n64 false
   add_emu_core n64 mupen64plus mupen64plus-sa false
   case ${DEVICE} in
@@ -1185,37 +1180,31 @@ makeinstall_target() {
     H700|RK3326)
       add_emu_core psx retroarch pcsx_rearmed32 true
       add_emu_core psx retroarch pcsx_rearmed false
-      add_emu_core psx retroarch duckstation false
       ;;
     RK3399|RK3588|SM6115)
       add_emu_core psx retroarch pcsx_rearmed true
       add_emu_core psx retroarch pcsx_rearmed32 false
       add_emu_core psx retroarch beetle_psx false
       add_emu_core psx mednafen psx false
-      add_emu_core psx retroarch duckstation false
       ;;
     RK3576|RK3566|T618)
       add_emu_core psx retroarch pcsx_rearmed32 true
       add_emu_core psx retroarch pcsx_rearmed false
-      add_emu_core psx retroarch duckstation false
       ;;
     SDM845|SM4450|SM8250|SM8550)
       add_emu_core psx retroarch pcsx_rearmed32 true
       add_emu_core psx retroarch pcsx_rearmed false
       add_emu_core psx retroarch beetle_psx false
       add_emu_core psx mednafen psx false
-     add_emu_core psx retroarch duckstation false
       ;;
     SM8650|SM8750)
       add_emu_core psx retroarch pcsx_rearmed true
       add_emu_core psx retroarch beetle_psx false
       add_emu_core psx mednafen psx false
-     add_emu_core psx retroarch duckstation false
       ;;
     S922X)
       add_emu_core psx retroarch pcsx_rearmed true
       add_emu_core psx retroarch beetle_psx false
-      add_emu_core psx retroarch duckstation false
       ;;
     AMD64)
       add_emu_core psx retroarch pcsx_rearmed true
@@ -1244,12 +1233,16 @@ makeinstall_target() {
 
   ### Sony Playstation 3
   case ${DEVICE} in
-    SM8250|SM8550|SM8650|SM8750)
+    SM8250|SM8550|SM8650|SM8750|SDM845)
       add_emu_core ps3 rpcs3 rpcs3-sa true
-      add_emu_core ps3 armsx3 armsx3-sa false
+      case ${DEVICE} in
+        SM8250|SM8550|SM8650|SM8750)
+          add_emu_core ps3 armsx3 armsx3-sa false
+          install_script "Start ARMSX3.sh"
+          ;;
+      esac
       add_es_system ps3
       install_script "Start RPCS3.sh"
-      install_script "Start ARMSX3.sh"
       ;;
   esac
 
@@ -1394,7 +1387,7 @@ makeinstall_target() {
   add_es_system megaduck
 
   ### Sega Saturn
-  add_emu_core saturn yabasanshiro yabasanshiro-sa true
+  add_emu_core saturn yabasanshiro yabasanshiro-pirry-sa true
   add_emu_core saturn retroarch yabasanshiro false
   add_emu_core saturn retroarch yabadabadoo false
   case ${DEVICE} in
@@ -1438,7 +1431,17 @@ makeinstall_target() {
 
   ### Microsoft XBox
   case ${DEVICE} in
-    SDM845|SM4450|SM8250|SM8550|SM8650|SM8750|AMD64)
+    RK3566|RK3576|S922X|SM4450|SM6115)
+      add_emu_core xbox retroarch hakux true
+      add_es_system xbox
+      ;;
+    SM8250|SM8550|SM8650|SM8750|SDM845)
+      add_emu_core xbox xemu xemu-sa true
+      add_emu_core xbox retroarch hakux false
+      add_es_system xbox
+      install_script "Start Xemu.sh"
+      ;;
+    AMD64)
       add_emu_core xbox xemu xemu-sa true
       case "${DEVICE}" in
         SM8250|SM8550|SM8750)
@@ -1496,12 +1499,8 @@ makeinstall_target() {
   add_emu_core snes retroarch snes9x2005_plus false
   add_emu_core snes retroarch supersnes9x false
   add_emu_core snes retroarch beetle_supafaust false
-  add_emu_core snes retroarch bsnes_mercury_accuracy false
   add_emu_core snes retroarch bsnes_mercury_balanced false
-  add_emu_core snes retroarch bsnes_mercury_performance false
-  add_emu_core snes retroarch bsnes2014_accuracy false
   add_emu_core snes retroarch bsnes2014_balanced false
-  add_emu_core snes retroarch bsnes2014_performance false
   add_emu_core snes retroarch mesen-s false
   case ${DEVICE} in
     SDM845|RK3399|RK3588|SM4450|SM6115|SM8250|SM8550|SM8650|SM8750|S922X|AMD64)
@@ -1528,12 +1527,8 @@ makeinstall_target() {
   add_emu_core snesh retroarch snes9x2005_plus false
   add_emu_core snesh retroarch supersnes9x false
   add_emu_core snesh retroarch beetle_supafaust false
-  add_emu_core snesh retroarch bsnes_mercury_accuracy false
   add_emu_core snesh retroarch bsnes_mercury_balanced false
-  add_emu_core snesh retroarch bsnes_mercury_performance false
-  add_emu_core snesh retroarch bsnes2014_accuracy false
   add_emu_core snesh retroarch bsnes2014_balanced false
-  add_emu_core snesh retroarch bsnes2014_performance false
   add_emu_core snesh retroarch mesen-s false
   case ${DEVICE} in
     SDM845|RK3399|RK3588|SM4450|SM6115|SM8250|SM8550|SM8650|SM8750|S922X|AMD64)
@@ -1560,12 +1555,8 @@ makeinstall_target() {
   add_emu_core sfc retroarch snes9x2005_plus false
   add_emu_core sfc retroarch supersnes9x false
   add_emu_core sfc retroarch beetle_supafaust false
-  add_emu_core sfc retroarch bsnes_mercury_accuracy false
   add_emu_core sfc retroarch bsnes_mercury_balanced false
-  add_emu_core sfc retroarch bsnes_mercury_performance false
-  add_emu_core sfc retroarch bsnes2014_accuracy false
   add_emu_core sfc retroarch bsnes2014_balanced false
-  add_emu_core sfc retroarch bsnes2014_performance false
   add_emu_core sfc retroarch mesen-s false
   case ${DEVICE} in
     SDM845|RK3399|RK3588|SM4450|SM6115|SM8250|SM8550|SM8650|SM8750|S922X|AMD64)
