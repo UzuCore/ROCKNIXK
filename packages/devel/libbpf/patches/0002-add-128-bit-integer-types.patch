@@ -1,0 +1,17 @@
+From f90a9c487d7542d91fa584b83b6a624a4fbeb341 Mon Sep 17 00:00:00 2001
+From: Daniel Golle <daniel@makrotopia.org>
+Subject: [PATCH] include: add 128-bit integer types to linux/types.h
+
+---
+ include/linux/types.h | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/include/linux/types.h b/include/linux/types.h
+--- a/include/linux/types.h
++++ b/include/linux/types.h
+@@ -14,0 +15,5 @@
++#ifdef __SIZEOF_INT128__
++typedef __signed__ __int128 __s128 __attribute__((aligned(16)));
++typedef unsigned __int128 __u128 __attribute__((aligned(16)));
++#endif
++
