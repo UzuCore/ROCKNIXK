@@ -1,0 +1,28 @@
+diff -rupN a/es-app/src/guis/GuiMenu.cpp b/es-app/src/guis/GuiMenu.cpp
+--- a/es-app/src/guis/GuiMenu.cpp
++++ b/es-app/src/guis/GuiMenu.cpp
+@@ -1909,6 +1909,24 @@ void GuiMenu::openSystemSettings()
+         });
+       }
+ 
++      // Add option to enable / disable the touchscreen entirely
++      if (Utils::Platform::GetEnv("DEVICE_HAS_TOUCHSCREEN") == "true"){
++        auto touchscreen_toggle = std::make_shared<SwitchComponent>(mWindow);
++        std::string tsSetting = SystemConf::getInstance()->get("rocknix.touchscreen.enabled");
++        bool touchscreenEnabled = (tsSetting.empty() || tsSetting == "1");
++        touchscreen_toggle->setState(touchscreenEnabled);
++        s->addWithLabel(_("ENABLE TOUCHSCREEN"), touchscreen_toggle);
++        touchscreen_toggle->setOnChangedCallback([touchscreen_toggle] {
++                if (touchscreen_toggle->getState() == false) {
++                        Utils::Platform::runSystemCommand("/usr/bin/rocknix-touchscreen-toggle disable", "", nullptr);
++                } else {
++                        Utils::Platform::runSystemCommand("/usr/bin/rocknix-touchscreen-toggle enable", "", nullptr);
++                }
++                bool touchscreen_enabled_state = touchscreen_toggle->getState();
++                SystemConf::getInstance()->set("rocknix.touchscreen.enabled", touchscreen_enabled_state ? "1" : "0");
++        });
++      }
++
+       // Add option to toggle touchscreen keyboard
+       if (Utils::Platform::GetEnv("DEVICE_HAS_TOUCHSCREEN") == "true"){
+         auto touchscreen_keyboard_toggle = std::make_shared<SwitchComponent>(mWindow);

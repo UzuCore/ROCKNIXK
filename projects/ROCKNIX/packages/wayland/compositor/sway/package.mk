@@ -47,8 +47,10 @@ post_makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/autostart/common
     cp ${PKG_DIR}/autostart/111-sway-init     ${INSTALL}/usr/lib/autostart/common
     cp ${PKG_DIR}/scripts/sway-touch.sh     ${INSTALL}/usr/bin
+    cp ${PKG_DIR}/sources/rocknix-touchscreen-toggle ${INSTALL}/usr/bin
 
   chmod +x ${INSTALL}/usr/bin/sway*
+  chmod +x ${INSTALL}/usr/bin/rocknix-touchscreen-toggle
 
   # install config & wallpaper
   mkdir -p ${INSTALL}/usr/share/sway
@@ -67,4 +69,5 @@ post_makeinstall_target() {
 
 post_install() {
   enable_service sway-touch.service
+  enable_service rocknix-touchscreen-toggle.service
 }
