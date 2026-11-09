@@ -2,31 +2,77 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026-present ROCKNIX
 #
-# Enable or disable the built-in touchscreen on devices that have one.
+# Enable, disable, detect or report the built-in touchscreen.
 # Setting key: rocknix.touchscreen.enabled  (empty/1 = enabled, 0 = disabled)
 #
-# Usage: rocknix-touchscreen-toggle [enable|disable|apply]
+# Usage:
+#   rocknix-touchscreen-toggle enable    enable and persist
+#   rocknix-touchscreen-toggle disable   disable and persist
+#   rocknix-touchscreen-toggle apply     apply the persisted state (boot)
+#   rocknix-touchscreen-toggle detect    exit 0 if a real touch device exists
+#   rocknix-touchscreen-toggle query     print 1 when present and enabled, else 0
+#
+# DEVICE_HAS_TOUCHSCREEN is set per platform, so a given model may have no
+# panel at all. Callers that want to show a UI switch should use "query".
 
 . /etc/profile
 
-APPLY_ONLY=false
-case "${1:-apply}" in
+MODE="${1:-apply}"
+
+sway_socket() {
+  [ -n "${SWAYSOCK}" ] && return 0
+  export SWAYSOCK=$(ls /run/*runtime-dir/sway-ipc.*.sock /run/sway-ipc.*.sock 2>/dev/null | head -n 1)
+  [ -n "${SWAYSOCK}" ] && export XDG_RUNTIME_DIR=$(dirname "${SWAYSOCK}")
+  [ -n "${SWAYSOCK}" ]
+}
+
+touch_devices() {
+  sway_socket || return 0
+  swaymsg -t get_inputs 2>/dev/null | jq -r '.[] | select(.type == "touch") | .identifier' 2>/dev/null
+}
+
+have_touchscreen() {
+  TRIES=0
+  while [ ${TRIES} -lt 6 ]; do
+    [ -n "$(touch_devices)" ] && return 0
+    TRIES=$((TRIES + 1))
+    sleep 0.5
+  done
+  return 1
+}
+
+case "${MODE}" in
+  query)
+    [ "${DEVICE_HAS_TOUCHSCREEN}" = "true" ] || { echo 0; exit 0; }
+    have_touchscreen || { echo 0; exit 0; }
+    ENABLED=$(get_setting "rocknix.touchscreen.enabled")
+    [ -z "${ENABLED}" ] && ENABLED=1
+    echo "${ENABLED}"
+    exit 0
+    ;;
+
+  detect)
+    [ "${DEVICE_HAS_TOUCHSCREEN}" = "true" ] || exit 1
+    have_touchscreen && exit 0
+    exit 1
+    ;;
+
   enable)  set_setting "rocknix.touchscreen.enabled" "1" ;;
   disable) set_setting "rocknix.touchscreen.enabled" "0" ;;
-  apply)   APPLY_ONLY=true ;;
-  *)       echo "Usage: $0 [enable|disable|apply]" >&2; exit 2 ;;
+  apply)   ;;
+  *)
+    echo "Usage: $0 [enable|disable|apply|detect|query]" >&2
+    exit 2
+    ;;
 esac
 
 [ "${DEVICE_HAS_TOUCHSCREEN}" = "true" ] || exit 0
 
+TOUCHSCREEN=$(touch_devices)
+[ -z "${TOUCHSCREEN}" ] && exit 0
+
 ENABLED=$(get_setting "rocknix.touchscreen.enabled")
 [ -z "${ENABLED}" ] && ENABLED=1
-
-[ -z "${SWAYSOCK}" ] && export SWAYSOCK=$(ls /run/*runtime-dir/sway-ipc.*.sock /run/sway-ipc.*.sock 2>/dev/null | head -n 1)
-[ -z "${XDG_RUNTIME_DIR}" ] && export XDG_RUNTIME_DIR=$(dirname "${SWAYSOCK}" 2>/dev/null)
-
-TOUCHSCREEN=$(swaymsg -t get_inputs 2>/dev/null | jq -r '.[] | select(.type == "touch") | .identifier' 2>/dev/null)
-[ -z "${TOUCHSCREEN}" ] && exit 0
 
 if [ "${ENABLED}" = "0" ]; then
   for TS in ${TOUCHSCREEN}; do
@@ -37,7 +83,6 @@ else
   for TS in ${TOUCHSCREEN}; do
     swaymsg input "${TS}" events enabled >/dev/null 2>&1
   done
-  # re-map to output in case sway restarted
   OUTPUT=$(swaymsg -t get_outputs 2>/dev/null | jq -r '.[] | select(.focused).name' 2>/dev/null)
   [ -z "${OUTPUT}" ] && OUTPUT="DSI-1"
   for TS in ${TOUCHSCREEN}; do

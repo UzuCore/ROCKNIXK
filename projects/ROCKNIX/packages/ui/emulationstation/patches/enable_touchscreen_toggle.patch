@@ -1,16 +1,17 @@
 diff -rupN a/es-app/src/guis/GuiMenu.cpp b/es-app/src/guis/GuiMenu.cpp
 --- a/es-app/src/guis/GuiMenu.cpp
 +++ b/es-app/src/guis/GuiMenu.cpp
-@@ -1909,6 +1909,24 @@ void GuiMenu::openSystemSettings()
-         });
-       }
+@@ -1891,6 +1891,25 @@ void GuiMenu::openSystemSettings()
+       if (Utils::Platform::GetEnv("DEVICE_SCANOUT_SCALING") == "true")
+         s->addEntry(_("SCALING AND SHARPENING"), true, [this] { openResolutionScalingSettings(mWindow, ""); });
  
-+      // Add option to enable / disable the touchscreen entirely
-+      if (Utils::Platform::GetEnv("DEVICE_HAS_TOUCHSCREEN") == "true"){
++      // Add option to enable / disable a real touchscreen panel.
++      // DEVICE_HAS_TOUCHSCREEN is set per platform, so the helper reports
++      // whether this unit actually has a panel and what state it is in.
++      std::string touchscreenState = Utils::Platform::GetShOutput("/usr/bin/rocknix-touchscreen-toggle query");
++      if (Utils::Platform::GetEnv("DEVICE_HAS_TOUCHSCREEN") == "true" && !touchscreenState.empty()){
 +        auto touchscreen_toggle = std::make_shared<SwitchComponent>(mWindow);
-+        std::string tsSetting = SystemConf::getInstance()->get("rocknix.touchscreen.enabled");
-+        bool touchscreenEnabled = (tsSetting.empty() || tsSetting == "1");
-+        touchscreen_toggle->setState(touchscreenEnabled);
++        touchscreen_toggle->setState(touchscreenState != "0");
 +        s->addWithLabel(_("ENABLE TOUCHSCREEN"), touchscreen_toggle);
 +        touchscreen_toggle->setOnChangedCallback([touchscreen_toggle] {
 +                if (touchscreen_toggle->getState() == false) {
