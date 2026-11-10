@@ -1,0 +1,16 @@
+diff -rupN a/CMakeModules/NxFormat.cmake b/CMakeModules/NxFormat.cmake
+--- a/CMakeModules/NxFormat.cmake
++++ b/CMakeModules/NxFormat.cmake
+@@ -71,7 +71,11 @@ function(lichii_find_nxformat)
+         endif()
+     endif()
+ 
+-    find_package(nxformat ${version} REQUIRED CONFIG PATHS "${root}/lib/cmake/nxformat" NO_DEFAULT_PATH)
++    find_package(nxformat ${version} QUIET CONFIG PATHS "${root}/lib/cmake/nxformat" NO_DEFAULT_PATH)
++    if (NOT nxformat_FOUND)
++        message(STATUS "NX converter disabled: nxformat ${version} was not found")
++        return()
++    endif()
+     set_target_properties(nxformat::nxformat PROPERTIES IMPORTED_GLOBAL TRUE)
+     set(LICHII_NXFORMAT_RUNTIME "${NXFORMAT_RUNTIME}" CACHE INTERNAL "")
+     message(STATUS "nxformat ${nxformat_VERSION}: ${root}")

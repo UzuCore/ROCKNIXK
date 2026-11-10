@@ -1,0 +1,12 @@
+diff -rupN a/src/common/settings.h b/src/common/settings.h
+--- a/src/common/settings.h
++++ b/src/common/settings.h
+@@ -214,7 +214,7 @@ struct Values {
+                                                              Specialization::Default,
+                                                              true};
+     SwitchableSetting<bool> use_speed_limit{
+-                                            linkage, true, "use_speed_limit", Category::Core, Specialization::Paired, true, true};
++                                            linkage, false, "use_speed_limit", Category::Core, Specialization::Paired, true, true};
+ 
+     SwitchableSetting<u16, true> speed_limit{linkage,
+                                              100,
