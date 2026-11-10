@@ -78,7 +78,7 @@ case "${DEVICE}" in
   SDM845)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 daedalusx64-sa desmume-lr gpsp-lr pcsx_rearmed-lr"
     PKG_EMUS+=" armsx2-sa azahar-sa bigpemu-sa cemu-sa dolphin-sa heroic mednafen melonds-sa nanoboyadvance-sa rpcs3-sa supermodel-sa \
-                xemu-sa skyemu-sa steam vita3k-sa eden-sa"
+                xemu-sa skyemu-sa steam vita3k-sa eden-sa lichii-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr hakux-lr kronos-lr uae4arm-lr"
     ;;
   # TODO: cemu and xemu testing, drop if unplayable
@@ -91,18 +91,18 @@ case "${DEVICE}" in
   SM8250)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 daedalusx64-sa desmume-lr gpsp-lr pcsx_rearmed-lr"
     PKG_EMUS+=" armsx2-sa azahar-sa bigpemu-sa cemu-sa dolphin-sa heroic mednafen melonds-sa nanoboyadvance-sa rpcs3-sa armsx3-sa supermodel-sa \
-                xemu-sa xenia-sa skyemu-sa steam vita3k-sa eden-sa"
+                xemu-sa xenia-sa skyemu-sa steam vita3k-sa eden-sa lichii-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr hakux-lr kronos-lr uae4arm-lr"
     ;;
   SM8550)
     [ "${ENABLE_32BIT}" == "true" ] && EMUS_32BIT="box86 daedalusx64-sa desmume-lr gpsp-lr pcsx_rearmed-lr"
     PKG_EMUS+=" ares-sa armsx2-sa azahar-sa bigpemu-sa cemu-sa dolphin-sa drastic-sa gopher64-sa heroic mednafen melonds-sa nanoboyadvance-sa rpcs3-sa armsx3-sa supermodel-sa \
-                xemu-sa xenia-sa skyemu-sa steam vita3k-sa eden-sa"
+                xemu-sa xenia-sa skyemu-sa steam vita3k-sa eden-sa lichii-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr hakux-lr kronos-lr uae4arm-lr"
     ;;
   SM8650|SM8750)
     PKG_EMUS+=" ares-sa armsx2-sa azahar-sa bigpemu-sa cemu-sa dolphin-sa drastic-sa gopher64-sa heroic mednafen melonds-sa nanoboyadvance-sa rpcs3-sa armsx3-sa supermodel-sa \
-                xemu-sa xenia-sa skyemu-sa steam vita3k-sa eden-sa"
+                xemu-sa xenia-sa skyemu-sa steam vita3k-sa eden-sa lichii-sa"
     LIBRETRO_CORES+=" beetle-psx-lr beetle-saturn-lr bsnes-lr bsnes-hd-lr dolphin-lr hakux-lr kronos-lr uae4arm-lr"
     ;;
   S922X)
@@ -721,6 +721,15 @@ makeinstall_target() {
       add_emu_core switch eden eden-sa true
       add_es_system switch
       install_script "Start Eden.sh"
+    ;;
+  esac
+
+  ### Nintendo Switch 2
+  case ${DEVICE} in
+    SDM845|SM8250|SM8550|SM8650|SM8750)
+      add_emu_core switch2 lichii lichii-sa true
+      add_es_system switch2
+      install_script "Start Lichii.sh"
     ;;
   esac
 

@@ -40,39 +40,29 @@ LICHII_LLVM_BIN="${TOOLCHAIN}/bin"
 lichii_cpu_flags() {
   case "${DEVICE}" in
     SDM845)
+      # Cortex-A75 + A55: ARMv8.2-A with CRC and crypto.
       echo "-march=armv8.2-a+crc+crypto -mtune=cortex-a75"
       ;;
     SM8250)
+      # Cortex-A77 + A55.
       echo "-march=armv8.2-a+crc+crypto -mtune=cortex-a77"
       ;;
-    SM6115|SM4450)
-      echo "-march=armv8.2-a+crc+crypto -mtune=cortex-a76"
-      ;;
-    SM8550|SM8650|SM8750)
-      echo "-mcpu=cortex-a78 -mtune=cortex-a78"
-      ;;
-    T618)
-      echo "-march=armv8.2-a+crc+crypto -mtune=cortex-a75"
+    SM4450|SM8550|SM8650|SM8750)
+      # Cortex-A78 class and newer. Tune for A78: it is ARMv8.2-A, so the
+      # binary stays valid on every core in this group.
+      echo "-march=armv8.2-a+crc+crypto -mtune=cortex-a78"
       ;;
     *)
-      # Generic aarch64: no optional extensions at all.
-      if [ -n "${TARGET_CPU}" ] && [ "${TARGET_CPU#*.}" = "${TARGET_CPU}" ]; then
-        echo "-mcpu=${TARGET_CPU}${TARGET_CPU_FLAGS}"
-      else
-        echo "-march=armv8-a -mtune=generic"
-      fi
+      # Unknown SoC. Plain ARMv8.0-A is the only level every aarch64 core in
+      # the tree implements, so never guess higher here.
+      echo "-march=armv8-a -mtune=generic"
       ;;
   esac
 }
 
 make_target() {
   local CPU_FLAGS
-  local BUILD_PRESET="generic"
   CPU_FLAGS="$(lichii_cpu_flags)"
-  case "${CPU_FLAGS}" in
-    *-mcpu=*|*-march=armv8.[2-9]*) BUILD_PRESET="custom" ;;
-    *) BUILD_PRESET="generic" ;;
-  esac
 
   local OPT_FLAGS="-O3"
   local FLAGS_CLEAN="s/-mabi=lp64//g; s/-mcpu=[^ ]*//g; s/-march=[^ ]*//g; s/-mtune=[^ ]*//g"
@@ -122,7 +112,7 @@ make_target() {
     -DCMAKE_RANLIB="${LICHII_LLVM_BIN}/llvm-ranlib"
     -DCMAKE_NM="${LICHII_LLVM_BIN}/llvm-nm"
 
-    -DYUZU_BUILD_PRESET="${BUILD_PRESET}"
+    -DYUZU_BUILD_PRESET=custom
     -DENABLE_QT_TRANSLATION=ON
     -DUSE_DISCORD_PRESENCE=OFF
     -DYUZU_USE_BUNDLED_SIRIT=ON
@@ -136,15 +126,19 @@ make_target() {
     -DYUZU_CRASH_DUMPS=OFF
     -DENABLE_UPDATE_CHECKER=OFF
     -DENABLE_WEB_SERVICE=OFF
-    -DVulkanHeaders_FORCE_BUNDLED=ON
     -DENABLE_LTO=OFF
     -DENABLE_WERROR=OFF
+
+    # The sysroot ships Vulkan-Headers and Vulkan-Utility-Libraries as separate
+    # packages at different versions, which CPMUtil refuses to mix. Force the
+    # bundled copies so configure succeeds.
+    -DVulkanHeaders_FORCE_BUNDLED=ON
     -DENABLE_LIBUSB=ON
-    -DOpus_FORCE_SYSTEM=ON
   )
 
-  # LSFG/FSR need the bundled FidelityFX SDK. Only newer Adreno parts have the
-  # compute headroom for it, so leave it off everywhere else.
+  # Frame generation is a pure shader pass, but it costs GPU time that the
+  # older Adreno parts cannot spare. Leave it out where it would only slow
+  # emulation down.
   case "${DEVICE}" in
     SM8550|SM8650|SM8750)
       tgt_opts+=(-DENABLE_LSFG=ON)
@@ -170,23 +164,14 @@ makeinstall_target() {
   # Shared defaults for every device; a device may override individual files
   # by shipping its own config/${DEVICE}/ directory.
   mkdir -p ${INSTALL}/usr/config/lichii
-  [ -d "${PKG_DIR}/config/common" ] && cp -rf ${PKG_DIR}/config/common/* ${INSTALL}/usr/config/lichii/
-  [ -d "${PKG_DIR}/config/${DEVICE}" ] && cp -rf ${PKG_DIR}/config/${DEVICE}/* ${INSTALL}/usr/config/lichii/
+  if [ -d "${PKG_DIR}/config/common" ]; then
+    cp -rf ${PKG_DIR}/config/common/* ${INSTALL}/usr/config/lichii/
+  fi
+  if [ -d "${PKG_DIR}/config/${DEVICE}" ]; then
+    cp -rf ${PKG_DIR}/config/${DEVICE}/* ${INSTALL}/usr/config/lichii/
+  fi
 
-  # EmulationStation entry so the emulator is reachable from the UI.
-  mkdir -p ${INSTALL}/usr/config/emulationstation
-  cat > ${INSTALL}/usr/config/emulationstation/es_systems_lichii.cfg <<'SYSEOF'
-<?xml version="1.0"?>
-<systemList>
-  <system>
-    <name>switch2</name>
-    <fullname>Nintendo Switch 2</fullname>
-    <path>/storage/roms/switch2</path>
-    <extension>.nup .nsp .xci .nsz .xcz .NX2</extension>
-    <command>/usr/bin/start_lichii.sh %ROM%</command>
-    <platform>switch</platform>
-    <theme>switch</theme>
-  </system>
-</systemList>
-SYSEOF
+  # Nothing to install must still be a success: the last test in a function
+  # decides its exit status, and config/${DEVICE} is optional.
+  return 0
 }
