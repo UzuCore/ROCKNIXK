@@ -38,19 +38,33 @@ LICHII_LLVM_BIN="${TOOLCHAIN}/bin"
 # use instructions the device actually implements. Anything newer than the host
 # core traps at runtime, so keep the mapping conservative.
 lichii_cpu_flags() {
+  # Follow the extensions each device/options file declares, so the compiler
+  # only emits instructions the SoC really has. The values below are the
+  # TARGET_CPU/TARGET_CPU_FLAGS of the matching device, spelled as -march so
+  # that the extension list stays explicit and reviewable.
+  #
+  # -mcpu is deliberately not used: it silently enables extensions the device
+  # never declared (cortex-a75 also turns on dotprod and fp16, for example).
   case "${DEVICE}" in
     SDM845)
-      # Cortex-A75 + A55: ARMv8.2-A with CRC and crypto.
+      # Cortex-A75 + A55. Every Snapdragon 845 in the tree runs the
+      # "cortex-a75.cortex-a55" pair with only crypto+crc added.
       echo "-march=armv8.2-a+crc+crypto -mtune=cortex-a75"
       ;;
     SM8250)
-      # Cortex-A77 + A55.
+      # Cortex-A77 + A55 (Snapdragon 865). The device options only declare
+      # crypto+crc, so tune for A77 without enabling anything else.
       echo "-march=armv8.2-a+crc+crypto -mtune=cortex-a77"
       ;;
-    SM4450|SM8550|SM8650|SM8750)
-      # Cortex-A78 class and newer. Tune for A78: it is ARMv8.2-A, so the
-      # binary stays valid on every core in this group.
-      echo "-march=armv8.2-a+crc+crypto -mtune=cortex-a78"
+    SM8550)
+      # Cortex-X3 + A715 + A510 (Snapdragon 8 Gen 2, Odin 2 Portal/Mini).
+      # These are the extensions the SM8550 options file already builds the
+      # whole userspace with, so every core in the cluster has them.
+      echo "-march=armv8.2-a+crc+crypto+fp16+i8mm+bf16+sm4+sha3 -mtune=cortex-x3"
+      ;;
+    SM8650|SM8750)
+      # Cortex-X4 class (Snapdragon 8 Gen 3 / 8 Elite).
+      echo "-march=armv8.2-a+crc+crypto+fp16+i8mm+bf16+sm4+sha3 -mtune=cortex-x4"
       ;;
     *)
       # Unknown SoC. Plain ARMv8.0-A is the only level every aarch64 core in
