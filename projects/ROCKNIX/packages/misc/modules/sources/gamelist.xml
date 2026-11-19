@@ -395,7 +395,7 @@
         <image>./images/touchhle.svg</image>
     </game>
     <game>
-        <path>./Start Vita3K.sh</path>
+        <path>./Start Vita3K+.sh</path>
         <name>Vita3K 실행</name>
         <desc>PlayStation Vita 에뮬레이터 Vita3K의 설정 화면을 엽니다. 세부 설정에는 마우스와 키보드 사용을 권장합니다.</desc>
         <developer>ROCKNIX</developer>

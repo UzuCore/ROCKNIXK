@@ -1,5 +1,5 @@
 ---
-initial-setup: false
+initial-setup: true
 gdbstub: false
 log-active-shaders: false
 log-uniforms: false
@@ -8,9 +8,14 @@ validation-layer: true
 pstv-mode: false
 show-mode: false
 demo-mode: false
+show-gui: false
+show-info-bar: false
 apps-list-grid: false
+display-system-apps: false
 stretch_the_display_area: false
 fullscreen_hd_res_pixel_perfect: false
+show-live-area-screen: false
+icon-size: 64
 archive-log: false
 backend-renderer: Vulkan
 custom-driver-name: ""
@@ -24,19 +29,18 @@ v-sync: true
 anisotropic-filtering: 1
 texture-cache: true
 async-pipeline-compilation: true
-show-compile-shaders: true
+show-compile-shaders: false
 hashless-texture-cache: false
-import-textures: true
+import-textures: false
 export-textures: false
 export-as-png: true
 memory-mapping: double-buffer
 boot-apps-full-screen: true
-show-live-area-screen: false
 audio-backend: SDL
 audio-volume: 100
 ngs-enable: true
-sys-button: 0
-sys-lang: 9
+sys-button: 1
+sys-lang: 1
 sys-date-format: 2
 sys-time-format: 0
 cpu-pool-size: 10
@@ -44,89 +48,61 @@ modules-mode: 0
 delay-background: 4
 delay-start: 30
 background-alpha: 0.3
-log-level: 0
+log-level: 8
 cpu-opt: true
-pref-path: /storage/roms/psvita/vita3k/
-discord-rich-presence: true
+pref-path: /storage/roms/psvita/vita3k
+discord-rich-presence: false
 wait-for-debugger: false
 color-surface-debug: false
+show-touchpad-cursor: true
 performance-overlay: false
 performance-overlay-detail: 0
 performance-overlay-position: 0
+enable-gamepad-overlay: false
+overlay-show-touch-switch: false
+overlay-scale: 1
+overlay-opacity: 100
 screenshot-format: 1
-disable-motion: false
+disable-motion: true
 controller-analog-multiplier: 1
-keyboard-button-select: ShiftRight
-keyboard-button-start: Enter
-keyboard-button-up: ArrowUp
-keyboard-button-right: ArrowRight
-keyboard-button-down: ArrowDown
-keyboard-button-left: ArrowLeft
-keyboard-button-l1: KeyQ
-keyboard-button-r1: KeyE
-keyboard-button-l2: KeyU
-keyboard-button-r2: KeyO
-keyboard-button-l3: KeyF
-keyboard-button-r3: KeyH
-keyboard-button-triangle: KeyV
-keyboard-button-circle: KeyC
-keyboard-button-cross: KeyX
-keyboard-button-square: KeyZ
-keyboard-leftstick-left: KeyA
-keyboard-leftstick-right: KeyD
-keyboard-leftstick-up: KeyW
-keyboard-leftstick-down: KeyS
-keyboard-rightstick-left: KeyJ
-keyboard-rightstick-right: KeyL
-keyboard-rightstick-up: KeyI
-keyboard-rightstick-down: KeyK
-keyboard-button-psbutton: KeyP
-keyboard-gui-fullscreen: F11
-keyboard-gui-toggle-touch: KeyT
-keyboard-toggle-texture-replacement: Unbound
-keyboard-take-screenshot: Unbound
-keyboard-pinch-modifier: Unbound
-keyboard-alternate-pinch-in: Unbound
-keyboard-alternate-pinch-out: Unbound
-keyboard-button-select-alt: Unbound
-keyboard-button-start-alt: Unbound
-keyboard-button-up-alt: Unbound
-keyboard-button-right-alt: Unbound
-keyboard-button-down-alt: Unbound
-keyboard-button-left-alt: Unbound
-keyboard-button-l1-alt: Unbound
-keyboard-button-r1-alt: Unbound
-keyboard-button-l2-alt: Unbound
-keyboard-button-r2-alt: Unbound
-keyboard-button-l3-alt: Unbound
-keyboard-button-r3-alt: Unbound
-keyboard-button-triangle-alt: Unbound
-keyboard-button-circle-alt: Unbound
-keyboard-button-cross-alt: Unbound
-keyboard-button-square-alt: Unbound
-keyboard-leftstick-left-alt: Unbound
-keyboard-leftstick-right-alt: Unbound
-keyboard-leftstick-up-alt: Unbound
-keyboard-leftstick-down-alt: Unbound
-keyboard-rightstick-left-alt: Unbound
-keyboard-rightstick-right-alt: Unbound
-keyboard-rightstick-up-alt: Unbound
-keyboard-rightstick-down-alt: Unbound
-keyboard-button-psbutton-alt: Unbound
-keyboard-gui-fullscreen-alt: Unbound
-keyboard-gui-toggle-touch-alt: Unbound
-keyboard-toggle-texture-replacement-alt: Unbound
-keyboard-take-screenshot-alt: Unbound
-keyboard-pinch-modifier-alt: Unbound
-keyboard-alternate-pinch-in-alt: Unbound
-keyboard-alternate-pinch-out-alt: Unbound
+keyboard-button-select: 229
+keyboard-button-start: 40
+keyboard-button-up: 82
+keyboard-button-right: 79
+keyboard-button-down: 81
+keyboard-button-left: 80
+keyboard-button-l1: 20
+keyboard-button-r1: 8
+keyboard-button-l2: 24
+keyboard-button-r2: 18
+keyboard-button-l3: 9
+keyboard-button-r3: 11
+keyboard-button-triangle: 25
+keyboard-button-circle: 6
+keyboard-button-cross: 27
+keyboard-button-square: 29
+keyboard-leftstick-left: 4
+keyboard-leftstick-right: 7
+keyboard-leftstick-up: 26
+keyboard-leftstick-down: 22
+keyboard-rightstick-left: 13
+keyboard-rightstick-right: 15
+keyboard-rightstick-up: 12
+keyboard-rightstick-down: 14
+keyboard-button-psbutton: 19
+keyboard-gui-toggle-gui: 10
+keyboard-gui-fullscreen: 68
+keyboard-gui-toggle-touch: 23
+keyboard-toggle-texture-replacement: 0
+keyboard-take-screenshot: 0
 user-id: 00
-user-auto-connect: false
+user-auto-connect: true
 user-lang: ""
+display-info-message: false
 show-welcome: false
-warn-missing-firmware: false
-check-for-updates-mode: 0
+check-for-updates: false
 file-loading-delay: 0
+asia-font-support: false
 shader-cache: true
 spirv-shader: false
 fps-hack: false
@@ -138,14 +114,6 @@ http-timeout-sleep-ms: 100
 http-read-end-attempts: 10
 http-read-end-sleep-ms: 250
 adhoc-addr: 0
-front-camera-type: 0
-front-camera-id: ""
-front-camera-image: ""
-front-camera-color: 0
-back-camera-type: 0
-back-camera-id: ""
-back-camera-image: ""
-back-camera-color: 0
 tracy-primitive-impl: false
 controller-binds:
   - 0
@@ -163,20 +131,12 @@ controller-binds:
   - 12
   - 13
   - 14
-controller-axis-binds:
-  - 0
-  - 1
-  - 2
-  - 3
-  - 4
-  - 5
 controller-led-color:
   []
 lle-modules:
   []
 ime-langs:
   - 4
-  - 16384
 tracy-advanced-profiling-modules:
   []
 ...
