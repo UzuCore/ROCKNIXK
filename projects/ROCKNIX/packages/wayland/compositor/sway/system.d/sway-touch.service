@@ -1,6 +1,10 @@
 [Unit]
 Description=Set up touchscreen devices on sway
-After=essway.service
+# Needs nothing from EmulationStation, only a live Sway socket. Keeping the
+# dependency on essway put this unit behind rocknix.target as well and made
+# systemd drop it for an ordering cycle.
+After=sway.service
+Wants=sway.service
 
 [Service]
 Type=simple

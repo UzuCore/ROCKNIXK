@@ -1,8 +1,17 @@
 # /usr/lib/systemd/system/rocknix-touchscreen-toggle.service
 [Unit]
 Description=Apply saved touchscreen enabled/disabled state
-After=essway.service sway-touch.service
-Wants=essway.service
+# sway.service is what actually owns the compositor socket this needs, and it
+# is ordered before graphical.target. Reaching for essway.service instead puts
+# this unit after EmulationStation, which is itself pulled in by
+# rocknix.target, so systemd saw a cycle through rocknix.target ->
+# graphical.target -> sway -> essway and dropped the unit:
+#
+#   Ordering cycle found, skipping rocknix-touchscreen-toggle.service
+#
+# rocknix.target stays as the install target; only the ordering changed.
+After=sway.service
+Wants=sway.service
 
 [Service]
 Type=oneshot

@@ -59,7 +59,12 @@ case "${MODE}" in
 
   enable)  set_setting "rocknix.touchscreen.enabled" "1" ;;
   disable) set_setting "rocknix.touchscreen.enabled" "0" ;;
-  apply)   ;;
+  apply)
+    # Nothing to restore without a panel. Checked before have_touchscreen()
+    # so a device that has no touchscreen does not sit through its retry
+    # loop on every boot.
+    [ "${DEVICE_HAS_TOUCHSCREEN}" = "true" ] || exit 0
+    ;;
   *)
     echo "Usage: $0 [enable|disable|apply|detect|query]" >&2
     exit 2
